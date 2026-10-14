@@ -152,6 +152,21 @@ class InterpretationReportAnnotationDialog(QDialog):
         self.batch_remove_button.clicked.connect(self._remove_group)
         root.addWidget(self.batch_remove_button)
 
+        print_actions = QHBoxLayout()
+        self.print_all_button = QPushButton(self._text(
+            "Включить все в печать", "Барлығын басып шығаруға қосу", "Include all in print",
+        ), self)
+        self.print_none_button = QPushButton(self._text(
+            "Исключить все из печати", "Барлығын басып шығарудан алып тастау", "Exclude all from print",
+        ), self)
+        self.print_all_button.setObjectName("report-annotation-print-all")
+        self.print_none_button.setObjectName("report-annotation-print-none")
+        self.print_all_button.clicked.connect(lambda: self._set_all_print_enabled(True))
+        self.print_none_button.clicked.connect(lambda: self._set_all_print_enabled(False))
+        print_actions.addWidget(self.print_all_button)
+        print_actions.addWidget(self.print_none_button)
+        root.addLayout(print_actions)
+
         self.status = QLabel(self)
         self.status.setWordWrap(True)
         root.addWidget(self.status)
@@ -412,6 +427,17 @@ class InterpretationReportAnnotationDialog(QDialog):
             self._changed()
         finally:
             selection.deleteLater()
+
+    def _set_all_print_enabled(self, enabled: bool) -> None:
+        ids = tuple(record.annotation_id for record in self.controller.available())
+        if not ids:
+            return
+        try:
+            self.controller.set_print_enabled_many(ids, enabled)
+        except (KeyError, RuntimeError, TypeError, ValueError) as exc:
+            self._show_error(exc)
+            return
+        self._changed(self._selected_id())
 
     def _undo(self) -> None:
         try:

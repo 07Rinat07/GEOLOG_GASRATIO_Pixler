@@ -453,6 +453,40 @@ class ReportAnnotationController:
         self.session.dirty = True
         return tuple(record for _, record in records)
 
+    def set_print_enabled_many(self, annotation_ids: Sequence[str], enabled: bool) -> int:
+        """Validate a scoped selection before applying one reversible print edit."""
+        enabled = self._bool(enabled, "print_enabled")
+        if not isinstance(annotation_ids, Sequence) or isinstance(annotation_ids, (str, bytes)):
+            raise TypeError("Ожидался список ID report annotations")
+        if not annotation_ids or len(annotation_ids) > self._history.max_commands:
+            raise ValueError("Количество аннотаций выходит за лимит истории")
+        records = tuple(self._record_with_index(ident) for ident in annotation_ids)
+        if len({record.annotation_id for _, record in records}) != len(records):
+            raise ValueError("ID report annotations не должны повторяться")
+        _, dataset_id = self._current_ids()
+        composition = self._resolved_composition(dataset_id)
+        commands = []
+        for index, record in records:
+            if record.print_enabled == enabled:
+                continue
+            command = _ReportAnnotationCommand(
+                session=self.session, dataset_id=dataset_id,
+                composition_id=composition.composition_id,
+                presentation_state=replace(composition, annotations=()),
+                operation="update", index=index, before=record,
+                after=replace(record, print_enabled=enabled), composition_created=False,
+                description="Выбор печати report annotation",
+            )
+            command._applied = False
+            commands.append(command)
+        if not commands:
+            return 0
+        self._history.execute(CompoundCommand(
+            "Групповой выбор печати report annotations", _HISTORY_DOMAIN, tuple(commands),
+        ))
+        self.session.dirty = True
+        return len(commands)
+
     def undo(self) -> str:
         if not self.can_undo:
             raise RuntimeError("Нет изменений report annotations для отмены")

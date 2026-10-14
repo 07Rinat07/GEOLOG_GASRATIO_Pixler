@@ -203,3 +203,7 @@ If a saved timestamp is absent from the active axis, its flag retains its stored
 ## Save a value from empty graph space
 
 Right-click an empty part of a curve, gas or DEXP track, choose Save curve value, then select a channel. The list includes only channels in that track with a finite value at the nearest actual sample on the active vertical axis. The saved flag retains the sample coordinate and value. Cancel changes nothing. Source arrays are unchanged.
+
+## Batch print selection
+
+In the report annotation editor, Include all in print and Exclude all from print change only print flags in the current composition. One Undo restores the previous selection. Apply commits the draft; Cancel restores the latest Apply. Individual checkboxes remain available; records and screen visibility remain intact. Selection persists in JSON/package projects.
