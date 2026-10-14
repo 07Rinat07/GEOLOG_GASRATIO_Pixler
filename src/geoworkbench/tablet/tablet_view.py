@@ -5144,6 +5144,18 @@ class TabletView(QWidget):
             "depth_unit": (self._dataset.active_index.unit or "м").strip(),
             "x_fraction": self._plot_x_fraction(definition, display_x),
         }
+        # A time-axis marker must disclose the actual selected sample time,
+        # not merely its (possibly repeated) measured depth.
+        vertical_index = self._vertical_index()
+        if vertical_index is not None and vertical_index.role is IndexRole.TIME:
+            if vertical_index.index_type is IndexType.DATETIME:
+                time_value = np.datetime_as_string(
+                    vertical_index.values[sample_index], unit="s",
+                )
+            else:
+                time_unit = (vertical_index.unit or "").strip()
+                time_value = f"{sample_axis:g} {time_unit}".strip()
+            payload["axis_caption"] = f"{vertical_index.mnemonic}: {time_value}"
         time_text = format_time_curve_at_row(self._dataset, curve, sample_index)
         if time_text is not None:
             payload["display_value"] = time_text
@@ -5163,7 +5175,11 @@ class TabletView(QWidget):
         depth_unit = str(payload.get("depth_unit", "м")).strip() or "м"
         raw_depth = payload.get("depth", 0.0)
         depth = float(raw_depth) if isinstance(raw_depth, (int, float)) else 0.0
-        return f"{payload.get('mnemonic', '')}: {rendered_value} · {depth:g} {depth_unit}"
+        caption = f"{payload.get('mnemonic', '')}: {rendered_value}"
+        axis_caption = str(payload.get("axis_caption", "")).strip()
+        if axis_caption:
+            caption += f" · {axis_caption}"
+        return f"{caption} · {depth:g} {depth_unit}"
 
     def _show_curve_value_popup(
         self,
