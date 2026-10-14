@@ -34,6 +34,11 @@ cannot prove source curves. Physical printer acceptance is separate.
 
 # Проверка качества и release gate
 
+Report author batch print selection: `python scripts/run_tests.py -p no:cacheprovider tests/test_report_author_batch_print.py tests/test_report_annotations.py tests/test_report_annotation_apply.py -q`.
+Checks real RU/KK/EN buttons, one-step CompoundCommand Undo/Redo, Apply/Cancel,
+text/SYMBOL JSON/package reopen, strict all-ID validation, no-op dirty behavior,
+preserved visible/source arrays. Physical output acceptance remains separate.
+
 PR #613 CI38493460486: masterlog footer tests still required the removed control
 metadata row. The renderer no longer draws/measures an empty metadata string;
 tests require exactly brand/page text and retain RU/KK/EN Unicode font selection,
