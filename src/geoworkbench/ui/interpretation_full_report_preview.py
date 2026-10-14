@@ -200,7 +200,7 @@ class FullReportPreviewDialog(QDialog):
         for index in self._rendered_pages - requested:
             self._page_labels[index].clear()
         required = requested - self._rendered_pages
-        self._rendered_pages = requested
+        self._rendered_pages.intersection_update(requested)
         if not required:
             return
         try:
@@ -223,6 +223,8 @@ class FullReportPreviewDialog(QDialog):
                         QImage.Format.Format_RGB888,
                     ).copy()
                     label.setPixmap(QPixmap.fromImage(image))
+                    # A failed render must remain eligible on the next view update.
+                    self._rendered_pages.add(index)
         except (OSError, RuntimeError, ValueError) as exc:
             self._show_error(exc)
 
