@@ -1,3 +1,5 @@
+PR #619 CI38529184973: native 0xC0000005 in pyqtgraph PlotItem QWidgetAction construction during LAS3 entrypoint language refresh. The failing function already runs in a fresh process. PlotWidget.close precedes parent deletion; no proven production defect yet. Standalone acceptance passed (15.72s), then three fresh faulthandler-enabled diagnostic processes passed with exit codes [0,0,0] (31.39s total). One controlled failed-job rerun follows this diagnostic; recurrence requires further lifecycle investigation. No skips, weakened assertions or speculative runtime changes.
+
 ## Repeated-MD time flag save/open and print capture
 
 `test_value_flag_time_anchor.py` exercises RU/KK/EN × JSON/package production
