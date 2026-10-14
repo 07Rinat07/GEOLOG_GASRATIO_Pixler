@@ -2,6 +2,10 @@
 
 Use **Full PDF preview and editing…** in Interpretation to scroll the complete generated PDF. The proof offers zoom, **Annotations…** for editing report text, comments, arrows, interval marks and catalog symbols, **Refresh**, **Save PDF…**, and **Print…**. The report is regenerated after Apply or Cancel. Final export uses the normal passport-aware production pipeline. Direct drag-and-drop editing on PDF pages, arbitrary imported images and value flags in interpretation gas charts are separate upcoming steps. Source curves and calculations are not edited.
 
+## Value flags on a time axis (PLOT-FLAG-01)
+
+For a time-axis graph, the channel picker now displays the measured value, the selected source sample's actual TIME coordinate (relative units or calendar date/time), and MD. Two samples at the same MD but different timestamps can be distinguished before saving. Depth-axis captions are unchanged. This is presentation-only: source data, saved anchors, calculations and exports are untouched. RU/KK/EN and relative/calendar time have regression coverage; XY/WITS, physical printing and visual acceptance remain separate.
+
 # Professional annotation layer — 0.7.61
 
 

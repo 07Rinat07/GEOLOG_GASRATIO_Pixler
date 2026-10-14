@@ -71,7 +71,7 @@ def test_successful_child_does_not_report_failure(monkeypatch, capsys):
     "filename", ["test_session_safety.py", "test_masterlog_header_dialog.py",
                  "test_navigation_organization.py", "test_main_window_visible_depth_refresh.py",
                  "test_geodata_depth_workspace.py", "test_gas_viewport_hotpath.py", "test_interval_statistics_overlay_widget.py", "test_tablet_plot_close_order.py", "test_report_document_control.py",
-                 "test_report_author_symbol_editor.py"]
+                 "test_report_author_symbol_editor.py", "test_value_flag_print_selection.py"]
 )
 def test_native_dialog_cases_run_in_single_test_processes(filename: str) -> None:
     """Native-sensitive dialogs must run once each without a shared Qt heap."""
