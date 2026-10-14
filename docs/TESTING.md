@@ -34,6 +34,14 @@ cannot prove source curves. Physical printer acceptance is separate.
 
 # Проверка качества и release gate
 
+Main CI38508677789 and exact local 314-case replay reproduced 0xC0000374 in
+close_qt_windows_after_test/topLevelWidgets after VALUE cases. Native-sensitive
+test_value_flag_print_selection is mandatory in four fresh function processes.
+Runner contract checks every selector exactly once, absence from shared shards,
+and native failure propagation. All six cases passed in real isolated children;
+standalone selection/preferences/persistence24 also passed. The remaining original shared shard passed all 309 cases in 197.55 seconds. Root cause remains
+uncertain; production lifecycle is unchanged, no CI blind rerun or skips.
+
 PR #615 CI38504859984: sparse MD VALUE acceptance incorrectly expected null
 axis_id from an optional layout setting. It now requires the actual Dataset
 active primary index ID (or explicit TIME) and independently verifies the view
