@@ -1,3 +1,7 @@
+## All recognized gas and interpretation channels
+
+The **Gas value flag…** picker now accepts actual C1–C5/TG components, WH/BH/CH, OPUS and gas-ratio or normalized-gas curves when present, plus vendor-specific channels with a resolved gas semantic binding. Derived channels display their existing calculated row value rather than claiming a new measurement. Non-gas drilling sensors and TVD/TIME axes are not mislabeled as MD. Direct click-to-flag on PDF curves remains a later UI stage.
+
 ## Measured gas flags in full PDF proof (REPORT-GAS-VALUE-01)
 
 From **Full PDF preview and editing…**, choose **Gas value flag…**. Select a gas channel and MD depth: the dialog displays the nearest factual source sample and its original unit. Confirming creates a report-owned callout and regenerates the PDF. Missing values, unsampled gaps and differing gas readings at identical MD are refused without interpolation or channel substitution. This stage selects channel and depth; direct clicking on the rendered curve and drag-on-page authoring are later milestones.
