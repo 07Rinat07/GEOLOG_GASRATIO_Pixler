@@ -1,3 +1,29 @@
+## REPORT-GAS-VALUE-01 — фактический газовый флажок в полном PDF-предпросмотре (новый инкремент)
+
+В REPORT-PROOF-01 появился выбор **«Газовый флажок…»**: автор выбирает TG/C1–C5/iC4/nC4/iC5/nC5/другой явно распознанный газ и глубину, видит только фактический ближайший исходный отсчёт (значение, исходная единица, MD) и сохраняет report-owned CALLOUT. NaN/Inf, разрывы больше половины минимального шага, выход за пределы и разные показания при совпадающей MD отвергаются, без интерполяции и выбора другого канала. Значение попадает в существующие report annotations / Undo / сохранение проекта и штатную PDF-печать с паспортом; исходные данные не изменяются. Это **выбор канала и глубины**, а не непосредственный click по пиксельному PDF-графику: свободный overlay-редактор и геометрия флажков на конкретной кривой, TIME/WITS0, загрузка картинок и вся схема редактирования страниц — последующие этапы. Acceptance: source row, gaps/NaN/repeated MD, RU/KK/EN, JSON/package reopen, полный PDF proof; три exact-head Windows gates.
+
+## REPORT-PROOF-01 — восстановление после ошибки отрисовки (на проверке)
+
+Страница отмечается в bounded preview cache только после успешной отрисовки. Временная ошибка MuPDF больше не блокирует повторный render при следующем обновлении viewport. Regression проверяет failure и последующее восстановление; исходный PDF и расчёты не меняются. Перед merge обязательны три exact-head Windows gates.
+
+## REPORT-PROOF-01 — все страницы и авторский предпросмотр (первый инкремент)
+
+Точка входа «Полный предпросмотр и редактор PDF» в workspace интерпретации открывает **все страницы** настоящего production PDF единым вертикальным документом. Страницы отрисовываются лениво (только видимая область и небольшой запас); масштаб 75/100/125%. Из окна доступны уже существующие report-owned аннотации (текст/выноска/замечание/стрелка/интервал/каталожный символ), их Apply/Cancel/Undo и пересборка PDF. «Сохранить PDF» использует production exporter с паспортом, «Печать» отправляет страницы непосредственно из подготовленного PDF; исходные кривые и расчёты не меняются. Начальная версия использует сохранённую композицию отчёта; изменение геометрии аннотаций выполняется в существующем диалоге, а не перетаскиванием поверх страницы. Отдельные дальнейшие этапы: интерактивный QGraphics overlay поверх страниц; свободный текст, фотографии/PNG/SVG и нарисованные фигуры; sample-exact VALUE для WOB (т/кН) и C1–C5/TG в интерпретационных графиках; привязка к реальным координатам и сохранение изображений в project assets; редактирование паспорта, таблиц и параметров верстки через отдельные структурные редакторы; page reorder и Undo/Redo всей композиции; WYSIWYG-паритет HTML/PDF/print/DOCX, длинные документы, high DPI и реальный принтер. Не редактировать PDF как первоисточник; persisted композиция и исходные кривые независимы. Перед merge — три exact-head Windows gates, PDF acceptance RU/KK/EN.
+
+## Windows CI — VALUE native process isolation (на проверке)
+
+Main CI38508677789 aborted with 0xC0000374 in Qt topLevelWidgets cleanup after
+VALUE scene/dialog assertions. Exact local 314-case shard replay reproduced the
+same exception at the same cleanup site; standalone selection/preferences24
+passed. Existing runner executes all VALUE print-selection functions in four
+fresh processes; assertions and failure propagation remain mandatory. Native
+memory-corruption origin is not proven; this is test isolation, not a claimed
+production lifecycle repair. Remaining original shared shard: 309 passed in 197.55 seconds. New exact-head Windows gates required.
+
+## PLOT-FLAG-01 — фактическое время в меню VALUE (новый инкремент)
+
+В графике с TIME-осью выбор канала теперь показывает фактическую координату выбранного отсчёта — относительную с единицей или календарную — дополнительно к MD. При остановке бурения одинаковая MD не скрывает разное время. На глубинных графиках подпись не меняется. Это только UI: VALUE snapshot/Undo/исходные массивы/экспорт не изменяются. Acceptance: RU/KK/EN × relative/datetime, совпадающая MD и прежняя depth подпись; три exact-head Windows gates обязательны. XY/WITS и физическая печать отдельно.
+
 ## RPT-AUTHOR-01 — групповой выбор печати (на проверке)
 
 Existing report annotation editor предлагает RU/KK/EN команды включения и

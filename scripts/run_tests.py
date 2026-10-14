@@ -73,10 +73,9 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         # in fresh processes, following the existing native report isolation.
         "tests/test_report_document_control.py",
         "tests/test_report_author_symbol_editor.py",
-        # Main quality run 38508677789 aborted with 0xC0000374 while
-        # enumerating Qt top-level windows immediately after the Print Center
-        # VALUE selection case (96% through a large shared shard). Retain every
-        # test and assertion, but give each test its own native Qt process.
+        # Main CI38508677789 and an exact local 314-case shard replay hit
+        # 0xC0000374 while enumerating Qt roots after VALUE scene/dialog cases.
+        # Keep these assertions mandatory with a fresh native heap per function.
         "tests/test_value_flag_print_selection.py",
         # MainWindow navigation hit 0xC0000005 in PlotItem.__init__ after
         # earlier dialogs/scenes in a large Windows offscreen shard.
