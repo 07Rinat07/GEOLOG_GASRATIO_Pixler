@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from geoworkbench.printing.masterlog_document_control import MasterlogDocumentControlLayout, masterlog_document_control_layout
-from geoworkbench.printing.report_document_control import compact_report_footer
 from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.services.lba_standard import lba_color_code
 import os
@@ -515,8 +514,6 @@ def _paint_masterlog_control_footer(
     _draw_control_text(painter, QRectF(2, top + 0.5, max(0.0, width - page_width - 2), 4), visual.brand_wordmark,
                        point_size=visual.typography.footer_pt)
     _draw_control_text(painter, QRectF(2 + width - page_width, top + 0.5, page_width, 4), page_label, right=True,
-                       point_size=visual.typography.footer_pt)
-    _draw_control_text(painter, QRectF(2, top + 5, width, 4), compact_report_footer(control.snapshot),
                        point_size=visual.typography.footer_pt)
     painter.restore()
 

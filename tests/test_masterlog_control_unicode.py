@@ -9,7 +9,6 @@ from PySide6.QtGui import QFont
 from geoworkbench.printing import masterlog_renderer as renderer
 from geoworkbench.printing.masterlog_document_control import masterlog_document_control_layout
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
-from geoworkbench.printing.report_document_control import compact_report_footer
 from geoworkbench.printing.unicode_support import resolve_unicode_font_profile
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.services.localization import AppLanguage
@@ -72,7 +71,7 @@ def test_control_regions_select_full_text_font_before_measuring(
         assert TEXTS[language.value] in actual[0]
     else:
         expected = [page_label, renderer.modern_oilfield_report_profile().brand_wordmark,
-                    page_label, compact_report_footer(control.snapshot)]
+                    page_label]
         bold = [False] * len(expected)
         assert page_label in actual[0]
     assert [text for text, _, _ in calls] == expected * 2
@@ -82,8 +81,10 @@ def test_control_regions_select_full_text_font_before_measuring(
     if region == "header":
         assert any(len(text) > 100 for text in expected)
     else:
-        assert len(expected[-1]) < len(template.properties["header_fields"]["header.confidentiality"])
-    assert "…" in actual[0]
+        assert "DOC-42" not in actual[0]
+        assert template.properties["header_fields"]["header.confidentiality"] not in actual[0]
+    if region == "header":
+        assert "…" in actual[0]
     _assert_baseline(baseline, actual)
 
 
