@@ -11,17 +11,47 @@ import re
 
 import numpy as np
 
-from geoworkbench.domain.models import Dataset, IndexRole
+from geoworkbench.domain.models import CurveData, Dataset, IndexRole, IndexType
+from geoworkbench.services.gas_curve_presentation import is_gas_ratio_mnemonic
 
 
 _GAS_NAMES = frozenset({
+    # Gas source channels and total-gas equivalents.
     "TG", "TGAS", "TOTALGAS", "TOTAL_GAS", "TG_CALC",
+    "TG_NORM", "NORM_TG", "TGNORM", "TOTAL_GAS_NORM",
+    "NORMALIZED_TOTAL_GAS", "OPUS_TG_PCT",
     "C1", "C2", "C3", "C4", "C5", "IC4", "NC4", "IC5", "NC5",
     "H2S", "CO2", "N2",
 })
 _NORMALIZED_GAS = re.compile(
     r"^(?:TG|C[1-5]|[IN]C[45])_NORM(?:_CALC|_REF)?$"
 )
+
+
+def _identifies_gas(identifier: str) -> bool:
+    code = identifier.strip().upper()
+    return (
+        code in _GAS_NAMES
+        or _NORMALIZED_GAS.fullmatch(code) is not None
+        or is_gas_ratio_mnemonic(code)
+    )
+
+
+def _is_gas_curve(curve: CurveData) -> bool:
+    """Accept curated gas mnemonics or resolved gas semantics, never units alone."""
+    meta = curve.metadata
+    semantic = meta.semantic
+    if semantic is not None and semantic.resolved:
+        # A high-confidence semantic binding can reject an ambiguous vendor
+        # alias even if its raw source mnemonic looks like a gas channel.
+        return semantic.family.casefold() == "gas" or (
+            semantic.family.casefold() in {"gas_ratio", "interpretation"}
+            and _identifies_gas(meta.canonical_mnemonic or "")
+        )
+    return any(_identifies_gas(name) for name in (
+        meta.original_mnemonic,
+        meta.canonical_mnemonic or "",
+    ))
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,13 +75,9 @@ def report_gas_channels(dataset: Dataset) -> tuple[str, ...]:
     found: dict[str, str] = {}
     for curve in dataset.curves.values():
         name = curve.metadata.original_mnemonic.strip()
-        canonical = (curve.metadata.canonical_mnemonic or "").strip()
         if not name:
             continue
-        if not any(
-            value.upper() in _GAS_NAMES or _NORMALIZED_GAS.fullmatch(value.upper())
-            for value in (name, canonical)
-        ):
+        if not _is_gas_curve(curve):
             continue
         values = np.asarray(curve.values, dtype=np.float64)
         if values.shape != dataset.depth.shape or not np.any(np.isfinite(values)):
@@ -64,7 +90,11 @@ def report_gas_value_at_depth(
     dataset: Dataset, mnemonic: str, requested_depth: float,
 ) -> ReportGasValueSample | None:
     """Snap to one nearest *actual row*, refusing holes and ambiguous MD."""
-    if dataset.active_index.role is not IndexRole.DEPTH or not np.isfinite(requested_depth):
+    if (
+        dataset.active_index.role is not IndexRole.DEPTH
+        or dataset.active_index.index_type is not IndexType.MD
+        or not np.isfinite(requested_depth)
+    ):
         return None
     if mnemonic not in report_gas_channels(dataset):
         return None
