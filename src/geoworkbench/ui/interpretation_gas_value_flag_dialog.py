@@ -36,18 +36,18 @@ class ReportGasValueFlagDialog(QDialog):
         for mnemonic in report_gas_channels(dataset):
             self.channel.addItem(mnemonic, mnemonic)
         form.addRow(self._text("Газовый канал", "Газ арнасы", "Gas channel"), self.channel)
-        self.depth = QDoubleSpinBox(self)
-        self.depth.setObjectName("report-gas-value-depth")
-        self.depth.setDecimals(9)
+        self.depth_spin = QDoubleSpinBox(self)
+        self.depth_spin.setObjectName("report-gas-value-depth")
+        self.depth_spin.setDecimals(9)
         depth_values = np.asarray(dataset.depth, dtype=np.float64)
         finite = depth_values[np.isfinite(depth_values)]
         if finite.size:
-            self.depth.setRange(float(finite.min()), float(finite.max()))
-            self.depth.setValue(float(finite.min()))
+            self.depth_spin.setRange(float(finite.min()), float(finite.max()))
+            self.depth_spin.setValue(float(finite.min()))
         else:
-            self.depth.setRange(0.0, 0.0)
-        self.depth.setSuffix(f" {dataset.active_index.unit or 'м'}")
-        form.addRow(self._text("Глубина MD", "MD тереңдігі", "MD depth"), self.depth)
+            self.depth_spin.setRange(0.0, 0.0)
+        self.depth_spin.setSuffix(f" {dataset.active_index.unit or 'м'}")
+        form.addRow(self._text("Глубина MD", "MD тереңдігі", "MD depth"), self.depth_spin)
         root.addLayout(form)
         self.sample_label = QLabel(self)
         self.sample_label.setObjectName("report-gas-value-source-sample")
@@ -61,7 +61,7 @@ class ReportGasValueFlagDialog(QDialog):
         self.buttons.rejected.connect(self.reject)
         root.addWidget(self.buttons)
         self.channel.currentIndexChanged.connect(self._update_sample)
-        self.depth.valueChanged.connect(self._update_sample)
+        self.depth_spin.valueChanged.connect(self._update_sample)
         self._update_sample()
 
     def _text(self, ru: str, kk: str, en: str) -> str:
@@ -71,7 +71,7 @@ class ReportGasValueFlagDialog(QDialog):
         mnemonic = self.channel.currentData()
         if not isinstance(mnemonic, str):
             return None
-        return report_gas_value_at_depth(self.dataset, mnemonic, self.depth.value())
+        return report_gas_value_at_depth(self.dataset, mnemonic, self.depth_spin.value())
 
     def _update_sample(self) -> None:
         sample = self.selected_sample()
