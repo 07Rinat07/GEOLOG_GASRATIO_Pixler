@@ -97,3 +97,34 @@ def test_cancelled_annotation_dialog_regenerates_from_restored_state(qapp, tmp_p
     finally:
         dialog.close()
         qapp.processEvents()
+
+
+def test_failed_visible_page_render_can_retry(qapp, tmp_path, monkeypatch):
+    proof = tmp_path / "proof.pdf"
+    _write_pdf(proof, 3)
+    dialog = FullReportPreviewDialog(
+        proof,
+        refresh_document=lambda: None,
+        edit_annotations=lambda: None,
+        export_document=lambda destination: None,
+    )
+    errors = []
+    original = fitz.Page.get_pixmap
+
+    def fail_render(page, *args, **kwargs):
+        raise RuntimeError("temporary render failure")
+
+    monkeypatch.setattr(dialog, "_show_error", errors.append)
+    monkeypatch.setattr(fitz.Page, "get_pixmap", fail_render)
+    try:
+        dialog.show()
+        qapp.processEvents()
+        assert errors
+        assert not dialog._rendered_pages
+        monkeypatch.setattr(fitz.Page, "get_pixmap", original)
+        dialog._render_visible()
+        assert 0 in dialog._rendered_pages
+        assert not dialog._page_labels[0].pixmap().isNull()
+    finally:
+        dialog.close()
+        qapp.processEvents()
