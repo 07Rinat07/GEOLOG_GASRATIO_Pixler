@@ -1,3 +1,17 @@
+## Windows CI — VALUE native process isolation (на проверке)
+
+Main CI38508677789 aborted with 0xC0000374 in Qt topLevelWidgets cleanup after
+VALUE scene/dialog assertions. Exact local 314-case shard replay reproduced the
+same exception at the same cleanup site; standalone selection/preferences24
+passed. Existing runner executes all VALUE print-selection functions in four
+fresh processes; assertions and failure propagation remain mandatory. Native
+memory-corruption origin is not proven; this is test isolation, not a claimed
+production lifecycle repair. Remaining original shared shard: 309 passed in 197.55 seconds. New exact-head Windows gates required.
+
+## PLOT-FLAG-01 — фактическое время в меню VALUE (новый инкремент)
+
+В графике с TIME-осью выбор канала теперь показывает фактическую координату выбранного отсчёта — относительную с единицей или календарную — дополнительно к MD. При остановке бурения одинаковая MD не скрывает разное время. На глубинных графиках подпись не меняется. Это только UI: VALUE snapshot/Undo/исходные массивы/экспорт не изменяются. Acceptance: RU/KK/EN × relative/datetime, совпадающая MD и прежняя depth подпись; три exact-head Windows gates обязательны. XY/WITS и физическая печать отдельно.
+
 ## RPT-AUTHOR-01 — групповой выбор печати (на проверке)
 
 Existing report annotation editor предлагает RU/KK/EN команды включения и

@@ -1,3 +1,7 @@
+## Value flags on a time axis (PLOT-FLAG-01)
+
+For a time-axis graph, the channel picker now displays the measured value, the selected source sample's actual TIME coordinate (relative units or calendar date/time), and MD. Two samples at the same MD but different timestamps can be distinguished before saving. Depth-axis captions are unchanged. This is presentation-only: source data, saved anchors, calculations and exports are untouched. RU/KK/EN and relative/calendar time have regression coverage; XY/WITS, physical printing and visual acceptance remain separate.
+
 # Professional annotation layer — 0.7.61
 
 
