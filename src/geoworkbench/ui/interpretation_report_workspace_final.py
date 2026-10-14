@@ -10,6 +10,7 @@ import tempfile
 import fitz
 import numpy as np
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QPageLayout
 from PySide6.QtPrintSupport import QAbstractPrintDialog, QPrintDialog, QPrinter
 from PySide6.QtWidgets import (
     QApplication,
