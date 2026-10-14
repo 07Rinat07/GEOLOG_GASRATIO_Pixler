@@ -14,20 +14,20 @@ _DEFAULT_TEXT = {
     AppLanguage.RU: {
         "title": "Отчёт по интерпретации газового каротажа",
         "subtitle": "Интерпретация данных поверхностного газового каротажа",
-        "status": "Рабочий",
-        "confidentiality": "Для служебного использования",
+        "status": "",
+        "confidentiality": "",
     },
     AppLanguage.KK: {
         "title": "Газ каротажын интерпретациялау есебі",
         "subtitle": "Жерүсті газ каротажы деректерін интерпретациялау",
-        "status": "Жұмыс нұсқасы",
-        "confidentiality": "Қызметтік пайдалану үшін",
+        "status": "",
+        "confidentiality": "",
     },
     AppLanguage.EN: {
         "title": "Mud-gas interpretation report",
         "subtitle": "Surface data logging interpretation",
-        "status": "Working",
-        "confidentiality": "For internal use",
+        "status": "",
+        "confidentiality": "",
     },
 }
 

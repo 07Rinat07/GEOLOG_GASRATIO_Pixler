@@ -107,8 +107,9 @@ def test_generic_office_control_after_reopen(qapp, tmp_path, language, date, use
         assert (hydrocarbon_report_labels(language).report_date in text) == bool(use_form and date)
         assert (date in text) if date and use_form else True
     assert len(footer_text) < 260
-    if use_form:
-        assert '…' in footer_text
+    # Document metadata lives in the report passport, not in the footer.
+    assert '…' not in footer_text
+    assert fields['header.document_number'] not in footer_text
     assert 'DOC&lt;&amp;42' in markup if use_form else True
     assert modern_oilfield_report_profile().brand_wordmark in word_text
     assert modern_oilfield_report_profile().brand_wordmark in footer_text
@@ -145,7 +146,7 @@ def test_generic_export_rejects_changed_form_revision(tmp_path, reason, format):
 def test_compact_footer_normalizes_and_bounds_each_value():
     from geoworkbench.printing.report_document_control import ReportDocumentControl
     control = ReportDocumentControl('', '', (), (), (), (), ('  first\nsecond  ', 'x' * 1000))
-    assert compact_report_footer(control) == 'first second · ' + 'x' * 47 + '…'
+    assert compact_report_footer(control) == ''
     assert compact_report_footer(None) == ''
 
 

@@ -192,7 +192,6 @@ def hydrocarbon_interpretation_html_with_chart(
     block = (
         "<section class='interpretation-curves'>"
         f"<h2>{escape(labels['title'])}</h2>"
-        f"<p><small>{escape(labels['note'])}</small></p>"
         "<div style='width:100%; text-align:center;'>"
         f'<img alt="{escape(labels["title"])}" '
         "style='display:block; width:100%; max-width:1050px; height:auto; "
@@ -1271,11 +1270,7 @@ def _labels(language: AppLanguage) -> dict[str, str]:
     return {
         AppLanguage.RU: {
             "title": "Графики интерпретационных кривых по глубине",
-            "note": (
-                "Обычные многокривые дорожки масштабированы по p5–p95. "
-                "Wh и Bh показаны совместно, Ch — отдельно; используются стабильные "
-                "фактические шкалы (линейные/логарифмические), одинаковые по глубине."
-            ),
+            "note": "",
             "depth": "Глубина",
             "total": "Общий и нормализованный газ",
             "opus": "Показатели ОПУС",
@@ -1291,11 +1286,7 @@ def _labels(language: AppLanguage) -> dict[str, str]:
         },
         AppLanguage.KK: {
             "title": "Тереңдік бойынша интерпретациялық қисықтар графиктері",
-            "note": (
-                "Кәдімгі көп қисықты жолдар p5–p95 бойынша масштабталады. Газ "
-                "қатынастары тереңдік бойынша өзгермейтін нақты сызықтық/логарифмдік "
-                "шкалаларда бөлек үздіксіз трассалармен көрсетіледі."
-            ),
+            "note": "",
             "depth": "Тереңдік",
             "total": "Жалпы және нормаланған газ",
             "opus": "ОПУС көрсеткіштері",
@@ -1311,11 +1302,7 @@ def _labels(language: AppLanguage) -> dict[str, str]:
         },
         AppLanguage.EN: {
             "title": "Depth plots of interpretation curves",
-            "note": (
-                "Ordinary multi-curve tracks use p5–p95 scaling. Gas ratios are "
-                "Wh/Bh share an axis and Ch has a separate axis, with fixed "
-                "scales that do not change with depth."
-            ),
+            "note": "",
             "depth": "Depth",
             "total": "Total and normalized gas",
             "opus": "OPUS indicators",

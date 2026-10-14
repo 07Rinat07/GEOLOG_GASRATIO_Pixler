@@ -147,5 +147,6 @@ def test_table_outer_border_stays_inside_printable_width(qapp, heading):
     assert tables
     for table in tables:
         bounds = document.documentLayout().frameBoundingRect(table)
-        assert bounds.left() >= 0
+        assert bounds.width() >= width * 0.97
+        assert bounds.left() > 0
         assert bounds.right() <= width + 0.5

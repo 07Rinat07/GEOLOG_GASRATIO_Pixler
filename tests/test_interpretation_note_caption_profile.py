@@ -2,7 +2,6 @@ from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
 from types import ModuleType
-from unicodedata import normalize
 
 import fitz
 import numpy as np
@@ -25,7 +24,7 @@ from test_interpretation_text_physical_dpi import _spans
 @pytest.mark.parametrize('language', list(AppLanguage))
 @pytest.mark.parametrize('dpi', [72, 300, 600])
 @pytest.mark.parametrize('landscape', [False, True])
-def test_complete_profile_caption_notes_fit_above_footer_in_production_pdf(
+def test_explanatory_notes_are_absent_and_curves_stay_above_footer(
     qapp: object, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, renderer: ModuleType,
     language: AppLanguage, dpi: int, landscape: bool,
 ) -> None:
@@ -47,7 +46,7 @@ def test_complete_profile_caption_notes_fit_above_footer_in_production_pdf(
         painter.scale(dpi / 72, dpi / 72)
         canvas = PageCanvas(writer, painter, language)
         note = standard._labels(language)['note']
-        height = notes.interpretation_note_height(note, canvas.content_rect.width(), writer)
+        assert note == ""
         bottom = canvas.content_rect.bottom()
         renderer.render_chart_pages(canvas, _report('opus' if renderer is enhanced else 'standard'),
                                     dataset, language)
@@ -56,13 +55,11 @@ def test_complete_profile_caption_notes_fit_above_footer_in_production_pdf(
     with fitz.open(output) as document:
         assert len(document) > 1
         for page in document:
-            assert _normalized(note) in _normalized(normalize("NFKC", page.get_text()))
-            spans = [span for span in _spans(page) if bottom-height-0.5 <= span['bbox'][1] < bottom]
-            assert spans
-            assert all(span['size'] == pytest.approx(9.0, abs=0.08) for span in spans)
-            assert all(span['bbox'][3] <= bottom+0.5 for span in spans)
+            text = page.get_text()
+            assert all(value not in text for value in ('Обычные многокривые дорожки',
+                'Кәдімгі көп қисықты жолдар', 'Ordinary multi-curve tracks'))
             traces = [draw for draw in page.get_drawings() if draw['width'] == pytest.approx(1.25, abs=0.03)]
-            assert traces and all(draw['rect'].y1 < bottom-height for draw in traces)
+            assert traces and all(draw['rect'].y1 < bottom for draw in traces)
     assert np.array_equal(dataset.depth, before.depth)
     for key, curve in dataset.curves.items():
         assert np.array_equal(curve.values, before.curves[key].values)

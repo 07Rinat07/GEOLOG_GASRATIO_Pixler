@@ -82,8 +82,5 @@ def report_document_control(
 
 
 def compact_report_footer(control: ReportDocumentControl | None) -> str:
-    """Bound repeated metadata; full values remain in the document-control zone."""
-    if control is None:
-        return ""
-    items = (" ".join(value.split()) for value in control.footer_items)
-    return " · ".join(value if len(value) <= 48 else value[:47] + "…" for value in items)
+    """Keep document-control metadata in the passport, away from page footers."""
+    return ""

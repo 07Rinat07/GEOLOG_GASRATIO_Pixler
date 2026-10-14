@@ -30,7 +30,7 @@ from test_interpretation_report_identity import _manual_identity
 @pytest.mark.parametrize('profile', ['standard', 'opus'])
 @pytest.mark.parametrize('date', ['', '07.10.2026'])
 @pytest.mark.parametrize('orientation', [QPageLayout.Orientation.Portrait, QPageLayout.Orientation.Landscape])
-def test_saved_control_repeats_on_every_production_pdf_page(qapp, tmp_path, language, profile, date, orientation):
+def test_saved_control_stays_in_passport_and_out_of_page_footer(qapp, tmp_path, language, profile, date, orientation):
     session = _session_with_report_curves(depth_span=30, samples=61)
     identity = replace(_manual_identity(), document_number='DOC-42', revision='07', document_status='Approved',
                        confidentiality='Internal', report_date=date, interval='stale interval')
@@ -55,8 +55,9 @@ def test_saved_control_repeats_on_every_production_pdf_page(qapp, tmp_path, lang
         assert len(document) >= 3
         for index, page in enumerate(document):
             footer = page.get_text(clip=fitz.Rect(0, page.rect.height - 70, page.rect.width, page.rect.height))
-            for value in (REPORT_BRAND_WORDMARK, 'DOC-42', '07', 'Approved', 'Internal'):
-                assert value in footer
+            assert REPORT_BRAND_WORDMARK in footer
+            for value in ('DOC-42', 'Approved', 'Internal'):
+                assert value not in footer
             page_label = {AppLanguage.RU: 'Страница', AppLanguage.KK: 'Бет', AppLanguage.EN: 'Page'}[language]
             assert f'{page_label} {index + 1}' in footer
             assert 'stale interval' not in footer and report.generated_at not in footer
@@ -93,8 +94,8 @@ def test_footer_text_is_bounded_and_physical_size_stable(qapp, tmp_path, monkeyp
         canvas.new_page()
     finally:
         painter.end()
-    assert len(captured) == 6
-    assert canvas.page_rect.height() - canvas.content_rect.height() == PAGE_FOOTER_HEIGHT + 14
+    assert len(captured) == 4
+    assert canvas.page_rect.height() - canvas.content_rect.height() == PAGE_FOOTER_HEIGHT
     for rect, text, physical_points in captured:
         assert rect.top() > canvas.content_rect.bottom()
         assert rect.left() >= canvas.page_rect.left()

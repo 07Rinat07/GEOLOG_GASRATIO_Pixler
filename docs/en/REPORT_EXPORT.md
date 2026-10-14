@@ -178,9 +178,7 @@ Source curves and reference traces use physical 1.25/0.7 pt widths instead of co
 
 Gas Ratio scale labels use the shared print caption size. Endpoint values are retained on two rows when space is tight; a middle label is omitted if it would overlap. The shared Wh/Bh heading is printed once. Scale values, grid ticks and curves are unchanged.
 
-Standard PDF notes and OPUS notes without fluid markers use the shared caption size. The full wrapped text determines the bottom area height before depth-page layout, keeping the note above the footer. Empty cuttings/LBA messages use the same caption role. Notes with fluid markers retain their existing compact layout.
 
-Enhanced/OPUS PDF fluid legends use the shared caption font, wrapped labels and 1–3 columns. The legend and note height is reserved before depth pagination so full phase labels stay above the footer. Codes, glyph shapes and colours are unchanged. The note distinguishes ordinary p5–p95 tracks from fixed gas-ratio scales.
 
 Standard and OPUS PDF curve legends use the shared caption font and wrap labels, units and page-local p5/p95 ranges. Their measured height is reserved before depth pagination and checked again if page boundaries change. Colour and point/line samples stay aligned with the first text line; source values are preserved.
 
@@ -189,3 +187,7 @@ Interpretation PDF and system-print cover fonts retain their physical 72-DPI siz
 Geology DOCX includes the shared DIGITAL GEOLOG footer and localized current/total page fields. Space is reserved below body tables. Word updates page fields; physical printing requires separate acceptance.
 
 The geology XLSX gas-statistics unit heading follows the report output language. Unit tokens from source data are preserved.
+
+Report pages show the brand and page number without repeated document number, revision, status or confidentiality text. These edited values remain in the document passport. Default reports no longer add Working/For internal use. Explanatory p5–p95/marker paragraphs are omitted from PDF and chart previews; their reserved height is returned to the chart budget. Curve/phase legends, units and scale labels remain. PDF tables fill the available width and retain their left border at physical 72-DPI layout. Source values are unchanged.
+
+The whole Word report uses A4 landscape, including the cover. Cover details use two field/value pairs across the page; approval signatures remain on the cover and the body starts in a new section with the same orientation.

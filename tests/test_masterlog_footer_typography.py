@@ -10,7 +10,6 @@ from PySide6.QtGui import QFont, QPainter, QPdfWriter
 from geoworkbench.printing import masterlog_renderer as renderer
 from geoworkbench.printing.masterlog_document_control import masterlog_document_control_layout
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
-from geoworkbench.printing.report_document_control import compact_report_footer
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.services.localization import AppLanguage
 from test_masterlog_control_layout import controlled_form
@@ -76,15 +75,14 @@ def test_masterlog_footer_uses_shared_role_at_physical_dpi(
     baseline = _pdf_snapshot(tmp_path, "baseline", 72, paint)
     actual = _pdf_snapshot(tmp_path, "actual", dpi, paint)
     expected = ([visual.typography.table_pt] * (1 + len(control.rows))
-                + [visual.typography.footer_pt] * 4) if controlled else [visual.typography.footer_pt]
+                + [visual.typography.footer_pt] * 3) if controlled else [visual.typography.footer_pt]
     assert sizes == expected * 2
     assert label in actual[0]
     assert visual.brand_wordmark in actual[0]
-    if controlled:
-        assert compact_report_footer(control.snapshot) in actual[0]
     footer_top = (230.0 if controlled else 235.0) * 72 / 25.4
     footer_spans = [span for span in actual[1] if span["bbox"][1] >= footer_top - 0.3]
-    assert len(footer_spans) == (3 if controlled else 2)
+    assert len(footer_spans) == 2
+    assert sorted(span["text"] for span in footer_spans) == sorted([label, visual.brand_wordmark])
     for span in footer_spans:
         assert span["bbox"][1] >= footer_top - 0.3
         assert span["bbox"][0] >= 2 * 72 / 25.4 - 0.3

@@ -75,7 +75,6 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.report_painter_fonts import paint_fitted_point_text, point_coordinate_font
 from geoworkbench.printing.curve_legend_layout import curve_legend_layout, fit_curve_legend_pages
-from geoworkbench.printing.interpretation_note_layout import interpretation_note_height
 from geoworkbench.printing.fluid_marker_legend_layout import (
     MARKER_LEGEND_TEXT_FLAGS, fluid_marker_legend_layout,
 )
@@ -258,7 +257,7 @@ def render_chart_pages(
         header_height = max(header_height, 20.0 + context_track_heading_height(
             language, provisional.context_rect.width(), canvas.painter.device(),
         ))
-    note_height = interpretation_note_height(base_chart._labels(language)["note"], canvas.content_rect.width(), canvas.painter.device())
+    note_height = 0.0
     marker_specs = fluid_marker_legend_specs([item.fluid_hypothesis for item in report.candidates])
     if marker_specs:
         note_height = max(note_height, fluid_marker_legend_layout(

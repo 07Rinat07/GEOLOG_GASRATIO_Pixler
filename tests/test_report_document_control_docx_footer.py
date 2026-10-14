@@ -105,7 +105,9 @@ def _check_footer_package(path, language, expected_sections, has_details):
                              for size in sizes)
         if has_details:
             assert len(_text(rows[1])) <= 96
-        assert document.find('.//w:pgSz', _NAMESPACES) is not None
+        sizes = document.findall('.//w:pgSz', _NAMESPACES)
+        assert sizes and all(size.get(_W + "orient") == "landscape" for size in sizes)
+        assert len({(size.get(_W + "w"), size.get(_W + "h")) for size in sizes}) == 1
         assert 'customXml/geolog-classification-audit.xml' in package.namelist()
     return document, footer
 
@@ -136,13 +138,10 @@ def test_polished_word_footer_uses_reopened_identity_on_both_sections(qapp, tmp_
     curves = {key: curve.values.copy() for key, curve in dataset.curves.items()}
     target = export_polished_hydrocarbon_interpretation_docx(report, tmp_path / 'controlled.docx',
         dataset=dataset, identity=resolved, language=language)
-    document, footer = _check_footer_package(target, language, 2, True)
+    document, footer = _check_footer_package(target, language, 2, False)
     body_text, footer_text = _text(document), _text(footer)
     assert number in body_text and confidentiality in body_text
-    assert 'DOC<&42' in footer_text and '07' in footer_text
-    assert ('…' in footer_text) == long_values
-    if not long_values:
-        assert 'Approved' in footer_text and 'Internal' in footer_text
+    assert all(value not in footer_text for value in ('DOC<&42', 'Approved', 'Internal'))
     assert 'Engineer A' in body_text and 'Engineer A' not in footer_text
     assert 'STALE' not in body_text and report.generated_at not in footer_text
     assert ('07.10.2026' in body_text) == bool(date)

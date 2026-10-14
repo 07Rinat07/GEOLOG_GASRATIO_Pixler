@@ -471,21 +471,18 @@ tr {{ page-break-inside: avoid; break-inside: avoid; }}
         + "</body></html>"
     )
     document = _PointDocument()
-    document.setDocumentMargin(0.0)
+    document.setDocumentMargin(4.0 if table else 0.0)
     document.setDefaultFont(print_font(typography.body_pt, text=html))
     document.setTextWidth(width)
     document.setHtml(html)
     apply_explicit_rich_text_font_sizes(document)
-    # Qt's 100% table width excludes the surrounding border/spacing. The
-    # resulting frame extends beyond the document and drawContents clips its
-    # edge. Reserve that physical inset while preserving column proportions.
+    # Keep table strokes inside the document. FixedLength is expressed in Qt
+    # layout pixels, not physical points: at 72 DPI it shrinks width to 75%.
+    # Percentage width follows the available document width on every device.
     for frame in document.rootFrame().childFrames():
         if isinstance(frame, QTextTable):
             table_format = frame.format()
-            inset = max(1.0, table_format.border() + table_format.cellSpacing())
-            table_format.setWidth(QTextLength(
-                QTextLength.Type.FixedLength, max(1.0, width - 2.0 * inset),
-            ))
+            table_format.setWidth(QTextLength(QTextLength.Type.PercentageLength, 100.0))
             frame.setFormat(table_format)
     layout = document.documentLayout()
     if layout is None:

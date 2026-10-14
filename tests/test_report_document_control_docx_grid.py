@@ -50,14 +50,14 @@ def test_footer_uses_matching_twip_grid_within_a4_printable_body(
     assert grid is not None
     assert tuple(int(node.attrib[W + "w"]) for node in grid) == _FOOTER_GRID_TWIPS
     rows = table.findall(W + "tr")
-    assert len(rows) == (2 if with_details else 1)
+    assert len(rows) == 1
     first_cells = rows[0].findall(W + "tc")
     assert len(first_cells) == 2
     for cell, expected in zip(first_cells, _FOOTER_GRID_TWIPS):
         tc_width = cell.find(W + "tcPr").find(W + "tcW")
         assert tc_width.attrib[W + "type"] == "dxa"
         assert int(tc_width.attrib[W + "w"]) == expected
-    if with_details:
+    if len(rows) > 1:
         detail = rows[1].find(W + "tc")
         detail_props = detail.find(W + "tcPr")
         assert detail_props.find(W + "gridSpan").attrib[W + "val"] == "2"

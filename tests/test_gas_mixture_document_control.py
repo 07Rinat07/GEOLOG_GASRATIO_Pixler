@@ -94,8 +94,11 @@ def test_ramp_controlled_pdf_retains_full_values_and_repeated_footer(
             assert 'DIGITALGEOLOG' in footer_text
             if control.footer_items:
                 assert _normalized(compact_report_footer(control)) in footer_text
-            assert all(span['color'] == int(visual.palette.text_muted[1:], 16) for span in footer)
+            # The footer band can also contain body text on densely filled pages.
+            # Check the actual page marker instead of assigning its palette to
+            # every text span in the bottom part of the page.
             page_number = [span for span in footer if label in span['text']]
+            assert all(span['color'] == int(visual.palette.text_muted[1:], 16) for span in page_number)
             assert page_number and all(span['size'] == pytest.approx(9, abs=.15) for span in page_number)
             for span in spans:
                 assert span['bbox'][0] >= 33

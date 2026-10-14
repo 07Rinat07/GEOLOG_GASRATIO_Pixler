@@ -34,6 +34,13 @@ cannot prove source curves. Physical printer acceptance is separate.
 
 # Проверка качества и release gate
 
+PR #613 CI38493460486: masterlog footer tests still required the removed control
+metadata row. The renderer no longer draws/measures an empty metadata string;
+tests require exactly brand/page text and retain RU/KK/EN Unicode font selection,
+72/96/144/300/600 DPI bounds, painter restoration and package source integrity.
+Run test_masterlog_control_unicode and test_masterlog_footer_typography before
+new exact-head Windows gates. Metadata remains in the document passport/header.
+
 Time VALUE anchors at repeated MD: `python scripts/run_tests.py -p no:cacheprovider tests/test_value_flag_time_anchor.py tests/test_value_flag_sample_anchor.py -q`.
 The real Dataset/TabletView/controller path checks the saved time sample and
 distinct TG marker X, screen/print modes, legacy depth-only fallback and source
