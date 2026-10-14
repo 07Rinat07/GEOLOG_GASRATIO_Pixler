@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox,
     QFormLayout, QLabel, QVBoxLayout, QWidget,
@@ -13,6 +14,7 @@ from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.report_gas_value_flags import (
     ReportGasValueSample, report_gas_channels, report_gas_value_at_depth,
 )
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class ReportGasValueFlagDialog(QDialog):
@@ -63,6 +65,9 @@ class ReportGasValueFlagDialog(QDialog):
         self.channel.currentIndexChanged.connect(self._update_sample)
         self.depth_spin.valueChanged.connect(self._update_sample)
         self._update_sample()
+        fit_window_to_screen(
+            self, preferred=QSize(520, 300), minimum=QSize(360, 240),
+        )
 
     def _text(self, ru: str, kk: str, en: str) -> str:
         return {AppLanguage.RU: ru, AppLanguage.KK: kk, AppLanguage.EN: en}[self.language]
