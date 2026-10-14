@@ -27,6 +27,8 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.domain.depth_interval import DepthInterval, DepthIntervalError
 from geoworkbench.domain.models import IndexRole
+from geoworkbench.project.report_annotation_controller import ReportAnnotationController
+from geoworkbench.ui.interpretation_gas_value_flag_dialog import ReportGasValueFlagDialog
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.edit_history import CommandHistory
 from geoworkbench.project.interpretation_calculation_controller import (
@@ -354,6 +356,35 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         self._retranslate_report_annotations()
         self._apply_chart_preview()
 
+    def _add_report_gas_value_flag(self) -> None:
+        session = self.controller.session
+        dataset = session.current_dataset
+        if dataset is None or self.report is None or self._is_mixture_mode():
+            return
+        picker = ReportGasValueFlagDialog(dataset, self, language=self.language)
+        if picker.exec() != QDialog.DialogCode.Accepted:
+            return
+        sample = picker.selected_sample()
+        if sample is None or session.current_dataset is not dataset:
+            return
+        ReportAnnotationController(
+            session, shared_history=self._report_annotation_history,
+        ).add(
+            kind="callout",
+            anchor="depth",
+            text=sample.caption,
+            depth=sample.depth,
+            # A gas component not shown as a curve in the standard report must
+            # not be silently attached to a different plotted channel.
+            track_key=None,
+            x_fraction=0.5,
+            offset_x=14.0,
+            offset_y=-22.0,
+            width=150.0,
+            height=56.0,
+        )
+        self._report_annotations_changed()
+
     def _open_full_report_preview(self) -> None:
         """Proof every final PDF page and edit report-owned notes before output."""
         report = self.report
@@ -416,6 +447,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     refresh_document=lambda: render_pdf(preview_path),
                     edit_annotations=self._edit_report_annotations,
                     export_document=render_pdf,
+                    add_gas_value_flag=self._add_report_gas_value_flag,
                 )
             except (OSError, RuntimeError, ValueError) as exc:
                 self._show_export_error(exc)
