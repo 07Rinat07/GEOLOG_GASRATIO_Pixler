@@ -81,7 +81,9 @@ def report_gas_value_at_depth(
     unique_depths = np.unique(depths[valid_depths])
     increments = np.diff(unique_depths)
     positive = increments[increments > 0]
-    tolerance = (1.5 * float(np.median(positive))) if positive.size else 1e-8
+    # Use the smallest source sampling step to fail closed at large depth gaps.
+    # Median spacing could permit a pick deep inside an unsampled interval.
+    tolerance = (0.5 * float(np.min(positive))) if positive.size else 1e-8
     if abs(source_depth - requested_depth) > max(tolerance, 1e-8):
         return None
     same_depth = valid_depths[depths[valid_depths] == source_depth]
