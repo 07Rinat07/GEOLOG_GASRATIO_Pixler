@@ -42,7 +42,9 @@ def test_empty_track_picker_omits_missing_channel_without_substituting_neighbor(
         assert payload["value"] == 20.0
         assert payload["depth"] == depth[1]
         assert payload["axis_value"] == (60.0 if use_time else 101.0)
-        assert payload["axis_id"] == ("time" if use_time else None)
+        expected_axis_id = "time" if use_time else dataset.active_index.index_id
+        assert view.vertical_index_id == expected_axis_id
+        assert payload["axis_id"] == expected_axis_id
         assert "TG" in caption
         assert view._curve_value_payload(
             "gas", 0.5, click_axis, mnemonic="C1",

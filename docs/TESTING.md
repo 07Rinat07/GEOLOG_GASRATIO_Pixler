@@ -34,6 +34,11 @@ cannot prove source curves. Physical printer acceptance is separate.
 
 # Проверка качества и release gate
 
+PR #615 CI38504859984: sparse MD VALUE acceptance incorrectly expected null
+axis_id from an optional layout setting. It now requires the actual Dataset
+active primary index ID (or explicit TIME) and independently verifies the view
+axis. Missing-channel/source-exact assertions remain enabled; no runtime patch.
+
 Report author batch print selection: `python scripts/run_tests.py -p no:cacheprovider tests/test_report_author_batch_print.py tests/test_report_annotations.py tests/test_report_annotation_apply.py -q`.
 Checks real RU/KK/EN buttons, one-step CompoundCommand Undo/Redo, Apply/Cancel,
 text/SYMBOL JSON/package reopen, strict all-ID validation, no-op dirty behavior,
