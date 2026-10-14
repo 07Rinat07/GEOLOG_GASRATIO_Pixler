@@ -48,6 +48,7 @@ class FullReportPreviewDialog(QDialog):
         refresh_document: Callable[[], None],
         edit_annotations: Callable[[], None],
         export_document: Callable[[Path], None],
+        add_gas_value_flag: Callable[[], None] | None = None,
         language: AppLanguage = AppLanguage.RU,
         parent: QWidget | None = None,
     ) -> None:
@@ -56,6 +57,7 @@ class FullReportPreviewDialog(QDialog):
         self._refresh_document = refresh_document
         self._edit_annotations = edit_annotations
         self._export_document = export_document
+        self._add_gas_value_flag = add_gas_value_flag
         self._language = language
         self._page_labels: list[QLabel] = []
         self._rendered_pages: set[int] = set()
@@ -116,6 +118,13 @@ class FullReportPreviewDialog(QDialog):
         self.edit_button.setObjectName("full-report-edit-annotations")
         self.edit_button.clicked.connect(self._edit_and_refresh)
         actions.addWidget(self.edit_button)
+        self.gas_flag_button = QPushButton(
+            self._text("Газовый флажок…", "Газ жалаушасы…", "Gas value flag…"), self,
+        )
+        self.gas_flag_button.setObjectName("full-report-add-gas-value")
+        self.gas_flag_button.setEnabled(add_gas_value_flag is not None)
+        self.gas_flag_button.clicked.connect(self._add_gas_flag_and_refresh)
+        actions.addWidget(self.gas_flag_button)
         self.refresh_button = QPushButton(self._text("Обновить", "Жаңарту", "Refresh"), self)
         self.refresh_button.setObjectName("full-report-refresh")
         self.refresh_button.clicked.connect(self._rebuild)
@@ -250,6 +259,16 @@ class FullReportPreviewDialog(QDialog):
             self._show_error(exc)
             return
         # Also refresh after Cancel: the editor restores its checkpoint.
+        self._rebuild()
+
+    def _add_gas_flag_and_refresh(self) -> None:
+        if self._add_gas_value_flag is None:
+            return
+        try:
+            self._add_gas_value_flag()
+        except (OSError, RuntimeError, ValueError) as exc:
+            self._show_error(exc)
+            return
         self._rebuild()
 
     def _save_pdf(self) -> None:
