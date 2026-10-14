@@ -11,7 +11,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import fitz
-from PySide6.QtCore import QEvent, Qt, QTimer
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QCloseEvent, QImage, QPixmap, QResizeEvent, QShowEvent
 from PySide6.QtPrintSupport import QAbstractPrintDialog, QPrintDialog, QPrinter
 from PySide6.QtWidgets import (
