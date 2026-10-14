@@ -4785,6 +4785,7 @@ class TabletView(QWidget):
         x_fraction: float = 0.5,
         local_x: float | None = None,
         local_y: float | None = None,
+        plot_x: float | None = None,
     ) -> None:
         try:
             definition = self._layout_model.track_by_id(track_id)
@@ -4821,10 +4822,20 @@ class TabletView(QWidget):
         curve_value = None
         if local_x is not None and local_y is not None:
             curve_value = self._curve_value_payload(track_id, local_x, local_y)
+        value_choices = (
+            self._curve_value_choices(track_id, plot_x, axis_value)
+            if graphical and curve_value is None and plot_x is not None and axis_value is not None
+            else ()
+        )
         if curve_value is not None:
             value_text = self._curve_value_caption(curve_value)
             value_label_action = menu.addAction(value_text)
             value_label_action.setEnabled(False)
+            save_value_action = menu.addAction(
+                self._localizer.text("annotations.save_curve_value_action")
+            )
+            menu.addSeparator()
+        elif value_choices:
             save_value_action = menu.addAction(
                 self._localizer.text("annotations.save_curve_value_action")
             )
@@ -4884,12 +4895,23 @@ class TabletView(QWidget):
         undo_action.setEnabled(self.can_undo_interaction)
         redo_action.setEnabled(self.can_redo_interaction)
         chosen = menu.exec(global_pos)
-        if (
-            save_value_action is not None
-            and chosen is save_value_action
-            and curve_value is not None
-        ):
-            self.curve_value_save_requested.emit(curve_value)
+        if chosen is None:
+            return
+        if save_value_action is not None and chosen is save_value_action:
+            if curve_value is None and value_choices:
+                caption, accepted = QInputDialog.getItem(
+                    self,
+                    self._localizer.text("annotations.save_curve_value_action"),
+                    self._localizer.text("inspector.curve"),
+                    [label for _payload, label in value_choices], 0, False,
+                )
+                if not accepted:
+                    return
+                curve_value = next(
+                    (payload for payload, label in value_choices if label == caption), None,
+                )
+            if curve_value is not None:
+                self.curve_value_save_requested.emit(curve_value)
         elif (
             chosen is not None
             and depth is not None
@@ -5052,16 +5074,50 @@ class TabletView(QWidget):
             return max(0.0, min(1.0, float(x_value) / 100.0))
         return max(0.0, min(1.0, float(x_value)))
 
+    def _curve_value_choices(
+        self, track_id: str, local_x: float, local_y: float,
+    ) -> tuple[tuple[dict[str, object], str], ...]:
+        try:
+            definition = self._layout_model.track_by_id(track_id)
+        except KeyError:
+            return ()
+        sample_index = self._nearest_axis_index(local_y)
+        if sample_index is None:
+            return ()
+        choices = []
+        for mnemonic in dict.fromkeys(definition.curve_mnemonics):
+            payload = self._curve_value_payload(
+                track_id, local_x, local_y, mnemonic=mnemonic, sample_index=sample_index,
+            )
+            if payload is not None:
+                choices.append((payload, self._curve_value_caption(payload)))
+        return tuple(choices)
+
     def _curve_value_payload(
-        self, track_id: str, local_x: float, local_y: float
+        self, track_id: str, local_x: float, local_y: float, *, mnemonic: str | None = None,
+        sample_index: int | None = None,
     ) -> dict[str, object] | None:
-        if self._dataset is None:
+        if self._dataset is None or not np.isfinite(local_x) or not np.isfinite(local_y):
             return None
-        hit = self.hit_test_curve(track_id, local_x, local_y, tolerance_px=10.0)
-        if hit is None or hit.local_y is None or not np.isfinite(float(hit.local_y)):
+        try:
+            definition = self._layout_model.track_by_id(track_id)
+        except KeyError:
             return None
-        sample_index = self._cursor_sample_index(float(hit.local_y))
-        curve = self._dataset.curve_by_mnemonic(hit.target.object_id)
+        if mnemonic is None:
+            hit = self.hit_test_curve(track_id, local_x, local_y, tolerance_px=10.0)
+            if hit is None or hit.local_y is None or not np.isfinite(float(hit.local_y)):
+                return None
+            mnemonic = hit.target.object_id
+            sample_coordinate = float(hit.local_y)
+            display_x = float(hit.local_x) if hit.local_x is not None else 0.5
+        else:
+            if mnemonic not in definition.curve_mnemonics:
+                return None
+            sample_coordinate = local_y
+            display_x = local_x
+        if sample_index is None:
+            sample_index = self._nearest_axis_index(sample_coordinate)
+        curve = self._dataset.curve_by_mnemonic(mnemonic)
         if (
             sample_index is None
             or curve is None
@@ -5077,17 +5133,12 @@ class TabletView(QWidget):
         depth = float(self._dataset.depth[sample_index])
         if not np.isfinite(value) or not np.isfinite(depth) or not np.isfinite(sample_axis):
             return None
-        try:
-            definition = self._layout_model.track_by_id(track_id)
-        except KeyError:
-            return None
-        display_x = float(hit.local_x) if hit.local_x is not None else 0.5
         payload: dict[str, object] = {
             "track_id": track_id,
             "depth": depth,
             "axis_value": sample_axis,
             "axis_id": self.vertical_index_id,
-            "mnemonic": hit.target.object_id,
+            "mnemonic": mnemonic,
             "value": value,
             "unit": (curve.metadata.unit or "").strip(),
             "depth_unit": (self._dataset.active_index.unit or "м").strip(),
@@ -7864,6 +7915,7 @@ class TabletView(QWidget):
                             x_fraction=x_fraction,
                             local_x=event.position().x(),
                             local_y=event.position().y(),
+                            plot_x=float(point.x()),
                         )
                     event.accept()
                     return True
