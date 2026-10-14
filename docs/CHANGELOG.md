@@ -1,5 +1,9 @@
 ## Print regression: 100% graph viewport and table borders
 
+- Report author editor can include/exclude all current composition annotations
+  from printing as one validated Undo command; Apply/Cancel and persisted
+  individual print flags remain in use. Screen visibility and source data stay intact.
+
 - VALUE curve anchors resolve the sample on their saved current axis, preserving
   distinct time samples at repeated MD in screen and print. Legacy depth-only
   anchors retain their existing fallback; no source/calculation/schema changes.

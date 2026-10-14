@@ -1,3 +1,13 @@
+## RPT-AUTHOR-01 — групповой выбор печати (на проверке)
+
+Existing report annotation editor предлагает RU/KK/EN команды включения и
+исключения всех аннотаций текущей composition из печати. Individual checkbox
+остаётся доступным. Controller проверяет полный bounded набор ID/ownership
+до mutation и записывает один CompoundCommand; no-op не меняет dirty/history.
+Apply/Cancel и JSON/package reopen сохраняют выбранные print_enabled без
+удаления записей, изменения visible/source/schema. Автоматическая приёмка
+проверяет текст и SYMBOL; физическая печать/визуальная плотность отдельно.
+
 ## PRINT-REGRESSION — таблицы полной ширины и чистые страницы (на проверке)
 
 По PDF М-1 20261013-222125 подтверждены сжатие таблиц до 75% и отсутствующая
