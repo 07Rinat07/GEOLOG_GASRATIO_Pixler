@@ -65,7 +65,7 @@ def test_report_gas_value_dialog_disables_missing_source(qapp, language) -> None
     try:
         button = dialog.buttons.button(QDialogButtonBox.StandardButton.Ok)
         dialog.channel.setCurrentIndex(dialog.channel.findData("C1"))
-        dialog.depth.setValue(1001.)
+        dialog.depth_spin.setValue(1001.)
         assert not button.isEnabled()
         assert dialog.selected_sample() is None
         dialog.accept()
