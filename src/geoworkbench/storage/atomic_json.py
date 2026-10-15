@@ -30,6 +30,7 @@ from geoworkbench.domain.report_composition import (
     ReportHeaderFields,
     ensure_report_composition_id,
 )
+from geoworkbench.services.report_preview_marks import preview_marks_to_list
 from geoworkbench.storage.project_codec import PROJECT_FORMAT_VERSION
 from geoworkbench.storage.source_artifacts import save_source_documents
 from geoworkbench.tablet.layout_codec import layout_to_dict
@@ -120,6 +121,7 @@ def _validate_report_compositions(
             composition.show_conclusion, bool
         ):
             raise ValueError("Видимость narrative sections должна быть логической")
+        preview_marks_to_list(composition.preview_marks)
         if len(composition.annotations) > 10_000:
             raise ValueError("report annotations превышают допустимое количество")
         identifiers = [annotation.annotation_id for annotation in composition.annotations]
@@ -223,6 +225,7 @@ def save_project(
                     report_annotation_to_dict(annotation)
                     for annotation in composition.annotations
                 ],
+                "preview_marks": preview_marks_to_list(composition.preview_marks),
                 "headers": {
                     language: asdict(header)
                     for language, header in (

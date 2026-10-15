@@ -30,6 +30,7 @@ from geoworkbench.domain.models import IndexRole
 from geoworkbench.project.report_annotation_controller import ReportAnnotationController
 from geoworkbench.ui.interpretation_gas_value_flag_dialog import ReportGasValueFlagDialog
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.report_preview_marks import PreviewMark
 from geoworkbench.services.edit_history import CommandHistory
 from geoworkbench.project.interpretation_calculation_controller import (
     InterpretationCalculationController,
@@ -436,6 +437,15 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 overwrite=True,
             )
 
+        def save_preview_marks(marks: tuple[PreviewMark, ...]) -> None:
+            # A detached dialog must never write into the next well or dataset.
+            session = self.controller.session
+            if session.current_dataset is not dataset or session.current_well_id != well_id:
+                raise RuntimeError("Report source changed during preview mark editing")
+            self._store_report_composition(
+                replace(self._report_composition(), preview_marks=marks),
+            )
+
         with tempfile.TemporaryDirectory(prefix="geolog-full-report-proof-") as folder:
             preview_path = Path(folder) / "report-proof.pdf"
             try:
@@ -448,6 +458,8 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     edit_annotations=self._edit_report_annotations,
                     export_document=render_pdf,
                     add_gas_value_flag=self._add_report_gas_value_flag,
+                    initial_marks=self._report_composition().preview_marks,
+                    on_marks_changed=save_preview_marks,
                 )
             except (OSError, RuntimeError, ValueError) as exc:
                 self._show_export_error(exc)

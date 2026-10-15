@@ -39,6 +39,7 @@ from geoworkbench.domain.report_composition import (
     ReportTrackVisibility,
     stable_report_composition_id,
 )
+from geoworkbench.services.report_preview_marks import preview_marks_from_list
 from geoworkbench.storage import project_codec_v29 as _v29
 from geoworkbench.storage.project_codec_v29 import (
     ProjectDocument as _V29ProjectDocument,
@@ -85,6 +86,7 @@ _REPORT_COMPOSITION_KEYS = {
     "show_summary",
     "show_conclusion",
     "annotations",
+    "preview_marks",
     "chart_panels",
     "target_depth_per_page",
     "geology_legend_pages",
@@ -242,6 +244,7 @@ def _report_compositions_from_dict(
                     raw, "show_conclusion", default=True
                 ),
                 annotations=_report_annotations_from_list(raw.get("annotations", [])),
+                preview_marks=preview_marks_from_list(raw.get("preview_marks", [])),
                 chart_panels=(
                     report_chart_panels_from_mapping(raw["chart_panels"])
                     if "chart_panels" in raw else DEFAULT_REPORT_CHART_PANELS

@@ -137,3 +137,62 @@ class PreviewEditHistory:
             self.redo_stack[-1], (self.undo_stack + (self.current,))[-100:],
             self.redo_stack[:-1],
         )
+
+
+# Keep authored preview metadata bounded before JSON or package serialization.
+_MAX_PERSISTED_MARKS = 512
+_MAX_PERSISTED_STROKE_POINTS = 20_000
+_MARK_KEYS = frozenset({"kind", "page", "x", "y", "text", "points"})
+
+
+def preview_marks_to_list(marks: tuple[PreviewMark, ...]) -> list[dict[str, object]]:
+    """Strict, bounded JSON-ready representation; never store a PDF raster."""
+    if not isinstance(marks, tuple) or len(marks) > _MAX_PERSISTED_MARKS:
+        raise ValueError("Invalid persisted preview mark collection")
+    if sum(len(mark.points) for mark in marks if isinstance(mark, PreviewMark)) > _MAX_PERSISTED_STROKE_POINTS:
+        raise ValueError("Too many persisted preview stroke points")
+    result: list[dict[str, object]] = []
+    for mark in marks:
+        if not isinstance(mark, PreviewMark):
+            raise ValueError("Invalid persisted preview mark")
+        # Revalidate even if a test or plugin bypassed the frozen constructor.
+        checked = PreviewMark(
+            mark.kind, mark.page, mark.x, mark.y, mark.text, mark.points,
+        )
+        result.append({
+            "kind": checked.kind.value,
+            "page": checked.page,
+            "x": checked.x,
+            "y": checked.y,
+            "text": checked.text,
+            "points": [list(point) for point in checked.points],
+        })
+    return result
+
+
+def preview_marks_from_list(data: object) -> tuple[PreviewMark, ...]:
+    """Reject malformed/unbounded project input without partially loading it."""
+    if not isinstance(data, list) or len(data) > _MAX_PERSISTED_MARKS:
+        raise ValueError("Invalid preview marks payload")
+    marks: list[PreviewMark] = []
+    total_points = 0
+    for raw in data:
+        if not isinstance(raw, dict) or set(raw) != _MARK_KEYS:
+            raise ValueError("Invalid preview mark record")
+        points = raw["points"]
+        if not isinstance(points, list) or len(points) > 4096:
+            raise ValueError("Invalid preview stroke list")
+        total_points += len(points)
+        if total_points > _MAX_PERSISTED_STROKE_POINTS:
+            raise ValueError("Too many persisted preview stroke points")
+        if not all(isinstance(point, list) and len(point) == 2 for point in points):
+            raise ValueError("Invalid preview stroke point")
+        marks.append(PreviewMark(
+            kind=PreviewMarkKind(raw["kind"]),
+            page=raw["page"],
+            x=raw["x"],
+            y=raw["y"],
+            text=raw["text"],
+            points=tuple(tuple(point) for point in points),
+        ))
+    return tuple(marks)
