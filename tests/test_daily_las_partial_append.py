@@ -6,6 +6,7 @@ import numpy as np
 
 from geoworkbench.data.las_adapter import import_las_with_report
 from geoworkbench.domain.models import Project
+from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.daily_las_growth_controller import DailyLasGrowthController
 from geoworkbench.project.session import ProjectSession
 
@@ -56,3 +57,23 @@ def test_controller_imports_reduced_daily_las_without_dropping_prior_curves(tmp_
     )
     assert session.dirty
     assert outcome.record.curve_mnemonics == ("ROP",)
+
+    # Real project package save / restore must retain source revisions and
+    # the intentionally empty cells, and then accept a later manual fill.
+    project_path = tmp_path / "M1_daily_work.geologpkg"
+    ProjectController(session=session).save_project(project_path)
+    restored_session = ProjectController().open_project(project_path)
+    restored = restored_session.current_dataset
+    assert restored is not None
+    assert restored.depth[-1] == 1004.0
+    assert len(restored.append_history) == 1
+    assert len(restored.source_revisions) >= 1
+    np.testing.assert_array_equal(restored.curve_by_mnemonic("C1").values[:5], old_c1)
+    assert np.isnan(restored.curve_by_mnemonic("C1").values[-4:]).all()
+    restored.curve_by_mnemonic("C1").values[-1] = 0.95
+    restored_session.dirty = True
+    ProjectController(session=restored_session).save_project(project_path)
+    later = ProjectController().open_project(project_path).current_dataset
+    assert later is not None
+    assert later.curve_by_mnemonic("C1").values[-1] == 0.95
+    assert np.isnan(later.curve_by_mnemonic("C1").values[-4:-1]).all()
