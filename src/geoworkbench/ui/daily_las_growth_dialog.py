@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+from collections.abc import Callable
+from typing import TypeVar
 
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
@@ -23,7 +25,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.services.application_logging import log_exception
 from geoworkbench.project.daily_las_growth_controller import DailyLasGrowthController
-from geoworkbench.services.daily_las_growth import DailyLasGrowthPlan
+from geoworkbench.services.daily_las_growth import DailyLasGrowthError, DailyLasGrowthPlan
 from geoworkbench.services.persisted_rock_code_profile_assignment import (
     RockCodeProfileReassignmentRequired,
 )
@@ -37,7 +39,11 @@ from geoworkbench.services.local_las_folder import (
     LocalLasFolderProvider,
 )
 from geoworkbench.ui.navigation_organization import open_help_for_widget
+from geoworkbench.ui.las_growth_analysis_task import run_las_growth_analysis
 from geoworkbench.ui.window_geometry import fit_window_to_screen
+
+
+_AnalysisResult = TypeVar("_AnalysisResult")
 
 
 class DailyLasGrowthDialog(QDialog):
@@ -176,6 +182,15 @@ class DailyLasGrowthDialog(QDialog):
             "Числовое обновление: новые строки, пропуски и исправления",
             "Сандық жаңарту: жаңа жолдар, бос мәндер және түзетулер",
             "Numerical update: new rows, gaps and corrections",
+        ))
+        self.numerical_mode.setToolTip(self._text(
+            "Для добавления глубин из LAS с неполным набором каналов оставьте этот "
+            "режим выключенным. Старые данные сохранятся, отсутствующие параметры "
+            "на новых глубинах останутся пустыми.",
+            "Каналдары толық емес LAS тереңдіктерін қосу үшін бұл режимді өшіріңіз. "
+            "Ескі деректер сақталады, жаңа тереңдіктердегі жоқ параметрлер бос қалады.",
+            "Leave this mode off to append depths from a LAS with fewer channels. "
+            "Existing data are preserved and omitted parameters at new depths stay empty.",
         ))
         body_layout.addWidget(self.numerical_mode)
         self.preserve_overlap = QCheckBox(self._text(
@@ -359,6 +374,15 @@ class DailyLasGrowthDialog(QDialog):
         self.controller.reset_state()
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
 
+    def _run_analysis(
+        self, operation: Callable[[], _AnalysisResult],
+    ) -> _AnalysisResult:
+        return run_las_growth_analysis(self, self._text(
+            "Чтение LAS и проверка новых глубин. Дождитесь завершения…",
+            "LAS оқу және жаңа тереңдіктерді тексеру. Аяқталуын күтіңіз…",
+            "Reading LAS and checking new depths. Please wait…",
+        ), operation)
+
     def _analyze(self) -> None:
         self._invalidate()
         dataset_id = self.target_combo.currentData()
@@ -394,13 +418,13 @@ class DailyLasGrowthDialog(QDialog):
                     else None
                 )
                 try:
-                    plan = self.controller.analyze_numerical(
+                    plan = self._run_analysis(lambda: self.controller.analyze_numerical(
                         source,
                         dataset_id,
                         provider_kind=provider_kind,
                         provider_location=provider_location,
                         geology_profile_path=geology_profile_path,
-                    )
+                    ))
                 except RockCodeProfileReassignmentRequired as conflict:
                     if not self._confirm_profile_reassignment(conflict):
                         self.controller.reset_state()
@@ -412,24 +436,25 @@ class DailyLasGrowthDialog(QDialog):
                             )
                         )
                         return
-                    plan = self.controller.analyze_numerical(
+                    plan = self._run_analysis(lambda: self.controller.analyze_numerical(
                         source,
                         dataset_id,
                         provider_kind=provider_kind,
                         provider_location=provider_location,
                         geology_profile_path=geology_profile_path,
                         allow_profile_reassignment=True,
-                    )
+                    ))
             else:
-                plan = self.controller.analyze(
+                historical_policy = (
+                    "keep_existing" if self.preserve_overlap.isChecked() else "strict"
+                )
+                plan = self._run_analysis(lambda: self.controller.analyze(
                     source,
                     dataset_id,
                     provider_kind=provider_kind,
                     provider_location=provider_location,
-                    historical_policy=(
-                        "keep_existing" if self.preserve_overlap.isChecked() else "strict"
-                    ),
-                )
+                    historical_policy=historical_policy,
+                ))
         except (OSError, RuntimeError, ValueError) as exc:
             log_exception(
                 "daily_las_growth.preview_failed",
@@ -439,6 +464,34 @@ class DailyLasGrowthDialog(QDialog):
                 numerical_mode=self.numerical_mode.isChecked(),
             )
             self.preview.setPlainText(str(exc))
+            if isinstance(exc, DailyLasGrowthError) and self.numerical_mode.isChecked():
+                answer = QMessageBox.question(
+                    self,
+                    self.windowTitle(),
+                    str(exc) + "\n\n" + self._text(
+                        "Проверить безопасное наращивание только новых глубин? "
+                        "Старые значения не изменятся. Каналы, которых нет в новом LAS, "
+                        "останутся пустыми на новых глубинах. Это только проверка: "
+                        "применение потребует подтверждения предварительного анализа.",
+                        "Тек жаңа тереңдіктерді қауіпсіз қосуды тексеру керек пе? "
+                        "Ескі мәндер өзгермейді. Жаңа LAS-та жоқ арналар жаңа "
+                        "тереңдіктерде бос қалады. Бұл тек тексеру; қолдану үшін "
+                        "алдын ала талдауды растау қажет.",
+                        "Analyze safe growth using new depths only? Existing values "
+                        "will remain unchanged. Channels missing from the new LAS stay "
+                        "empty at new depths. This only builds a preview; applying it "
+                        "requires confirmation of that preview.",
+                    ),
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
+                )
+                if answer == QMessageBox.StandardButton.Yes:
+                    self.numerical_mode.setChecked(False)
+                    self.preserve_overlap.setChecked(True)
+                    self._analyze()
+                else:
+                    self.controller.reset_state()
+                return
             QMessageBox.warning(self, self.windowTitle(), str(exc))
             return
         self.plan = plan
