@@ -392,7 +392,12 @@ def paint_ratio_reference_summary(
                 painter.drawPath(path)
                 phase = fluid_marker_at_depth(float(all_depth[row]), candidates)
                 for point in points:
-                    draw_fluid_marker(painter, point, phase, size=7.0)
+                    _depth_marker(painter, point, depth_bin)
+                    # Keep the source coordinate and monochrome depth key intact.
+                    # A separate adjacent symbol encodes interval phase evidence.
+                    draw_fluid_marker(
+                        painter, QPointF(point.x() + 9.0, point.y()), phase, size=7.0,
+                    )
                 _text(
                     painter,
                     QRectF(742, 388 + profile_index * 25, 228, 24),
