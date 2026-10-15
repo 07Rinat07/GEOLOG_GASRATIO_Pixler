@@ -44,6 +44,8 @@ from geoworkbench.services.report_preview_marks import (
     PreviewMark,
     PreviewMarkKind,
     PreviewOverlay,
+    find_preview_mark,
+    translate_preview_mark,
 )
 
 
@@ -81,6 +83,7 @@ class FullReportPreviewDialog(QDialog):
         self._mark_history = PreviewEditHistory(current=PreviewOverlay(initial_marks))
         self._drawing_page: int | None = None
         self._stroke_points: list[tuple[float, float]] = []
+        self._moving_mark: tuple[int, int, float, float, PreviewMark] | None = None
         self.setObjectName("full-report-preview-dialog")
         self.setWindowTitle(self._text("Полный предпросмотр отчёта", "Есепті толық қарау", "Full report preview"))
         self.resize(1070, 830)
@@ -117,12 +120,12 @@ class FullReportPreviewDialog(QDialog):
 
         self.help_label = QLabel(
             self._text(
-                "Выберите инструмент и щёлкните на странице PDF. Изменения предпросмотра "
-                "попадут в «Сохранить PDF»; «Аннотации» редактирует данные проекта.",
-                "Құралды таңдап, PDF бетіне басыңыз. Алдын ала қарау белгілері "
-                "PDF-ке сақталады; «Аннотациялар» жоба деректерін өңдейді.",
-                "Choose a tool and click a PDF page. Preview marks are included "
-                "in Save PDF; Annotations edits the project report.",
+                "Выберите инструмент на странице PDF. «Переместить» — перетащите "
+                "пометку, «Изменить текст» — щёлкните по ней. Изменения сохраняются в проекте.",
+                "PDF бетінде құралды таңдаңыз. «Жылжыту» белгісін сүйрейді, "
+                "«Мәтінді өзгерту» белгіге басқанда өңдейді. Өзгерістер жобада сақталады.",
+                "Choose a tool on the PDF page. Drag a mark with Move, or click "
+                "Edit text to revise it. Changes are saved in the project.",
             ),
             self,
         )
@@ -142,7 +145,12 @@ class FullReportPreviewDialog(QDialog):
         self.mark_tool.addItem(
             self._text("Карандаш", "Қарындаш", "Pencil"), PreviewMarkKind.FREEHAND,
         )
+        self.mark_tool.addItem(self._text("Переместить", "Жылжыту", "Move"), "move")
+        self.mark_tool.addItem(
+            self._text("Изменить текст", "Мәтінді өзгерту", "Edit text"), "edit",
+        )
         self.mark_tool.addItem(self._text("Удалить", "Жою", "Remove"), "remove")
+        self.mark_tool.currentIndexChanged.connect(self._cancel_moving_mark)
         tools.addWidget(self.mark_tool)
         self.mark_undo_button = QPushButton(self._text("Отменить", "Болдырмау", "Undo"), self)
         self.mark_undo_button.setObjectName("full-report-mark-undo")
@@ -318,6 +326,9 @@ class FullReportPreviewDialog(QDialog):
         self._rendered_pages.clear()
         self._schedule_visible_render()
 
+    def _cancel_moving_mark(self) -> None:
+        self._moving_mark = None
+
     def _undo_mark(self) -> None:
         self._update_marks(self._mark_history.undo())
 
@@ -356,16 +367,65 @@ class FullReportPreviewDialog(QDialog):
                         self._mark_history.apply(self._mark_history.current.add(mark)),
                     )
             return True
+        if tool == "move":
+            if phase == "press":
+                index = find_preview_mark(self._mark_history.current.marks, page, x, y)
+                self._moving_mark = None
+                if index is not None:
+                    self._moving_mark = (
+                        page, index, x, y, self._mark_history.current.marks[index],
+                    )
+            elif phase == "release":
+                grabbed = self._moving_mark
+                self._moving_mark = None
+                if grabbed is not None:
+                    original_page, index, start_x, start_y, original = grabbed
+                    current_marks = self._mark_history.current.marks
+                    if (
+                        page == original_page
+                        and index < len(current_marks)
+                        and current_marks[index] == original
+                    ):
+                        moved = translate_preview_mark(
+                            original, x - start_x, y - start_y,
+                        )
+                        self._update_marks(self._mark_history.apply(
+                            self._mark_history.current.replace(index, moved),
+                        ))
+            return True
         if phase != "press":
             return False
-        if tool == "remove":
-            for index in range(len(self._mark_history.current.marks) - 1, -1, -1):
-                mark = self._mark_history.current.marks[index]
-                if mark.page == page and abs(mark.x - x) <= 0.035 and abs(mark.y - y) <= 0.035:
+        if tool == "edit":
+            index = find_preview_mark(self._mark_history.current.marks, page, x, y)
+            if index is None:
+                return True
+            original = self._mark_history.current.marks[index]
+            if original.kind is PreviewMarkKind.FREEHAND:
+                return True
+            title = self._text(
+                "Изменить текст пометки", "Белгі мәтінін өзгерту", "Edit mark text",
+            )
+            value, accepted = QInputDialog.getMultiLineText(
+                self, title, title, original.text,
+            )
+            if accepted:
+                try:
+                    edited = PreviewMark(
+                        original.kind, original.page, original.x, original.y,
+                        text=value, points=original.points,
+                    )
                     self._update_marks(self._mark_history.apply(
-                        self._mark_history.current.remove(index),
+                        self._mark_history.current.replace(index, edited),
                     ))
-                    break
+                except ValueError as exc:
+                    self._show_error(exc)
+            return True
+        if tool == "remove":
+            index = find_preview_mark(self._mark_history.current.marks, page, x, y)
+            if index is not None:
+                self._update_marks(self._mark_history.apply(
+                    self._mark_history.current.remove(index),
+                ))
             return True
         if not isinstance(tool, PreviewMarkKind):
             return False
