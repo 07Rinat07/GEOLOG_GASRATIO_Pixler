@@ -691,6 +691,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         dataset = self.controller.session.current_dataset
         if dataset is None:
             return
+        original_well_id = self.controller.session.current_well_id
         geology = interpretation_geology_snapshot(self.controller.session)
 
         identity = self._select_report_identity(report)
@@ -725,6 +726,15 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         with tempfile.TemporaryDirectory(prefix="geolog-interpretation-print-") as folder:
             prepared_pdf = Path(folder) / "interpretation-report.pdf"
             try:
+                session = self.controller.session
+                if (
+                    session.current_dataset is not dataset
+                    or session.current_well_id != original_well_id
+                    or report.dataset_id != dataset.dataset_id
+                ):
+                    raise RuntimeError(
+                        "Report source changed during system print preparation"
+                    )
                 export_hydrocarbon_interpretation_pdf(
                     report,
                     prepared_pdf,
