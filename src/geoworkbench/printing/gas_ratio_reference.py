@@ -10,6 +10,10 @@ from PySide6.QtCore import QByteArray, QBuffer, QIODevice, QLineF, QPointF, QRec
 from PySide6.QtGui import QColor, QFontMetricsF, QImage, QPainter, QPainterPath, QPen, QPolygonF
 
 from geoworkbench.domain.models import CurveData, Dataset
+from geoworkbench.services.hydrocarbon_interpretation import HydrocarbonCandidateInterval
+from geoworkbench.printing.hydrocarbon_fluid_markers import (
+    draw_fluid_marker, fluid_marker_at_depth,
+)
 from geoworkbench.printing.report_painter_fonts import point_coordinate_font
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.services.gas_curve_presentation import GasRatioScale, gas_ratio_scale
@@ -247,6 +251,8 @@ def paint_ratio_reference_summary(
     target: QRectF,
     dataset: Dataset,
     language: AppLanguage,
+    *,
+    candidates: Sequence[HydrocarbonCandidateInterval] = (),
 ) -> bool:
     ratios = {
         ratio_identifier(curve): curve
@@ -384,12 +390,13 @@ def paint_ratio_reference_summary(
                 for point in points[1:]:
                     path.lineTo(point)
                 painter.drawPath(path)
+                phase = fluid_marker_at_depth(float(all_depth[row]), candidates)
                 for point in points:
-                    _depth_marker(painter, point, depth_bin)
+                    draw_fluid_marker(painter, point, phase, size=7.0)
                 _text(
                     painter,
                     QRectF(742, 388 + profile_index * 25, 228, 24),
-                    f"{all_depth[row]:.2f} m",
+                    f"{all_depth[row]:.2f} m · {phase.code}",
                     typography.body_pt,
                 )
                 painter.setPen(_depth_pen(depth_bin, 1.5))
@@ -422,9 +429,9 @@ def paint_ratio_reference_summary(
             painter,
             QRectF(65, 623, 900, 26),
             {
-                AppLanguage.RU: "Точки — парные измерения; профили — отдельные глубины. Цвет, форма и линия: от меньшей глубины к большей.",
-                AppLanguage.KK: "Нүктелер — жұп өлшемдер; профильдер — жеке тереңдіктер. Түс, пішін және сызық: тереңдік өсуі.",
-                AppLanguage.EN: "Points are paired observations; profiles are individual depths. Colour, shape and line: shallow to deep.",
+                AppLanguage.RU: "Цвет линий — глубина; символы профиля — предварительная фаза (код у глубины и в таблице). ? — фаза не определена.",
+                AppLanguage.KK: "Сызық түсі — тереңдік; профиль таңбалары — алдын ала фаза (код тереңдік пен кестеде). ? — фаза анықталмаған.",
+                AppLanguage.EN: "Line colour: depth; profile symbols: preliminary phase (code by depth and in table). ? — phase undetermined.",
             }[language],
             typography.footer_pt,
         )
@@ -433,12 +440,15 @@ def paint_ratio_reference_summary(
     return True
 
 
-def ratio_reference_summary_uri(dataset: Dataset, language: AppLanguage) -> str:
+def ratio_reference_summary_uri(
+    dataset: Dataset, language: AppLanguage,
+    *, candidates: Sequence[HydrocarbonCandidateInterval] = (),
+) -> str:
     image = QImage(1600, 1040, QImage.Format.Format_ARGB32_Premultiplied)
     image.fill(QColor(modern_oilfield_report_profile().palette.page))
     painter = QPainter(image)
     try:
-        if not paint_ratio_reference_summary(painter, QRectF(image.rect()), dataset, language):
+        if not paint_ratio_reference_summary(painter, QRectF(image.rect()), dataset, language, candidates=candidates):
             return ""
     finally:
         painter.end()

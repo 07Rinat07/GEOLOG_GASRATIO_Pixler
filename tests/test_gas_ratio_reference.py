@@ -57,3 +57,27 @@ def test_reference_summary_handles_complete_pixler_profiles_without_mutating_sou
         assert ratio_reference_summary_uri(dataset, language).startswith("data:image/png;base64,")
     for name, curve in dataset.curves.items():
         np.testing.assert_array_equal(curve.values, before[name])
+
+
+def test_pixler_profile_marks_each_component_with_interval_phase(qapp, monkeypatch) -> None:
+    from types import SimpleNamespace
+    import geoworkbench.printing.gas_ratio_reference as reference
+
+    dataset = _dataset()
+    candidates = (
+        SimpleNamespace(top_depth=100.0, bottom_depth=101.0, fluid_hypothesis="probable_gas"),
+        SimpleNamespace(top_depth=102.0, bottom_depth=102.0,
+                        fluid_hypothesis="probable_liquid_hydrocarbons"),
+    )
+    seen = []
+    original = reference.draw_fluid_marker
+
+    def capture(painter, center, spec, *, size):
+        seen.append(spec.code)
+        original(painter, center, spec, size=size)
+
+    monkeypatch.setattr(reference, "draw_fluid_marker", capture)
+    assert reference.ratio_reference_summary_uri(
+        dataset, AppLanguage.RU, candidates=candidates,
+    ).startswith("data:image/png;base64,")
+    assert seen == ["G"] * 8 + ["L"] * 4 + ["?"] * 4

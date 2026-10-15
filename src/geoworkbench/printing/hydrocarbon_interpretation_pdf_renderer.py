@@ -180,7 +180,9 @@ def render_hydrocarbon_interpretation_report(
                     phase_html, canvas.content_rect.width(), visual=canvas.visual,
                 )
                 chart_rect = _ratio_reference_chart_rect(canvas.content_rect, phase_height)
-                paint_ratio_reference_summary(painter, chart_rect, reference_dataset, language)
+                paint_ratio_reference_summary(
+                    painter, chart_rect, reference_dataset, language, candidates=report.candidates,
+                )
                 scale = min(chart_rect.width() / 1000.0, chart_rect.height() / 650.0)
                 canvas.y = chart_rect.top() + 650.0 * scale + 10.0
                 render_report_html(

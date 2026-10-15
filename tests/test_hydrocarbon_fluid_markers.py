@@ -199,3 +199,18 @@ def test_opus_graph_markers_do_not_use_old_oil_wording() -> None:
         "УВ-флюид неопределённого типа",
     )
     assert all("нефт" not in label.casefold() for label in labels)
+
+
+def test_profile_phase_uses_only_intervals_covering_its_depth() -> None:
+    from types import SimpleNamespace
+    from geoworkbench.printing.hydrocarbon_fluid_markers import fluid_marker_at_depth
+
+    gas = SimpleNamespace(top_depth=100.0, bottom_depth=110.0, fluid_hypothesis="probable_gas")
+    oil = SimpleNamespace(top_depth=120.0, bottom_depth=110.0,
+                          fluid_hypothesis="probable_liquid_hydrocarbons")
+    assert fluid_marker_at_depth(105.0, (gas, oil)).code == "G"
+    assert fluid_marker_at_depth(115.0, (gas, oil)).code == "L"
+    assert fluid_marker_at_depth(110.0, (gas, oil)).code == "?"
+    assert fluid_marker_at_depth(99.0, (gas, oil)).code == "?"
+    assert fluid_marker_at_depth(float("nan"), (gas, oil)).code == "?"
+    assert fluid_marker_at_depth(105.0, (gas, gas)).code == "G"

@@ -110,7 +110,9 @@ def hydrocarbon_interpretation_html_with_front_chart(
         print_layout=print_layout,
         layout_profile=layout_profile,
     )
-    summary_uri = ratio_reference_summary_uri(scope_dataset(dataset, depth_range), language)
+    summary_uri = ratio_reference_summary_uri(
+        scope_dataset(dataset, depth_range), language, candidates=report.candidates,
+    )
     if summary_uri:
         block += (
             "<div class='gas-ratio-reference' style='page-break-before:always;'>"
