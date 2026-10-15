@@ -340,9 +340,10 @@ class FullReportPreviewDialog(QDialog):
         tool_data = self.mark_tool.currentData()
         if tool_data is None:
             return False
-        # Qt's QVariant may return a StrEnum as its underlying string value.
+        # Qt may return StrEnum data as its underlying string. Move, Edit
+        # and Remove are editor commands, not PreviewMarkKind values.
         tool = tool_data
-        if isinstance(tool_data, str) and tool_data != "remove":
+        if isinstance(tool_data, str) and tool_data not in {"move", "edit", "remove"}:
             try:
                 tool = PreviewMarkKind(tool_data)
             except ValueError:
