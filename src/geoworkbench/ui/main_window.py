@@ -326,6 +326,7 @@ from geoworkbench.ui.tablet_track_editor_dialog import TabletTrackEditorDialog
 from geoworkbench.ui.nct_dialog import NctCalculationDialog
 from geoworkbench.ui.new_las_dialog import NewLasDialog
 from geoworkbench.ui.daily_las_growth_dialog import DailyLasGrowthDialog
+from geoworkbench.ui.daily_las_growth_result import daily_las_growth_result_text
 from geoworkbench.ui.las_table_editor import LasTableEditor
 from geoworkbench.ui.las_export_dialog import LasExportPlanDialog
 from geoworkbench.ui.las_editor_dialog import LasEditorDialog, LasEditorOperation
@@ -4255,6 +4256,12 @@ class MainWindow(QMainWindow):
             )
         self.statusBar().showMessage(message)
         self._log(message)
+        updated_dataset = self.session.current_dataset
+        if updated_dataset is not None:
+            QMessageBox.information(
+                self, self._t("daily_las_growth.action"),
+                daily_las_growth_result_text(updated_dataset, saved_path, self.language),
+            )
 
         warnings = tuple(getattr(save_result, "warnings", ()))
         if warnings:

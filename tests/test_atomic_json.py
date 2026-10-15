@@ -69,3 +69,32 @@ def test_atomic_save_rejects_report_for_unknown_dataset(tmp_path) -> None:
         )
 
     assert not target.exists()
+
+
+def test_streamed_json_matches_existing_format_for_arrays_and_unicode():
+    from io import StringIO
+    import json
+    import numpy as np
+    from geoworkbench.storage.atomic_json import _default, _write_json_stream
+    payload = {"скважина": "М-1", "values": np.array([1.0, np.nan, 0.0]),
+               "large": np.arange(100_000, dtype=float)}
+    stream = StringIO()
+    _write_json_stream(stream, payload)
+    assert stream.getvalue() == json.dumps(payload, ensure_ascii=False, indent=2, default=_default)
+
+
+def test_stream_encoding_error_preserves_existing_project(tmp_path, monkeypatch):
+    from geoworkbench.domain.models import Project
+    from geoworkbench.storage import atomic_json
+    target = tmp_path / "project.geolog.json"
+    target.write_text("previous version")
+
+    def fail(stream, document):
+        stream.write("partial")
+        raise OSError("write failed")
+
+    monkeypatch.setattr(atomic_json, "_write_json_stream", fail)
+    with pytest.raises(OSError, match="write failed"):
+        atomic_json.save_project(Project("stream-failure", "Project"), target)
+    assert target.read_text() == "previous version"
+    assert not list(tmp_path.glob("*.tmp"))
