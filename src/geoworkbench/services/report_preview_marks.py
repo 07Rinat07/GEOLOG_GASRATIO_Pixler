@@ -95,3 +95,45 @@ class PreviewOverlay:
     def _validate_index(self, index: int) -> None:
         if type(index) is not int or not 0 <= index < len(self.marks):
             raise IndexError("Invalid overlay mark index")
+
+
+@dataclass(frozen=True, slots=True)
+class PreviewEditHistory:
+    """Bounded immutable undo/redo snapshots for one report preview session."""
+
+    current: PreviewOverlay = PreviewOverlay()
+    undo_stack: tuple[PreviewOverlay, ...] = ()
+    redo_stack: tuple[PreviewOverlay, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.current, PreviewOverlay):
+            raise ValueError("Invalid current overlay")
+        if len(self.undo_stack) > 100 or len(self.redo_stack) > 100:
+            raise ValueError("Preview edit history exceeds limit")
+        if not all(isinstance(item, PreviewOverlay) for item in (*self.undo_stack, *self.redo_stack)):
+            raise ValueError("Invalid preview history snapshot")
+
+    def apply(self, next_overlay: PreviewOverlay) -> "PreviewEditHistory":
+        if not isinstance(next_overlay, PreviewOverlay):
+            raise ValueError("Invalid preview overlay")
+        if next_overlay == self.current:
+            return self
+        return PreviewEditHistory(
+            next_overlay, (self.undo_stack + (self.current,))[-100:], (),
+        )
+
+    def undo(self) -> "PreviewEditHistory":
+        if not self.undo_stack:
+            return self
+        return PreviewEditHistory(
+            self.undo_stack[-1], self.undo_stack[:-1],
+            (self.redo_stack + (self.current,))[-100:],
+        )
+
+    def redo(self) -> "PreviewEditHistory":
+        if not self.redo_stack:
+            return self
+        return PreviewEditHistory(
+            self.redo_stack[-1], (self.undo_stack + (self.current,))[-100:],
+            self.redo_stack[:-1],
+        )
