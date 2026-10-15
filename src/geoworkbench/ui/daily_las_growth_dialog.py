@@ -434,8 +434,17 @@ class DailyLasGrowthDialog(QDialog):
                 "If the range and rows are correct, press Append. The .geologpkg is saved automatically with a recovery copy; then rerun the required calculations.",
             )
         )
+        omitted = len(plan.missing_curve_mnemonics)
+        channel_summary = self._text(
+            f"Кривых из нового LAS: {len(plan.curve_mnemonics)}. Не предоставлены: {omitted}. "
+            "На новых глубинах отсутствующие каналы будут NaN (не ноль).",
+            f"Жаңа LAS қисықтары: {len(plan.curve_mnemonics)}. Жоқ қисықтар: {omitted}. "
+            "Жаңа тереңдіктерде жоқ арналар NaN (нөл емес) болады.",
+            f"Incoming LAS curves: {len(plan.curve_mnemonics)}. Missing: {omitted}. "
+            "Omitted channels become NaN (not zero) at new depths.",
+        )
         self.preview.setPlainText(
-            self._text(
+            channel_summary + "\n\n" + self._text(
                 f"Ось: {role} ({plan.index_mnemonic})\nДиапазон файла: {plan.start_value} … {plan.stop_value}\nНовых строк: {plan.rows_added}\nСовпадающих строк: {plan.rows_skipped}\nФайл уже импортирован: {duplicate}\n\nБудет изменён только выбранный dataset.\n\n{next_step}",
                 f"Ось: {role} ({plan.index_mnemonic})\nФайл ауқымы: {plan.start_value} … {plan.stop_value}\nЖаңа жолдар: {plan.rows_added}\nСәйкес жолдар: {plan.rows_skipped}\nФайл бұрын импортталған: {duplicate}\n\nТек таңдалған dataset өзгереді.\n\n{next_step}",
                 f"Axis: {role} ({plan.index_mnemonic})\nFile range: {plan.start_value} … {plan.stop_value}\nNew rows: {plan.rows_added}\nMatching rows: {plan.rows_skipped}\nAlready imported: {duplicate}\n\nOnly the selected dataset will change.\n\n{next_step}",
