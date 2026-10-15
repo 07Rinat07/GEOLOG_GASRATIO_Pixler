@@ -43,6 +43,7 @@ from geoworkbench.services.report_preview_marks import (
     PreviewEditHistory,
     PreviewMark,
     PreviewMarkKind,
+    PreviewOverlay,
 )
 
 
@@ -60,6 +61,8 @@ class FullReportPreviewDialog(QDialog):
         edit_annotations: Callable[[], None],
         export_document: Callable[[Path], None],
         add_gas_value_flag: Callable[[], None] | None = None,
+        initial_marks: tuple[PreviewMark, ...] = (),
+        on_marks_changed: Callable[[tuple[PreviewMark, ...]], None] | None = None,
         language: AppLanguage = AppLanguage.RU,
         parent: QWidget | None = None,
     ) -> None:
@@ -69,12 +72,13 @@ class FullReportPreviewDialog(QDialog):
         self._edit_annotations = edit_annotations
         self._export_document = export_document
         self._add_gas_value_flag = add_gas_value_flag
+        self._on_marks_changed = on_marks_changed
         self._language = language
         self._page_labels: list[QLabel] = []
         self._rendered_pages: set[int] = set()
         self._page_dimensions: list[tuple[float, float]] = []
         self._refresh_scheduled = False
-        self._mark_history = PreviewEditHistory()
+        self._mark_history = PreviewEditHistory(current=PreviewOverlay(initial_marks))
         self._drawing_page: int | None = None
         self._stroke_points: list[tuple[float, float]] = []
         self.setObjectName("full-report-preview-dialog")
@@ -297,6 +301,18 @@ class FullReportPreviewDialog(QDialog):
         self.mark_redo_button.setEnabled(bool(self._mark_history.redo_stack))
 
     def _update_marks(self, updated: PreviewEditHistory) -> None:
+        if updated is self._mark_history:
+            return
+        if (
+            updated.current != self._mark_history.current
+            and self._on_marks_changed is not None
+        ):
+            try:
+                # Persist first; reject stale-session edits without changing UI history.
+                self._on_marks_changed(updated.current.marks)
+            except (OSError, RuntimeError, ValueError) as exc:
+                self._show_error(exc)
+                return
         self._mark_history = updated
         self._sync_mark_buttons()
         self._rendered_pages.clear()
