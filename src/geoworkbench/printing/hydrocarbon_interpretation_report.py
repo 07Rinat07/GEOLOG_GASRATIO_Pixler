@@ -61,6 +61,8 @@ from geoworkbench.services.report_passport import (
     ReportRenderSettings,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.printing.report_preview_overlays import write_annotated_preview_pdf
+from geoworkbench.services.report_preview_marks import PreviewOverlay, preview_marks_to_list
 
 if TYPE_CHECKING:
     from geoworkbench.project.session import ProjectSession
@@ -89,12 +91,31 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
     annotations: tuple[ReportAnnotationRecord, ...] = (),
     chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
     target_depth_per_page: float = 100.0,
+    include_preview_marks: bool = False,
     overwrite: bool = False,
 ) -> ReportOutputTransactionResult:
     labels = hydrocarbon_report_print_labels(language)
     dataset = session.current_dataset
     if dataset is None:
         raise HydrocarbonInterpretationPdfError(labels.pdf_passport_dataset_required)
+    if not isinstance(include_preview_marks, bool):
+        raise HydrocarbonInterpretationPdfError("Invalid report preview export selection")
+    # Only the normal report exporter opts in. Full preview overlays the marks
+    # independently and must not stamp its source PDF twice.
+    preview_marks = ()
+    if include_preview_marks:
+        if report.dataset_id != dataset.dataset_id:
+            raise HydrocarbonInterpretationPdfError(
+                "Report preview marks cannot be exported for a different dataset"
+            )
+        current_composition = session.report_compositions.get(
+            dataset.dataset_id, DEFAULT_INTERPRETATION_REPORT_COMPOSITION,
+        )
+        preview_marks = current_composition.preview_marks
+        try:
+            preview_marks_to_list(preview_marks)
+        except ValueError as exc:
+            raise HydrocarbonInterpretationPdfError("Invalid stored report preview marks") from exc
     # A caller can supply an annotation snapshot independently from the
     # selected dataset. Never sign or paint notes from another well, dataset,
     # or report composition in the production passport export boundary.
@@ -143,6 +164,8 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
     render_options = (*render_options, ("target_depth_per_page", str(target_depth_per_page)))
     if annotations:
         render_options = (*render_options, ("report_annotations", str(len(annotations))))
+    if preview_marks:
+        render_options = (*render_options, ("report_preview_marks", str(len(preview_marks))))
     if chart_panels != DEFAULT_REPORT_CHART_PANELS:
         render_options = (
             *render_options,
@@ -170,26 +193,46 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
         ),
     )
 
+    def produce_staged_pdf(staged: Path) -> Path:
+        # Compose page marks before the recoverable transaction signs and
+        # fingerprints the output, including the optional passport sidecar.
+        unmarked = staged.with_name(f".unmarked-{staged.name}") if preview_marks else staged
+        try:
+            export_hydrocarbon_interpretation_pdf(
+                report,
+                unmarked,
+                language=language,
+                dataset=dataset,
+                include_chart=include_chart,
+                orientation=orientation,
+                identity=details,
+                geology=geology,
+                geology_track_settings=geology_track_settings,
+                legend_mode=legend_mode,
+                geology_legend_pages=geology_legend_pages,
+                layout_profile=layout_profile,
+                annotations=annotations,
+                target_depth_per_page=target_depth_per_page,
+                **chart_panel_render_options(chart_panels),
+                overwrite=True,
+            )
+            if preview_marks:
+                try:
+                    write_annotated_preview_pdf(
+                        unmarked, staged, PreviewOverlay(preview_marks),
+                    )
+                except ValueError as exc:
+                    raise HydrocarbonInterpretationPdfError(
+                        f"Cannot place stored preview marks: {exc}"
+                    ) from exc
+            return staged
+        finally:
+            if preview_marks:
+                unmarked.unlink(missing_ok=True)
+
     return execute_report_output_transaction(
         destination,
-        lambda staged: export_hydrocarbon_interpretation_pdf(
-            report,
-            staged,
-            language=language,
-            dataset=dataset,
-            include_chart=include_chart,
-            orientation=orientation,
-            identity=details,
-            geology=geology,
-            geology_track_settings=geology_track_settings,
-            legend_mode=legend_mode,
-            geology_legend_pages=geology_legend_pages,
-            layout_profile=layout_profile,
-            annotations=annotations,
-            target_depth_per_page=target_depth_per_page,
-            **chart_panel_render_options(chart_panels),
-            overwrite=True,
-        ),
+        produce_staged_pdf,
         passport,
         overwrite=overwrite,
     )
