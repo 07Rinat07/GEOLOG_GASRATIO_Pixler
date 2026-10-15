@@ -95,6 +95,8 @@ from geoworkbench.ui.interpretation_report_annotation_dialog import (
     InterpretationReportAnnotationDialog,
 )
 from geoworkbench.ui.interpretation_full_report_preview import FullReportPreviewDialog
+from geoworkbench.printing.report_preview_overlays import write_annotated_preview_pdf
+from geoworkbench.services.report_preview_marks import PreviewOverlay
 from geoworkbench.ui.interpretation_report_workspace_expert import (
     InterpretationReportWorkspace as _ExpertInterpretationReportWorkspace,
 )
@@ -689,6 +691,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         dataset = self.controller.session.current_dataset
         if dataset is None:
             return
+        original_well_id = self.controller.session.current_well_id
         geology = interpretation_geology_snapshot(self.controller.session)
 
         identity = self._select_report_identity(report)
@@ -701,6 +704,15 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             report_profile=report.report_profile,
         )
         if layout_dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        if (
+            self.controller.session.current_dataset is not dataset
+            or self.controller.session.current_well_id != original_well_id
+            or report.dataset_id != dataset.dataset_id
+        ):
+            self._show_export_error(
+                RuntimeError("Report source changed during system print preparation"),
+            )
             return
         layout = layout_dialog.selected_layout()
         composition = with_report_header_fields(
@@ -723,6 +735,15 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         with tempfile.TemporaryDirectory(prefix="geolog-interpretation-print-") as folder:
             prepared_pdf = Path(folder) / "interpretation-report.pdf"
             try:
+                session = self.controller.session
+                if (
+                    session.current_dataset is not dataset
+                    or session.current_well_id != original_well_id
+                    or report.dataset_id != dataset.dataset_id
+                ):
+                    raise RuntimeError(
+                        "Report source changed during system print preparation"
+                    )
                 export_hydrocarbon_interpretation_pdf(
                     report,
                     prepared_pdf,
@@ -741,9 +762,18 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     **chart_panel_render_options(composition.chart_panels),
                     overwrite=True,
                 )
+                if composition.preview_marks:
+                    marked_pdf = Path(folder) / "interpretation-report-marked.pdf"
+                    # Only the selected dataset's composition is permitted;
+                    # its source PDF is never edited in place. Stamp before
+                    # any pages are submitted to the Windows print spooler.
+                    write_annotated_preview_pdf(
+                        prepared_pdf, marked_pdf, PreviewOverlay(composition.preview_marks),
+                    )
+                    prepared_pdf = marked_pdf
                 with fitz.open(prepared_pdf) as document:
                     total_pages = document.page_count
-            except (OSError, HydrocarbonInterpretationPdfError, RuntimeError) as exc:
+            except (OSError, HydrocarbonInterpretationPdfError, RuntimeError, ValueError) as exc:
                 self._show_export_error(exc)
                 return
             if total_pages < 1:
