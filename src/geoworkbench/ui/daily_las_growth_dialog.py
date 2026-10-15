@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+from collections.abc import Callable
+from typing import TypeVar
 
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
@@ -37,7 +39,11 @@ from geoworkbench.services.local_las_folder import (
     LocalLasFolderProvider,
 )
 from geoworkbench.ui.navigation_organization import open_help_for_widget
+from geoworkbench.ui.las_growth_analysis_task import run_las_growth_analysis
 from geoworkbench.ui.window_geometry import fit_window_to_screen
+
+
+_AnalysisResult = TypeVar("_AnalysisResult")
 
 
 class DailyLasGrowthDialog(QDialog):
@@ -368,6 +374,15 @@ class DailyLasGrowthDialog(QDialog):
         self.controller.reset_state()
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
 
+    def _run_analysis(
+        self, operation: Callable[[], _AnalysisResult],
+    ) -> _AnalysisResult:
+        return run_las_growth_analysis(self, self._text(
+            "Чтение LAS и проверка новых глубин. Дождитесь завершения…",
+            "LAS оқу және жаңа тереңдіктерді тексеру. Аяқталуын күтіңіз…",
+            "Reading LAS and checking new depths. Please wait…",
+        ), operation)
+
     def _analyze(self) -> None:
         self._invalidate()
         dataset_id = self.target_combo.currentData()
@@ -403,13 +418,13 @@ class DailyLasGrowthDialog(QDialog):
                     else None
                 )
                 try:
-                    plan = self.controller.analyze_numerical(
+                    plan = self._run_analysis(lambda: self.controller.analyze_numerical(
                         source,
                         dataset_id,
                         provider_kind=provider_kind,
                         provider_location=provider_location,
                         geology_profile_path=geology_profile_path,
-                    )
+                    ))
                 except RockCodeProfileReassignmentRequired as conflict:
                     if not self._confirm_profile_reassignment(conflict):
                         self.controller.reset_state()
@@ -421,24 +436,25 @@ class DailyLasGrowthDialog(QDialog):
                             )
                         )
                         return
-                    plan = self.controller.analyze_numerical(
+                    plan = self._run_analysis(lambda: self.controller.analyze_numerical(
                         source,
                         dataset_id,
                         provider_kind=provider_kind,
                         provider_location=provider_location,
                         geology_profile_path=geology_profile_path,
                         allow_profile_reassignment=True,
-                    )
+                    ))
             else:
-                plan = self.controller.analyze(
+                historical_policy = (
+                    "keep_existing" if self.preserve_overlap.isChecked() else "strict"
+                )
+                plan = self._run_analysis(lambda: self.controller.analyze(
                     source,
                     dataset_id,
                     provider_kind=provider_kind,
                     provider_location=provider_location,
-                    historical_policy=(
-                        "keep_existing" if self.preserve_overlap.isChecked() else "strict"
-                    ),
-                )
+                    historical_policy=historical_policy,
+                ))
         except (OSError, RuntimeError, ValueError) as exc:
             log_exception(
                 "daily_las_growth.preview_failed",
