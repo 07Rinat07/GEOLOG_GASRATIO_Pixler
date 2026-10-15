@@ -91,7 +91,15 @@ def test_reference_pdf_has_filled_depth_markers_and_distinct_vector_line_keys(qa
     with fitz.open(destination) as pdf:
         drawings = pdf[0].get_drawings()
     assert len([drawing for drawing in drawings if drawing["fill"] is not None]) >= 49
-    assert len([drawing for drawing in drawings if drawing["fill"] is not None and drawing["rect"].get_area() > 20]) == 1
+    large_fills = [drawing for drawing in drawings
+                   if drawing["fill"] is not None and drawing["rect"].get_area() > 20]
+    # White page plus the three deliberate logarithmic guide bands. Curve
+    # strokes must not accidentally inherit a filled brush.
+    assert len(large_fills) == 4
+    expected_colors = ((1.0, 1.0, 1.0), (231 / 255, 246 / 255, 234 / 255),
+                       (232 / 255, 241 / 255, 1.0), (1.0, 240 / 255, 237 / 255))
+    for drawing, expected in zip(large_fills, expected_colors, strict=True):
+        assert drawing["fill"] == pytest.approx(expected, abs=0.005)
     depth_strokes = [drawing for drawing in drawings if drawing["color"] is not None
                      and drawing["width"] == pytest.approx(1.05, abs=0.01)]
     assert len({drawing["dashes"] for drawing in depth_strokes}) == 6
