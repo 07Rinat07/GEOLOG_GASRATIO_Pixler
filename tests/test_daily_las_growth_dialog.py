@@ -131,6 +131,9 @@ def test_invalid_or_cancelled_preview_cannot_reuse_previous_confirmation(
         source.unlink()
         dialog._analyze()
     elif action == "failed_analysis":
+        # Explicit strict mode must still reject conflicting historical cells.
+        # The default cumulative mode intentionally retains old values.
+        dialog.preserve_overlap.setChecked(False)
         source.write_bytes((FIXTURES / "03_conflict.las").read_bytes())
         dialog._analyze()
     elif action == "file_edit":
@@ -164,5 +167,40 @@ def test_daily_las_dialog_fits_work_area_with_sticky_actions(qapp) -> None:
         assert dialog.width() <= available.width()
         assert dialog.height() <= available.height()
         assert not dialog.change_table.isHidden()
+    finally:
+        dialog.close()
+
+
+def test_cumulative_preview_reports_conflicts_and_strict_toggle_revokes_plan(
+    qapp, monkeypatch,
+) -> None:
+    from PySide6.QtWidgets import QMessageBox
+
+    monkeypatch.setattr(
+        QMessageBox, "warning",
+        lambda *args: QMessageBox.StandardButton.Ok,
+    )
+    controller = _controller()
+    target = controller.session.current_dataset
+    assert target is not None
+    old = target.depth.copy()
+    dialog = DailyLasGrowthDialog(controller, language=AppLanguage.RU)
+    try:
+        assert dialog.preserve_overlap.isChecked()
+        dialog.file_input.setText(str(FIXTURES / "03_conflict.las"))
+        dialog._analyze()
+        reviewed = dialog.plan
+        assert reviewed is not None
+        assert reviewed.historical_policy == "keep_existing"
+        assert reviewed.historical_conflict_rows > 0
+        assert "Ни одно прежнее значение" in dialog.preview.toPlainText()
+        dialog.preserve_overlap.setChecked(False)
+        assert dialog.plan is None
+        assert not dialog.buttons.button(QDialogButtonBox.StandardButton.Ok).isEnabled()
+        with pytest.raises(RuntimeError, match="повторно проанализируйте"):
+            controller.apply(reviewed)
+        dialog._analyze()
+        assert dialog.plan is None
+        assert (target.depth == old).all()
     finally:
         dialog.close()

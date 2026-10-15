@@ -4195,6 +4195,12 @@ class MainWindow(QMainWindow):
             else:
                 outcome = self.daily_las_growth_controller.apply(dialog.plan)
         except (OSError, RuntimeError, ValueError) as exc:
+            log_exception(
+                "daily_las_growth.apply_failed",
+                exc,
+                target_dataset_id=dialog.plan.target_dataset_id,
+                numerical_mode=isinstance(dialog.plan, WellNumericalUpdatePlan),
+            )
             QMessageBox.warning(self, self._t("daily_las_growth.action"), str(exc))
             return
         self.project_controller.select_existing_dataset(dialog.plan.target_dataset_id)
