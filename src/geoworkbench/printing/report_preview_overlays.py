@@ -14,7 +14,7 @@ import tempfile
 
 import fitz
 from PySide6.QtCore import QBuffer, QIODevice, QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QImage, QPainter, QPen, QPolygonF
+from PySide6.QtGui import QColor, QImage, QImageWriter, QPainter, QPen, QPolygonF
 
 from geoworkbench.services.report_preview_marks import (
     PreviewMark,
@@ -104,9 +104,9 @@ def write_annotated_preview_pdf(
             buffer = QBuffer()
             if not buffer.open(QIODevice.OpenModeFlag.WriteOnly):
                 raise OSError("Cannot allocate the preview overlay PNG buffer")
-            if not image.save(buffer, "PNG"):
+            if not QImageWriter(buffer, b"PNG").write(image):
                 raise OSError("Cannot render the preview overlay PNG")
-            page.insert_image(page.rect, stream=bytes(buffer.data()), overlay=True)
+            page.insert_image(page.rect, stream=buffer.data().data(), overlay=True)
         # Export is transactional: do not truncate a previously saved report
         # if rasterization or MuPDF fails mid-write.
         handle, temporary_name = tempfile.mkstemp(

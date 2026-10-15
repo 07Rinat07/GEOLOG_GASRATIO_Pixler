@@ -367,7 +367,7 @@ class FullReportPreviewDialog(QDialog):
         return True
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
-        if watched in self._page_labels and event.type() in (
+        if isinstance(watched, QLabel) and watched in self._page_labels and event.type() in (
             QEvent.Type.MouseButtonPress,
             QEvent.Type.MouseMove,
             QEvent.Type.MouseButtonRelease,
