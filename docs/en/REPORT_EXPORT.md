@@ -191,3 +191,10 @@ The geology XLSX gas-statistics unit heading follows the report output language.
 Report pages show the brand and page number without repeated document number, revision, status or confidentiality text. These edited values remain in the document passport. Default reports no longer add Working/For internal use. Explanatory p5–p95/marker paragraphs are omitted from PDF and chart previews; their reserved height is returned to the chart budget. Curve/phase legends, units and scale labels remain. PDF tables fill the available width and retain their left border at physical 72-DPI layout. Source values are unchanged.
 
 The whole Word report uses A4 landscape, including the cover. Cover details use two field/value pairs across the page; approval signatures remain on the cover and the body starts in a new section with the same orientation.
+
+
+### Full PDF preview markup (RPT-PREVIEW-01)
+
+The Full report preview provides Text, Comment, Symbol, Pencil and Remove tools. Select a tool and click the page; drag with the left mouse button to draw strokes. Undo and Redo affect preview marks only. Save PDF and Print include these page overlays without changing the original PDF, LAS/WITS or calculations. The existing Annotations button continues to edit the project's persistent report annotations.
+
+**Current limitation:** preview marks are retained only in the open dialog, not serialized in project files or restored when reopening the preview. Use the Annotations editor for persistent records or save the marked PDF. After pagination changes, check mark placement; a mark referencing a removed page blocks export.
