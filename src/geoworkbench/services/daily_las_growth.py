@@ -208,6 +208,8 @@ def analyze_daily_las_growth(
     skipped = 0
     conflict_rows = 0
     conflict_cells = 0
+    overlapping_target_rows: list[int] = []
+    overlapping_source_rows: list[int] = []
     duplicate_historical_rows = 0
     new_phase = False
     previous_index_key: tuple[str, int | float] | None = None
@@ -232,13 +234,8 @@ def analyze_daily_las_growth(
                     index_text=_format_index_value(source_index.values[source_row]),
                 )
             else:
-                differing = _overlap_conflict_count(
-                    target_native_curves, source_curves,
-                    existing_row=existing_row, source_row=source_row,
-                )
-                if differing:
-                    conflict_rows += 1
-                    conflict_cells += differing
+                overlapping_target_rows.append(existing_row)
+                overlapping_source_rows.append(source_row)
             skipped += 1
             continue
         new_phase = True
@@ -247,6 +244,15 @@ def analyze_daily_las_growth(
         if direction < 0 and not value < terminal:
             raise DailyLasGrowthError("Новая строка находится внутри уже сохранённого диапазона")
         new_rows.append(source_row)
+
+    if overlapping_source_rows:
+        # Compare columns with NumPy rather than calling scalar isclose
+        # hundreds of thousands of times on large cumulative well logs.
+        conflict_rows, conflict_cells = _overlap_conflict_counts(
+            target_native_curves, source_curves,
+            target_rows=np.asarray(overlapping_target_rows, dtype=np.intp),
+            source_rows=np.asarray(overlapping_source_rows, dtype=np.intp),
+        )
 
     start = _format_index_value(source_index.values[0]) if len(source_index.values) else ""
     stop = _format_index_value(source_index.values[-1]) if len(source_index.values) else ""
@@ -557,21 +563,26 @@ def _same_value(left: float, right: float) -> bool:
     return bool(np.isclose(left, right, rtol=1e-9, atol=1e-9, equal_nan=True))
 
 
-def _overlap_conflict_count(
+def _overlap_conflict_counts(
     target_curves: dict[str, CurveData],
     source_curves: dict[str, CurveData],
     *,
-    existing_row: int,
-    source_row: int,
-) -> int:
-    """Count discrepancies, never infer a new value for a saved depth."""
-    return sum(
-        not _same_value(
-            float(target_curves[key].values[existing_row]),
-            float(curve.values[source_row]),
+    target_rows: np.ndarray,
+    source_rows: np.ndarray,
+) -> tuple[int, int]:
+    """Bounded-memory vectorized historical audit; changes NO old values."""
+    differing_rows = np.zeros(len(source_rows), dtype=np.bool_)
+    differing_cells = 0
+    for key, curve in source_curves.items():
+        saved_values = target_curves[key].values[target_rows]
+        new_values = curve.values[source_rows]
+        differences = ~np.isclose(
+            saved_values, new_values, rtol=1e-9, atol=1e-9,
+            equal_nan=True,
         )
-        for key, curve in source_curves.items()
-    )
+        differing_cells += int(np.count_nonzero(differences))
+        differing_rows |= differences
+    return int(np.count_nonzero(differing_rows)), differing_cells
 
 
 def _validate_overlapping_row(
