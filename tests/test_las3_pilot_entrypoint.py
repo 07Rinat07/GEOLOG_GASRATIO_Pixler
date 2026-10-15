@@ -29,9 +29,24 @@ def test_explicit_pilot_action_loads_real_source_through_review(qapp, monkeypatc
         np.testing.assert_array_equal(dataset.depth, [1670.0, 1669.875, 1669.75])
         assert window.session.source_documents[dataset.dataset_id].to_bytes() == original
         assert dataset.version_headers["VERS"] == "3.0"
+        # Switching localization must preserve live native plot ownership:
+        # Windows offscreen pyqtgraph can crash during synchronous rebuilds.
+        existing = {
+            track_id: entry.plot
+            for track_id, entry in window.tablet_view._rendered.items()
+        }
+        assert existing
         for language in AppLanguage:
             window.change_language(language)
             assert window.open_las3_pilot_action.text() == window._t("import.las3_pilot")
+            assert {
+                track_id: entry.plot
+                for track_id, entry in window.tablet_view._rendered.items()
+            } == existing
+            assert all(
+                entry.widget.title.text()
+                for entry in window.tablet_view._rendered.values()
+            )
         assert source.read_bytes() == original
     finally:
         window.close()
