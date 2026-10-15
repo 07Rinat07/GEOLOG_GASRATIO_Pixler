@@ -550,3 +550,87 @@ def test_sparse_daily_rejects_unknown_or_empty_source_curves() -> None:
     source.curves.clear()
     with pytest.raises(DailyLasGrowthError, match="не содержит сопоставимых кривых"):
         analyze_daily_las_growth(target, source, source_name="empty.las", source_sha256="a" * 64)
+
+
+def test_cumulative_las_preserves_old_conflicts_and_duplicate_depth() -> None:
+    """Vendor re-export: changed old gas values and repeated old depth."""
+    target = _dataset("archive", [100.0, 100.2, 100.4], [1.0, 2.0, 3.0])
+    _add_curve(target, "S1600", [0.1, 0.2, 0.3], unit="%")
+    _add_curve(target, "MANUAL", [9.0, 8.0, 7.0], provenance="user")
+    source = _dataset(
+        "cumulative", [100.0, 100.2, 100.2, 100.4, 100.6, 100.8],
+        [1.0, 22.0, 23.0, 3.0, 4.0, 5.0],
+    )
+    _add_curve(source, "S1600", [1.1, 1.2, 1.3, 1.4, np.nan, 0.5], unit="%")
+    saved_rop = target.curve_by_mnemonic("ROP").values.copy()
+    saved_gas = target.curve_by_mnemonic("S1600").values.copy()
+    with pytest.raises(DailyLasGrowthError, match="строго монотонным"):
+        analyze_daily_las_growth(
+            target, source, source_name="cumulative.las", source_sha256="a" * 64,
+        )
+    plan = analyze_daily_las_growth(
+        target, source, source_name="cumulative.las", source_sha256="a" * 64,
+        historical_policy="keep_existing",
+    )
+    assert plan.rows_added == 2
+    assert plan.rows_skipped == 4
+    assert plan.duplicate_historical_rows == 1
+    assert plan.historical_conflict_rows == 4
+    assert plan.historical_conflict_cells >= 4
+    assert plan.historical_policy == "keep_existing"
+    apply_daily_las_growth(target, source, plan)
+    np.testing.assert_array_equal(target.curve_by_mnemonic("ROP").values[:3], saved_rop)
+    np.testing.assert_array_equal(target.curve_by_mnemonic("S1600").values[:3], saved_gas)
+    assert np.isnan(target.curve_by_mnemonic("S1600").values[-2])
+    assert target.curve_by_mnemonic("S1600").values[-1] == 0.5
+    assert np.isnan(target.curve_by_mnemonic("MANUAL").values[-2:]).all()
+    np.testing.assert_array_equal(target.depth, [100.0, 100.2, 100.4, 100.6, 100.8])
+
+
+def test_cumulative_las_rejects_duplicate_new_depth_and_reverse_axis() -> None:
+    target = _dataset("archive", [100.0, 100.2], [1.0, 2.0])
+    source = _dataset("daily", [100.2, 100.4, 100.4], [2.0, 3.0, 4.0])
+    with pytest.raises(DailyLasGrowthError, match="повторяющуюся глубину"):
+        analyze_daily_las_growth(
+            target, source, source_name="bad-new.las", source_sha256="a" * 64,
+            historical_policy="keep_existing",
+        )
+    source.depth = np.asarray([100.2, 100.4, 100.0])
+    source.active_index.values = np.asarray([100.2, 100.4, 100.0])
+    with pytest.raises(DailyLasGrowthError, match="Направление индекса"):
+        analyze_daily_las_growth(
+            target, source, source_name="reversed.las", source_sha256="b" * 64,
+            historical_policy="keep_existing",
+        )
+
+
+def test_later_manual_fill_of_new_nan_persists_across_project_reopen(tmp_path) -> None:
+    from geoworkbench.domain.models import Project, Well
+    from geoworkbench.storage.atomic_json import save_project
+    from geoworkbench.storage.project_codec import load_project
+
+    target = _dataset("archive", [100.0, 100.2], [1.0, 2.0])
+    _add_curve(target, "S1600", [0.1, 0.2], unit="%")
+    source = _dataset("new", [100.2, 100.4], [2.0, 3.0])
+    plan = analyze_daily_las_growth(
+        target, source, source_name="partial.las", source_sha256="c" * 64,
+    )
+    apply_daily_las_growth(target, source, plan)
+    gas_curve = target.curve_by_mnemonic("S1600")
+    assert np.isnan(gas_curve.values[-1])
+    project = Project(
+        "p-1", "MakSat", wells={
+            "w-1": Well("w-1", "M-1", datasets={target.dataset_id: target}),
+        },
+    )
+    path = tmp_path / "partial.geolog.json"
+    save_project(project, path)
+    restored = load_project(path)
+    reopened = restored.wells["w-1"].datasets["archive"]
+    assert np.isnan(reopened.curve_by_mnemonic("S1600").values[-1])
+    reopened.curve_by_mnemonic("S1600").values[-1] = 0.85
+    save_project(restored, path)
+    again = load_project(path)
+    actual = again.wells["w-1"].datasets["archive"]
+    np.testing.assert_array_equal(actual.curve_by_mnemonic("S1600").values, [0.1, 0.2, 0.85])
+    assert len(actual.append_history) == 1
