@@ -5,7 +5,7 @@ import os
 import tempfile
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 
 import numpy as np
 
@@ -45,6 +45,22 @@ def _default(value: Any) -> Any:
     if hasattr(value, "value"):
         return value.value
     raise TypeError(f"Неподдерживаемый тип: {type(value)!r}")
+
+
+def _write_json_stream(stream: TextIO, document: object) -> None:
+    """Write compatible JSON with a bounded text buffer, not a whole-project string."""
+    encoder = json.JSONEncoder(ensure_ascii=False, indent=2, default=_default)
+    fragments: list[str] = []
+    buffered = 0
+    for fragment in encoder.iterencode(document):
+        fragments.append(fragment)
+        buffered += len(fragment)
+        if buffered >= 1_048_576:
+            stream.write("".join(fragments))
+            fragments.clear()
+            buffered = 0
+    if fragments:
+        stream.write("".join(fragments))
 
 
 def _validate_rock_profile_ledgers(
@@ -248,11 +264,10 @@ def save_project(
             digest: asdict(binding) for digest, binding in bindings.items()
         },
     }
-    payload = json.dumps(document, ensure_ascii=False, indent=2, default=_default)
     fd, temp_name = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=target.parent)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as stream:
-            stream.write(payload)
+            _write_json_stream(stream, document)
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temp_name, target)
