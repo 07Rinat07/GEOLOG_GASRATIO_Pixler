@@ -297,3 +297,10 @@ Changing the LAS disables geology selection. A profile changed after analysis re
 another preview. Original LAS bytes and the profile snapshot are retained in the v27
 package; older projects receive an empty history without inferring a supplier. Import of
 separate geological analyses and custom drawings is outside this increment.
+
+
+### Daily LAS with a reduced channel set
+
+If the existing well project contains more native curves than the new daily LAS (for example 358 vs. 15), **Append** supports a verified subset of the existing source channels. The preview reports the number of supplied and missing channels. Missing channels are set to **NULL/NaN** only at newly appended depths, never zero-filled or forward-filled; existing depths and authored layers are preserved.
+
+Incoming curve names and units, well identity, index role/direction and measurements at all shared depths must remain compatible. New depths must form a strict suffix. Unknown extra curves, conflicts, and unit mismatches stop the append without mutating the project. Use **Numerical update** with explicit review for corrections to old measurements. Save a project backup before updating.
