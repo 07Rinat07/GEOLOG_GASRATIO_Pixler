@@ -178,6 +178,21 @@ class DailyLasGrowthDialog(QDialog):
             "Numerical update: new rows, gaps and corrections",
         ))
         body_layout.addWidget(self.numerical_mode)
+        self.preserve_overlap = QCheckBox(self._text(
+            "Накопительный LAS: сохранять старые измерения, только добавлять новые глубины",
+            "Жинақталған LAS: ескі өлшемдерді сақтау, тек жаңа тереңдіктерді қосу",
+            "Cumulative LAS: preserve old measurements and append new depths only",
+        ))
+        self.preserve_overlap.setChecked(True)
+        self.preserve_overlap.setToolTip(self._text(
+            "Расхождения и дубликаты на старых глубинах показать в проверке, но "
+            "не переносить из нового LAS. Новые повторяющиеся глубины запрещены.",
+            "Ескі тереңдіктердегі айырмашылықтар мен қайталанулар көрсетіледі, "
+            "бірақ деректер ауыстырылмайды. Жаңа тереңдіктер қайталанбауы тиіс.",
+            "Report conflicting and repeated old depth samples without overwriting "
+            "them; duplicated new depth samples are rejected.",
+        ))
+        body_layout.addWidget(self.preserve_overlap)
         self.geology_enabled = QCheckBox(self._text(
             "Дополнить все свободные геологические интервалы по профилю",
             "Профиль бойынша барлық бос геологиялық аралықтарды толықтыру",
@@ -266,6 +281,7 @@ class DailyLasGrowthDialog(QDialog):
         self.file_input.textChanged.connect(self._source_changed)
         self.target_combo.currentIndexChanged.connect(self._invalidate)
         self.numerical_mode.toggled.connect(self._switch_mode)
+        self.preserve_overlap.toggled.connect(self._invalidate)
         self.geology_enabled.toggled.connect(self._invalidate)
         self.profile_input.textChanged.connect(self._invalidate)
         fit_window_to_screen(
@@ -410,6 +426,9 @@ class DailyLasGrowthDialog(QDialog):
                     dataset_id,
                     provider_kind=provider_kind,
                     provider_location=provider_location,
+                    historical_policy=(
+                        "keep_existing" if self.preserve_overlap.isChecked() else "strict"
+                    ),
                 )
         except (OSError, RuntimeError, ValueError) as exc:
             log_exception(
@@ -443,6 +462,20 @@ class DailyLasGrowthDialog(QDialog):
             )
         )
         omitted = len(plan.missing_curve_mnemonics)
+        policy_summary = self._text(
+            f"Исторических расхождений: {plan.historical_conflict_rows} строк / "
+            f"{plan.historical_conflict_cells} значений. "
+            f"Повторов старой глубины: {plan.duplicate_historical_rows}. "
+            "Ни одно прежнее значение не будет переписано.",
+            f"Ескі айырмашылықтар: {plan.historical_conflict_rows} жол / "
+            f"{plan.historical_conflict_cells} мән. "
+            f"Бұрынғы тереңдік қайталанулары: {plan.duplicate_historical_rows}. "
+            "Бұрынғы өлшемдер ауыстырылмайды.",
+            f"Historical differences: {plan.historical_conflict_rows} rows / "
+            f"{plan.historical_conflict_cells} cells. "
+            f"Repeated old depths: {plan.duplicate_historical_rows}. "
+            "No previously saved measurement will be overwritten.",
+        )
         channel_summary = self._text(
             f"Кривых из нового LAS: {len(plan.curve_mnemonics)}. Не предоставлены: {omitted}. "
             "На новых глубинах отсутствующие каналы будут NaN (не ноль).",
@@ -452,7 +485,7 @@ class DailyLasGrowthDialog(QDialog):
             "Omitted channels become NaN (not zero) at new depths.",
         )
         self.preview.setPlainText(
-            channel_summary + "\n\n" + self._text(
+            channel_summary + "\n" + policy_summary + "\n\n" + self._text(
                 f"Ось: {role} ({plan.index_mnemonic})\nДиапазон файла: {plan.start_value} … {plan.stop_value}\nНовых строк: {plan.rows_added}\nСовпадающих строк: {plan.rows_skipped}\nФайл уже импортирован: {duplicate}\n\nБудет изменён только выбранный dataset.\n\n{next_step}",
                 f"Ось: {role} ({plan.index_mnemonic})\nФайл ауқымы: {plan.start_value} … {plan.stop_value}\nЖаңа жолдар: {plan.rows_added}\nСәйкес жолдар: {plan.rows_skipped}\nФайл бұрын импортталған: {duplicate}\n\nТек таңдалған dataset өзгереді.\n\n{next_step}",
                 f"Axis: {role} ({plan.index_mnemonic})\nFile range: {plan.start_value} … {plan.stop_value}\nNew rows: {plan.rows_added}\nMatching rows: {plan.rows_skipped}\nAlready imported: {duplicate}\n\nOnly the selected dataset will change.\n\n{next_step}",
@@ -506,6 +539,7 @@ class DailyLasGrowthDialog(QDialog):
                 minimum=QSize(560, 360),
             )
         self.append_rows.setVisible(enabled)
+        self.preserve_overlap.setVisible(not enabled)
         self.geology_enabled.setVisible(enabled)
         self.profile_input.setVisible(enabled)
         self.profile_browse.setVisible(enabled)
