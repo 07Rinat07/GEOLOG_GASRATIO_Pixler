@@ -62,7 +62,11 @@ from geoworkbench.services.report_passport import (
 )
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.printing.report_preview_overlays import write_annotated_preview_pdf
-from geoworkbench.services.report_preview_marks import PreviewOverlay, preview_marks_to_list
+from geoworkbench.services.report_preview_marks import (
+    PreviewMark,
+    PreviewOverlay,
+    preview_marks_to_list,
+)
 
 if TYPE_CHECKING:
     from geoworkbench.project.session import ProjectSession
@@ -102,7 +106,7 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
         raise HydrocarbonInterpretationPdfError("Invalid report preview export selection")
     # Only the normal report exporter opts in. Full preview overlays the marks
     # independently and must not stamp its source PDF twice.
-    preview_marks = ()
+    preview_marks: tuple[PreviewMark, ...] = ()
     if include_preview_marks:
         if report.dataset_id != dataset.dataset_id:
             raise HydrocarbonInterpretationPdfError(
