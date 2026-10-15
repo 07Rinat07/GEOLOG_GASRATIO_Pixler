@@ -526,3 +526,27 @@ def test_maksat_like_358_to_15_curve_daily_append_keeps_other_channels() -> None
     np.testing.assert_array_equal(old[:2], [357, 357.5])
     assert np.isnan(old[2])
     assert len(target.curves) == 358
+
+
+def test_sparse_daily_rejects_overlap_conflict_without_partial_mutation() -> None:
+    target = _dataset("archive", [100.0, 100.2], [1.0, 2.0])
+    _add_curve(target, "DENS", [30.0, 40.0])
+    source = _dataset("incoming", [100.2, 100.4], [999.0, 5.0])
+    before = target.depth.copy()
+    with pytest.raises(DailyLasGrowthError, match="Конфликт"):
+        analyze_daily_las_growth(target, source, source_name="bad.las", source_sha256="8" * 64)
+    np.testing.assert_array_equal(target.depth, before)
+    np.testing.assert_array_equal(target.curve_by_mnemonic("DENS").values, [30.0, 40.0])
+    assert not target.append_history
+
+
+def test_sparse_daily_rejects_unknown_or_empty_source_curves() -> None:
+    target = _dataset("archive", [100.0, 100.2], [1.0, 2.0])
+    _add_curve(target, "DENS", [30.0, 40.0])
+    source = _dataset("incoming", [100.2, 100.4], [2.0, 5.0])
+    _add_curve(source, "UNLISTED", [1.0, 2.0])
+    with pytest.raises(DailyLasGrowthError, match="лишние кривые"):
+        analyze_daily_las_growth(target, source, source_name="unknown.las", source_sha256="9" * 64)
+    source.curves.clear()
+    with pytest.raises(DailyLasGrowthError, match="не содержит сопоставимых кривых"):
+        analyze_daily_las_growth(target, source, source_name="empty.las", source_sha256="a" * 64)
