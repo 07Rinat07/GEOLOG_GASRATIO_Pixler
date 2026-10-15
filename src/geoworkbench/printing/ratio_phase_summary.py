@@ -12,6 +12,7 @@ from geoworkbench.services.hydrocarbon_interpretation import (
     fluid_hypothesis_label,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.printing.hydrocarbon_fluid_markers import fluid_marker_spec
 
 
 def ratio_phase_summary_html(
@@ -59,7 +60,8 @@ def ratio_phase_summary_html(
 
     groups: dict[str, list[HydrocarbonCandidateInterval]] = defaultdict(list)
     for candidate in report.candidates:
-        groups[fluid_hypothesis_label(candidate, language)].append(candidate)
+        spec = fluid_marker_spec(candidate.fluid_hypothesis)
+        groups[f"{spec.code} · {fluid_hypothesis_label(candidate, language)}"].append(candidate)
 
     rows: list[tuple[HydrocarbonCandidateInterval, str]] = []
     for phase_name in sorted(groups):

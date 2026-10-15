@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
-from math import cos, pi, sin
+from math import cos, isfinite, pi, sin
+from collections.abc import Sequence
+
+from geoworkbench.services.hydrocarbon_interpretation import HydrocarbonCandidateInterval
 
 from PySide6.QtCore import QLineF, QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPen, QPolygonF
@@ -83,6 +86,25 @@ def all_fluid_marker_specs() -> tuple[FluidMarkerSpec, ...]:
 
 def fluid_marker_spec(fluid_hypothesis: str) -> FluidMarkerSpec:
     return _BY_PHASE[fluid_phase_from_hypothesis(fluid_hypothesis)]
+
+
+def fluid_marker_at_depth(
+    depth: float,
+    candidates: Sequence[HydrocarbonCandidateInterval],
+) -> FluidMarkerSpec:
+    """Use interval evidence only; conflicting or absent phases remain unknown."""
+    if not isfinite(depth):
+        return _BY_PHASE[FluidPhaseContract.INDETERMINATE]
+    phases = {
+        fluid_marker_spec(candidate.fluid_hypothesis).phase
+        for candidate in candidates
+        if isfinite(candidate.top_depth) and isfinite(candidate.bottom_depth)
+        and min(candidate.top_depth, candidate.bottom_depth) <= depth
+        <= max(candidate.top_depth, candidate.bottom_depth)
+    }
+    if len(phases) != 1:
+        return _BY_PHASE[FluidPhaseContract.INDETERMINATE]
+    return _BY_PHASE[next(iter(phases))]
 
 
 def fluid_marker_legend_specs(
