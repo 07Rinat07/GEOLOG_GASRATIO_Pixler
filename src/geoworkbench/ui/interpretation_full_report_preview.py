@@ -310,9 +310,16 @@ class FullReportPreviewDialog(QDialog):
 
     def _page_pointer(self, page: int, x: float, y: float, *, phase: str) -> bool:
         """Apply the active page tool to normalized coordinates, never the source PDF."""
-        tool = self.mark_tool.currentData()
-        if tool is None:
+        tool_data = self.mark_tool.currentData()
+        if tool_data is None:
             return False
+        # Qt's QVariant may return a StrEnum as its underlying string value.
+        tool = tool_data
+        if isinstance(tool_data, str) and tool_data != "remove":
+            try:
+                tool = PreviewMarkKind(tool_data)
+            except ValueError:
+                return False
         if tool is PreviewMarkKind.FREEHAND:
             if phase == "press":
                 self._drawing_page = page
