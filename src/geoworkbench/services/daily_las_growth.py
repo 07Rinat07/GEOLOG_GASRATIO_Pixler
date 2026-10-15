@@ -364,6 +364,7 @@ def apply_daily_las_growth(
         source,
         source_name=plan.source_name,
         source_sha256=plan.source_sha256,
+        historical_policy=plan.historical_policy,
     )
     if current != plan:
         raise DailyLasGrowthError("Dataset или источник изменились после предварительного анализа")
