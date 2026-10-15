@@ -131,6 +131,9 @@ def test_invalid_or_cancelled_preview_cannot_reuse_previous_confirmation(
         source.unlink()
         dialog._analyze()
     elif action == "failed_analysis":
+        # Explicit strict mode must still reject conflicting historical cells.
+        # The default cumulative mode intentionally retains old values.
+        dialog.preserve_overlap.setChecked(False)
         source.write_bytes((FIXTURES / "03_conflict.las").read_bytes())
         dialog._analyze()
     elif action == "file_edit":
