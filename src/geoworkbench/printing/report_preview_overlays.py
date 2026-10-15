@@ -8,7 +8,9 @@ glyph limitations of PyMuPDF's standard PDF fonts.
 from __future__ import annotations
 
 from collections import defaultdict
+import os
 from pathlib import Path
+import tempfile
 
 import fitz
 from PySide6.QtCore import QBuffer, QIODevice, QPointF, QRectF, Qt
@@ -105,4 +107,15 @@ def write_annotated_preview_pdf(
             if not image.save(buffer, "PNG"):
                 raise OSError("Cannot render the preview overlay PNG")
             page.insert_image(page.rect, stream=bytes(buffer.data()), overlay=True)
-        document.save(output, garbage=3, deflate=True)
+        # Export is transactional: do not truncate a previously saved report
+        # if rasterization or MuPDF fails mid-write.
+        handle, temporary_name = tempfile.mkstemp(
+            prefix=".geolog-preview-", suffix=".pdf", dir=output.parent,
+        )
+        os.close(handle)
+        temporary = Path(temporary_name)
+        try:
+            document.save(temporary, garbage=3, deflate=True)
+            os.replace(temporary, output)
+        finally:
+            temporary.unlink(missing_ok=True)
