@@ -5,6 +5,7 @@ from enum import Enum
 from uuid import NAMESPACE_URL, uuid5
 
 from geoworkbench.domain.report_annotations import ReportAnnotationRecord
+from geoworkbench.services.report_preview_marks import PreviewMark, preview_marks_to_list
 
 
 class ReportPageOrientation(str, Enum):
@@ -137,11 +138,13 @@ class InterpretationReportComposition:
     chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS
     target_depth_per_page: float = REPORT_CHART_DEPTH_PRESETS[0]
     annotations: tuple[ReportAnnotationRecord, ...] = ()
+    preview_marks: tuple[PreviewMark, ...] = ()
     header_ru: ReportHeaderFields | None = None
     header_kk: ReportHeaderFields | None = None
     header_en: ReportHeaderFields | None = None
 
     def __post_init__(self) -> None:
+        preview_marks_to_list(self.preview_marks)
         if not isinstance(self.geology_legend_pages, ReportGeologyLegendPages):
             raise ValueError("Invalid report geology legend page policy")
         value = self.target_depth_per_page
