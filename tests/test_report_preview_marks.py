@@ -1,7 +1,10 @@
 """Non-destructive report-preview overlay validation."""
 import pytest
 
-from geoworkbench.services.report_preview_marks import PreviewMark, PreviewMarkKind, PreviewOverlay, PreviewEditHistory
+from geoworkbench.services.report_preview_marks import (
+    PreviewMark, PreviewMarkKind, PreviewOverlay, PreviewEditHistory,
+    find_preview_mark, translate_preview_mark,
+)
 
 
 def test_text_comment_and_symbol_marks_are_immutable():
@@ -106,3 +109,45 @@ def test_preview_history_noop_and_bounded_snapshots():
         history.apply(None)
     with pytest.raises(ValueError):
         PreviewEditHistory(undo_stack=(PreviewOverlay(),) * 101)
+
+
+def test_hit_testing_respects_page_stacking_and_stroke_segments():
+    background = PreviewMark(PreviewMarkKind.TEXT, 0, 0.3, 0.3, text="Behind")
+    foreground = PreviewMark(PreviewMarkKind.COMMENT, 0, 0.3, 0.3, text="Above")
+    stroke = PreviewMark(
+        PreviewMarkKind.FREEHAND, 1, 0.1, 0.1,
+        points=((0.1, 0.1), (0.7, 0.7)),
+    )
+    marks = (background, foreground, stroke)
+    assert find_preview_mark(marks, 0, 0.3, 0.3) == 1
+    assert find_preview_mark(marks, 1, 0.4, 0.4) == 2
+    assert find_preview_mark(marks, 0, 0.4, 0.4) is None
+    assert find_preview_mark(marks, 1, 0.5, 0.2) is None
+    assert find_preview_mark(marks, 2, 0.3, 0.3) is None
+
+
+def test_stroke_translation_preserves_shape_and_clamps_without_crossing_page():
+    stroke = PreviewMark(
+        PreviewMarkKind.FREEHAND, 2, 0.15, 0.2,
+        points=((0.15, 0.2), (0.35, 0.4), (0.7, 0.8)),
+    )
+    translated = translate_preview_mark(stroke, 0.1, -0.1)
+    assert translated.page == 2
+    for (x, y), (expected_x, expected_y) in zip(translated.points, ((0.25, 0.1), (0.45, 0.3), (0.8, 0.7)), strict=True):
+        assert x == pytest.approx(expected_x)
+        assert y == pytest.approx(expected_y)
+    assert stroke.points[0] == (0.15, 0.2)
+    bounded = translate_preview_mark(stroke, 5.0, -5.0)
+    assert min(y for _, y in bounded.points) == pytest.approx(0.0)
+    assert max(x for x, _ in bounded.points) == pytest.approx(1.0)
+    assert bounded.points[2][0] - bounded.points[0][0] == pytest.approx(0.55)
+    assert bounded.points[2][1] - bounded.points[0][1] == pytest.approx(0.6)
+
+
+@pytest.mark.parametrize("dx,dy", [
+    (float("nan"), 0), (0, float("inf")), (True, 0), ("bad", 0),
+])
+def test_stroke_translation_rejects_invalid_delta(dx, dy):
+    mark = PreviewMark(PreviewMarkKind.TEXT, 0, 0.5, 0.5, text="x")
+    with pytest.raises(ValueError):
+        translate_preview_mark(mark, dx, dy)
