@@ -62,7 +62,8 @@ def test_controller_imports_reduced_daily_las_without_dropping_prior_curves(tmp_
     # the intentionally empty cells, and then accept a later manual fill.
     project_path = tmp_path / "M1_daily_work.geologpkg"
     ProjectController(session=session).save_project(project_path)
-    restored_session = ProjectController().open_project(project_path)
+    reopened_controller = ProjectController()
+    restored_session = reopened_controller.open_project(project_path)
     restored = restored_session.current_dataset
     assert restored is not None
     assert restored.depth[-1] == 1004.0
@@ -72,7 +73,9 @@ def test_controller_imports_reduced_daily_las_without_dropping_prior_curves(tmp_
     assert np.isnan(restored.curve_by_mnemonic("C1").values[-4:]).all()
     restored.curve_by_mnemonic("C1").values[-1] = 0.95
     restored_session.dirty = True
-    ProjectController(session=restored_session).save_project(project_path)
+    # Reuse the controller that opened the file: it tracks the verified
+    # on-disk version, preventing unsafe overwrites of unrelated changes.
+    reopened_controller.save_project(project_path)
     later = ProjectController().open_project(project_path).current_dataset
     assert later is not None
     assert later.curve_by_mnemonic("C1").values[-1] == 0.95
