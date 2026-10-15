@@ -501,3 +501,28 @@ def test_bounded_array_hash_preserves_historical_audit_digest(layout: str) -> No
     actual = sha256()
     _update_array_digest(actual, values)
     assert actual.hexdigest() == expected.hexdigest()
+
+
+def test_maksat_like_358_to_15_curve_daily_append_keeps_other_channels() -> None:
+    target = _dataset("archive", [5680.0, 5680.2], [10.0, 11.0], well="M-1")
+    source = _dataset("daily", [5680.0, 5680.2, 5680.4], [10.0, 11.0, 12.0], well="m-1")
+    for number in range(1, 358):
+        key = f"RAW{number:03d}"
+        _add_curve(target, key, [float(number), number + 0.5], unit="unit")
+        if number <= 14:
+            _add_curve(source, key, [float(number), number + 0.5, number + 1.0], unit="unit")
+    plan = analyze_daily_las_growth(
+        target, source, source_name="М-1 до 5728.las", source_sha256="8" * 64,
+    )
+    assert (plan.rows_added, plan.rows_skipped) == (1, 2)
+    assert len(plan.curve_mnemonics) == 15
+    assert len(plan.missing_curve_mnemonics) == 343
+    outcome = apply_daily_las_growth(target, source, plan)
+    assert outcome.record is not None
+    np.testing.assert_array_equal(target.depth, [5680.0, 5680.2, 5680.4])
+    np.testing.assert_array_equal(target.curve_by_mnemonic("ROP").values, [10, 11, 12])
+    np.testing.assert_array_equal(target.curve_by_mnemonic("RAW014").values, [14, 14.5, 15])
+    old = target.curve_by_mnemonic("RAW357").values
+    np.testing.assert_array_equal(old[:2], [357, 357.5])
+    assert np.isnan(old[2])
+    assert len(target.curves) == 358
