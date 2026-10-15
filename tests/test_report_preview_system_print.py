@@ -154,3 +154,41 @@ def test_direct_print_rejects_missing_mark_page_before_opening_printer(
         workspace.close()
         workspace.deleteLater()
         qapp.processEvents()
+
+
+def test_switching_wells_inside_print_layout_cannot_write_other_well_or_print(
+    qapp, monkeypatch,
+):
+    session = _two_well_session()
+    workspace = InterpretationReportWorkspace(
+        InterpretationCalculationController(session), language=AppLanguage.EN,
+    )
+    failures = []
+    output_calls = []
+
+    def change_well(_dialog):
+        _select(session, "well-b", "dataset-b")
+        return QDialog.DialogCode.Accepted
+
+    try:
+        workspace.refresh()
+        original_compositions = dict(session.report_compositions)
+        monkeypatch.setattr(
+            final.InterpretationReportDetailsDialog, "exec",
+            lambda _dialog: QDialog.DialogCode.Accepted,
+        )
+        monkeypatch.setattr(final.InterpretationPrintLayoutDialog, "exec", change_well)
+        monkeypatch.setattr(workspace, "_show_export_error", failures.append)
+        monkeypatch.setattr(
+            final, "export_hydrocarbon_interpretation_pdf",
+            lambda *args, **kwargs: output_calls.append(True),
+        )
+        workspace._print_report()
+        assert len(failures) == 1
+        assert "Report source changed" in str(failures[0])
+        assert not output_calls
+        assert session.report_compositions == original_compositions
+    finally:
+        workspace.close()
+        workspace.deleteLater()
+        qapp.processEvents()
