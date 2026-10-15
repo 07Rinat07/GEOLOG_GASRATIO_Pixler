@@ -9,16 +9,18 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
+import tempfile
 
 import fitz
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QCloseEvent, QImage, QPixmap, QResizeEvent, QShowEvent
+from PySide6.QtCore import QEvent, QObject, QRectF, Qt, QTimer
+from PySide6.QtGui import QCloseEvent, QImage, QMouseEvent, QPainter, QPixmap, QResizeEvent, QShowEvent
 from PySide6.QtPrintSupport import QAbstractPrintDialog, QPrintDialog, QPrinter
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QFileDialog,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QMessageBox,
     QPushButton,
@@ -32,7 +34,16 @@ from geoworkbench.printing.hydrocarbon_interpretation_system_print import (
     print_pdf_page_selection,
     selected_report_pages,
 )
+from geoworkbench.printing.report_preview_overlays import (
+    paint_preview_marks,
+    write_annotated_preview_pdf,
+)
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.report_preview_marks import (
+    PreviewEditHistory,
+    PreviewMark,
+    PreviewMarkKind,
+)
 
 
 class FullReportPreviewDialog(QDialog):
@@ -63,6 +74,9 @@ class FullReportPreviewDialog(QDialog):
         self._rendered_pages: set[int] = set()
         self._page_dimensions: list[tuple[float, float]] = []
         self._refresh_scheduled = False
+        self._mark_history = PreviewEditHistory()
+        self._drawing_page: int | None = None
+        self._stroke_points: list[tuple[float, float]] = []
         self.setObjectName("full-report-preview-dialog")
         self.setWindowTitle(self._text("Полный предпросмотр отчёта", "Есепті толық қарау", "Full report preview"))
         self.resize(1070, 830)
@@ -99,17 +113,44 @@ class FullReportPreviewDialog(QDialog):
 
         self.help_label = QLabel(
             self._text(
-                "Все страницы PDF. Для добавления текста, символов или комментариев "
-                "используйте «Аннотации», затем проверьте обновлённый документ.",
-                "PDF-тің барлық беттері. Мәтін, белгілер және пікірлер үшін "
-                "«Аннотациялар» батырмасын қолданып, нәтижені қайта тексеріңіз.",
-                "All PDF pages. Use Annotations to add text, symbols and comments, "
-                "then verify the regenerated document.",
+                "Выберите инструмент и щёлкните на странице PDF. Изменения предпросмотра "
+                "попадут в «Сохранить PDF»; «Аннотации» редактирует данные проекта.",
+                "Құралды таңдап, PDF бетіне басыңыз. Алдын ала қарау белгілері "
+                "PDF-ке сақталады; «Аннотациялар» жоба деректерін өңдейді.",
+                "Choose a tool and click a PDF page. Preview marks are included "
+                "in Save PDF; Annotations edits the project report.",
             ),
             self,
         )
         self.help_label.setWordWrap(True)
         root.addWidget(self.help_label)
+
+        tools = QHBoxLayout()
+        tools.addWidget(QLabel(self._text("Инструмент", "Құрал", "Tool"), self))
+        self.mark_tool = QComboBox(self)
+        self.mark_tool.setObjectName("full-report-mark-tool")
+        self.mark_tool.addItem(self._text("Просмотр", "Қарау", "View"), None)
+        self.mark_tool.addItem(self._text("Текст", "Мәтін", "Text"), PreviewMarkKind.TEXT)
+        self.mark_tool.addItem(
+            self._text("Комментарий", "Пікір", "Comment"), PreviewMarkKind.COMMENT,
+        )
+        self.mark_tool.addItem(self._text("Символ", "Белгі", "Symbol"), PreviewMarkKind.SYMBOL)
+        self.mark_tool.addItem(
+            self._text("Карандаш", "Қарындаш", "Pencil"), PreviewMarkKind.FREEHAND,
+        )
+        self.mark_tool.addItem(self._text("Удалить", "Жою", "Remove"), "remove")
+        tools.addWidget(self.mark_tool)
+        self.mark_undo_button = QPushButton(self._text("Отменить", "Болдырмау", "Undo"), self)
+        self.mark_undo_button.setObjectName("full-report-mark-undo")
+        self.mark_undo_button.clicked.connect(self._undo_mark)
+        tools.addWidget(self.mark_undo_button)
+        self.mark_redo_button = QPushButton(self._text("Повторить", "Қайталау", "Redo"), self)
+        self.mark_redo_button.setObjectName("full-report-mark-redo")
+        self.mark_redo_button.clicked.connect(self._redo_mark)
+        tools.addWidget(self.mark_redo_button)
+        tools.addStretch(1)
+        root.addLayout(tools)
+        self._sync_mark_buttons()
 
         actions = QHBoxLayout()
         self.edit_button = QPushButton(
@@ -175,6 +216,7 @@ class FullReportPreviewDialog(QDialog):
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             label.setStyleSheet("QLabel { background: white; border: 1px solid #b8c0cb; }")
             label.setText(f"{number + 1} / {len(dimensions)}")
+            label.installEventFilter(self)
             self.page_layout.addWidget(label, alignment=Qt.AlignmentFlag.AlignHCenter)
             self._page_labels.append(label)
         self._apply_zoom()
@@ -231,11 +273,122 @@ class FullReportPreviewDialog(QDialog):
                         pixmap.stride,
                         QImage.Format.Format_RGB888,
                     ).copy()
-                    label.setPixmap(QPixmap.fromImage(image))
+                    preview = QPixmap.fromImage(image)
+                    marks = tuple(
+                        mark for mark in self._mark_history.current.marks
+                        if mark.page == index
+                    )
+                    if marks:
+                        painter = QPainter(preview)
+                        try:
+                            paint_preview_marks(
+                                painter, QRectF(0, 0, preview.width(), preview.height()), marks,
+                            )
+                        finally:
+                            painter.end()
+                    label.setPixmap(preview)
                     # A failed render must remain eligible on the next view update.
                     self._rendered_pages.add(index)
         except (OSError, RuntimeError, ValueError) as exc:
             self._show_error(exc)
+
+    def _sync_mark_buttons(self) -> None:
+        self.mark_undo_button.setEnabled(bool(self._mark_history.undo_stack))
+        self.mark_redo_button.setEnabled(bool(self._mark_history.redo_stack))
+
+    def _update_marks(self, updated: PreviewEditHistory) -> None:
+        self._mark_history = updated
+        self._sync_mark_buttons()
+        self._rendered_pages.clear()
+        self._schedule_visible_render()
+
+    def _undo_mark(self) -> None:
+        self._update_marks(self._mark_history.undo())
+
+    def _redo_mark(self) -> None:
+        self._update_marks(self._mark_history.redo())
+
+    def _page_pointer(self, page: int, x: float, y: float, *, phase: str) -> bool:
+        """Apply the active page tool to normalized coordinates, never the source PDF."""
+        tool_data = self.mark_tool.currentData()
+        if tool_data is None:
+            return False
+        # Qt's QVariant may return a StrEnum as its underlying string value.
+        tool = tool_data
+        if isinstance(tool_data, str) and tool_data != "remove":
+            try:
+                tool = PreviewMarkKind(tool_data)
+            except ValueError:
+                return False
+        if tool is PreviewMarkKind.FREEHAND:
+            if phase == "press":
+                self._drawing_page = page
+                self._stroke_points = [(x, y)]
+            elif phase == "move" and self._drawing_page == page:
+                if len(self._stroke_points) < 4096:
+                    self._stroke_points.append((x, y))
+            elif phase == "release" and self._drawing_page == page:
+                points = tuple(self._stroke_points + [(x, y)])
+                self._drawing_page = None
+                self._stroke_points = []
+                if len(set(points)) >= 2 and len(points) <= 4096:
+                    mark = PreviewMark(
+                        PreviewMarkKind.FREEHAND, page, points[0][0], points[0][1],
+                        points=points,
+                    )
+                    self._update_marks(
+                        self._mark_history.apply(self._mark_history.current.add(mark)),
+                    )
+            return True
+        if phase != "press":
+            return False
+        if tool == "remove":
+            for index in range(len(self._mark_history.current.marks) - 1, -1, -1):
+                mark = self._mark_history.current.marks[index]
+                if mark.page == page and abs(mark.x - x) <= 0.035 and abs(mark.y - y) <= 0.035:
+                    self._update_marks(self._mark_history.apply(
+                        self._mark_history.current.remove(index),
+                    ))
+                    break
+            return True
+        if not isinstance(tool, PreviewMarkKind):
+            return False
+        title = self._text("Текст на странице", "Беттегі мәтін", "Page mark text")
+        value, accepted = QInputDialog.getText(self, title, title)
+        if not accepted or not value.strip():
+            return True
+        try:
+            mark = PreviewMark(tool, page, x, y, text=value)
+            self._update_marks(
+                self._mark_history.apply(self._mark_history.current.add(mark)),
+            )
+        except ValueError as exc:
+            self._show_error(exc)
+        return True
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
+        if isinstance(watched, QLabel) and watched in self._page_labels and event.type() in (
+            QEvent.Type.MouseButtonPress,
+            QEvent.Type.MouseMove,
+            QEvent.Type.MouseButtonRelease,
+        ):
+            mouse = event
+            if isinstance(mouse, QMouseEvent) and (
+                mouse.button() == Qt.MouseButton.LeftButton
+                or mouse.buttons() & Qt.MouseButton.LeftButton
+                or self._drawing_page is not None
+            ):
+                label = self._page_labels[self._page_labels.index(watched)]
+                x = min(1.0, max(0.0, mouse.position().x() / max(1, label.width())))
+                y = min(1.0, max(0.0, mouse.position().y() / max(1, label.height())))
+                phase = {
+                    QEvent.Type.MouseButtonPress: "press",
+                    QEvent.Type.MouseMove: "move",
+                    QEvent.Type.MouseButtonRelease: "release",
+                }[event.type()]
+                if self._page_pointer(self._page_labels.index(watched), x, y, phase=phase):
+                    return True
+        return super().eventFilter(watched, event)
 
     def _rebuild(self) -> None:
         fraction = self.pages.verticalScrollBar().value() / max(
@@ -294,7 +447,15 @@ class FullReportPreviewDialog(QDialog):
             if confirm != QMessageBox.StandardButton.Yes:
                 return
         try:
-            self._export_document(target)
+            if self._mark_history.current.marks:
+                with tempfile.TemporaryDirectory(prefix="geolog-preview-export-") as folder:
+                    unmarked = Path(folder) / "report.pdf"
+                    self._export_document(unmarked)
+                    write_annotated_preview_pdf(
+                        unmarked, target, self._mark_history.current,
+                    )
+            else:
+                self._export_document(target)
         except (OSError, RuntimeError, ValueError) as exc:
             self._show_error(exc)
             return
@@ -325,9 +486,19 @@ class FullReportPreviewDialog(QDialog):
         try:
             # Printer drivers may override the chosen paper; restore preview geometry.
             configure_interpretation_printer(printer, orientation)
-            print_pdf_page_selection(
-                self.pdf_path, printer, selected, language=self._language,
-            )
+            if self._mark_history.current.marks:
+                with tempfile.TemporaryDirectory(prefix="geolog-preview-print-") as folder:
+                    marked = Path(folder) / "annotated.pdf"
+                    write_annotated_preview_pdf(
+                        self.pdf_path, marked, self._mark_history.current,
+                    )
+                    print_pdf_page_selection(
+                        marked, printer, selected, language=self._language,
+                    )
+            else:
+                print_pdf_page_selection(
+                    self.pdf_path, printer, selected, language=self._language,
+                )
         except (OSError, RuntimeError, ValueError) as exc:
             self._show_error(exc)
 
