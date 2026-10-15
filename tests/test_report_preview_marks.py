@@ -1,7 +1,7 @@
 """Non-destructive report-preview overlay validation."""
 import pytest
 
-from geoworkbench.services.report_preview_marks import PreviewMark, PreviewMarkKind, PreviewOverlay
+from geoworkbench.services.report_preview_marks import PreviewMark, PreviewMarkKind, PreviewOverlay, PreviewEditHistory
 
 
 def test_text_comment_and_symbol_marks_are_immutable():
@@ -74,3 +74,35 @@ def test_overlay_rejects_invalid_edits_without_mutation():
     with pytest.raises(ValueError):
         PreviewOverlay((None,))
     assert overlay.marks == (a,)
+
+
+def test_preview_history_undo_redo_and_divergent_edit():
+    a = PreviewMark(PreviewMarkKind.TEXT, 0, 0, 0, text="A")
+    b = PreviewMark(PreviewMarkKind.TEXT, 0, 1, 1, text="B")
+    original = PreviewEditHistory()
+    one = original.apply(original.current.add(a))
+    two = one.apply(one.current.add(b))
+    undone = two.undo()
+    assert undone.current.marks == (a,)
+    assert undone.redo().current.marks == (a, b)
+    divergent = undone.apply(undone.current.remove(0))
+    assert divergent.current.marks == ()
+    assert divergent.redo_stack == ()
+    assert divergent.undo().current.marks == (a,)
+    assert original.current.marks == ()
+
+
+def test_preview_history_noop_and_bounded_snapshots():
+    history = PreviewEditHistory()
+    assert history.undo() is history
+    assert history.redo() is history
+    assert history.apply(history.current) is history
+    for i in range(110):
+        mark = PreviewMark(PreviewMarkKind.TEXT, 0, 0, 0, text=str(i))
+        history = history.apply(history.current.add(mark))
+    assert len(history.undo_stack) == 100
+    assert history.current.marks[-1].text == "109"
+    with pytest.raises(ValueError):
+        history.apply(None)
+    with pytest.raises(ValueError):
+        PreviewEditHistory(undo_stack=(PreviewOverlay(),) * 101)
