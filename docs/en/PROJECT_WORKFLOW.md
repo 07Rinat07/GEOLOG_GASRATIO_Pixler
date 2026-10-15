@@ -304,3 +304,10 @@ separate geological analyses and custom drawings is outside this increment.
 If the existing well project contains more native curves than the new daily LAS (for example 358 vs. 15), **Append** supports a verified subset of the existing source channels. The preview reports the number of supplied and missing channels. Missing channels are set to **NULL/NaN** only at newly appended depths, never zero-filled or forward-filled; existing depths and authored layers are preserved.
 
 Incoming curve names and units, well identity, index role/direction and measurements at all shared depths must remain compatible. New depths must form a strict suffix. Unknown extra curves, conflicts, and unit mismatches stop the append without mutating the project. Use **Numerical update** with explicit review for corrections to old measurements. Save a project backup before updating.
+
+
+### Cumulative LAS with revised historical measurements
+
+Daily Append enables **Cumulative LAS: preserve old measurements and append new depths only** by default. This mode supports re-exported files that repeat the entire history and may contain a duplicate historical depth or recalculated gas values. Preview counts old-data discrepancies, repeated old depths, appended rows and missing channels. No existing measurements are replaced. The full incoming LAS is retained as a separate project source revision. Duplicate **new** depths, reversed depth progression and unknown curves still block the operation.
+
+Uncheck the option for strict overlap matching, which rejects historical value mismatches. Missing new-channel values can be entered later in the table editor and saved with the project. To intentionally correct existing measurements, use the separate Numerical Update workflow with explicit cell selection.
