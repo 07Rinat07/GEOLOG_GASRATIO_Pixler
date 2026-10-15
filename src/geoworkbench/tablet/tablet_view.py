@@ -2644,7 +2644,8 @@ class TabletView(QWidget):
             else:
                 hint = self._navigation_hint
             entry.widget.title.setToolTip(hint)
-            entry.plot.setToolTip(hint)
+            if entry.plot is not None:
+                entry.plot.setToolTip(hint)
         self._refresh_curve_pencil_targets()
         self._refresh_annotation_overlay()
         self._update_navigation_controls()
