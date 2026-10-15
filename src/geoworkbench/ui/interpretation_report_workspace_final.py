@@ -705,6 +705,15 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         )
         if layout_dialog.exec() != QDialog.DialogCode.Accepted:
             return
+        if (
+            self.controller.session.current_dataset is not dataset
+            or self.controller.session.current_well_id != original_well_id
+            or report.dataset_id != dataset.dataset_id
+        ):
+            self._show_export_error(
+                RuntimeError("Report source changed during system print preparation"),
+            )
+            return
         layout = layout_dialog.selected_layout()
         composition = with_report_header_fields(
             layout_dialog.selected_composition(),
