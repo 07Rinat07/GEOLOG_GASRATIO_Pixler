@@ -65,6 +65,74 @@ class PreviewMark:
             raise ValueError("Text, comments and symbols must not be empty")
 
 
+
+def find_preview_mark(
+    marks: tuple[PreviewMark, ...],
+    page: int,
+    x: float,
+    y: float,
+    *,
+    tolerance: float = 0.035,
+) -> int | None:
+    """Pick the uppermost mark near an anchor or freehand segment.
+
+    The selection radius is a normalized-page fraction, independent of zoom.
+    Non-current pages are never eligible for editing.
+    """
+    px, py, radius = _fraction(x), _fraction(y), _fraction(tolerance)
+    for index in range(len(marks) - 1, -1, -1):
+        mark = marks[index]
+        if mark.page != page:
+            continue
+        if mark.kind is not PreviewMarkKind.FREEHAND:
+            if math.hypot(mark.x - px, mark.y - py) <= radius:
+                return index
+            continue
+        points = mark.points
+        if not points:
+            continue
+        # Fast reject for large strokes before checking individual segments.
+        if not (
+            min(p[0] for p in points) - radius <= px <= max(p[0] for p in points) + radius
+            and min(p[1] for p in points) - radius <= py <= max(p[1] for p in points) + radius
+        ):
+            continue
+        for (ax, ay), (bx, by) in zip(points, points[1:]):
+            dx, dy = bx - ax, by - ay
+            length_sq = dx * dx + dy * dy
+            portion = (
+                max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / length_sq))
+                if length_sq > 0 else 0.0
+            )
+            if math.hypot(px - ax - portion * dx, py - ay - portion * dy) <= radius:
+                return index
+    return None
+
+
+def translate_preview_mark(
+    mark: PreviewMark, dx: float, dy: float,
+) -> PreviewMark:
+    """Move a mark as one rigid object, keeping all stroke points on its page.
+
+    Clamp the translation instead of independently clipping stroke vertices:
+    independently clipping them would distort the geologist's drawing.
+    """
+    for delta in (dx, dy):
+        if isinstance(delta, bool) or not isinstance(delta, (int, float)):
+            raise ValueError("Preview mark translation requires numeric deltas")
+        if not math.isfinite(float(delta)):
+            raise ValueError("Preview mark translation must be finite")
+    xs = (mark.x, *(point[0] for point in mark.points))
+    ys = (mark.y, *(point[1] for point in mark.points))
+    move_x = min(1.0 - max(xs), max(-min(xs), float(dx)))
+    move_y = min(1.0 - max(ys), max(-min(ys), float(dy)))
+    return PreviewMark(
+        mark.kind, mark.page, mark.x + move_x, mark.y + move_y,
+        text=mark.text,
+        points=tuple((x + move_x, y + move_y) for x, y in mark.points),
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class PreviewOverlay:
     """Immutable collection of marks, with one bounded editing operation at a time."""
