@@ -63,3 +63,35 @@ class PreviewMark:
             raise ValueError("Only freehand marks can contain stroke points")
         elif not self.text.strip():
             raise ValueError("Text, comments and symbols must not be empty")
+
+
+@dataclass(frozen=True, slots=True)
+class PreviewOverlay:
+    """Immutable collection of marks, with one bounded editing operation at a time."""
+
+    marks: tuple[PreviewMark, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.marks, tuple) or len(self.marks) > 10000:
+            raise ValueError("Invalid overlay collection")
+        if not all(isinstance(mark, PreviewMark) for mark in self.marks):
+            raise ValueError("Overlay contains invalid marks")
+
+    def add(self, mark: PreviewMark) -> "PreviewOverlay":
+        if not isinstance(mark, PreviewMark):
+            raise ValueError("Invalid overlay mark")
+        return PreviewOverlay(self.marks + (mark,))
+
+    def replace(self, index: int, mark: PreviewMark) -> "PreviewOverlay":
+        self._validate_index(index)
+        if not isinstance(mark, PreviewMark):
+            raise ValueError("Invalid overlay mark")
+        return PreviewOverlay(self.marks[:index] + (mark,) + self.marks[index + 1:])
+
+    def remove(self, index: int) -> "PreviewOverlay":
+        self._validate_index(index)
+        return PreviewOverlay(self.marks[:index] + self.marks[index + 1:])
+
+    def _validate_index(self, index: int) -> None:
+        if type(index) is not int or not 0 <= index < len(self.marks):
+            raise IndexError("Invalid overlay mark index")
