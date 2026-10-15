@@ -5144,6 +5144,13 @@ class TabletView(QWidget):
             "depth_unit": (self._dataset.active_index.unit or "м").strip(),
             "x_fraction": self._plot_x_fraction(definition, display_x),
         }
+        # Preserve source readings, but show WOB in metric ton-force when
+        # its unit is unambiguous. The existing VALUE marker/Undo/PDF path
+        # consumes display_value without changing the LAS/WITS source data.
+        from geoworkbench.services.wob_value_flags import _TO_TF, _is_wob
+        wob_unit = (curve.metadata.unit or "").strip().casefold()
+        if _is_wob(curve) and wob_unit in _TO_TF:
+            payload["display_value"] = f"{value * _TO_TF[wob_unit]:g} тс"
         # A time-axis marker must disclose the actual selected sample time,
         # not merely its (possibly repeated) measured depth.
         vertical_index = self._vertical_index()
