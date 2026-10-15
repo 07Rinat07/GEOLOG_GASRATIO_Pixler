@@ -196,6 +196,7 @@ class DailyLasGrowthController:
         *,
         provider_kind: str = "manual_file",
         provider_location: str | None = None,
+        historical_policy: str = "strict",
     ) -> DailyLasGrowthPlan:
         # A failed second preview must never leave the first file eligible for
         # confirmation. Start every analysis from a clean transient state.
@@ -213,6 +214,7 @@ class DailyLasGrowthController:
             imported.dataset,
             source_name=path.name,
             source_sha256=imported.report.source.sha256,
+            historical_policy=historical_policy,
         )
         self._source = imported
         self._source_path = path
