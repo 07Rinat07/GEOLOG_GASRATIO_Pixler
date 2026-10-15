@@ -77,6 +77,12 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         # 0xC0000374 while enumerating Qt roots after VALUE scene/dialog cases.
         # Keep these assertions mandatory with a fresh native heap per function.
         "tests/test_value_flag_print_selection.py",
+        # Release gate 38660462254 aborted with Windows heap corruption
+        # (0xC0000374) in close_qt_windows_after_test immediately after
+        # test_print_selection_preserves_individual_choice_under_global_switch.
+        # Keep every VALUE persistence assertion, but isolate each function's
+        # Qt lifetime so the next test never inherits damaged native state.
+        "tests/test_value_flag_persist_selection.py",
         # MainWindow navigation hit 0xC0000005 in PlotItem.__init__ after
         # earlier dialogs/scenes in a large Windows offscreen shard.
         "tests/test_navigation_organization.py",
