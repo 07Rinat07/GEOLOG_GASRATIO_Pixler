@@ -95,6 +95,8 @@ from geoworkbench.ui.interpretation_report_annotation_dialog import (
     InterpretationReportAnnotationDialog,
 )
 from geoworkbench.ui.interpretation_full_report_preview import FullReportPreviewDialog
+from geoworkbench.printing.report_preview_overlays import write_annotated_preview_pdf
+from geoworkbench.services.report_preview_marks import PreviewOverlay
 from geoworkbench.ui.interpretation_report_workspace_expert import (
     InterpretationReportWorkspace as _ExpertInterpretationReportWorkspace,
 )
@@ -741,9 +743,18 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     **chart_panel_render_options(composition.chart_panels),
                     overwrite=True,
                 )
+                if composition.preview_marks:
+                    marked_pdf = Path(folder) / "interpretation-report-marked.pdf"
+                    # Only the selected dataset's composition is permitted;
+                    # its source PDF is never edited in place. Stamp before
+                    # any pages are submitted to the Windows print spooler.
+                    write_annotated_preview_pdf(
+                        prepared_pdf, marked_pdf, PreviewOverlay(composition.preview_marks),
+                    )
+                    prepared_pdf = marked_pdf
                 with fitz.open(prepared_pdf) as document:
                     total_pages = document.page_count
-            except (OSError, HydrocarbonInterpretationPdfError, RuntimeError) as exc:
+            except (OSError, HydrocarbonInterpretationPdfError, RuntimeError, ValueError) as exc:
                 self._show_export_error(exc)
                 return
             if total_pages < 1:
