@@ -4,6 +4,8 @@ from pathlib import Path
 
 import fitz
 import pytest
+from PySide6.QtCore import QPoint, Qt
+from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QFileDialog, QInputDialog
 
 from geoworkbench.services.localization import AppLanguage
@@ -41,7 +43,13 @@ def test_page_click_text_undo_redo_pdf_save_preserves_original(
             dialog.mark_tool.findData(PreviewMarkKind.TEXT),
         )
         monkeypatch.setattr(QInputDialog, "getText", lambda *args: ("Текст отчёта", True))
-        assert dialog._page_pointer(0, 0.25, 0.30, phase="press")
+        dialog.show()
+        qapp.processEvents()
+        page = dialog._page_labels[0]
+        QTest.mouseClick(
+            page, Qt.MouseButton.LeftButton,
+            pos=QPoint(round(page.width() * 0.25), round(page.height() * 0.30)),
+        )
         assert len(dialog._mark_history.current.marks) == 1
         assert dialog.mark_undo_button.isEnabled()
         dialog.mark_undo_button.click()
