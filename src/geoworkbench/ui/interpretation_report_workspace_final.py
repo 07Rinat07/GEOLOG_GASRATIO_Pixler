@@ -668,6 +668,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     geology_legend_pages=layout.geology_legend_pages,
                     layout_profile=layout.layout_profile,
                     annotations=composition.annotations,
+                    include_preview_marks=True,
                     target_depth_per_page=layout.target_depth_per_page,
                     **chart_panel_render_options(composition.chart_panels),
                     overwrite=target.exists(),
