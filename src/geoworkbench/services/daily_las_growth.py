@@ -47,6 +47,10 @@ class DailyLasGrowthPlan:
     # Source LAS can contain a verified subset of the existing native channels.
     # The omitted channels must be null-filled on newly appended depth rows.
     missing_curve_mnemonics: tuple[str, ...] = ()
+    historical_policy: str = "strict"
+    historical_conflict_rows: int = 0
+    historical_conflict_cells: int = 0
+    duplicate_historical_rows: int = 0
 
     @property
     def changes_data(self) -> bool:
@@ -146,6 +150,7 @@ def analyze_daily_las_growth(
     *,
     source_name: str,
     source_sha256: str,
+    historical_policy: str = "strict",
 ) -> DailyLasGrowthPlan:
     """Build a non-mutating append plan for one explicitly selected dataset.
 
@@ -156,6 +161,8 @@ def analyze_daily_las_growth(
     rows; new rows must form a suffix in the same monotonic direction.
     """
 
+    if historical_policy not in {"strict", "keep_existing"}:
+        raise DailyLasGrowthError("Неизвестная политика сверки пересекающихся глубин")
     if target.dataset_id == source.dataset_id:
         raise DailyLasGrowthError("Источник и приёмник не должны быть одним dataset")
     if not source_name.strip():
@@ -185,32 +192,53 @@ def analyze_daily_las_growth(
             dataset_append_state_sha256(target),
             dataset_append_state_sha256(source),
             True,
+            historical_policy=historical_policy,
         )
 
     target_native_curves, source_curves, target_values, source_values, direction = (
-        _validate_numerical_update_inputs(target, source, allow_partial_source=True)
+        _validate_numerical_update_inputs(
+            target, source, allow_partial_source=True,
+            allow_historical_duplicates=historical_policy == "keep_existing",
+        )
     )
     source_index = source.active_index
 
     existing_lookup = {_index_key(value): pos for pos, value in enumerate(target_values)}
     new_rows: list[int] = []
     skipped = 0
+    conflict_rows = 0
+    conflict_cells = 0
+    duplicate_historical_rows = 0
     new_phase = False
+    previous_index_key: tuple[str, int | float] | None = None
     terminal = target_values[-1]
     for source_row, value in enumerate(source_values):
-        existing_row = existing_lookup.get(_index_key(value))
+        current_index_key = _index_key(value)
+        existing_row = existing_lookup.get(current_index_key)
+        if current_index_key == previous_index_key:
+            if existing_row is None or new_phase:
+                raise DailyLasGrowthError("Новый суффикс LAS содержит повторяющуюся глубину")
+            duplicate_historical_rows += 1
+        previous_index_key = current_index_key
         if existing_row is not None:
             if new_phase:
                 raise DailyLasGrowthError(
                     "Пересекающиеся строки должны находиться перед новым append-only суффиксом"
                 )
-            _validate_overlapping_row(
-                target_native_curves,
-                source_curves,
-                existing_row=existing_row,
-                source_row=source_row,
-                index_text=_format_index_value(source_index.values[source_row]),
-            )
+            if historical_policy == "strict":
+                _validate_overlapping_row(
+                    target_native_curves, source_curves,
+                    existing_row=existing_row, source_row=source_row,
+                    index_text=_format_index_value(source_index.values[source_row]),
+                )
+            else:
+                differing = _overlap_conflict_count(
+                    target_native_curves, source_curves,
+                    existing_row=existing_row, source_row=source_row,
+                )
+                if differing:
+                    conflict_rows += 1
+                    conflict_cells += differing
             skipped += 1
             continue
         new_phase = True
@@ -243,11 +271,16 @@ def analyze_daily_las_growth(
             target_native_curves[key].metadata.original_mnemonic
             for key in sorted(set(target_native_curves) - set(source_curves))
         ),
+        historical_policy=historical_policy,
+        historical_conflict_rows=conflict_rows,
+        historical_conflict_cells=conflict_cells,
+        duplicate_historical_rows=duplicate_historical_rows,
     )
 
 
 def _validate_numerical_update_inputs(
     target: Dataset, source: Dataset, *, allow_partial_source: bool = False,
+    allow_historical_duplicates: bool = False,
 ) -> tuple[dict[str, CurveData], dict[str, CurveData], np.ndarray, np.ndarray, int]:
     """Shared strict schema/axis contract for append and read-only update review."""
     target_index = target.active_index
@@ -290,7 +323,18 @@ def _validate_numerical_update_inputs(
     target_values = _comparable_index(target_index)
     source_values = _comparable_index(source_index)
     direction = _strict_direction(target_values, "целевого dataset")
-    source_direction = _strict_direction(source_values, "исходного LAS")
+    if allow_historical_duplicates:
+        # A cumulative vendor LAS may repeat an old sample. The main append
+        # loop permits this ONLY at a pre-existing target index, never at a new
+        # depth. Reject reversal even for the historical part.
+        differences = np.diff(source_values)
+        if (direction > 0 and np.any(differences < 0)) or (
+            direction < 0 and np.any(differences > 0)
+        ):
+            raise DailyLasGrowthError("Направление индекса исходного LAS не совпадает с dataset")
+        source_direction = direction
+    else:
+        source_direction = _strict_direction(source_values, "исходного LAS")
     if direction != source_direction:
         raise DailyLasGrowthError("Направление индекса исходного LAS не совпадает с dataset")
 
@@ -510,6 +554,23 @@ def _same_value(left: float, right: float) -> bool:
     if np.isnan(left) and np.isnan(right):
         return True
     return bool(np.isclose(left, right, rtol=1e-9, atol=1e-9, equal_nan=True))
+
+
+def _overlap_conflict_count(
+    target_curves: dict[str, CurveData],
+    source_curves: dict[str, CurveData],
+    *,
+    existing_row: int,
+    source_row: int,
+) -> int:
+    """Count discrepancies, never infer a new value for a saved depth."""
+    return sum(
+        not _same_value(
+            float(target_curves[key].values[existing_row]),
+            float(curve.values[source_row]),
+        )
+        for key, curve in source_curves.items()
+    )
 
 
 def _validate_overlapping_row(
