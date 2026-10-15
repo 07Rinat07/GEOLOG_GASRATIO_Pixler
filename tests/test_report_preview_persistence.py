@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from dataclasses import replace
 import json
-from pathlib import Path
 
 import fitz
 import numpy as np
