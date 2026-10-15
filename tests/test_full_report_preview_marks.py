@@ -7,7 +7,8 @@ import pytest
 from PySide6.QtWidgets import QFileDialog, QInputDialog
 
 from geoworkbench.services.localization import AppLanguage
-from geoworkbench.services.report_preview_marks import PreviewMarkKind
+from geoworkbench.printing.report_preview_overlays import write_annotated_preview_pdf
+from geoworkbench.services.report_preview_marks import PreviewMark, PreviewMarkKind, PreviewOverlay
 from geoworkbench.ui.interpretation_full_report_preview import FullReportPreviewDialog
 
 
@@ -91,3 +92,21 @@ def test_freehand_and_remove_preview_marks_with_history(qapp, tmp_path):
     finally:
         dialog.close()
         qapp.processEvents()
+
+
+def test_overlay_export_is_atomic_and_refuses_missing_page(qapp, tmp_path):
+    source = tmp_path / "source.pdf"
+    unchanged = _source_pdf(source)
+    existing = tmp_path / "existing.pdf"
+    existing.write_bytes(b"old report")
+    mark = PreviewMark(PreviewMarkKind.COMMENT, 1, 0.2, 0.3, text="Page two")
+    with pytest.raises(ValueError, match="missing PDF page"):
+        write_annotated_preview_pdf(source, existing, PreviewOverlay((mark,)))
+    assert existing.read_bytes() == b"old report"
+    with pytest.raises(ValueError, match="cannot be overwritten"):
+        write_annotated_preview_pdf(
+            source, source,
+            PreviewOverlay((PreviewMark(PreviewMarkKind.TEXT, 0, 0.3, 0.4, text="x"),)),
+        )
+    assert source.read_bytes() == unchanged
+    assert not list(tmp_path.glob(".geolog-preview-*"))
