@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.services.application_logging import log_exception
 from geoworkbench.project.daily_las_growth_controller import DailyLasGrowthController
-from geoworkbench.services.daily_las_growth import DailyLasGrowthPlan
+from geoworkbench.services.daily_las_growth import DailyLasGrowthError, DailyLasGrowthPlan
 from geoworkbench.services.persisted_rock_code_profile_assignment import (
     RockCodeProfileReassignmentRequired,
 )
@@ -176,6 +176,15 @@ class DailyLasGrowthDialog(QDialog):
             "Числовое обновление: новые строки, пропуски и исправления",
             "Сандық жаңарту: жаңа жолдар, бос мәндер және түзетулер",
             "Numerical update: new rows, gaps and corrections",
+        ))
+        self.numerical_mode.setToolTip(self._text(
+            "Для добавления глубин из LAS с неполным набором каналов оставьте этот "
+            "режим выключенным. Старые данные сохранятся, отсутствующие параметры "
+            "на новых глубинах останутся пустыми.",
+            "Каналдары толық емес LAS тереңдіктерін қосу үшін бұл режимді өшіріңіз. "
+            "Ескі деректер сақталады, жаңа тереңдіктердегі жоқ параметрлер бос қалады.",
+            "Leave this mode off to append depths from a LAS with fewer channels. "
+            "Existing data are preserved and omitted parameters at new depths stay empty.",
         ))
         body_layout.addWidget(self.numerical_mode)
         self.preserve_overlap = QCheckBox(self._text(
@@ -439,6 +448,34 @@ class DailyLasGrowthDialog(QDialog):
                 numerical_mode=self.numerical_mode.isChecked(),
             )
             self.preview.setPlainText(str(exc))
+            if isinstance(exc, DailyLasGrowthError) and self.numerical_mode.isChecked():
+                answer = QMessageBox.question(
+                    self,
+                    self.windowTitle(),
+                    str(exc) + "\n\n" + self._text(
+                        "Проверить безопасное наращивание только новых глубин? "
+                        "Старые значения не изменятся. Каналы, которых нет в новом LAS, "
+                        "останутся пустыми на новых глубинах. Это только проверка: "
+                        "применение потребует подтверждения предварительного анализа.",
+                        "Тек жаңа тереңдіктерді қауіпсіз қосуды тексеру керек пе? "
+                        "Ескі мәндер өзгермейді. Жаңа LAS-та жоқ арналар жаңа "
+                        "тереңдіктерде бос қалады. Бұл тек тексеру; қолдану үшін "
+                        "алдын ала талдауды растау қажет.",
+                        "Analyze safe growth using new depths only? Existing values "
+                        "will remain unchanged. Channels missing from the new LAS stay "
+                        "empty at new depths. This only builds a preview; applying it "
+                        "requires confirmation of that preview.",
+                    ),
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
+                )
+                if answer == QMessageBox.StandardButton.Yes:
+                    self.numerical_mode.setChecked(False)
+                    self.preserve_overlap.setChecked(True)
+                    self._analyze()
+                else:
+                    self.controller.reset_state()
+                return
             QMessageBox.warning(self, self.windowTitle(), str(exc))
             return
         self.plan = plan
