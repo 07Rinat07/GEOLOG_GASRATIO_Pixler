@@ -269,7 +269,7 @@ def _validate_numerical_update_inputs(
     # Append-only permits only verified original channels. A reduced daily
     # exporter must not force deletion or replacement of the other curves.
     # Numerical corrections retain the stricter exact-schema contract.
-    if extra or (missing and not allow_partial_source) or not source_curves:
+    if extra or (missing and not allow_partial_source) or (allow_partial_source and not source_curves):
         parts: list[str] = []
         if missing:
             parts.append("нет обязательных кривых: " + ", ".join(missing))
