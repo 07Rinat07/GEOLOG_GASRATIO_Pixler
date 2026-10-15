@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from geoworkbench.services.application_logging import log_exception
 from geoworkbench.project.daily_las_growth_controller import DailyLasGrowthController
 from geoworkbench.services.daily_las_growth import DailyLasGrowthPlan
 from geoworkbench.services.persisted_rock_code_profile_assignment import (
@@ -411,6 +412,13 @@ class DailyLasGrowthDialog(QDialog):
                     provider_location=provider_location,
                 )
         except (OSError, RuntimeError, ValueError) as exc:
+            log_exception(
+                "daily_las_growth.preview_failed",
+                exc,
+                source_name=source.name,
+                target_dataset_id=dataset_id,
+                numerical_mode=self.numerical_mode.isChecked(),
+            )
             self.preview.setPlainText(str(exc))
             QMessageBox.warning(self, self.windowTitle(), str(exc))
             return
