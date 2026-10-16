@@ -30,6 +30,11 @@ from geoworkbench.services.lba_standard import (
 )
 from geoworkbench.services.fluid_phase_contract import fluid_hypothesis_phase_label
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.hydrocarbon_interpretation_report_locale import (
+    localize_method_calculation,
+    localize_method_name,
+    localize_system_warning,
+)
 from geoworkbench.services.parameter_labels import (
     localized_curve_name,
     localized_curve_reference,
@@ -1389,9 +1394,9 @@ def hydrocarbon_interpretation_html(
     labels = _HTML_LABELS[language]
     method_rows = "".join(
         "<tr>"
-        f"<td>{escape(method.method)}</td>"
+        f"<td>{escape(localize_method_name(method.method, language))}</td>"
         f"<td>{escape(', '.join(localized_curve_reference(name, language=language) for name in method.available_mnemonics) or labels['no'])}</td>"
-        f"<td>{escape(method.calculation or '—')}</td>"
+        f"<td>{escape(localize_method_calculation(method.calculation, language) or '—')}</td>"
         f"<td>{escape(method.source)}</td>"
         "</tr>"
         for method in report.methods
@@ -1444,7 +1449,10 @@ def hydrocarbon_interpretation_html(
     )
     if not manual_rows:
         manual_rows = f"<tr><td colspan='5'>{escape(labels['no_manual'])}</td></tr>"
-    warnings = "".join(f"<li>{escape(item)}</li>" for item in report.warnings)
+    warnings = "".join(
+        f"<li>{escape(localize_system_warning(item, language))}</li>"
+        for item in report.warnings
+    )
     return f"""<!doctype html>
 <html><head><meta charset="utf-8"><style>
 html, body {{ background: #ffffff; color: #172033; }}
