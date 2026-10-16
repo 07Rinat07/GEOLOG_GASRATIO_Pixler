@@ -581,4 +581,2440 @@ LAS 3.x pilot остаются отдельными следующими зад�
 - После первого листа область легенды не резервируется: интервал и фактическая длина графиков пересчитываются с единым физическим знаменателем вертикального масштаба, без удаления исходных глубин или изменения расчётов. Выбор передаётся через паспорт PDF, системную печать, сохраняется в JSON/GEolog package проекта v37. Старые проекты без поля получают новый default.
 - Приёмка: RU/KK/EN UI, JSON/package save-reopen, fail-closed unknown values, непрерывность глубинных страниц, реальный PDF с одной легендой по умолчанию и повтором при explicit opt-in, source immutability; три Windows Gate на точном HEAD.
 
-## WITS-UX-01 — немедле�
+## WITS-UX-01 — немедленная сигнализация Stop при медленной диагностике (на проверке)
+
+- При остановке TCP capture worker должен получить cancellation event до пользовательских уведомлений и записи diagnostic log. Даже если callback блокируется, новый reconnect не должен инициироваться.
+- Если worker успел завершиться до публикации STOPPING, конечное состояние snapshot должно оставаться STOPPED. Регрессия фиксирует оба требования без сетевого стенда; full Windows Quality/GUI/Security необходим до merge.
+
+## PRINT-STYLE-01 — фиксированная ширина generic DOCX-таблиц (на проверке)
+
+- Generic DOCX больше не использует Word auto-fit для metadata, coverage и данных: все таблицы получают общую фиксированную сетку в пределах A4 landscape с 720 twip полями и небольшой печатной подстраховкой.
+- Заголовки длинных LAS/ГТИ-полей переносятся внутри ячеек, внутренние границы Word имеют ту же ширину, что и сетка и элементы таблицы. Содержимое ячеек, source LAS, расчёты и language локализации остаются прежними.
+- Приёмка: программная XML-геометрия таблиц на 1–13 колонок, negative-тесты пустых/непечатных сеток и полный exact-head Windows Quality/GUI/Security до merge; внешняя физическая печать отдельно.
+
+## WITS-UX-01 — отмена TCP клиента во время connect (на проверке)
+
+- stop() может завершаться одновременно с синхронным CONNECTING уведомлением или блокирующим connect(). Отмена проверяется сразу после уведомления и сразу после успешного connect до создания сырого сегмента, чтобы исключить ложный CONNECTED и повторный запуск записи.
+- Сквозная приёмка: детерминированные тесты обоих окон гонки, отсутствие вызова capture, закрытый socket и нулевые счетчики connections/frames; три Windows Release gate на точном HEAD. Реальные raw WITS и LAS не модифицируются.
+
+## PRINT-STYLE-01 — согласование DOCX footer grid и physical page (на проверке)
+
+- Общий колонтитул DOCX ранее смешивал процентную ширину таблицы Word с сеткой в twips, что допускало переразметку в Word. Переход на согласованные фиксированные единицы для table/grid/tcW в пределах A4 landscape, в том числе при полях 850 twips.
+- Локализованные PAGE/NUMPAGES, статус документа и ограничение деталей оставлены без изменения; XML-регрессия проверяет RU/KK/EN и два вида таблицы. Нужны три Windows Release gate на точном HEAD; печать реальным принтером остаётся внешней приёмкой.
+
+## RPT-ANN-01 — сохранение точности глубинных привязок (на проверке)
+
+- В редакторе аннотаций ограничение до 6 десятичных знаков ранее округляло исходную глубину уже при открытии и повторном Save. Глубина, кровля и подошва теперь имеют 9 знаков после запятой; исходные значения не меняются без редактирования.
+- Приёмка: depth/interval, RU/KK/EN, JSON/GEolog package, save/reopen + повторное Save без потери седьмого знака после запятой; исходные кривые и глубины ГТИ неизменны. Ещё требуется full Windows Release gate точного HEAD.
+
+## RPT-ANN-01 — сквозная приёмка Qt-редактора на двух скважинах (на проверке)
+
+- Добавлена матрица RU/KK/EN × JSON/GEolog package: реальный диалог добавляет аннотацию в скважине A, отменяет несохранённые правки скважины B и затем сохраняет собственную аннотацию B.
+- После save/reopen новая копия редактора видит ровно одну собственную запись на скважину; чужая запись недоступна контроллеру. Raw depth и GTI curves сравниваются с копией до редактирования.
+- После успешного точного HEAD CI остаётся отдельная физическая приёмка итоговой компоновки и печати.
+
+## PRINT-STYLE-01 — заголовки generic DOCX при пагинации (завершено)
+
+- [x] Title/Heading1 используют Word keepNext/keepLines, сохраняя связь заголовка
+  со следующей таблицей и независимую пагинацию строк. Интегрировано в PR #556
+  после трёх успешных Release gates на e8071e21 (run 38153723347).
+  Физическая Word/printer приёмка остаётся отдельной.
+
+## PRINT-STYLE-01 — целостность строк generic DOCX (завершено)
+
+- [x] Строки metadata/coverage/data используют Word cantSplit; заголовки coverage/data
+  повторяются, строки свободно переходят между страницами. Интегрировано в PR #557
+  после трёх Release gates на e3f56439 (run 38156329452).
+  Полное совпадение sample text и исходных массивов покрыто регрессиями.
+  Физическая Word/printer приёмка остаётся отдельно.
+
+## PRINT-STYLE-01 — пагинация заголовков общих Office-отчётов (завершено)
+
+- [x] Общий helper сохраняет Title/Heading1 со следующим содержимым в geology,
+  standard/OPUS и polished DOCX. Обычные абзацы и строки независимы. Интегрировано
+  в PR #558 после трёх Release gates на 2e731d70 (run 38158239716).
+  153 связанных проверки прошли; физическая Word/printer приёмка отдельно.
+
+## Ближайший порядок работ
+
+### RPT-ANN-01 — доступность редактора в report workspace (завершено)
+
+- Кнопка аннотаций и обработчик открытия используют одну проверку: выбран dataset
+  и активен standard/OPUS, а не gas-mixture mode. В mixture_chart/mixture_text и
+  при отсутствии dataset кнопка отключена; возвращение к standard/OPUS включает её.
+- Ответственный: разработчик/QA. Приёмка: реальная кнопка/диалог, RU/KK/EN,
+  JSON/package reopen, смена UI language и потеря/возврат dataset, исходные массивы
+  неизменны. Интегрировано через PR #559 после трёх успешных gates на
+  cdc6c544 (run 38160979120), main e2c06c1e.
+
+### RPT-ANN-01 — история через Composer и save/reopen (завершено)
+
+- Сквозная матрица RU/KK/EN × JSON/package использует настоящую кнопку Composer,
+  настоящий диалог и его shared CommandHistory; подменяется только модальное ожидание.
+- 20 добавлений, 20 последовательных Undo и 20 Redo проверяют каждое промежуточное
+  состояние. Cancel черновика второй скважины сохраняет записи первой; commit второй
+  и reopen через Composer восстанавливают собственные записи и стабильный scope.
+- Ответственный: разработчик/QA. Исходные глубины и C1 неизменны, Cancel после reopen
+  сохраняет clean state. Интегрировано через PR #560 после трёх Release gates на
+  efaf9c01 (run 38162881449), main 3fd38ec6. Большой LAS/RSS, экспорт и физическая
+  печать остаются отдельной приёмкой.
+
+### RPT-ANN-01 / PERF-07 — большие LAS: память редактора и линейное чтение строк (завершено)
+
+- Приёмка выявила квадратичный поиск отсутствующего CR/LF в numeric LAS iterator.
+  Один forward scan сохраняет LF/CRLF/CR, mixed endings, пустые строки и границы
+  ASCII-секции без копирования всей секции; deterministic search-work regression
+  отклоняет старый iterator для LF/CR.
+- Production LAS import открывает синтетические файлы 100k/1M строк с 8 кривыми.
+  Настоящие кнопки диалога выполняют 20 добавлений, 20 Undo/Redo и Cancel через
+  общий CommandHistory; проверяются промежуточные записи и возврат clean state.
+- Python peak ограничен 4 MiB независимо от числа строк, прирост наблюдаемого RSS
+  — 32 MiB; на Windows RSS обязателен. Проверяются исходные SHA-256 и identity
+  массивов глубин/кривых, отсутствие остаточных composition и команд после Cancel.
+- Ответственный: разработчик/QA. Интегрировано через PR #561 после трёх gates на
+  b977e625 (run 38166236885), main 7a0f241d. Измеряется
+  транзакция редактора после import; импорт, Composer preview, export и физическая
+  печать не входят в этот бюджет и требуют своих измерений/приёмки.
+
+### RPT-ANN-01 — горячие клавиши Qt-редактора (завершено)
+
+- Ctrl+Z и Ctrl+Shift+Z в активном диалоге вызывают существующие кнопки Undo/Redo;
+  disabled history остаётся безопасным no-op. Второй command stack не создаётся.
+  Нативная отмена ввода в текстовом поле сохраняется и не меняет report records.
+- Приёмка: реальные Qt key events, 20 последовательных Undo/Redo, RU/KK/EN,
+  commit, Cancel после draft Undo/Redo, JSON/package reopen, clean state и source arrays.
+  Ответственный: разработчик/QA. Интегрировано через PR #562 после трёх gates на
+  529fe5ac (run 38168859808), main 3b78c0e8.
+
+### RPT-ANN-01 — сквозной Composer preview/PDF/system print (завершено)
+
+- Настоящая кнопка Composer и Qt-редактор создают по две записи в каждой из двух
+  скважин: собственную Unicode-заметку на TG и заметку отсутствующей logical track.
+  После JSON/package save/reopen реальные preview/PDF/printer renderer paths
+  получают тот же persisted annotation snapshot и output language RU/KK/EN.
+- Renderer observer вызывает настоящий painter: собственная заметка рисуется,
+  отсутствующая колонка не переносится в соседнюю. Извлечённый текст экспортного
+  и подготовленного print PDF содержит собственную заметку и не содержит чужую.
+  Report Passport фиксирует две записи; QPrinter PDF содержит реальные растровые страницы.
+- Ответственный: разработчик/QA. Source arrays неизменны. Интегрировано через
+  [PR #563](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/563) после SUCCESS
+  всех трёх gates на a4243b2d (run 38171561005), main 0e1423e2.
+  Физическая printer/HiDPI приёмка не заменяется программной print-to-PDF.
+
+Основная очередь ниже содержит только оставшуюся разработку и сквозную автоматическую приёмку.
+RPT-GAS-VIS-02 интегрирован через PR #432 после Release gate #2380: ratio-series используют
+true scatter без соединяющей geometry во всех основных renderer paths. PERF-07 numeric fast path
+интегрирован через PR #429 после Release gate #2365; clean unwrapped LAS использует fail-closed
+numpy data path с совместимым fallback на lasio. REPORT-I18N-01 закрыт через PR #434 и #435
+после exact-head Release gates. Текущий продуктовый инкремент — RPT-COMP-01: один
+renderer-neutral presentation composition сохраняется в проекте по dataset и одинаково управляет
+preview/PDF/system print. Foundation уже фиксирует orientation, print order, Auto/Show/Hide
+шламограммы/ЛБА, legend mode, layout profile, localized headers и report annotations в project
+format v37. Narrative controls интегрированы коммитом `55b3a056`: optional summary/conclusion
+сохраняются без удаления текста. Порядок и видимость разрешённых глубинных chart columns сохраняются
+в том же project v37: total, ratios, drilling и opus имеют строго ограниченные logical keys;
+неподходящие профилю/пустые колонки не рисуются, скрытые сохраняют своё место в порядке.
+Preview/PDF/system print применяют один snapshot; все скрытые графические колонки подавляют
+глубинный график, а source LAS, расчёты и classification остаются неизменными.
+RPT-ANN renderer/editor интегрированы через #446/#447; Composer output acceptance
+интегрирована через #563. Save/Apply checkpoint и scoped runtime history интегрированы через #565–#569; compound batch integration и физическая приёмка остаются открытыми. Зелёный CI относится только к проверенному head.
+
+
+| Порядок | Задача | Следующий проверяемый результат и зависимость | Ответственный по роли / статус |
+|---|---|---|---|
+| 1 | PRINT-STYLE-01 | Свести оставшиеся generic/Masterlog/Office пути к одному visual profile и document-control contract; дополнять готовые typography/marker/legend contracts. Physical acceptance вынесена отдельно | Разработчик / в работе |
+| 2 | RPT-ANN-01 | Renderer и transactional editor интегрированы через #446/#447. Composer, RU/KK/EN JSON/package reopen, scope isolation, 20 Undo/Redo, shortcuts и large-LAS memory проверены через #559–#563. Apply/checkpoint и scoped shared history интегрированы через #565–#569. Compound foundation/controller/UI интегрированы #572–#574; persisted batch acceptance интегрирована через #575. Автоматическая граница закрыта; остаётся физическая/содержательная приёмка, перейти к следующей задаче очереди. Физическая приёмка отдельно | Разработчик / в работе |
+| 2а | PLOT-FLAG-01 | Флажки со значениями по клику: глубина/время/XY, планшет и любые графики форм/интерпретаций/WITS; независимые screen/print controls, persisted anchors и единый preview/print/export snapshot | Разработчик + QA / запланировано по запросу пользователя |
+| 2б | RPT-AUTHOR-01: авторские значки | Переиспользовать готовые conclusion/remarks и report callout/arrow; добавить каталог авторских значков с подписью, persisted anchor и выбором включения в PDF/печать | Разработчик + QA / частично реализовано, новый symbol scope запланирован |
+| 2в | DATA-PETRO-01 | Универсальные форматы/петрофизика через isolated adapters: capability matrix и LAS 3.x slice → DLIS/LIS79 metadata/read; GIS/reservoir/scientific formats следующими самостоятельными этапами | Разработчик + QA + специалист по петрофизике / запланировано |
+| 3 | GASCTX-RPT-01: остаточная приёмка | Проверить общий editor/registry/context audit через production entry points, save/reopen и RU/KK/EN; завершить отдельные полосы/метки событий с grayscale-подписями. Реализованные exclusion/background/confirmed policy не переписывать | Разработчик + специалист ГТИ / на проверке |
+| 4 | WITS-UX-01 | Завершить persistence/reconnect и live-first navigation/help: основные данные и health видимы, advanced/diagnostics сворачиваются, outer horizontal scroll отсутствует | Разработчик / в работе |
+| 5 | WITS-PLOT-01 | Остаточные manual ranges, reconnect/schema-change и redraw acceptance поверх существующих unit-aware tracks и редактируемых панелей | Разработчик / в работе |
+| 6 | WITS-GASCTX-01 / WITS-INTERP-01 | Сквозная проекция live gas context и интерпретационных полос; source origin, fluid screening и alarm остаются независимыми осями | Разработчик + специалист ГТИ / в работе |
+| 7 | WELL-04 → WELL-05 | Сквозная готовность переводов и пары макетов; использовать реализованные field ledger/readiness/family resolver и WELL-06, проверить save/reopen без смешения ревизий | Разработчик / на проверке |
+| 8 | ARCH-07 | Довести общую history до оставшихся mutation controllers при работе над конкретными editor сценариями; не создавать параллельную историю в RPT-ANN | Разработчик / в работе |
+| 9 | PERF-05 | Сначала baseline текущего save/open/RSS на 100k/1M; новый storage backend только при подтверждённом bottleneck и с совместимой миграцией | Разработчик / запланировано |
+
+## RPT-GAS-VIS-01 — точечное представление газовых отношений
+
+- [x] Один shared presentation predicate определяет Haworth/WH-BH-CH, C1/C2…C1/C5,
+  isomer ratios, Pixler и OPUS ratio identifiers; source/canonical mnemonics учитываются
+  без изменения Dataset.
+- [x] TabletView и его print/PDF snapshot используют заполненные point markers без polyline
+  только для ratio-series; STYLE-refresh не должен возвращать линию у ratio и не должен
+  превращать обычные TG/C1–C5/normalized gas в точки.
+- [x] Masterlog и hydrocarbon HTML/PNG/PDF используют тот же смысловой контракт:
+  ratios — точки, обычные gas depth-series и drilling/DEXP — линии; легенда соответствует
+  фактическому glyph. C1–C5 ramp-report сохраняет временные линии компонентов.
+- [x] Relative-gas `*_REL` остаётся cumulative 0–100% stacked fill и не переводится в scatter.
+- [x] Regression matrix фиксирует screen/print/Masterlog/report boundaries; завершение только
+  после зелёного Release gate на окончательном head.
+
+- [x] Визуальная приёмка по реальному многостраничному отчёту уточняет density-contract:
+  ratio-series остаются marker-only, но мелкие заполненные точки располагаются существенно
+  плотнее по глубине. Общий budget использует целевой вертикальный шаг около 1.35 logical
+  units, а preview/PDF markers уменьшены так, чтобы соседние точки оставались различимыми и
+  не образовывали длинные same-column overlap chains. Uniform line fragments, dash glyphs и
+  соединение через NaN/depth gaps запрещены.
+- [x] Dense regression проверяет одновременно нижнюю и верхнюю границу marker density,
+  отсутствие QPainter line geometry и отсутствие длинных overlap-цепочек; sparse/singleton
+  factual observations по-прежнему не теряются.
+
+## RPT-PRINT-PAGE-01 — смысловое разделение справочных страниц отчёта
+
+- [x] Полная геологическая легенда и «Пояснения к графикам»/методика никогда не выводятся
+  на одной физической странице PDF/system print. При `FULL` сначала идут отдельные страницы
+  полной геологической легенды (с pagination большого каталога), затем отдельная страница
+  методики/формул, затем depth-графики.
+- [x] На depth-графиках после полной reference-легенды используется только компактная
+  повторная легенда, чтобы не дублировать весь каталог и не съедать полезную высоту кривых.
+  `COMPACT` сохраняет только компактные повторения, `HIDE` скрывает обе формы.
+- [x] Print-layout HTML изолирует блок методики явными page breaks на Qt-поддерживаемом
+  block element; preview/PDF/system print используют один смысловой порядок разделов.
+  После уже выведенной FULL reference-легенды chart renderer не пагинирует тот же каталог
+  повторно в COMPACT-режиме. Regression фиксирует оба контракта.
+
+### Внешняя и операторская приёмка, выполняемая параллельно
+
+| Задача | Что осталось | Ответственный / условие |
+|---|---|---|
+| RPT-DEPTH-01; RPT-GEO-01/02; RPT-QA-01 | Содержательно сверить М-1 и граничные пробы ЛБА, отсутствие washout/потери пиков, цвет и grayscale; получить реальный многостраничный отпечаток | Специалист ГТИ + оператор / блокировано доступностью принтера и полевой оценки |
+| REL-03 / CUT-03 / PRINT-STYLE-01 | Physical A4/A3, rich text/фото, поля драйвера, clipping и комплект одной ревизии | Оператор / блокировано доступностью принтера и образцов |
+| WITS-NET-01; WITS-MEM-01; FIELD-01 | Доступный реальный raw-поток, длительный Windows soak, live → review → запись → reconnect/reopen; автоматические memory/raw gates уже закрыты | Оператор сети + разработчик / блокировано реальным источником и стендом |
+| WITS-ALARM-01 | Приёмка factual activation/clear markers и звука, Pause/Resume/acknowledgement; отдельное решение по mute/escalation policy | Оператор + разработчик / на проверке; нужен реальный live-сценарий |
+| OPUS-08; FIELD-02…05 | Независимая проверка по ГИС/испытаниям и внешние WITSML/ETP/GS2 implementations | Профильный специалист + разработчик / блокировано внешними данными и системами |
+| SEC-01 / SEC-05 | Решение владельца по историческим пользовательским данным и provenance/license review assets | Владелец репозитория/ресурсов / блокировано внешним решением; история Git не переписывается автоматически |
+
+По внешнему этапу сохраняются среда, ревизия, входной fixture и наблюдаемый результат.
+Проверка цифрового PDF не подменяет физическую печать; новые полевые данные не считаются
+проверенными только потому, что автоматические fixtures прошли.
+
+Первый инкремент WITS-ALARM-01 ввёл Qt-независимый alarm state machine: валидированные min/max, sample-count debounce, hysteresis снятия, acknowledgement и fail-safe обработку отсутствующих/нечисловых отсчётов. Второй инкремент поднял live-form settings до schema v4 и сохраняет per-channel alarm rules по mnemonic: min/max, hysteresis, debounce, visual-enabled и audio-enabled; schema v1–v3 мигрируют с пустым набором alarm rules. Третий инкремент добавляет операторский редактор этих правил в Parameters: выбор параметра, независимое включение min/max, hysteresis, debounce и visual/audio policy с сохранением через существующую кнопку «Сохранить форму». Четвёртый инкремент подключает сохранённые правила к runtime: один `Wits0LiveAlarmController` проигрывает все новые append-only DATA_ROW после последней обработанной session sequence для каждой кривой, включая virtual Haworth/Pixler/DEXP/DEXPC по их `source-records` provenance, поэтому debounce не зависит от repaint, batch drain или Pause; active/acknowledged state отображается в таблице и indicator cards, а оператор может выполнить acknowledgement без очистки тревоги. Пятый инкремент добавляет bounded factual event history для `ACTIVATED/CLEARED` с `row_index` и acquisition sequence: события не теряются внутри drain batch и сохраняют отдельные CLEAR+ACTIVATE при прямом переходе между сторонами. Audio-enabled активации дают один coalesced системный cue на factual batch без повторения на refresh, а visual-enabled события формируют красные activation и зелёные clear threshold markers на текущей time/depth оси; при Pause alarm runtime и звук продолжаются, а новые markers становятся видимы после Resume. Следующим остаётся полевой acceptance звука/маркеров и решение по global mute/escalation policy.
+
+WITS-CALC-01 и OBS-01 уже интегрированы и поэтому удалены из активной очереди согласно правилу 8. Live-derived Haworth/Pixler/DEXP/DEXPC и build/session diagnostics остаются существующими контрактами, которые WITS-UX обязан переиспользовать, а не реализовывать повторно.
+
+**Внешние действия, начинаемые сейчас:** WITS-NET-01 (оператор сети), SEC-05 (владелец
+ресурсов) и подготовка решения SEC-01 (владелец репозитория). Они не требуют ожидания
+рефакторинга; отсутствие сети не блокирует replay, исправление памяти и диагностики.
+SEC-01/05 остаются условиями соответствующего внешнего выпуска, даже находясь вне основной
+очереди реализации. Для новых протоколов/API/3D/AI сохраняется очередь P2.
+
+WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 частично реализованы и не начинаются
+заново. Порядок WELL-01…06 сохраняет зависимости сценария: реализация WELL-06 использует
+существующие контракты WELL-04/05, но не подтверждает их полную операторскую приёмку.
+Календарные сроки не назначаются без доступности стенда и измерения первого инкремента.
+
+## GASCTX-RPT-01 — печать точечных событий газового контекста (на проверке)
+
+- Событие нулевой продолжительности (`top_depth == bottom_depth`) сохраняет точную глубину и ownership в registry, но на печатном треке выводится контрастной горизонтальной засечкой вместо прямоугольника нулевой высоты.
+- В монохромной печати засечка сохраняет семантический solid/dash/dot стиль impact, а полный код, интервал и ID остаются в легенде; глубина не сдвигается. На общих границах страниц действует `[top, bottom)` (у последней страницы нижняя граница включена); засечки рисуются поверх интервальных заливок и клипуются треком.
+- Приёмка: реальные векторные PDF и Qt-mock проверки верхней/внутренней/нижней глубин и всех impact styles; источник событий, глубины, LAS и алгоритм priority/exclusion не изменяются. Требуется полный exact-head Windows Release gate.
+
+## GASCTX-RPT-01 — технологический газовый контекст интерпретационных отчётов
+
+Операторская приёмка по реальному отчёту М-1 уточнила семантику `exclude_geological`: подтверждённый интервал с этим impact является **hard exclusion** — он не обучает robust background, не участвует в автоматическом candidate detection (включая ОПУС) и не выводится в печатной геологической интерпретации. `technological_gas` остаётся отдельным аудируемым технологическим контекстом. Графики отчётов дополнительно обязаны разрывать кривые на реальных depth gaps, а не соединять несмежные отсчёты.
+
+Generic `GasContextEvent` / `GasContextRegistry`, транзакционный editor/controller,
+применение confirmed context и измеренный/QC audit уже интегрированы в `main`. Хранение
+с учётом глубинной оси использует project v36; события v35 мигрируют как unbound и безопасно
+привязываются только для single-domain well. Editor доступен до расчёта из workspace.
+Общий report DTO содержит измеренные TG/C1–C5 min/mean/max, ручной QC reference и допустимую
+QC-разницу. Source curves не подменяются; confirmed hard exclusion применяется до обучения
+фона и detection standard/OPUS. Технологически подавленные кандидаты сохраняются в audit,
+а hard-excluded интервалы не возвращаются в клиентскую геологическую выдачу.
+
+Доказательство реализации: `gas_context_event_editor.py`, `gas_context_event_dialog.py`,
+`gas_context_candidate_policy.py`, `gas_context_interval_audit.py` и профильные tests.
+Остаточный scope — отрицательные глубины в model/editor, дополнительные ручные QC-поля,
+визуальные полосы событий, сквозная operator acceptance и общий язык экспортов.
+
+Цель — перед расчётом Gas Ratio/Haworth, Pixler, OPUS и любого комбинированного газового
+интерпретационного отчёта дать геологу/оператору явный способ указать интервалы газа известного
+технологического происхождения. Эта функция **report-first** и не зависит от наличия WITS.
+
+- [x] Ввести generic `GasContextEvent` / `GasContextRegistry`, не привязанный к `Wits0`.
+  Registry хранится по скважине/набору данных и доступен всем газовым интерпретационным отчётам.
+- [x] События представляются **неограниченной коллекцией строк**. Один тип может повторяться
+  сколько угодно раз: gas build-up/connection, СПО/trip, swab, circulated, recycled,
+  chromatograph test, gas-line test, lag-tracer, calibration, formation show, background,
+  elevated-unclassified и расширяемое «прочее технологическое событие».
+- [x] Каждая запись имеет собственный immutable ID, тип, ось/интервал глубины, start/end,
+  confirmed/draft, источник, комментарий и режим влияния на интерпретацию. Повторяющиеся
+  события одного типа не объединяются автоматически в один большой интервал.
+- [x] Редактор перед расчётом отчёта поддерживает Add, «добавить ещё такой же тип», Duplicate,
+  Delete и редактирование строк. Автонумерация вида «Газ наращивания #1/#2» является только
+  display-слоем; identity задаётся event ID.
+- [x] Ввод ручного Total Gas/% опционален и хранится как операторский/QC reference,
+  **не заменяя** измеренные LAS/GS2/WITS C1–C5/TG. При наличии исходных кривых min/mean/max/peak
+  вычисляются автоматически; ручное и измеренное значения показываются раздельно с QC-разницей.
+- [ ] Для других ручных QC-величин кроме Total Gas определить конкретные поля/единицы и
+  совместимый persistence/export contract. В текущем `GasContextEvent` есть только
+  `reported_total_gas`/`reported_unit`; измеренные C1–C5 не считаются ручным вводом.
+- [x] Автоматическая сквозная приёмка отрицательных глубин: `DepthInterval`,
+  `GasContextEvent` и transactional editor сохраняют signed MD/TVD/TVDSS без clamping.
+  `tests/test_gas_context_negative_depth_acceptance.py` проверяет JSON/package reopen,
+  выбранный standard/OPUS interval и реальные HTML/PDF, оба DOCX, XLSX на RU/KK/EN:
+  те же event ID/границы, измеренный TG и ручной QC/delta, числовые Excel cells,
+  неизменность source arrays/registry/candidates/audit. UI TVDSS покрыт отдельно.
+  NaN/inf и обратные события отклоняются до изменения working registry; обратные,
+  внедиапазонные и нечисловые analysis bounds отклоняются до изменения проекта.
+  Time axis не используется как depth; чужая MD и неоднозначная legacy unknown axis
+  не применяют context к TVDSS. Event registry остаётся well-wide и не обрезается
+  диапазоном одного dataset; диапазон валидирует выбранный analysis interval.
+  Интеграция после exact-head Release gate; полевая/физическая приёмка не закрыта.
+
+- [x] Ввести явный `InterpretationImpact` минимум из трёх режимов:
+  **exclude geological interpretation**, **operational/technological gas**, **formation gas**;
+  дополнительно поддержать **auto / requires geologist review** для неоднозначных случаев.
+- [x] Gas-line/chromatograph/calibration/lag-tracer test интервалы исключаются из автоматического
+  назначения УВ-пласта и из обучения фонового газа. Значения и формулы сохраняются для внутреннего
+  аудита, но исключённый автоматический кандидат не возвращается в клиентские HTML/PDF/DOCX/XLSX
+  как перспективный интервал или отдельная таблица подавленного кандидата.
+- [x] Connection/build-up, trip/СПО, swab, circulated/recycled gas не назначают самостоятельный
+  продуктивный пласт автоматически, но их C1–C5/TG, Gas Ratio, Haworth/Pixler и OPUS результаты
+  сохраняются и подписываются как технологический контекст для решения геолога.
+- [x] Confirmed manual context имеет приоритет над автоматической formation-show классификацией;
+  draft/unconfirmed не меняет итог. При пересечении нескольких confirmed событий применяется
+  детерминированный приоритет тест/QC → trip/swab/connection/circulation/recycle → formation/background,
+  а исходная automatic assessment технологически подавленных кандидатов сохраняется для аудита.
+  Confirmed hard exclusion имеет приоритет над перекрывающимся технологическим audit.
+- [x] **Gas-context client identity/i18n slice:** renderer-neutral `gas_context_report_labels`
+  задаёт один code + локализованное название для print track и HTML/PDF, обычного/оформленного
+  DOCX и XLSX. HTML/Word содержат event ID рядом с типом; XLSX сохраняет ID в прежней
+  Q-колонке и типизированные depth/TG/QC ячейки, но названия типа/влияния и ID header
+  соответствуют выбранному RU/KK/EN output language. Данные registry, raw enum persistence,
+  suppressed-candidate evidence и audit payload не меняются. XML/HTML-sensitive и formula-like
+  ID выводятся текстом. Standard/OPUS save/reopen и все клиентские exports covered;
+  overall measurement/automatic-assessment acceptance и physical print остаются ниже.
+  Интеграция после exact-head Release gate.
+- [ ] Остаточная сквозная приёмка представления каждого затронутого интервала: effective gas context, тип события,
+  event ID/номер, глубины, измеренные TG/C1–C5, ручной QC reference при наличии, automatic
+  assessment и пояснение, почему продуктивная классификация подавлена или уточнена.
+  Технический audit хранится отдельно от клиентских таблиц; RPT-QA/REPORT-I18N проверяют
+  видимый текст и отсутствие повторного вывода подавленного кандидата как перспективного.
+- [x] Один registry обязателен для PDF, XLSX, DOCX и preview; Gas Ratio/Haworth, Pixler, OPUS и
+  комбинированный hydrocarbon report не создают собственных несовместимых списков исключений.
+- [x] **Effective-context print track slice:** standard/enhanced interpretation PDF и PNG/HTML
+  preview используют общий `gas_context_track`: фактические границы и приоритет пересечений
+  берутся из `GasContextRegistry`, форма/стиль чёрной рамки и short event code не зависят от
+  цветного band. Легенда содержит локализованный тип, event ID и исходные глубины; длинные ID
+  переносятся, большие списки пагинируются. Tiny/point intervals остаются на своей глубине
+  без длинных подписей поверх соседей. Draft и hard-excluded события не возвращаются в
+  клиентский график; source arrays, candidates и audit policy не меняются. RU/KK/EN reopen,
+  standard/enhanced PDF, повторные/пересекающиеся события, grayscale и 72–600 DPI covered.
+  Scope не закрывает live/tablet alarms и физическую печать; интеграция после exact-head gate.
+- [ ] Графики/планшет могут показывать эти интервалы отдельными полосами/метками, но цвет не является
+  единственным носителем смысла; подпись типа события обязательна и должна работать в grayscale.
+- [x] Создание, сохранение и использование registry в офлайн-отчётах не зависит от WITS.
+  Live projection уже имеет отдельную реализацию; её полевая приёмка остаётся WITS-GASCTX-01.
+- [ ] Приёмка: несколько повторяющихся событий одного типа, пересекающиеся интервалы,
+  draft/confirmed, все режимы InterpretationImpact, сохранение/reopen проекта, RU/KK/EN,
+  одинаковый effective context в preview/PDF/XLSX/DOCX и отсутствие изменения source curves.
+
+Критерий завершения: известный технологический газ может быть внесён до расчёта отчёта в любом
+числе повторяющихся интервалов; формулы остаются воспроизводимыми, но подтверждённый контекст
+не позволяет автоматически представить test/СПО/swab/connection/recycled gas как продуктивный
+УВ-пласт без явного решения геолога.
+
+## UI-SYS-01 — единый адаптивный интерфейс
+
+**Зафиксированный визуальный baseline.** Актуальный industrial-blue дизайн, централизованный
+в `ui/application_style.py` и интегрированный последними branding/UI PR, считается текущей
+канонической айдентикой приложения. UI-SYS-01 **не является редизайном**: дальнейшие инкременты
+сохраняют выбранные navy/cyan/bright-work-surface токены, типографическую иерархию, логотип
+DIGITAL GEOLOG GASRATIO&PIXLER и общую визуальную плотность. Допустимы только перенос локальных
+presentation-QSS в shared palette-aware contract, адаптивность, accessibility, состояния controls
+и устранение конфликтующих локальных стилей. Изменение ключевой палитры, визуального языка,
+брендинга или массовое переоформление компонентов выполняется только отдельным явно согласованным
+дизайн-инкрементом с собственным visual-regression scope, а не попутно при выполнении roadmap.
+Document/painter/user-selected colors остаются данными документа и не приводятся к UI-палитре.
+Декоративные branding/Home assets не должны блокировать GUI-thread: resize-dependent artwork
+рендерится только после стабилизации геометрии и не пересоздаётся без изменения target size.
+
+- [ ] Ввести application-level visual/interaction contract вместо разрозненных локальных
+  `setStyleSheet`: единые логические высоты кнопок/полей, внутренние отступы, focus ring,
+  hover/pressed/checked/disabled states, toolbar icon metrics и compact mode.
+- [ ] Сохранять системную светлую/тёмную палитру и accessibility contrast; не фиксировать
+  desktop-only ширины и не переопределять семантику platform controls без необходимости.
+  Текущий palette-contract удаляет отдельную tooltip-палитру из entrypoint: shared stylesheet
+  использует только Qt palette roles для tooltip/read-only состояний, а offscreen dark-palette
+  smoke фиксирует неизменность системной палитры. Main/form-edit toolbar presentation также
+  вынесен из MainWindow в общий palette-aware stylesheet без изменения overflow/DPI geometry.
+  Print Center больше не задаёт локальные light-only presentation-QSS: primary action использует
+  semantic `uiRole`, а подписи/preview получают palette-aware оформление из общего stylesheet.
+  Print Job Status также использует semantic `statusRole` для working/success/error; смысл
+  состояния остаётся явным текстом, а presentation берётся из системной palette без hex-цветов.
+  Cuttings composition validation использует semantic `validationRole="error"`; проверка
+  интервала/лимита пород/100% не меняется, а локальный red-QSS удалён.
+  Form Create validation использует semantic `validationRole` для warning/error/success
+  вместо локальных state-specific hex-QSS; duplicate/protected/save/available логика сохранена.
+  Form Create больше не задаёт локальную light-only тему: controls наследуют shared palette-aware
+  foundation, tree-item metrics вынесены в application style, primary action использует `uiRole`.
+  Form Manager также больше не задаёт локальную light-only тему: tree/heading наследуют shared
+  palette-aware contract, primary actions используют `uiRole`, а A4 width guidance использует
+  semantic `hintRole` neutral/success/warning/error без локальных hex-QSS.
+  Description Templates guidance использует semantic `guidanceRole="info"|"warning"`: формула
+  и catalog warning больше не задают локальные hex-QSS и наследуют palette-aware presentation.
+  Form Structure A4 width advice переиспользует общий semantic `hintRole`
+  neutral/success/warning/error; локальные width-advice hex-QSS удалены, а painter/editor
+  colors preview остаются отдельной document-semantics границей.
+  Depth Annotations editor/drag hints, layer title и axis display наследуют shared palette-aware
+  presentation; info-подсказки используют semantic `guidanceRole="info"`. Локальный
+  `_ColorButton` и text/fill/border/leader colors остаются document-data границей.
+  Depth Annotations actions используют semantic `uiRole`: Add/Save — primary,
+  Remove/Delete — destructive, Undo/Redo — quiet; callbacks и undo/redo history не менялись.
+  Repo-wide аудит presentation-QSS выделил безопасный LAS Editor slice: title/summary/safety note
+  теперь используют shared palette-aware object selectors без локального QSS; выбор операции,
+  dataset-summary и responsive geometry не менялись.
+  Lithology description-template formula/warning теперь также используют существующий
+  semantic `guidanceRole="info"|"warning"`; локальные fixed-hex QSS удалены без изменения
+  template selection, RU/KK/EN контента или lithology CRUD. Действия Lithology используют
+  semantic `uiRole`: Add — primary, Remove — destructive, Update сохраняет default presentation;
+  callbacks и CRUD semantics не меняются. Logo Catalog preview также переведён с локального
+  light-only QSS на shared palette-aware selector; отображение и масштабирование самих logo assets
+  остаются неизменными. Masterlog Header inspector warning о выходе элемента за границы также
+  использует shared semantic `validationRole="warning"` вместо inline fixed-red HTML; preview/painter
+  и пользовательские document colors не меняются. Следующий slice — repo-wide аудит оставшихся
+  локальных presentation-QSS вне preview/painter и пользовательских/document colors.
+- [ ] Primary/secondary/destructive/quiet роли задавать semantic property, а не цветом по месту.
+- [ ] Диалоги продолжают использовать `fit_window_to_screen`; длинные RU/KK/EN подписи
+  переносятся/уходят в overflow, primary action остаётся видимым.
+- [ ] Приёмка: Windows 100/125/150/200% DPI, 1366×768 logical-small workspace, keyboard focus,
+  disabled/read-only, dark palette smoke, без horizontal clipping основных действий.
+
+**Запланированный инкремент UI-SYS-01.** При дополнительном Linux-осмотре PR #418 выявлено
+правое обрезание controls на RU/KK в узком окне. Сравнение с предыдущей базой и скрытой
+новой панелью интервала подтвердило существующий layout defect. Acceptance: 900×650 и
+1600×900, RU/KK/EN, доступные depth bounds/Apply/calculate/export, resize и keyboard focus;
+дополнительно Windows 100/125/150/200% DPI. Общий adaptive contract не считается полностью
+закрытым наличием ранее интегрированного UI-ADAPT-01.
+
+## PRINT-STYLE-01 — входные размеры блока реквизитов Masterlog (на проверке)
+
+- Masterlog document-control проверяет конечность и положительность физической ширины листа до выбора числа колонок; NaN, Infinity, bool, строки, неположительные значения и произвольно большие integer отклоняются как ValueError.
+- Глубины в печатаемом интервале должны быть конечными числами без перестановки границ; недостоверные данные не печатаются как NaN/Infinity. Корректные интервалы, RU/KK/EN-компоновка, LAS и данные расчётов сохраняются.
+- Приёмка: параметризованные positive/negative unit-тесты и три exact-head Windows Release gate до merge.
+
+## PRINT-STYLE-01 — большие целые в физических параметрах отчёта (на проверке)
+
+- Общий ReportVisualProfile отклоняет произвольные целые JSON/Python глубоко вне float-range как штатный ValueError, а не необработанный OverflowError, во всех полях ReportTypography и ReportLayoutMetrics, включая отрицательные значения.
+- Значения валидного профиля, геологические расчёты и исходные LAS/ГТИ не меняются. Приёмка: параметризованные тесты всех полей и полноценный exact-head Windows Quality/GUI/Security.
+
+## PRINT-STYLE-01 — проверка конечности типографики и физических размеров (на проверке)
+
+- Общий печатный профиль отклоняет NaN, ±Infinity, bool, строки и null во всех размерах `ReportTypography` и `ReportLayoutMetrics` до передачи геометрии в Qt/Office.
+- Существующие диапазоны (5–36 pt для типографики, строго положительные физические размеры) не меняются; валидные профили и исходные LAS/ГТИ не модифицируются.
+- Приёмка: параметризованные positive/negative проверки всех полей и полный Windows Quality, GUI/HiDPI/PDF и Security на актуальном HEAD; слияние только после завершения обязательных проверок.
+
+## PRINT-STYLE-01 — scatter ratio-series на расширенном PDF (на проверке)
+
+- Wh/Bh/Ch и прочие фактические ratio reference tracks в enhanced PDF больше не соединяют соседние измерения линиями: используются исходные scatter-точки с ограничением плотности и сохранением локальных экстремумов; для log шкалы нулевые/отрицательные значения исключаются из визуализации.
+- Шкалы, единицы, major/minor grid, кандидатные интервалы, цветовые роли и легенды остаются прежними. Рассчитанные ratio, исходные LAS/ГТИ и глубины не меняются; OPUS3 остаётся обычной кривой.
+- Приёмка: реальные Qt/PDF primitive тесты для Wh/Bh/Ch, dense sampling, invalid log values и immutable source arrays; полный exact-head Windows Quality/GUI/Security; external physical-print остаётся незавершённым.
+
+## PRINT-STYLE-01 — цветонезависимые линии кривых интерпретации (на проверке)
+
+- Стандартные и OPUS PDF-графики с обычными непрерывными кривыми, их легенды и PNG/HTML preview используют один детерминированный по порядку в панели line-style contract: solid, dash, dot, dash-dot, dash-dot-dot.
+- Цвет остаётся для экранного просмотра; при монохромной печати пользователь различает до пяти наложенных кривых и по типу штриха. Ratio-series остаются точечными, без соединяющих линий. Идентификаторы, шкалы, глубины, все исходные LAS и интерпретационные расчёты неизменны.
+- Приёмка: Qt-mock для кривых и реального preview, векторный PDF с ненулевой штриховкой и легендой, все три Windows Release Gate на точном HEAD. Физическая печать A4/A3 остаётся отдельной.
+
+## PRINT-STYLE-01 — устранение наложений подписей Haworth/Pixler (на проверке)
+
+- Разделены зоны названий Balance/Character, делений осей, шестицветной легенды глубин и заголовка Pixler. Нулевые метки X/Y и первая подпись C1/C2 отделены от нижней метки логарифмической шкалы. При большом диапазоне степеней логарифмические подписи прореживаются, сохраняя границы.
+- Координаты paired scatter, профилей C1/C2–C1/C5 и исходные LAS/ГТИ неизменны. Все построения по-прежнему векторные.
+- Приёмка: Qt capture геометрии и реальные bounding boxes PDF при 72/300 DPI, RU/KK/EN, проверка пустого пересечения легенд и шкал, исходные массивы immutable. Полный exact-head Windows Gates перед слиянием.
+
+## RPT-ANN-01 — fail-closed числовых полей сохраняемых аннотаций (на проверке)
+
+- JSON допускает целые числа значительно больше диапазона float. При импорте в depth/top_depth/bottom_depth или поля layout нормализатор возвращает доменную ошибку валидации, а загрузка проекта v37 — ожидаемый ProjectFormatError, а не необработанный OverflowError.
+- Проверены все восемь numeric-полей, положительные и отрицательные числа за пределами float, реальная загрузка повреждённого проекта и корректный конечный round-trip. Annotation schema v1, координаты допустимых записей и исходные LAS/ГТИ неизменны.
+- Слияние только после успешных трёх Windows Release Gate на точном HEAD; сценарии Composer и физическая печать остаются отдельной приёмкой.
+
+## PRINT-STYLE-01 — физическая читаемость диаграмм и Word-таблиц (на проверке)
+
+- Для «Газовые отношения: корреляция и профиль Пикслера» обеспечить >=6.5 pt у делений осей и коротких подписей на портретном A4 при 72/300 DPI, без преобразования кривых или диаграмм в растровые изображения. На странице показать расшифровку предварительных газовой/жидкой гипотез по интервалам; цвет точек остаётся кодированием глубин, непоказанные интервалы не называются непродуктивными.
+- Для Word метода и других таблиц обеспечить sum(tblGrid)=tblW=sum(tcW) в пределах 14000 twips при A4 landscape; сохранить относительные ширины колонок и читабельность на полях, без обрезки по краю бумаги.
+- Regression: Qt/PDF physical font size and source immutability, same candidate phase key RU/KK/EN, invalid/no candidates и DOCX XML print bounds. Дополнительно проверяются шесть monochrome depth markers, узкие дробные интервалы и резерв места для phase key на landscape A4. Физическая приёмка на реальном принтере остаётся отдельной задачей.
+
+## PRINT-STYLE-01 — Report Visual System
+
+- [x] **2026-10-10 — geology report output-language package:** отдельный диалог
+  геологического отчёта предлагает Русский/Қазақша/English независимо от UI language.
+  Численный snapshot строится один раз; три immutable views разделяют численные поля
+  и сохраняют authored rock/LBA/analysis
+  descriptions и stratigraphy names/descriptions. Выбор использует готовый snapshot,
+  не читает поздние изменения проекта и согласует preview, PDF, DOCX и XLSX.
+  Численные результаты и source arrays не меняются; file dialogs, cancel и errors
+  сохраняют язык UI. Девять production UI/output pairs после save/reopen используют
+  реальные PDF/Word/Excel с Unicode и escaped rich text; отдельные cancel/error cases
+  покрывают три UI languages. Счётчики подтверждают один gas-index/meter build; шесть
+  projection/full-build cases включают пробы с одинаковыми границами. Existing report tests сохраняются. Схемы не меняются.
+  Merge требует полного local suite, exact-head Release gate и review. Остальные
+  report kinds, Print Center и physical acceptance остаются открытыми.
+
+- [x] **2026-10-10 — interpretation unified output-language package:** общий
+  Русский/Қазақша/English selector обслуживает standard, ОПУС и C1–C5.
+  Preview, PDF/system print, DOCX/XLSX и PDF Passport получают выбранный output language;
+  диалоги, progress и error messages остаются на UI language. Select redraw использует
+  текущий immutable report; UI-language и mode changes сохраняют выбор в workspace.
+  Header lookup/store используют output-language key и существующий profile guard:
+  чужая языковая шапка не перезаписывается, header другого report profile не подставляется.
+  18 production workspace cases после save/reopen покрывают все UI/output пары и
+  standard/ОПУС: реальные PDF/Passport, Word, Excel, prepared print PDF и printer PDF,
+  выбранные narrative/header labels, целость трёх сохранённых шапок и source arrays.
+  Existing 18 ramp workspace cases проверяют общий selector без смены ramp contracts.
+  Source schema и calculations сохраняются. Merge требует полного local suite,
+  exact-head Release gate и рассмотрения review; остальные report kinds и physical
+  acceptance остаются открытыми.
+
+- [x] **2026-10-09 — C1–C5 unified output-language package:** оператор выбирает
+  Русский/Қазақша/English независимо от UI. Выбор одновременно обслуживает preview,
+  PDF и system print и сохраняется при смене UI языка/режима в текущем workspace.
+  Component heading, generated quality warnings и built-in sample/elapsed-time labels
+  локализованы; canonical RU audit strings, unknown client warnings и vendor axes
+  не переписываются. Выбор языка перерисовывает текущий report без пересчёта.
+  144 actual PDF/QPrinter scenarios покрывают три языка, три DPI, chart/text и четыре
+  вида time axis; три catalog cases сохраняют неизвестный текст; 18 production workspace
+  cases после project save/reopen проверяют все пары UI/output language и оба режима,
+  полный preview/PDF/system output, числовые таблицы и source immutability.
+  Existing 178 print regressions сохранены; assertions стандартных предупреждений
+  осознанно проверяют выбранный язык представления, исходный audit остаётся immutable.
+  Merge требует полного local suite и exact-head Release gate; REPORT-I18N-01 для других
+  report kinds и physical acceptance остаются открытыми.
+
+- [x] **2026-10-09 — C1–C5 ramp controlled print package:** HTML/PDF/system print
+  используют общий localized document-control snapshot; project/well/dataset берутся
+  из immutable расчёта, explicit identity предоставляет только реквизиты представления.
+  Пустая дата не получает generated fallback. Полные значения и согласования остаются
+  в основной зоне; PDF/system print повторяют bounded metadata, wordmark и локальный
+  page label с shared footer typography/palette. Общий paginator измеряет и рисует
+  одним canvas profile. HTML table/result borders и raster frame/grid используют
+  thin/strong rules; component widths, dash keys, coordinates и calculations сохраняются.
+  108 actual multi-page PDF/QPrinter cases RU/KK/EN, 72/300/600 DPI, chart/text и
+  default/full/long identity проверяют полные таблицы/реквизиты, footer/bounds и source;
+  шесть raster cases проверяют правила и сохранённые component keys. Existing regressions
+  и atomic failure сохранены. Merge требует полного local suite и exact-head Release gate;
+  PRINT-STYLE-01 и physical acceptance остаются открытыми.
+
+- [x] **2026-10-09 — unified Masterlog rules package:** geology/description interval borders
+  используют thin rule, swatch outer/missing frames — strong rule; inspection anchor/frame
+  используют strong/thin и critical/page/text palette с прежним background alpha.
+  Rock/catalog colours, calcimetry component lines и LBA intensity glyph colours/widths,
+  orientations, geometry и explicit saved colours/font sizes сохраняются.
+  495 actual PDF cases покрывают RU/KK/EN × пять DPI × default/grayscale/custom × 11 paths;
+  27 A4/A3/roll production exports после reopen и девять saved swatch override cases
+  проверяют searchable text, physical rule widths, geometry и source invariants.
+  Merge требует exact-head Release gate; PRINT-STYLE-01 и physical acceptance остаются открытыми.
+
+
+- [x] **2026-10-09 — unified Office profile package:** universal DOCX tables получают
+  table typography и text colour, notes/legend — caption style; shared Word tables используют
+  strong outer/thin inner border roles. Geological XLSX summary получает body/title typography,
+  все sheets — footer typography/muted colour с uppercase hex для корректного reopen.
+  54 production exports после project reopen покрывают RU/KK/EN, default/custom/large,
+  colour/grayscale и generic DOCX/geological DOCX/XLSX. Полный cell text, значения/типы,
+  column widths, print scale/repeat rows и source arrays сравниваются с baseline.
+  Merge требует exact-head Release gate; PRINT-STYLE-01 и physical acceptance остаются открытыми.
+
+
+- [x] **2026-10-09 — unified Masterlog default typography package:** column headings
+  используют table role; curve legends, stratigraphy/LBA и callout/symbol labels — caption;
+  rock/sample descriptions и sample interpretations — body. Bounded fitting использует
+  прежний mm adapter и сохраняет layout, orientations и explicit header/annotation styles.
+  360 actual RU/KK/EN PDFs покрывают пять DPI, default/custom/large profiles и восемь paths;
+  18 A4/A3/roll production exports после reopen проверяют searchable text и source invariants.
+  Existing Unicode tests сохраняют font stack, physical-DPI baseline и source contracts;
+  fixed legacy sizes заменены только intentional profile roles.
+  Merge требует exact-head Release gate; весь PRINT-STYLE-01 и physical acceptance остаются открытыми.
+
+
+- [x] **2026-10-09 — interpretation PDF fitted typography package:** standard и OPUS
+  используют title/subtitle/body/caption roles для заголовка, page/range/scale subtitle,
+  пустых панелей и candidate codes. Standard depth heading использует caption role.
+  Shared bounded fitting выбирает Unicode font по полному тексту, компенсирует paged DPI
+  и восстанавливает painter state; прежние rects/pagination сохраняются. 180 actual PDF
+  cases покрывают RU/KK/EN × пять DPI × default/custom/large × четыре text roles.
+  18 production PDFs после reopen и 18 empty/code adapter cases проверяют exact role
+  requests, searchable text и source invariants. Прежние fixed-size assertions обновлены
+  под intentional profile mapping с сохранением Qt quantization и physical-DPI checks.
+  Merge требует exact-head Release gate; PRINT-STYLE-01 и physical acceptance остаются открытыми.
+
+- [x] **2026-10-09 — unified interpretation preview profile package:** оставшиеся
+  panel/ratio/geology headings, curve legends, numeric scale labels, empty states и
+  fluid badges используют section/table/caption/body typography. Все renderer-owned
+  neutral fills, grids, frames и marker halos используют semantic palette; bounded
+  fitting сохраняет полный Unicode text. Общая высота panel headings измеряется по
+  section typography. Fluid/curve/geology semantic colours, factual scale values,
+  marker geometry и source arrays сохраняются. 27 ratio cases покрывают Wh/Bh/Ch и
+  Pixler + production reopen; 36 composite cases покрывают panels, empty geology,
+  badges и whole preview с default/custom/large профилями RU/KK/EN. Пакет интегрируется
+  одним PR после exact-head Release gate. Остальные adapters и physical acceptance
+  остаются в PRINT-STYLE-01.
+
+- [x] **2026-10-09 — interpretation preview fluid legend typography:** actual code +
+  localized phase label выбирает Unicode font stack; caption_pt и text приходят из
+  общего visual profile. Existing bounded fitting сохраняет полный текст внутри
+  прежних ячеек. Все пять phase codes/shapes/colours, marker size/positions и registry
+  order сохраняются. 18 RU/KK/EN raster cases покрывают две ширины и default/custom/large
+  typography; три empty cases и девять production previews после package reopen
+  сохраняют candidates и source arrays. Merge требует exact-head Release gate;
+  весь PRINT-STYLE-01 и physical acceptance остаются открытыми.
+
+- [x] **2026-10-09 — interpretation preview depth-axis profile:** заголовки используют
+  section_pt, actual signed numeric labels — table_pt. Фон, рамки, major/minor ticks
+  используют semantic palette общего профиля; прежние ширины линий и все координаты
+  сохраняются. Bounded fitting сохраняет полный текст в прежних областях. 54 raster
+  RU/KK/EN cases покрывают обе стороны, default/custom/large typography и отрицательные,
+  обычные/длинные значения; девять production previews после reopen сохраняют source
+  arrays и candidates. Интеграция требует exact-head Release gate; весь PRINT-STYLE-01
+  и physical acceptance остаются открытыми.
+
+- [x] **2026-10-09 — interpretation preview title/footer profile:** title_pt/footer_pt
+  и text/text_secondary заменяют локальные размеры и цвета. Bounded fitting сохраняет
+  полный локализованный текст внутри прежних областей; painter state восстанавливается.
+  18 RU/KK/EN default/custom/large raster cases проверяют размеры, bounds и текст;
+  девять production previews после package reopen сохраняют исходные массивы и candidates.
+  Chart geometry, curve styles и source contracts сохраняются. Merge требует полного
+  exact-head Release gate; physical acceptance и весь PRINT-STYLE-01 остаются открытыми.
+
+- [x] **2026-10-09 — gas-context legend typography:** заголовок легенды использует
+  section_pt, полные event rows — caption_pt общего visual profile. Header height
+  измеряется по фактическому localized title/font и одинаково используется для
+  PNG reservation, рисования и PDF pagination. 45 actual PDF cases покрывают
+  RU/KK/EN × пять DPI × default/custom/large typography; девять PNG и девять
+  dense multi-page PDF проверяют reserved bounds и полный текст всех событий.
+  Existing registry/source/reopen и technological/formation/review line-style
+  contracts сохраняются. Track heading/code typography не изменяется этим slice.
+  Merge требует полного exact-head Release gate; physical acceptance остаётся открытой.
+
+- [x] **2026-10-09 — Masterlog shared footer typography:** simple footer заменяет
+  fixed 6.5 pt, document-control footer заменяет table role на общий footer_pt.
+  Page label измеряется тем же footer font; автоматическая header/control зона сохраняет
+  table_pt и bold brand. 60 actual PDF cases покрывают RU/KK/EN × пять DPI × оба
+  footer paths × default/custom typography, searchable text, bounds и painter state.
+  Exact requested role проверяется отдельно от existing Qt pre-transform quantization;
+  extracted size/bounds сравниваются с 72-DPI baseline. 18 A4/A3/roll exports после
+  package reopen сохраняют controlled/legacy form metadata и source arrays.
+  Merge требует полного exact-head Release gate; physical acceptance остаётся открытой.
+
+- [x] **2026-10-09 — Masterlog document-control Unicode:** автоматическая зона
+  реквизитов выбирает print font stack по полному brand/label/value text до elision;
+  подвал отдельно выбирает font по page label перед измерением ширины, wordmark и
+  compact metadata. Table point size, bold brand, searchable PDF text и layout geometry
+  сохраняются. 30 actual PDF cases покрывают RU/KK/EN × пять DPI × header/footer,
+  long values, painter state и 72-DPI baseline. Девять A4/A3/roll exports после
+  package reopen сохраняют реквизиты, выбранный интервал, форму и source arrays.
+  Merge требует полного exact-head Release gate; physical acceptance остаётся открытой.
+
+Tablet header/footer physical-spacing slice: обычная шапка и подвал печатного document
+renderer используют existing point-coordinate font adapter на QPdfWriter/QPrinter.
+QFontMetricsF измеряет те же fonts, которыми рисуются title/range/brand/page number;
+reserved gaps берутся из profile card_padding_pt вместо device-pixel constants.
+Footer resolver получает brand + localized page text. Rectangles/rules остаются физически
+неизменными; pixel preview и painter state восстанавливаются. 180 реальных PDF cases
+покрывают RU/KK/EN × пять DPI × три ширины × два padding profiles × writer/printer;
+ещё три случая сохраняют empty range/hidden page number. Existing layout/executor/preview
+contracts проверяются отдельно. Merge после exact-head gate; physical printer acceptance отдельно.
+
+Default-typography Unicode slice: depth labels используют table typography профиля и
+actual numeric text; header text, image placeholders, lithotype swatches и simple footer
+выбирают общий print font stack по фактическому тексту. Saved mm sizes/bold имеют прежний
+приоритет; annotation font_family/style и fitting наследование не переписываются.
+90 header PDF cases проверяют RU/KK/EN × пять DPI × три paths × default/explicit sizes;
+10 depth cases сохраняют signed/large zero-aligned ticks; 15 footer cases сохраняют searchable
+brand и page labels. Пять explicit annotation cases и девять A4/A3/roll reopen exports
+проверяют contracts/source values. Qt size quantization проверяется относительно 72-DPI
+baseline отдельно от точного mm request. Merge после exact-head gate; physical acceptance отдельно.
+
+Callout/symbol Unicode slice: сохранённый текст инспекции выбирает shared scaled print
+font на 5.5 pt, label размещённого SVG-символа — на 6.0 pt. Point/interval anchors,
+scope фильтры, выносные рамки, SVG geometry и persisted language/text сохраняются.
+60 actual PDF cases покрывают RU/KK/EN × пять DPI × depth/interval × два painter paths;
+шесть scope regressions исключают чужую форму/колонку и глубины вне диапазона.
+Девять A4/A3/roll exports после reopen сохраняют canvas objects, SVG assets и source values.
+Закрытие slice требует exact-head Release gate; physical-printer acceptance отдельно.
+
+Geology-label Unicode slice: полный stratigraphy code + localized name выбирает общий
+scaled print font на 5.5 pt; фактические LBA color/type codes выбирают его на 5.0 pt.
+Resolver вызывается только для видимых labels; интервалы, rank lanes, orientation/position,
+catalog palette и intensity glyph geometry сохраняются. 90 реальных PDF cases покрывают
+RU/KK/EN × 72/96/144/300/600 DPI × три ориентации × два painter paths; девять production
+A4/A3/roll exports после reopen проверяют текст и неизменность форм/геологии/source values.
+Закрытие slice требует successful exact-head Release gate; physical acceptance отдельно.
+
+Column heading Unicode slice: заголовки и labels легенд кривых Masterlog используют
+существующий scaled Unicode helper. Resolver получает полный label с диапазоном и UOM
+фактически привязанной кривой; исходные mnemonic/UOM, 6.5/4.6 pt и повороты сохраняются.
+90 PDF cases покрывают RU/KK/EN × 72/96/144/300/600 DPI × horizontal/две vertical
+ориентации × legend on/off; девять production exports после reopen покрывают A4/A3/roll.
+Existing line/point/missing-channel keys contracts остаются; закрытие slice требует
+успешного Release gate на окончательном head. Physical acceptance остаётся отдельно.
+
+Geological description Unicode slice: три текстовых painter paths Masterlog выбирают
+печатный font stack по фактическому localized plain text, включая объединённое описание
+и заключение пробы. HTML markup не передаётся resolver; размеры 6.5/6.0 pt и существующий
+bounded fitting сохраняются. 45 PDF cases покрывают RU/KK/EN и 72/96/144/300/600 DPI
+с сохранением 72-DPI baseline; три production exports после package reopen проверяют
+неизменность геологических записей, формы и source arrays. Закрытие slice требует
+успешного Release gate на окончательном head; physical acceptance остаётся отдельно.
+
+Unicode legend slice: литологическая легенда и ЛБА Masterlog подключены к существующему
+`print_font` resolver по фактическому тексту. Заголовки, названия и пустое состояние
+больше не зависят от экранного font family; mm sizing и сохранённые overrides остаются.
+48 regression cases проверяют RU/KK/EN, PDF 72/96/144/300/600 DPI, восстановление painter
+и production export после package save/reopen без изменения формы и source arrays.
+Интеграция slice требует успешного Release gate на окончательном head; весь PRINT-STYLE-01
+и физическая печать остаются открытыми.
+
+Цель — единый оригинальный профессиональный нефтесервисный стиль, ориентированный на лучшие
+практики полевых/инженерных отчётов, без копирования фирменной айдентики сторонних компаний.
+Печатный visual profile является **адаптацией текущей DIGITAL GEOLOG industrial-blue айдентики**,
+а не вторым редизайном приложения: navy/cyan brand-направление, wordmark и визуальная иерархия
+сохраняются, но значения contrast/fills/line weights подбираются для A4/A3/roll и grayscale.
+PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
+
+- [x] **Shared-adapter slice:** geological HTML/PDF и XLSX, общие DOCX styles/table helpers,
+  simple tablet header/footer используют палитру/типографику `modern_oilfield_report_profile`.
+  Wordmark геологического HTML/PDF и планшетного подвала канонический; подвал резервирует
+  ширину номера страницы и обрезает длинный wordmark. XLSX сохраняет числовые значения,
+  добавляет alternating fills и числовое выравнивание. RU/KK/EN production export regressions
+  проверяют PDF/OOXML/XLSX и неизменность исходных кривых; весь PRINT-STYLE-01 не закрывается.
+- [x] **Masterlog header-defaults slice:** рамка/фон страницы и повторно используемой шапки,
+  default text/line/image-frame/placeholder, типографика текста и легенд литологии/ЛБА
+  получают semantic palette/physical point sizes из общего профиля. Явные сохранённые
+  color/background/font_size_mm/width имеют приоритет; source data, catalog swatches,
+  LBA intensity glyphs, header rectangles и persisted form properties не переписываются.
+  RU/KK/EN, A4/A3/roll, project save/reopen, PDF и reusable header покрыты regressions;
+  весь PRINT-STYLE-01 и physical acceptance этим slice не закрываются. Интеграция только
+  после успешного exact-head Release gate.
+- [x] **Geology-legend visual-profile slice:** общий painter геологических легенд
+  interpretation PDF и PNG/HTML preview использует semantic page/text/border roles,
+  thin-rule weights и caption/table typography из `modern_oilfield_report_profile`.
+  Измерение и рисование текста используют один font helper; paged PDF/system-print
+  devices компенсируют DPI в point coordinates, а PNG сохраняет pixel-coordinate contract.
+  Полная/компактная легенда и bounded ellipsis/pagination работают с тем же профилем.
+  Общая ширина колонок учитывает typography; caption и меньшие row bounds сохраняют
+  компактный режим ниже полного без дополнительного переноса из-за узкой сетки.
+  Catalog lithology colours/patterns, LBA type/intensity/fluorescence semantics и source
+  arrays не перекрашиваются. RU/KK/EN, реальные PDF 72/300/600 DPI, colour/grayscale profile
+  substitution и production standard/OPUS PDF/PNG после reopen покрыты regressions.
+  Интеграция после exact-head gate; остальные chart/media paths и physical acceptance открыты.
+- [x] **Interpretation curve-legend readability slice:** standard/enhanced/OPUS PDF
+  используют caption typography для полных localized curve labels, units и page-local
+  p5/p95. QTextLayout переносит строки без удаления символов; явный physical line pitch
+  сохраняет Windows PDF bounds. Glyphs выровнены с первой строкой; original curve indices,
+  colours и existing point/line policy сохраняются при missing ranges. Максимальная
+  измеренная высота резервируется перед depth pagination; после изменения числа страниц
+  page-local ranges измеряются повторно до стабильного budget. Геологические легенды и
+  footer учитывают этот reserve. RU/KK/EN, 72/300/600 DPI, A4 portrait/landscape, narrow
+  columns и caption profile substitution проверяются actual PDF regressions; source
+  arrays/metadata не меняются. Интеграция только после exact-head Release gate;
+  оставшиеся visual-profile пути и physical printer acceptance открыты.
+- [x] **Interpretation chart neutral-palette slice:** standard и enhanced/OPUS PDF
+  используют page/table-alt, text/secondary/muted и border/strong-border roles общего
+  visual profile для дорожек, шкал, рамок, нейтральных подписей и marker halos.
+  Palette snapshot берётся один раз на painter function, вне циклов source rows/ticks.
+  Series colours, candidate classification, marker shapes/codes, ratio reference colours,
+  curve styles и геометрия не меняются. Реальные многолистовые A4 portrait/landscape PDF
+  RU/KK/EN с colour/grayscale profile substitution проверяют output paths и неизменность
+  source arrays. Typography/rule hierarchy остальных chart paths и physical acceptance
+  остаются открытыми; интеграция только после successful exact-head Release gate.
+- [x] **Interpretation heading/rule profile slice:** PDF track headings используют
+  table/caption typography общего visual profile; измерение и рисование разделяют
+  point-coordinate font adapter с DPI compensation на QPdfWriter/QPrinter. Тот же
+  adapter обслуживает geology legend без изменения её поведения; legacy pixel PNG
+  callers сохраняют прежний sizing contract через default heading mode.
+  Neutral heading text получает semantic text role. Major/minor grid, axis ticks,
+  lane/frame borders используют thin/half-thin/strong rule hierarchy; source curve,
+  reference, candidate и marker pens остаются содержательными и не переписываются.
+  Ratio header budget отдельно резервирует строки внутренней шкалы, поэтому длинный
+  заголовок не перекрывает её. Реальные RU/KK/EN PDF 72/300/600 DPI, A4 portrait/landscape,
+  profile substitution, invalid-size validation и pixel-preview compatibility покрыты
+  regressions. Остальные title/body/axis-label/marker fonts и physical acceptance
+  остаются открытыми; интеграция только после successful exact-head Release gate.
+- [x] **Interpretation text/trace physical-DPI slice:** title/subtitle, depth labels,
+  normalized-panel percentage labels, no-data labels, curve legends, ratio micro-labels,
+  candidate codes и marker legends обоих PDF adapters используют общий point-coordinate
+  font adapter. Повторное масштабирование шрифта на paged devices устранено; фактический
+  вывод сохраняет базовые физические размеры 72 DPI при 300/600 DPI, включая Qt font
+  quantization. Depth numbers и normalized percentages используют table/caption profile
+  roles; narrative и узкие ratio/marker размеры сохраняются до отдельного layout slice.
+  RU/KK/EN, A4 portrait/landscape, отрицательные глубины, реальный extracted PDF text/font
+  sizes и неизменность curve arrays/metadata и candidate identity покрыты regressions.
+  Cosmetic pens source curves/reference traces заменены physical-point pens: 1.25 pt
+  source lines и 0.7 pt dashed reference curves больше не бледнеют при 300/600 DPI;
+  actual PDF stroke widths/dashes проверяются без изменения координат/arrays/colours.
+  Общий profile mapping оставшихся narrative/micro-text roles, readability узких ratio
+  шкал и physical-printer acceptance остаются открытыми; merge после exact-head gate.
+- [x] **Ratio-scale readable-heading slice:** enhanced/OPUS PDF использует caption
+  typography для внутренних ratio identifiers и чисел вместо fixed 5.1/4.4 pt.
+  Общий helper измеряет point-coordinate metrics для header reservation и paint;
+  крайние значения остаются, crowded middle tick пропускается, пересекающиеся endpoints
+  переходят на две строки без уменьшения шрифта. Wh/Bh печатает одну общую шапку,
+  сохраняя обе source/reference curves и все grid ticks. Реальные PDF 72/300/600 DPI,
+  22/40/90 pt lanes, logarithmic/linear scales, profile substitution и production
+  RU/KK/EN A4 portrait/landscape покрыты regressions; arrays/metadata не меняются.
+  Narrative/marker profile mapping и physical acceptance остаются открытыми;
+  интеграция только после successful exact-head Windows Release gate.
+- [x] **Interpretation explanatory-caption slice:** standard PDF note и enhanced/OPUS
+  fallback note без fluid markers получают caption typography общего профиля.
+  Общий point-metrics helper резервирует весь wrapped текст до расчёта depth pages;
+  `chart_geometry` принимает note height с прежним default/minimum 28 pt. Пояснение
+  не обрезается при изменении caption profile и не пересекает plot/footer.
+  Forced-empty cuttings/LBA tracks используют caption role для RU/KK/EN no-data labels.
+  Реальные A4 portrait/landscape PDF 72/300/600 DPI, caption substitution, полный текст,
+  source arrays/metadata покрыты regressions. Candidate-present micro-note/marker legend,
+  curve legend layout и physical acceptance остаются открытыми; merge после exact-head gate.
+- [x] **Fluid-marker legend caption-layout slice:** enhanced/OPUS PDF candidate legend
+  и пояснение используют caption typography вместо fixed 5.2/4.9 pt. Typed immutable
+  layout cells измеряют полный wrapped RU/KK/EN text; адаптивные 1–3 columns и общая
+  row height сохраняют все пять code/label/glyph identities без обрезания. Global
+  candidate legend height резервируется до depth pagination; page-visible subset
+  рисуется тем же layout contract и помещается над footer без пересечения с plot.
+  Пояснение различает ordinary p5–p95 tracks и fixed ratio scales. Реальные PDF
+  72/300/600 DPI, 180/360/550 pt widths, default/9 pt profile, A4 portrait/landscape,
+  subset budget, source arrays/metadata/candidate identity и invalid width validation
+  покрыты regressions. Candidate badges/curve legend typography и physical acceptance
+  остаются открытыми; merge только после successful exact-head Windows Release gate.
+- [x] **Interpretation cover physical-DPI slice:** все fonts титула, subtitle, brand,
+  document-control labels/values, compact/wide context rows, approvals/signatures и
+  пояснения обложки используют shared point-coordinate adapter для QPdfWriter/QPrinter.
+  Повторное DPI scaling устранено: actual 300/600 DPI text sizes и bounds сохраняют
+  физический 72-DPI baseline. Компактный/широкий макет и его исходные размеры не меняются;
+  helpers строго типизированы. RU/KK/EN, standard/OPUS, A4 portrait/landscape, пустая/явная
+  дата, QPrinter PDF output и production multipage renderer покрыты regressions.
+  Selected analysis interval приоритетнее presentation interval; ручные реквизиты и
+  source arrays/metadata сохраняются, generation timestamp не печатается.
+  Mapping оставшихся cover/narrative roles к shared typography и физическая приёмка
+  остаются открытыми; merge только после exact-head Windows Release gate.
+- [x] **2026-10-08 — narrative PDF physical typography:** QTextDocument измеряет
+  HTML на собственном 72-DPI device, который живёт вместе с документом; CSS pt
+  соответствует физическим page points на PDF/system print 72/300/600 DPI.
+  Title/section/body/table получают shared typography roles. Qt heading-relative
+  adjustments удаляются только при explicit point size, сохраняя inline formatting.
+  Oversized-row compact fallback остаётся 6.8 pt; cell override действует и на
+  source table classes. RU/KK/EN actual PDF и QPrinter PDF regressions проверяют
+  размеры, measured bounds, повторение headers и все строки без uniform shrinking.
+  Cover role mapping и physical printer acceptance остаются открытыми; merge
+  допускается только после полного local suite и exact-head Windows Release gate.
+- [x] **2026-10-08 — cover shared typography:** все font calls interpretation
+  PDF/system-print cover используют title/subtitle/body/caption roles общего profile
+  без отдельных мелких landscape размеров. Control labels/values, wrapped title,
+  subtitle и approvals получают measured reserve теми же physical-point fonts;
+  compact/wide context labels переносятся внутри ячеек. Windows Qt automatic
+  line advance заменён measured explicit pitch: context rows резервируют высоту
+  каждого ряда/пары, а paragraphs/UTF-16 supplementary Unicode сохраняются.
+  Portrait/landscape сохраняют
+  manual identity и источник; дата остаётся только явно введённой. Actual RU/KK/EN
+  PDF 72/300/600 DPI и default/custom typography проверяют полный текст, размеры,
+  page bounds и отсутствие пересечений; existing QPrinter/production checks сохранены.
+  Physical printer acceptance и единый profile оставшихся экспортных путей остаются
+  открытыми; merge только после полного local suite и exact-head Windows gate.
+- [x] **2026-10-08 — C1–C5 ramp visual-profile slice:** HTML/PDF отчёт газовой
+  смеси использует shared palette, title/section/body/table/caption typography и
+  canonical wordmark. Qt relative heading adjustments обрабатываются общим typed
+  rich-text adapter, который также сохраняет прежний interpretation text contract.
+  Служебный generation timestamp остаётся в immutable report audit, но не печатается
+  в клиентской metadata строке; project/well/dataset сохраняются. Raster chart получает
+  shared neutral page/text/frame/grid palette, сохраняя component colours, continuous
+  time-series, log10(1+response), image geometry и прежние pixel font sizes.
+  Actual PDF/PNG regressions RU/KK/EN, 72/300/600 DPI, default/custom profile и chart/text
+  режимы проверяют реальные шрифты/fills, полные числовые таблицы, линии всех пяти
+  компонентов, source immutability и atomic failure. Raster typography, повторяемый
+  footer/document-control ramp contract и physical acceptance остаются отдельными
+  slices; merge только после полного local suite и exact-head Windows Release gate.
+- [x] **2026-10-09 — geology PDF explicit typography:** экспорт геологического отчёта
+  применяет общий rich-text adapter после HTML import. Qt relative heading adjustment
+  больше не подменяет explicit CSS point size; default body font использует shared profile.
+  Actual PDF RU/KK/EN с default/custom typography проверяет полный многострочный title,
+  section/body/table sizes, заключения и source immutability. Existing Office regressions
+  сохранены; physical acceptance и оставшиеся profile paths остаются открытыми.
+  Интеграция только после полного local suite и exact-head Windows Release gate.
+- [x] **2026-10-09 — C1–C5 ramp monochrome line keys:** пять временных компонентных
+  кривых получают solid/dash/dot/dash-dot/dash-dot-dot styles с одинаковыми legend keys.
+  QPainterPath сохраняет весь временной polyline и непрерывный dash phase между отсчётами;
+  прежние цвета, log10 scale и числовые результаты сохраняются. RU/KK/EN PNG regressions
+  проверяют различимые grayscale legend samples, точные координаты всех отсчётов,
+  совпадение pen кривых/легенды и immutable report. Existing PDF/profile checks сохранены.
+  Raster typography, ramp footer/document control и physical acceptance остаются открытыми.
+  Интеграция только после полного local suite и exact-head Windows Release gate.
+- [x] **2026-10-09 — C1–C5 ramp raster typography:** chart title, scale/ticks,
+  component legend и time axis используют title/caption/table/subtitle roles общего
+  immutable visual profile. Unicode font stack выбирается по каждому фактическому label,
+  включая C4Σ/C5Σ; измеряемый fitting уменьшает только текст внутри существующих полей.
+  RU/KK/EN PNG regressions покрывают default/custom/max-size profiles, полный текст,
+  screen-font independence, measured bounds и report immutability. Existing PDF и
+  monochrome-line regressions сохранены. Footer/document control и physical acceptance
+  остаются открытыми; интеграция только после полного local suite и exact-head gate.
+- [x] **2026-10-09 — ratio-reference physical typography:** Haworth/Pixler reference
+  summary использует общий point-coordinate font adapter в PDF/system print.
+  Шрифты больше не увеличиваются повторно с device DPI; прежние 8–16 pt requests,
+  virtual-layout scale, PNG preview, paired observations и depth profiles сохраняются.
+  30 actual QPdfWriter/QPrinter PDF cases RU/KK/EN при 72/96/144/300/600 DPI проверяют
+  полный searchable text, physical sizes/bounds относительно 72-DPI baseline,
+  painter state и source immutability. Общая palette/role mapping reference chart
+  и physical acceptance остаются открытыми; merge только после полного exact-head gate.
+- [x] **2026-10-09 — ratio-reference neutral palette:** Haworth/Pixler reference
+  summary использует shared page/text/border/border_strong palette вместо локальных
+  цветов. PNG и vector PDF сохраняют depth colours, paired observations, Pixler profiles,
+  geometry и physical font contract. Девять actual PNG cases RU/KK/EN с default/grayscale/
+  custom profile и 18 actual PDF cases при 72/300/600 DPI проверяют реальные pixels,
+  text colours и vector fills/strokes; existing DPI/source regressions сохранены.
+  Typography role mapping, monochrome depth keys и physical acceptance остаются открытыми;
+  merge только после полного local suite и exact-head Windows Release gate.
+- [x] **2026-10-09 — ratio-reference typography roles:** Haworth/Pixler reference
+  summary использует shared title/section/body/caption/footer sizes вместо отдельных
+  8–16 pt constants. Измеряемый fitting сохраняет полный текст внутри virtual-layout
+  fields; point-coordinate adapter сохраняет physical DPI contract. 18 RU/KK/EN
+  PNG cases default/custom/max-size и complete/partial data проверяют roles, measured
+  bounds и пустые состояния; 27 actual PDF cases при 72/300/600 DPI проверяют full text,
+  physical sizes/bounds. Existing palette/DPI/source regressions сохранены.
+  Monochrome depth keys и physical acceptance остаются открытыми;
+  merge только после полного local suite и exact-head Windows Release gate.
+- [x] **2026-10-09 — ratio-reference monochrome depth keys:** шесть depth bins
+  получают различимые filled circle/square/diamond/triangle-up/triangle-down/hexagon
+  glyphs и solid/dash/dot/dash-dot/dash-dot-dot/custom line patterns. Scatter сохраняет
+  paired coordinates; Pixler depth profiles используют один vector path с markers
+  по исходным четырём ratios. Depth-bin и per-profile legends используют те же keys,
+  подписи отделены от образцов; RU/KK/EN пояснение больше не опирается только на цвет.
+  Шесть actual grayscale PNG cases проверяют все keys и точные source coordinates;
+  девять vector PDF cases при 72/300/600 DPI проверяют filled markers, line patterns
+  и отсутствие случайной plot fill. Existing palette/typography/DPI/source tests сохранены.
+  Physical acceptance остаётся открытой; merge только после полного exact-head gate.
+- [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
+  нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
+  high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.
+- [x] **Document-control Office slice:** общий `report_document_control` snapshot обслуживает
+  hydrocarbon PDF/Word cover и Excel sheet «Реквизиты»; workspace XLSX использует сохранённую
+  шапку текущего языка/профиля после save/reopen. Выбранный analysis interval приоритетнее
+  устаревшего presentation interval. Пустая дата не создаёт row/label и generation timestamp
+  не выводится; formula-like Excel values сохраняются как literal text. Автоматическая зона Masterlog реализована отдельным slice ниже; physical acceptance остаётся открытой. Закрытие slice — после exact-head gate.
+- [x] **Masterlog editable document-control slice:** номер документа, ревизия, статус,
+  явная дата отчёта, подготовил/проверил/утвердил и конфиденциальность доступны в данных
+  формы и динамических полях шапки RU/KK/EN. Project save/reopen и PDF сохраняют значения
+  конкретной формы; паспорт скважины и LAS metadata не подменяют их. Пустые поля, включая
+  дату, печатаются без технического placeholder. Автоматические зоны generic и управляемых форм Masterlog реализованы отдельными slices ниже;
+  общий footer contract остаётся открытым. Закрытие slice — после exact-head Release gate.
+- [x] **Generic HTML/DOCX document-control slice:** export controller передаёт общий
+  snapshot контекста проекта/скважины и выбранного интервала; только явно привязанная
+  форма Masterlog предоставляет номер/ревизию/статус/согласования/конфиденциальность и
+  вручную введённую дату. Неизвестная/изменившаяся ревизия отклоняется до записи output.
+  HTML и DOCX используют shared visual profile, wordmark и compact footer; Word footer
+  содержит PAGE/NUMPAGES, таблицы повторяют header и используют alternating fills.
+  Полные длинные значения остаются в основной зоне, footer ограничен; DOCX XML metadata
+  корректно экранирует ampersand. Автоматическая зона/подвал управляемых форм Masterlog реализованы ниже;
+  physical acceptance остаётся открытой. Закрытие slice — после exact-head Release gate.
+- [x] **Generic XLSX document-control slice:** resolved report export использует общий
+  snapshot реквизитов и печатный лист RU/KK/EN через `report_document_control_excel`.
+  Этот adapter также обслуживает interpretation XLSX. Сохраняются контекст проекта/скважины,
+  фактический интервал и реквизиты явно привязанной формы после reopen; дата появляется
+  только при явном вводе, formula-like значения остаются literal text. Data/Parameters
+  используют shared palette, alternating fills, numeric alignment, A4 pagination, повтор
+  header/ключевых колонок и canonical footer с &P/&N; широкие таблицы разбиваются
+  горизонтально в landscape без сжатия всего набора на одну страницу. Числа, нули, пропуски, unavailable и Metadata
+  остаются прежними. Автоматическая зона/подвал управляемых форм Masterlog реализованы ниже; physical acceptance
+  остаётся открытой. Закрытие slice — после exact-head Release gate.
+- [x] **Masterlog automatic document-control slice:** заполнение хотя бы одного сохранённого
+  document-control поля формы включает отдельную зону под пользовательской шапкой и 10 мм
+  подвал с wordmark, номером страницы и compact реквизитами. Общий snapshot повторяет выбранный
+  интервал задания на каждой странице; дата только явная. A4/A3/roll резервируют обе зоны,
+  последняя неполная страница сохраняет физический depth scale. RU/KK/EN имеют одинаковую
+  геометрию; длинный текст сокращается и ограничивается зоной, не перекрывая графики. Legacy
+  формы без реквизитов сохраняют прежний макет. PDF после reopen и DPI 72–600 покрыты
+  regressions; physical acceptance и общий контракт всех legacy форм остаются открытыми.
+  Закрытие slice — после exact-head Release gate.
+- [x] **Interpretation PDF/system-print footer slice:** общий snapshot передаёт номер документа,
+  ревизию, статус и конфиденциальность в повторяемый подвал всех страниц standard/OPUS.
+  Дополнительная строка резервируется вне content rect только при непустых реквизитах;
+  бренд и локализованный номер страницы имеют отдельные ширины. Длинный текст сокращается
+  по доступной ширине и ограничивается footer rect. Физический размер шрифта стабилен при
+  72–600 DPI; дата и generation timestamp в подвал не попадают. Production PDF после reopen
+  проверен для RU/KK/EN и обеих ориентаций; общий контракт остальных путей и physical
+  acceptance остаются открытыми. При уменьшении chart budget геологическая легенда
+  больше не исчезает: полный набор символов переносится после графиков на отдельные
+  страницы, графики содержат ссылку; HIDE сохраняет подавление легенды.
+  Закрытие slice — после exact-head Release gate.
+- [x] **Shared Word footer slice:** обычный interpretation DOCX получает canonical brand и
+  локализованные PAGE/NUMPAGES. Оформленный interpretation и generic DOCX используют тот
+  же adapter с compact номером/ревизией/статусом/конфиденциальностью из snapshot. Обложка
+  portrait и тело landscape явно ссылаются на один footer part без сброса нумерации.
+  Relative-width таблица разделяет бренд и номер страницы; строка реквизитов ограничена
+  96 символами и фиксированной высотой, полный текст остаётся в титуле/body. Footer margins
+  резервируют всю таблицу и trailing paragraph; дата и generation audit не повторяются.
+  OOXML parts/relationships, RU/KK/EN save/reopen, long/XML-sensitive values, исходные
+  данные и atomic failure покрыты regressions. Word pagination/physical acceptance
+  остаются открытыми. Закрытие slice — после exact-head Release gate.
+- [x] **Polished DOCX visual-profile slice:** обложка, narrative blocks и таблицы оформленного
+  interpretation DOCX получают semantic palette, typography, border и fill roles из
+  `modern_oilfield_report_profile()`. Локальная палитра OOXML удалена; canonical wordmark
+  приходит из того же immutable профиля. Production regression подменяет профиль и проверяет
+  фактические OOXML colors/sizes/fills/borders, не меняя source data или footer contract.
+  Весь PRINT-STYLE-01 этим slice не закрывается; media/header/table/graph acceptance остаётся ниже.
+- [x] **Masterlog neutral-chrome slice:** renderer-owned page background, outer/frame borders,
+  grid, column headings, neutral labels, image placeholders, descriptive/service fills и structural
+  borders берутся из `modern_oilfield_report_profile()`. Explicit template header colours,
+  lithotype/stratigraphy/LBA semantics, user curve styles и annotation/callout style contracts
+  остаются авторитетными и не перекрашиваются общим профилем. Regression подменяет semantic
+  palette и проверяет реальные QPainter pen/fill paths. Persisted form/project schema и source
+  data не меняются. Весь PRINT-STYLE-01 остаётся открытым до оставшихся media/table/graph и
+  physical acceptance критериев.
+- [x] **Обязательная document-control зона:** один immutable `ReportDocumentControl` contract
+  применяется в interpretation PDF/DOCX/XLSX, generic HTML/DOCX/XLSX и автоматической зоне
+  Masterlog. При доступности данных зона содержит project/well, фактический output interval,
+  document number, revision, status и prepared/checked/approved; Masterlog берёт project из
+  session, well/dataset из текущего контекста/формы и интервал из задания печати. Сохранённая
+  presentation-подпись интервала не может подменить resolved analysis/output interval.
+  `report_date` отсутствует целиком при пустом значении и появляется только после явного
+  пользовательского ввода; acquisition/vendor/passport dates и автоматически сгенерированный
+  timestamp не подставляются в клиентскую шапку/подвал. Полный timestamp остаётся только во
+  внутреннем audit/provenance. RU/KK/EN, save/reopen, formula-like values и неизменность source
+  data покрыты существующими document-control regressions; physical-print acceptance остаётся
+  отдельным внешним этапом.
+- [x] **Единый печатный wordmark:** **DIGITAL GEOLOG GASRATIO&PIXLER** хранится только в
+  `geoworkbench.brand.REPORT_BRAND_WORDMARK`/`APPLICATION_DISPLAY_NAME` и используется
+  через shared visual/profile adapters в PDF, Masterlog, DOCX/XLSX и печатных формах.
+  Regression запрещает повторный hard-code полного canonical wordmark в production Python
+  вне `brand.py`; существующие production export tests проверяют фактический вывод бренда.
+- [x] **Header/footer contract:** customer/contractor logo в паспорте скважины можно назначить
+  только из project Logo Catalog; произвольный `session.image_assets` не предлагается UI и
+  отклоняется controller boundary при новом назначении. Неизменённая legacy raw-logo ссылка
+  сохраняется для backward compatibility до явного перевыбора. Остальная часть контракта
+  закрыта интегрированными footer slices: canonical wordmark/page number и
+  confidentiality/status/document/revision повторяются в применимых PDF/DOCX/XLSX/Masterlog
+  путях, длинные значения bounded/ellipsis и не перекрывают content/chart zones. RU/KK/EN
+  подсказки, catalog selection и controller guard покрыты regressions; physical-print
+  acceptance остаётся отдельным внешним этапом.
+- [x] **Таблицы:** shared Office adapters используют `ReportVisualProfile.table_pt`,
+  semantic header/alternating fills, wrapped text и numeric right alignment; физические единицы
+  остаются возле параметра/в отдельной Unit-колонке. DOCX table helpers помечают header row
+  `w:tblHeader`, запрещают разрыв строки через `w:cantSplit` и сохраняют естественный перенос.
+  Generic XLSX и geology XLSX повторяют print titles; широкие инженерные листы печатаются A4
+  landscape при 100% с horizontal pagination и повтором ключевой первой колонки вместо fit-to-one-page.
+  Geology XLSX дополнительно резервирует минимум 24 pt для wrapped header row и canonical
+  wordmark/page footer. Regression проверяет profile font/fills, alternating row, numeric alignment,
+  print-title rows/columns, A4 geometry и scale без изменения типизированных данных.
+- [x] **Standard interpretation grayscale-candidate slice:** standard PDF больше не
+  превращает candidates в голые `(top, bottom)` перед renderer boundary. Полоса перспективного
+  интервала сохраняет semantic colour, а на последней графической колонке дополнительно получает
+  общий `FluidMarkerSpec` shape + short code (`G`, `L/GC`, `LO`, `L`, `?`) на фактической
+  глубине. Поэтому предварительный тип флюида остаётся различимым при grayscale/монохромной печати;
+  таблицы сохраняют полную формулировку, source classification и расчёты не меняются.
+- [x] **Masterlog curve-legend slice:** legend key повторяет сохранённую толщину и
+  solid/dash/dot/dash-dot style фактической кривой; point presentation использует общий
+  predicate тех же source/canonical identifiers. Label содержит resolved range и unit
+  привязанного канала, включая vendor mapping. Для отсутствующей кривой не рисуется
+  выдуманный key/unit. Отдельная clipped lane не перекрывает label в узких колонках;
+  сохранённые формы, массивы и policy ratio rendering не меняются. RU/KK/EN, A4/A3/roll
+  save/reopen/PDF и black-line regressions покрывают этот scope. Общий grayscale контракт
+  событий/интервалов и physical acceptance остаются открытыми; merge только после exact-head gate.
+- [x] **Masterlog grid/depth-axis profile slice:** column frames и major/minor grid
+  используют semantic border roles и point-based thin rule (minor вдвое тоньше);
+  depth labels — table typography/text role. Saved grid visibility/alpha/divisions и
+  zero-aligned five-metre depth geometry сохраняются, source arrays/forms не меняются.
+  Colour/grayscale profiles, transparency, project reopen и RU/KK/EN PDF при 72–600 DPI
+  покрыты regressions; общий event/grayscale и physical acceptance остаются открытыми.
+  Интеграция только после successful exact-head Release gate.
+- [ ] Графики/логи: цвет не является единственным кодом — используются dash/marker/label;
+  шкалы и единицы печатаются явно; события/alarms/interpreted intervals сохраняют смысл в grayscale.
+- [x] **PRINT-STYLE-01/RPT-QA print readability slice:** OPUS/GasRatio interpretation charts используют readability-first pagination с целевым диапазоном около 100 м на лист и адаптивным физическим vertical scale вместо жёсткого ограничения 12 страниц; короткие остаточные страницы равномерно распределяются. Dense source rows проходят extrema-preserving print decimation после разрыва реальных depth gaps, поэтому узкие пики не исчезают и не превращаются в случайные длинные диагонали из-за `linspace`. Physical PDF spool допускает до 600 DPI, Masterlog рендерится по фактическому printer paint rect; контраст кривых/сетки и прозрачность interval bands настроены для печати.
+- [ ] Профили носителя: A4 portrait/landscape, A3 и roll/masterlog. Макет адаптируется,
+  а не просто масштабируется до нечитаемого состояния.
+- [ ] Один visual profile применяется к hydrocarbon interpretation PDF, generic report PDF,
+  Masterlog cover/header/footer и XLSX/DOCX. Индивидуальные отчёты добавляют только содержательные
+  секции поверх общей визуальной системы.
+- [ ] **REPORT-I18N-01:** каждый печатный/экспортируемый отчёт имеет явный output-language selector
+  Русский / Қазақша / English, независимый от языка интерфейса. Выбранный язык применяется
+  одновременно к preview, PDF, системной печати, DOCX/XLSX, chart callouts, legends, method/source
+  blocks и report passport. Запрещены жёстко русские headers в export adapters. Приёмка:
+  tri-language golden/smoke tests для каждого report kind + проверка Unicode и переноса длинного KK.
+- [ ] Приёмка: vector PDF, embedded Unicode text, RU/KK/EN, print-to-PDF, grayscale regression,
+  A4/A3 geometry, physical-print gate, page density/golden rendering и отсутствие clipped text.
+
+## CALC-AUDIT-01 — доказуемость формул и методик
+
+- [ ] Все sourced расчёты проходят цепочку formula profile → units → control example →
+  source/version → Report Passport → report citation. Для Haworth/Pixler/DEXP/DEXPC и
+  публичных patent-derived profiles действует строгий gate.
+- [ ] ОПУС использует отдельный **менее строгий** evidence tier: secondary cross-check /
+  workbook-reproduced. Он не блокируется отсутствием открытого primary full text, если pinned
+  workbook/profile воспроизводим, но в отчёте обязательно помечается как historical/screening,
+  workbook-derived и/или pending field validation.
+- [ ] Engineering detector thresholds ОПУС не выдаются за универсальные методические пороги.
+- [ ] CI проверяет наличие audit record для каждого sourced FormulaProfile, source locator,
+  documentation path, rights note и соответствующий evidence level.
+- [ ] В Report Passport и пользовательском отчёте сохраняются formula/profile version,
+  inputs/UOM, source/citation и ограничения применения.
+- [ ] Права: не хранить большие копии защищённых публикаций; использовать библиографию,
+  DOI/publication ID, необходимое математическое выражение, короткое фактическое описание
+  и собственные контрольные примеры/результаты.
+
+## REPORT-ANNOT-01 — адаптивная маркировка УВ-интервалов
+
+Старый рабочий ID **PRINT-ANN-01** полностью поглощён этой задачей и отдельно не развивается.
+Его marker/code/legend scope реализован текущим shared `hydrocarbon_fluid_markers` contract
+(стандартный Haworth/Pixler + ОПУС, RU/KK/EN, dense horizontal lanes, indeterminate `?`).
+Открыты только перечисленные ниже сквозные print/visual acceptance-критерии; возвращать старые
+длинные callouts из закрытой временной ветки нельзя.
+- [ ] Цветная полоса остаётся на фактической глубине; цвет не является единственным кодом.
+- [x] Один immutable marker contract используется стандартным Haworth/Pixler и ОПУС:
+  bounded fluid phase → один code/shape/color + RU/KK/EN legend label (PR #419).
+- [ ] На графике запрещены длинные текстовые fluid callouts. В обычной плотности выводится
+  компактный marker + short code; при высокой плотности остаётся shape/color marker без текста.
+  Вертикальная координата не смещается от фактической глубины; collisions разводятся только
+  горизонтальными marker lanes.
+- [ ] Страничная легенда показывает только реально присутствующие типы. Полный интервал глубин,
+  полная предварительная формулировка и method/evidence остаются в таблицах/деталях отчёта.
+- [x] Ни Haworth/Pixler, ни ОПУС не должны принудительно выбирать один флюид при
+  ambiguous/no-consensus: такие случаи используют общий indeterminate marker `?`; неизвестные
+  hypothesis codes также не повышаются до определённой фазы по substring.
+- [x] PDF, whole-well PNG/HTML preview и системная печать используют один marker contract;
+  Office-таблицы сохраняют полные формулировки и не заменяются сокращениями.
+- [ ] Приёмка: RU/KK/EN, dense adjacent intervals, standard + OPUS, A4/A3, grayscale,
+  PDF text/visual regression и отсутствие перекрытия длинными подписями.
+
+## Результаты аудита и границы достоверности
+
+Ниже сохранены исходные наблюдения 21–24 сентября. Они объясняют происхождение задач;
+текущее завершение определяется сверкой 2 октября и тематическими checklist, а не старой
+диагностикой. Размеры Qt-shell в этой таблице относятся к историческому осмотру.
+
+| Историческое наблюдение | Основание | Актуальное решение |
+|---|---|---|
+| Верхняя очередь расходилась с тематическими `[x]`; PR #76 уже слит | Тематические разделы, CHANGELOG, GitHub metadata PR #76 | Синхронизировать статусы, убрать устаревший «текущий инкремент v28» |
+| TCP к настроенному WITS endpoint не установлен | Диагностика оператора: `TcpTestSucceeded=False`, выбран интерфейс Wi-Fi; сетевые адреса не включены в план | WITS-NET-01; не объявлять ошибкой парсера отсутствие соединения |
+| Ограничение deque само по себе не ограничивает Dataset preview | Исходный дефект воспроизведён; текущий WITS-MEM-01 инкремент добавляет bounded transient runtime и regression 10× лимита | Автоматические raw/acquisition-boundary/RSS gates интегрированы; до закрытия WITS-MEM-01 остаётся длительный реальный прогон |
+| Разные физические единицы ранее использовали общую шкалу | PR #274–#278: operator dashboard, вертикальные semantic tracks и unit-aware splitting | WITS-PLOT-01 остаётся открыт для manual ranges, reconnect/schema-change acceptance и redraw benchmark |
+| Операторский сценарий WITS был техническим: форма блокировалась до runtime, fullscreen/редактирование/alarms отсутствовали | Текущий UI + требования оператора 24.09.2026 | WITS-UX/PLOT/CALC/GASCTX/ALARM/INTERP; не смешивать происхождение газа, fluid screening и threshold alarm |
+| Архив не позволяет установить точный commit; время неоднозначно | `application_logging.py`: только package version; Formatter добавляет `Z`, но не задаёт UTC converter | OBS-01 реализован с build/session identity и UTC diagnostics; прежние ZIP/crash entries по-прежнему нельзя датировать или привязать к новому commit |
+| Архитектурные границы улучшены, крупные Qt-shell остаются | ARCH-01…05 и tests; MainWindow 10009 строк, TabletView 10560 строк | Поведенческие проверки вместе с AST; выделять ответственность при работе над сценарием |
+
+Разные адресные диапазоны источника и сервера без масок и маршрутов не доказывают
+изоляцию сетей; между ними возможна маршрутизация. `PingSucceeded=False` также не доказывает
+недоступность TCP. Для текущего инцидента подтверждён только неуспешный TCP connect.
+По номеру `0.7.96` нельзя заключить, содержит ли установленная копия PR #268.
+Тесты CP1251 подтверждают обработку fixture; действительная кодировка источника проверяется
+по обезличенному реальному raw-потоку. Падения из накопленного crash log требуют привязки
+к запуску, а не автоматического отнесения к последней версии.
+
+## P0/P1 — WITS: подключение, графики и наблюдаемость
+
+- [x] **WITS-BASE-01:** PR #268 интегрировал CP1251 в GeoScape profile, live preview до
+  создания скважины/сессии, backfill после Import Review и единственное меню WITS.
+  Windows Release gate `35538667094` прошёл для head `0e054cb0`; merge — `bc5a4a13`.
+  Это доказательство интеграции, а не полевой работы или ограничения всей памяти preview.
+
+- [ ] **WITS-NET-01 (P0, внешнее условие):** установить доступность реального источника.
+  Использовать существующий [network preflight](../scripts/wits0_network_preflight.ps1),
+  собрать IP/prefix/маршрут/интерфейс обоих компьютеров, роль TCP client/server, bind и порт
+  GeoScape. Ответственный — оператор/администратор сети; разработчик анализирует отчёт.
+  Приёмка: TCP connect успешен и при включённой передаче растёт счётчик байтов. Это два
+  разных результата; успешный TCP без данных не закрывает передачу WITS. Изменять IP или
+  firewall только после проверки фактической топологии; приложение не меняет их автоматически.
+
+- [ ] **WITS-MEM-01 (P0, блокировано внешним условием):** ограничить не только `_frames`, но и производный
+  Dataset, acquisition records/provenance, discovery и связанные caches временного preview.
+  Текущий инкремент воспроизводит рост на потоке 10× лимита и ограничивает transient Dataset,
+  curve arrays, preview-session records и record-id index через периодическую compaction из
+  последнего frame-окна; постоянная reviewed acquisition сохраняет append-only контракт.
+  Второй инкремент добавляет fail-closed backfill boundary: если preview уже вытеснил кадры,
+  persistent session не создаётся, retained-хвост не считается полной историей, оператору
+  показываются evicted/retained counters и retained временной диапазон.
+  Третий инкремент подключает операторский выбор к реальному workflow: если preview усечён,
+  приложение проверяет indexed raw и предлагает либо replay исходной доступной границы, либо
+  явное принятие earliest retained frame как нового начала. Выбор сохраняется в source provenance
+  acquisition-records; после raw replay live handoff подавляет уже воспроизведённые queued frames,
+  чтобы не создавать дубли. Raw replay повторно проверяет coverage fail-closed перед мутацией.
+  Добавлен regression-сценарий 10× preview window со сравнением digest числовых рядов
+  live↔indexed raw replay после compaction; его gate требует запуска с зависимостями проекта.
+  Добавлен изолированный RSS gate (1×/10× окно, допустимый прирост 96 MiB) с подсчётом
+  retained Dataset/session. Windows release-gate #1557 прошёл: baseline/workload peak
+  36.09/37.20 MiB для 1× и 35.85/44.06 MiB для 10×; скорректированный прирост около 7.1 MiB,
+  violations отсутствуют. Автоматический scope закрыт; оставшийся scope — полевой длительный
+  raw-поток в составе FIELD-01.
+  Приёмка: на потоке не менее 10× установленного лимита с постоянной схемой размер retained
+  structures ограничен; baseline RSS и допустимый запас зафиксированы до реализации и не
+  растут линейно с длительностью потока. При появлении нового канала сохраняются последние
+  доступные кадры; граница отображаемой истории видна оператору. При начале постоянной записи
+  выбрать и сохранить явную границу acquisition: весь доступный raw-интервал воспроизводится
+  через reviewed runtime, включая вытесненные из памяти кадры, либо оператор явно выбирает
+  более позднее начало. Отсутствие/ротация raw не допускает молчаливого усечения: показывается
+  доступный диапазон и требуется принятие границы с записью в provenance. Backfill и live handoff
+  не дают потерь/дублей; live/replay Dataset digests совпадают для одной схемы и выбранного
+  интервала. Тестируется реальное число строк и records,
+  а не только длина deque. Обновить описание bounded preview в RU/KK/EN.
+
+- [x] **OBS-01 (P0):** диагностика включает build/commit identity (либо явное `unknown`),
+  startup/session ID, версию и fingerprint WITS-профиля, кодировку, выбранный режим и
+  обезличенные счётчики received/parsed/rejected/plotted/persisted с причиной последнего отказа.
+  Первый инкремент добавляет immutable `BuildIdentity` с resolver-цепочкой build environment →
+  stamped package build-info → package VCS metadata → local Git checkout → explicit `unknown`;
+  session ID создаётся на запуск,
+  пишется в application log и diagnostic bundle. Форматтер `geolog.log` принудительно использует
+  UTC, а `geolog-crash.log` получает START/STOP границы с session/build/commit identity, поэтому
+  старые записи и две сборки одной версии с разными SHA различимы. Второй инкремент добавляет
+  отдельный allowlisted WITS diagnostic snapshot: canonical SHA-256 base-profile content,
+  profile/schema version, encoding, выбранный connection mode, discovery fingerprint и агрегаты
+  capture/acquisition (received/parsed/errors/skipped/enqueued/applied/backpressure). Третий
+  инкремент добавляет стабильный `Wits0NormalizationCode` для последнего rejected frame и
+  фактический `rendered_point_count` последнего live-plot snapshot; свободный текст ошибки
+  для этого не используется. В snapshot намеренно отсутствуют host/port/peer, raw path/file,
+  source name, acquisition session ID, значения измерений и свободный текст `last_error`.
+  Финальный инкремент штампует SHA в `_build_identity.json` перед сборкой wheel, устанавливает
+  этот wheel в отдельный `RUNNER_TEMP` вне Git checkout и без runtime build-environment,
+  подтверждает source=`package-build-info`, затем создаёт диагностический ZIP и проверяет
+  commit/build/session identity в `system-report.json`.
+  Приёмка: проверка при часовом поясе +05:00, двух последовательных запусках, старом crash log
+  и установленном приложении без `.git`; одна версия пакета с разными SHA различима.
+  Raw-измерения, credentials и содержимое пользовательского проекта автоматически не включаются.
+
+- [ ] **WITS-UX-01 (P0, в работе):** операторский WITS workspace должен поддерживать сценарий
+  «открыть WITS → выбрать форму → подключиться → сразу видеть буровую» и не выглядеть как единая
+  техническая форма со всеми внутренними counters. **Live-first information architecture**:
+  вкладка Monitor/Live открывается первой; постоянно видимы только quick connection
+  (field preset, TCP client/server, host/interface, port), компактный health и основные действия.
+  CIDR/wildcard bind, raw directory, disk thresholds, retention и profile находятся в
+  сворачиваемом **Advanced**; raw/parser/sequence/schema/acquisition/recovery counters и
+  maintenance actions — в отдельном сворачиваемом **Diagnostics**. Raw/Parsed/Events/Help остаются
+  вторичными вкладками. Внешний горизонтальный scroll запрещён; вертикальный используется только
+  при реальной нехватке высоты. На малой ширине form rows должны переноситься, а основные actions
+  не должны исчезать или перекрываться.
+
+  Публичный benchmark используется как набор принципов, а не как источник для копирования UI:
+  SLB real-time dashboard показывает live gauges/log tracks, Techlog Real Time обновляет streaming
+  plots, Halliburton HalVue делает акцент на быстро настраиваемых displays/templates и alerts,
+  NOV WellData — на one-click доступе к важному, персонализируемых screens/profiles и alarms.
+  DIGITAL GEOLOG сохраняет собственную industrial-blue айдентику, терминологию и Qt architecture.
+
+  Уже существующие контракты сохраняются: explainable no-data/healthy/stale/degraded health,
+  mnemonic-based workspace persistence, LIVE PREVIEW → persistent handoff, editable factory forms,
+  fullscreen/back без пересоздания acquisition и RU/KK/EN contextual help/tooltips. Текущий
+  Первые два UX-инкремента закрывают shell-level live-first layout и responsive navigation:
+  collapsed Advanced/Diagnostics по умолчанию, Live tab first/current, compact health summary,
+  перенос flush/reset в Diagnostics, отсутствие outer horizontal scrollbar, многострочный
+  adaptive control grid внутри Live и отдельный **compact parameter navigation mode**. При ширине
+  <820 px и в fullscreen Monitor/plot остаётся основным экраном; параметры открываются кнопкой
+  как отдельный view и возвращаются действием «Назад к монитору», без пересоздания acquisition.
+  На широком окне сохраняется обычный splitter-sidebar и его пользовательская видимость.
+  Current-values table растягивает четыре колонки по доступной ширине вместо собственного
+  горизонтального overflow. Третий live-first slice возвращает вкладку Monitor/Live в фокус
+  после успешного старта TCP capture, старта persistent acquisition и восстановления открытой
+  acquisition session; Raw/Parsed/Events/Help остаются вторичными диагностическими вкладками.
+  Следующие slices: persistence/reconnect acceptance, editable panel layout и field UX.
+
+  Приёмка responsive-navigation инкремента: 600×420 открывается plot-first; переключение
+  Monitor ↔ Parameters не меняет runtime state; на 1200 px sidebar и plot могут быть видимы
+  одновременно; wide sidebar preference восстанавливается после compact/fullscreen round-trip;
+  fullscreen/back не пересоздаёт acquisition; current-values columns используют Stretch.
+  Итоговая
+  WITS-UX приёмка остаётся 100/125/150/200% DPI, normal/fullscreen/back, restart/reconnect/schema
+  change без потери runtime state; RU/KK/EN тексты и tooltips обязательны.
+
+- [ ] **WITS-PLOT-01 (P1, в работе):** отдельные дорожки/панели совместимых физических
+  единиц с общей осью времени/глубины и независимыми auto/manual X-ranges. Панели и колонки
+  редактируются внутри любой формы; несовместимые единицы не смешиваются. Первый layout-state
+  slice вводит versioned form schema v2 для `panel_order`/`hidden_panel_ids`, безопасную
+  миграцию schema v1 и dashboard boundary, который нормализует неизвестные/повторные ID,
+  сохраняет factory fallback и unit-split панели. Второй slice добавляет в существующий
+  Parameters sidebar checkable-список панелей и действия «Выше/Ниже»: layout применяется
+  сразу, сохраняется через Save form, Reset возвращает factory layout; список не создаёт
+  horizontal overflow, а RU/KK/EN подписи покрыты regression-контрактом. Третий slice
+  поднимает form-state до schema v3 и добавляет независимые Auto/Manual X-ranges по
+  `semantic panel + normalized unit`: `%`, `ppm` и другие unit-split шкалы сохраняются
+  отдельно, manual range не сбрасывается live redraw, Auto→Manual использует текущий
+  ViewBox, Reset возвращает Auto X. Следующий scope — редактируемые колонки и field UX.
+  Интерпретационные
+  события рисуются как цветная линия/полоса на фактической глубине, а длинная подпись выводится
+  горизонтальным компактным badge у края графика; соседние badges автоматически раздвигаются,
+  не изменяя координату самого события. Приёмка: synthetic incompatible-units fixture,
+  100/125/150/200% DPI, bounded redraw benchmark и visual regression.
+
+- [ ] **WITS-CALC-01 (P0):** добавить виртуальные live-derived каналы без мутации source WITS:
+  Haworth/Gas Ratio (WH/BH/CH и базовые ratios), Pixler (C1/C2, C1/C3, C1/C4, C1/C5)
+  и DEXP/DEXPC. Вычисления обязаны использовать существующие versioned profiles из
+  calculations.pixler/Gas Ratio stack и UOM dictionary; UI не содержит формул. DEXP запускается
+  только при валидных ROP/RPM/WOB/BIT и проверенных конверсиях единиц; DEXPC дополнительно требует
+  фактическую и нормальную плотность. Недостающий вход даёт explicit unavailable reason, а не
+  NaN-график без объяснения. Derived channels доступны в любой форме и сохраняются как mnemonic
+  selection. Приёмка: live и batch результаты совпадают на одинаковом интервале в допуске,
+  provenance содержит profile/version/inputs/UOM conversions.
+  Первый инкремент вводит read-only `Wits0LiveDerivedChannelService`: sourced Haworth/Pixler
+  профили вычисляются через существующий `FormulaProfileRegistry`, source Dataset не мутируется,
+  provenance фиксирует profile/version, а missing/ambiguous/unsupported-unit входы возвращаются
+  как explicit unavailable state вместо молчаливого NaN-only канала.
+  Второй инкремент добавляет DEXP через sourced `dexp.jorden_shirley`: ROP/RPM/WOB/BIT
+  семантически разрешаются и приводятся в ft/h, 1/min, lbf и in через `UomDictionary`;
+  provenance сохраняет фактические UOM conversions, а полностью невалидный интервал имеет
+  explicit `no_valid_samples`. DEXPC намеренно не вычисляется, пока не задан надёжный
+  источник normal mud density; типичное/скрытое значение не подставляется.
+  Третий инкремент добавляет generic virtual-curve boundary в `AcquisitionLiveView`:
+  ephemeral derived curves проходят ту же window/downsampling/current-value projection, но не
+  добавляются в source Dataset и не участвуют в source-quality marker generation. Сервис WITS
+  материализует только available derived results как ephemeral `CurveData` с profile/version/UOM
+  provenance. Четвёртый инкремент подключает available virtual Haworth/Pixler/DEXP к операторскому
+  списку каналов и form/workspace selection; сохранение остаётся mnemonic-based, а source-only
+  selection state не получает virtual curve IDs. Пятый инкремент добавляет DEXPC только через
+  explicit `Wits0DexpCorrectionConfig`: normal mud density обязана быть задана явно с единицей,
+  actual mud density берётся из semantic MW_IN/MW_OUT и обе плотности приводятся в ppg через
+  `UomDictionary`; без конфигурации DEXPC возвращает `missing_configuration`, а не скрытый
+  default. Оставшийся scope — live↔batch parity acceptance и операторская настройка explicit
+  normal mud density.
+
+- [ ] **WITS-GASCTX-01 (P0, в работе):** разделить две независимые оси интерпретации:
+  **fluid screening** по Haworth/Pixler и **gas origin/context** по Total Gas/C1–C5 +
+  технологическому состоянию. Gas origin classes: background, formation_show,
+  connection_gas, trip_gas, circulated_gas, recycled_gas, chromatograph_test_gas,
+  gas_line_test_gas, lag_tracer_gas, calibration_gas, elevated_unclassified,
+  insufficient_context. Background оценивается robust rolling baseline только на пригодных
+  стабильных drilling samples; operational transients и QC/test events не обучают baseline.
+  Приоритет классификации: confirmed QC/test interval → trip/connection/circulation →
+  formation_show → background → unclassified. Connection/trip/circulation context имеет
+  приоритет над formation-show, чтобы пик после наращивания/СПО не назывался пластовым.
+  Тест хроматографа, тест газовой линии ГТИ, lag tracer/carbide test и calibration gas
+  всегда исключаются из formation interpretation.
+
+  Поддержать **гибридную автоматику + ручное подтверждение**: оператор может задать тип события,
+  ось depth/elapsed-time, начало, конец, optional значение/единицу и комментарий. Старый рабочий
+  ID **GASCTX-MANUAL-01** поглощён этим scope. Headless-контракт уже существует:
+  `Wits0ManualGasContextInterval` хранит kind/axis/start/end/value/unit/comment/source/confirmed,
+  а `resolve_manual_gas_context` детерминированно разрешает overlap и игнорирует draft.
+  Оставшийся manual scope — CRUD/editor и выбор диапазона по графику, project save/reopen,
+  RU/KK/EN UI/help и доказуемая передача confirmed interval в report provenance/исключение
+  технологического/QC-газа из самостоятельного formation result.
+  Ручной confirmed interval имеет приоритет над автоматической гипотезой и передаётся в live
+  markers, report interpreter и audit/provenance. Surface detection и lag-corrected bit depth
+  хранятся раздельно;
+  formation_show без валидной lag-привязки к долоту не должен уверенно присваиваться конкретному
+  разбуриваемому пласту. Приёмка: deterministic transition tests, overlapping manual-interval
+  priority, reconnect/reset semantics, synthetic drilling/connection/trip/test/calibration/
+  circulation sequences и полевой просмотр специалистом ГТИ.
+
+- [ ] **WITS-ALARM-01 (P0):** единый headless alarm contract для исходных и derived channels.
+  На параметр задаются optional min/max, visual-enabled, audio-enabled, hysteresis, debounce/
+  minimum-duration и acknowledgement. Событие создаётся только после подтверждённого перехода
+  normal→alarm и не пищит на каждом sample; возврат требует hysteresis. UI показывает цветной
+  status, горизонтальный badge и линию/полосу на графике; звук можно глобально mute без отключения
+  визуальной фиксации. Alarm threshold не является геологическим выводом. Настройки сохраняются
+  вместе с формой и валидируются по единице/каналу. Приёмка: boundary tests min/max/NaN, chatter
+  suppression, mute/ack, restart persistence и отсутствие блокирующего audio в Qt thread.
+
+- [ ] **WITS-INTERP-01 (P0):** для пригодных Gas Ratio/Pixler samples формировать аккуратные
+  screening notifications: «предварительный индикатор: газ», «газ/конденсат», «лёгкая нефть»,
+  «нефть/тяжёлая нефть» и неопределённый/смешанный результат. Цвет badge и графической полосы
+  идентичен карточке уведомления. Последовательные одинаковые классы объединяются в интервал;
+  близкие подписи раздвигаются только визуально. Текст всегда указывает, что это предварительная
+  интерпретация, не доказательство продуктивного УВ-пласта. Formation-show marker создаётся
+  отдельно от fluid marker и может сочетаться с ним; connection/trip gas никогда не маскируется
+  как formation show только по составу. Приёмка: palette transition tests, ambiguous cases,
+  no-C4/C5 partial evidence и visual regression.
+
+**FIELD-01 — критерии выхода первого этапа:** WITS-NET-01, WITS-MEM-01 и OBS-01 закрыты;
+обезличенный replay и затем живой GeoScape дают ожидаемые record/item/UOM и графики;
+проверены reconnect, restart, дубли, пропуски, disk-full, отмена Import Review, backfill и
+save/reopen. На 8–24-часовом Windows soak фиксируются конфигурация, SHA сборки, RSS,
+queue high-water mark, счётчики потерь/дублей и время от приёма до отрисовки. Не должно быть
+необъяснённых потерь, зависшего UI или роста временного preview без границы; численные бюджеты
+для оборудования и частоты потока фиксируются перед запуском. Raw-файлы не коммитятся.
+
+## Этапы завершения оставшегося scope
+
+| Этап | Вход | Проверяемый выход |
+|---|---|---|
+| Переводы: WELL-04 | Существующие editors, field ledger и readiness/preflight | Сквозная матрица всех авторских полей: редактирование → draft → review → изменение источника → stale → save/reopen; fallback не становится переводом, новая глубина не портит старые reviewed интервалы |
+| Макеты: WELL-05 | WELL-04, реализованные family resolver и tri-state header | Одна скважина/паспорт, RU/KK/EN × две ориентации, пользовательская и отсутствующая пара, no-header; после reopen сохраняется нужный выбор, выдача WELL-06 не смешивает ревизии |
+| Печать: REL-03/CUT-03 | Готовые автоматические проверки и доступный принтер | A4/A3, длинные подписи/rich text/фото, поля драйвера и clipping; образец с моделью принтера, драйвером, DPI/масштабом, SHA и результатом приёмки |
+| Хранение: PERF-05 | Измерения нынешнего JSON/package на 100k/1M строк, save/open/RSS | Решение о необходимости нового backend; при подтверждённом bottleneck — read-compatible prototype, затем migration и atomic recovery/fault injection; старый reader сохраняется до проверки |
+
+WELL-04/05 закрываются по этой сквозной матрице, а не по наличию DTO или одного AST-теста.
+Проверять production entry points, включая правку литологии, стратиграфии, шлама/ЛБА,
+интерпретации, паспорта и выдачу комплекта. Уже существующие шаги используются повторно;
+найденные пробелы реализуются отдельными небольшими PR.
+
+## Контроль выполнения и рисков
+
+- Перед PR: проблема/воспроизведение, ID задачи, владелец состояния, совместимость, границы
+  scope и критерии готовности. Для сложного изменения сначала минимальный failing behavioral
+  test; AST-check служит защитой границы, но не заменяет проверку результата.
+- После PR: ссылка на commit и обязательный Release gate, результат операторской приёмки
+  либо явно открытая полевая задача, обновление очереди и удаление слитой временной ветки.
+  Повтор job — только с установленной причиной; flaky failure не объявляется успехом.
+- На границе каждого этапа: проверить открытые PR, противоречия очереди/checklist, блокеры
+  сети/принтера/стенда, сроки ожидания и актуальность fixture. Изменения протокола, схемы
+  хранения и большой UI-refactor не объединять в один PR.
+- Измерять: время от первого пригодного кадра до графика, accepted/rejected/persisted counts,
+  RSS после прогрева, длительность CI, воспроизводимые Qt crashes и количество повторно
+  открытых дефектов. Сначала зафиксировать baseline; целевые значения согласовать до изменения,
+  не подгонять под полученный результат. Количество классов/PR/строк не является мерой качества.
+- Полевые данные, физический принтер и решение по SEC-01 предоставляются владельцем/оператором.
+  Отсутствие этих условий фиксируется как блокер конкретной приёмки, а не как завершение задачи.
+
+## Текущая база
+
+- пакет `0.7.96`; project `v36`; form `v18`; tablet layout `v25`;
+- desktop-модульный монолит: Python 3.11, PySide6, PyQtGraph, NumPy;
+- WITS0, WITSML 1.4.1.1, WITSML 2.x/ETP foundation, GS2/Paradox, LAS, планшет, формы,
+  расчёты и отчёты реализованы;
+- комплексная газовая A4-форма использует один видимый общий depth track и семь графических
+  секций без удаления внутренних синхронных depth tracks; порядок секций соответствует
+  integrated gas log: ROP, C1–C5, Total Gas, normalized/relative gas, diagnostic ratios и Pixler;
+- `show_x_scale` отдельно управляет числовой шкалой X в шапке графической колонки, а `grid_x` —
+  вертикальными линиями сетки; оба флага независимо проходят через factory form → `FormTrack` →
+  `TabletLayout` → пользовательскую форму. Старые формы v1–v16 и layouts v1–v24 мигрируют с
+  `show_x_scale=True`, поэтому их внешний вид сохраняется;
+- в секции **«Компоненты C1–C5»** формы **«Интегрированный газовый каротаж C1–C5»** числовая
+  шкала X по умолчанию скрыта независимо от сетки; C1–C5 остаются `LINEAR` с индивидуальным
+  автоматическим диапазоном, а шкалу можно штатно включить через инспектор;
+- печатная шапка выводит все семь C1–nC5 rows; повторная конечная шапка занимает отдельную
+  финальную страницу и использует ширину графика, не уменьшая последнюю страницу планшета;
+  off-scale samples клипуются через bounded overscan без искусственных `NaN`-фрагментов и
+  небезопасных painter coordinates;
+- C1–C5 теперь проходят Qt-независимое bounded conditioning до расчёта `TG_CALC`, относительных
+  компонентов, Haworth и Pixler; исходные кривые не перезаписываются;
+- Windows quality, GUI/HiDPI/PDF и security gates автоматизированы; реальная физическая печать,
+  полевые interoperability и длительные soak gates остаются ручными/полевыми критериями;
+- preview и physical printer больше не создают скрытые PDF; legacy timestamp-копии и аварийные
+  временные файлы очищаются только по строгому application-owned контракту;
+- root-level PDF export passport sidecars `*.pdf.passport.json` считаются generated output и
+  исключены из новых коммитов вместе с ручными root PDF-экспортами;
+- колонка системного типа `INTERPRETATION` может иметь пользовательское отображаемое название;
+  сохранённое описание породы из `CuttingsSample.description` видно в ней на планшете и в печати.
+  `Shift + левая кнопка` создаёт интервал описания с точной коррекцией границ, шаблоном
+  RU/KZ/EN или произвольным rich text без обязательного заполнения процентов;
+- заводские MASTERLOG A4 portrait/landscape используют локализованное отображаемое название
+  «Описание пород» для системной колонки `INTERPRETATION`; книжная форма содержит эту колонку и
+  укладывается в A4 при безопасных минимальных ширинах без скрытого print scaling;
+- все 19 встроенных планшетных форм, десять готовых A4 Masterlog-форм и десять парных шапок
+  проверены на RU/KK/EN: локализуются формы, колонки, параметры, шкалы и поля печатных шапок;
+  известные заводские подписи ранее сохранённых форм переводятся на лету, пользовательская копия
+  Masterlog создаётся на текущем языке, а авторские названия, мнемоники, формулы и единицы не
+  изменяются;
+- универсальный импорт принимает файл одним действием и определяет LAS/CSV/TXT/Excel/Paradox/GS2
+  по расширению; обычный LAS использует совместимую политику, а расширенные политики и вторичные
+  настройки Import Review остаются доступны через отдельную команду и раскрываемые разделы;
+- пользовательские project/LAS sidecars исключены из новых коммитов; опубликованная история Git
+  требует отдельного согласованного решения SEC-01.
+
+## Принятые инженерные ориентиры
+
+- **CWLS LAS 2.0** — обменный формат цифровых каротажных кривых, а не контейнер всего
+  редактируемого проекта.
+- **SLB Techlog и Aspen Geolog** — ориентир для последовательности `load/QC → common sampling →
+  calculations → interpretation → presentation`, версионированных workflows и отделения
+  исходных измерений от производных результатов. Закрытый vendor-код не копируется.
+- **WellCAD и LogPlot** — ориентир для разделения рабочего документа, layout и обменного LAS,
+  безопасного merge и резервных копий.
+- **Leapfrog Energy** — ориентир для autosave, Save a Copy и переносимого backup.
+- **Energistics ETP/WITSML** — version/provenance envelope и реальная interoperability matrix.
+- **PyQtGraph, NumPy, lasio и другие open-source компоненты** используются только после проверки
+  лицензии, актуального API, производительности и соответствия нашим доменным контрактам.
+- **OWASP File Upload/XXE guidance** — defense in depth, bounded resources, запрет внешних XML
+  сущностей и недоверенных путей.
+
+## P0 — выпуск и безопасность
+
+- [x] **REL-02:** hash-pinned Windows/Python 3.11 runtime, CycloneDX SBOM,
+  dependency/secret/static scans и отдельные quality/security artifacts.
+- [ ] **REL-03:** завершить Windows GUI/HiDPI/PDF/physical-printer matrix с реальным отпечатком,
+  цветом, clipping, полями драйвера и операторским checklist.
+
+  Реализация PR #76 слита 5 сентября 2026 (`41986e40`). Ниже сохранены её scope и
+  исторические результаты осмотра; незавершённая физическая приёмка относится к REL-03/CUT-03,
+  а не к повторному открытию или удержанию уже слитого PR:
+  - [x] код и regression для выбранного диапазона печати и устранения почти пустых orphan-
+    continuation страниц без скрытого `painter.scale()`;
+  - [x] customer-facing блоки «Ограничения методики» / `Әдістеме шектеулері` /
+    `Method limitations` убраны из HTML/PDF и независимых DOCX/XLSX экспортов; structured
+    warnings/QC остаются во внутренней модели и diagnostics, provenance/формулы/errata сохранены;
+  - [x] HTML-sanitizer ограничен только тремя локализованными заголовками ограничений и не
+    удаляет произвольные полезные `.notice`-блоки;
+  - [x] factory compact/LBA/calcimetry подписи приведены к единому вертикальному `top→bottom`;
+  - [x] production MASTERLOG получает более широкое «Описание пород», скрытые по умолчанию
+    границы описаний и компенсирующее уменьшение соседних колонок;
+  - [x] C1–C5 components получают индивидуальный linear auto-range и скрытую по умолчанию
+    цифровую depth-колонку;
+  - [x] editor-backed переключатель границ описаний работает через копию `TrackDefinition` и
+    `TabletController.update_track_definition`, без прямой мутации live layout из UI; отдельная
+    regression фиксирует доступность для `TEXT/INTERPRETATION` и скрытие для остальных треков;
+  - [x] добавлена отдельная пользовательская видимость числовой X-шкалы: controller-backed
+    переключатель инспектора и renderer используют `show_x_scale` независимо от `grid_x`, form
+    schema поднята v16→v17, tablet layout v24→v25, а совместимая миграция сохраняет старым
+    формам/layouts `show_x_scale=True`;
+  - [x] production defaults секции C1–C5 перенесены из catalog postprocess в canonical
+    `complex_gas.py`; скрытая повторная depth-колонка остаётся в форме и штатно включается в
+    редактируемой копии, потому что разблокирована сама колонка, но защищён её depth-track;
+  - [x] автоматизирован Windows quality/security/GUI/HiDPI/PDF gate; для WITS-изменений
+    PR #268 подтверждён успешный run `35538667094` на `0e054cb0`.
+    Каждый последующий PR требует собственного результата на актуальном head;
+    исторические CI failures не остаются открытыми задачами без воспроизведения на новой базе.
+  - [ ] повторно осмотреть реальный PDF и завершить physical-printer acceptance A4/A3 с длинным
+    rich text и фотографиями шлама. Автоматический gate и merge PR #76 не закрывают этот пункт.
+    Проверка пользовательского LAS 5 сентября выявила незакрытые пункты: отдельный
+    Masterlog-renderer выводит повреждённые шрифты/обрезанную шапку в локальном offscreen
+    окружении; форма MASTERLOG через Центр печати сохраняет границы интервала, но требует
+    проверки импорта кодов пород в геологические интервалы и плотной шапки газовых кривых.
+    В PDF ОПУС технические основания частично остаются английскими и заметно увеличивают
+    объём таблиц; необходима синхронная локализация RU/KK/EN перед клиентским выпуском.
+    Следующий локальный инкремент исправляет удержание заголовков ОПУС вместе с описанием
+    (включая цепочку заголовок раздела/интервала) и передачу ширин colgroup в Qt.
+    Заголовки раздела Газомер, классы, QC и сообщение LOD локализованы RU/KK/EN;
+    полные технические основания и компактная клиентская компоновка остаются открытыми.
+    Проверка инкремента: 42 профильных теста, Ruff и mypy изменённых модулей проходят.
+    Повторный диагностический PDF ОПУС по LAS 494 содержит 139 страниц и 64 кандидатных
+    интервала; на проверенных страницах заголовки связаны с описанием/первой строкой таблицы.
+    Рост объёма при Unicode-шрифте и полных локализованных QC-подписях не считается
+    выполнением задачи компактного клиентского отчёта; общая визуальная приёмка остаётся открытой.
+    По замечанию пользователя печатный блок источников ОПУС показывает библиографические
+    названия вместо имён PDF/XLS и открытых URL; SHA-256 остаётся в структурированном
+    отчёте, но не печатается. Проверены RU/KK/EN и последняя страница диагностического r3.
+    Для LAS 494 добавлен безопасный импорт `КОД_ПОРОДЫ` и пар `ПОРОДАn_КОД`/`ПОРОДАn_КОЛИЧ`
+    в существующий каталог литотипов: 383 литологических и 173 compositional интервала,
+    13 кодов; неизвестные коды получают нейтральную заливку и явное имя без догадки.
+    В окне каталога добавлена вкладка кодов LAS с чтением, добавлением и применением
+    соответствий к единому проектному справочнику. MASTERLOG A4 landscape после фикса
+    напечатан на 20 страницах, диапазон 47–2016,2 м, пустых PDF-страниц нет.
+    A4 portrait, Technology и Complex/Composite forms также проверены; Daily time forms
+    корректно остановлены с сообщением об отсутствии совместимой временной оси.
+    Для неизвестных LAS-кодов добавлены детерминированные нейтральные цвета и штриховки:
+    на печати интервалы теперь различимы визуально даже до назначения реального литотипа.
+    Отдельный тест подтверждает настройку кода через каталог: имя, цвет и узор меняются
+    в легенде/печатной модели, а исходный идентификатор интервала `las-code-N` сохраняется.
+    Повторное чтение кодов после ручного заполнения литологии/шлама не дублирует интервалы;
+    в интерфейсе добавлен явный сброс соответствия к нейтральной записи.
+- [x] **LAS-GEO-02:** универсальный geology dialect resolver интегрирован для canonical/localized aliases, сильных vendor description+UOM совпадений и bounded legacy `~Other`. Ambiguous vendor channels не угадываются; реальный Maksat dialect закреплён regression-наборами, а legacy DIGITAL GEOLOG `ЛБА_ТИП` 1..5 ограничен историческим кириллическим carrier. Финальный compatibility slice интегрирован через PR #404 после полного Release gate #2161.
+- [ ] **SEC-01:** согласовать очистку опубликованной Git history от пользовательских project/LAS
+  sidecars и проверить clones, caches, forks и releases.
+- [x] **SEC-02:** bounded ETP multipart по размеру, числу частей и времени сборки.
+- [x] **SEC-03:** bounded streaming LAS/XML; DTD/entity/external entity/notation блокируются до
+  materialization.
+- [x] **SEC-04:** WITS0 retention ограничен application-owned каталогом; remote bind использует
+  явное подтверждение и CIDR allowlist.
+- [ ] **SEC-05:** завершить provenance/license review встроенных lithology/symbol assets.
+
+## P0 — целостность газовых данных и расчётов
+
+- [x] **GAS-01:** введён Qt-независимый `gas_conditioning` с immutable input, строгой проверкой
+  оси, поддержкой возрастающей/убывающей глубины и повторяющихся depth rows.
+- [x] **GAS-02:** интерполируются только короткие bounded `NaN`-интервалы; длинные остановки,
+  ведущие/хвостовые пропуски и реальные нули сохраняются. Для каждой кривой возвращается маска
+  интерполированных строк и фактический max-gap.
+- [x] **GAS-03:** `ProjectSession.calculate_basic_gas_ratios()` сначала кондиционирует C1–C5,
+  затем рассчитывает `TG_CALC`, `*_REL`, Haworth, изомеры и Pixler. Исходные LAS-кривые не
+  изменяются; производные кривые имеют provenance `conditioned-gas-ratio:2.0`.
+- [x] **GAS-04:** экранная геометрия применяет gas-only short-gap policy, сохраняет контекстные
+  точки на границах viewport/страниц и не распространяет интерполяцию на GR/ROP/DEXP.
+- [x] **GAS-05:** calculation conditioning и render sampling используют единый Qt-независимый `CurveContinuityPolicy`; gas-only viewport geometry кондиционируется до обрезки, а экран/PDF/preview/printer получают явный segment mask.
+- [x] **GAS-09:** встроенная комплексная форма использует отраслевой порядок ROP/C1–C5/Total
+  Gas/normalized/relative/ratios/Pixler, а полный семикомпонентный заголовок и bounded off-scale
+  clipping одинаково работают на экране, preview, PDF и последней странице.
+- [x] **GAS-10:** GeoScape2 `Sensors.DB` сверён по всем 317 GID; resolver поддерживает
+  международные/нестандартные изомерные и bit-size aliases, сворачивает только эквивалентные
+  дубли и по семикомпонентному контракту GeoScape трактует старые `C4/C5` рядом с
+  `iC4/iC5` как прямые контекстные алиасы `nC4/nC5` без изменения измерений; канонический
+  набор и структура mud log сверены с официальными материалами SLB.
+- [x] **GAS-06:** сохранять структурированный QC provenance conditioning в проекте и показывать
+  оператору количество/диапазоны восстановленных точек без изменения исходного LAS.
+- [x] **GAS-07:** обезличенный golden dataset для интервала `1703.28–1753.28 м` и sparse C1–C5
+  интегрирован PR #60; production acceptance сравнивает source, conditioned, derived, screen
+  segments, scale bounds и PDF pages, все применимые automated gates прошли.
+- [x] **GAS-08:** deterministic benchmark conditioning/ratios на 100k и 1M строк интегрирован
+  merge PR #61 с отдельными worker-процессами, median wall time, OS-level peak RSS,
+  immutable-input SHA-256 checks, absolute/scaling guardrails и retained JSON artifact;
+  regression `tests/test_gas_viewport_hotpath.py` фиксирует отсутствие покадрового пересчёта
+  conditioning при реальных `scroll_depth()`/`zoom_depth()`. Принятый Windows baseline
+  release-gate #844: 100k — `3.080 s / 155.2 MiB`, 1M — `30.248 s / 1230.2 MiB`; scaling
+  `9.82×` по времени и `7.93×` по RSS при `10×` строк. Финальный release-gate #849 на точном
+  pre-merge head прошёл quality, security и GUI/HiDPI/PDF acceptance.
+
+## P0 — ОПУС «Газомер»: профиль по всей скважине или выбранному интервалу
+
+Канонический алгоритм, принятые решения, формулы книги, ограничения и порядок продолжения:
+[OPUS_GASOMER_IMPLEMENTATION.md](OPUS_GASOMER_IMPLEMENTATION.md). Текущий исторический ОПУС,
+Gas Ratio, Haworth и Pixler сохраняются без изменения; новый профиль разрабатывается отдельно.
+
+- [x] **OPUS-01:** перенести из `Газомер.xls` пять формул, все границы кодов и один численный
+  пример в неизменяемые fixtures; подтвердить/исправить ошибочное условие `AB2>AB5=250000` и
+  документировать расхождение с книгой.
+- [x] **OPUS-02:** реализовать versioned профиль `OPUS Gasomer` с нормализацией
+  `100×Ci/TotalGas`, точным ppm↔`% об.`, пятью показателями, LOD guards и data-driven bands;
+  `OPUS5` пометить как workbook-derived, без заявления о первичном источнике.
+- [x] **OPUS-03:** заменить непригодные для многокилометрового LAS независимые MAX на
+  синхронный построчный расчёт, уникальную моду с явной ничьей и интервальную поддержку;
+  legacy MAX разрешить только как отдельно помеченный режим выбранного короткого интервала.
+- [x] **OPUS-04:** реализовать адаптивный детектор по локальному фону TotalGas, `ΔTG`, robust z
+  и контрасту с LOD-floor. Условие `0,1 % об.` оставить предупреждением доверия, но не hard gate
+  поиска или классификации.
+- [x] **OPUS-05:** расширить report model и UI: прямой результат Gasomer, независимый
+  Haworth/Pixler, support %, валидные строки, пять голосов, LOD/QC и основания подписи должны
+  отображаться раздельно и одинаково в XLSX/DOCX/PDF/печати.
+- [x] **OPUS-06:** добавить regression matrix для формул, границ, `%`/ppm, нулей/LOD, ничьих,
+  смены локального фона, синхронности глубин, совместимости старых методов и идентичности
+  экспортов.
+- [x] **OPUS-07:** проверить производительность на 25k/100k/1M строк с линейным временем и
+  bounded memory; не выполнять пересчёт при прокрутке/печати.
+- [ ] **OPUS-08:** провести слепую полевую валидацию по интервалам с ГИС/испытаниями,
+  сформировать confusion matrix и версионировать калибровку отдельно от формул. До этого
+  результат маркируется как предварительный скрининг, не «продуктивность».
+
+## P0 — рабочий проект и сохранность данных
+
+- [x] **PROJ-01:** унифицирована цепочка «источник → проект → экспорт»: постоянная панель
+  показывает исходный файл, полный путь проекта либо состояние «не сохранён» и отдельный LAS-
+  экспорт. **«Сохранить LAS»** после прямого Paradox- и GS2-импорта открывает один штатный
+  export controller только после успешной регистрации; отмена и ошибка экспорт не запускают.
+- [x] **PROJ-02:** dirty close guard предлагает сохранить проект, экспортировать LAS-копию,
+  закрыть без сохранения либо отменить. Успешный ежедневный append требует `.geologpkg`,
+  автоматически сохраняет новую ревизию, перед commit создаёт self-contained backup прежней,
+  блокирует внешний fingerprint-конфликт и ротирует пять проверенных копий на project path.
+  Recovery восстанавливает выбранную ревизию только как новый `.geologpkg`; duplicate/no-op файл
+  не пишет. Ручные формы и тексты сохраняются через `Ctrl+S`.
+- [x] **PROJ-03:** переносимый `.geologpkg` с JSON, raw LAS/image assets, manifest, SHA-256,
+  bounded ZIP-проверкой и атомарной заменой; legacy `.geolog.json` остаётся совместимым.
+- [x] **PROJ-04:** LAS и GS2 проходят единый source registry: raw source сохраняется как immutable
+  artifact с SHA-256/provider/provenance, диапазоном и hash-chain состояния Dataset; отдельный
+  append выполняется транзакционно и полностью откатывает Dataset/source registry при ошибке.
+  Реализация интегрирована PR #67 после полностью зелёного release-gate #880.
+- [x] **PROJ-05:** локальная синхронизируемая папка подключена как read-only provider с повторной
+  проверкой size/mtime/SHA-256; повторный source является no-op, конфликт перекрытия не мутирует
+  Dataset.
+- [x] **PROJ-06:** авторские тексты литологии, стратиграфии, шлама, ЛБА, заключений и аннотаций
+  хранятся раздельно для RU/KK/EN; экран и Masterlog выбирают язык без дублирования Dataset.
+- [x] **PROJ-07:** ежедневный append повторно привязан к открытой project session, проверяет
+  неизменность LAS непосредственно перед commit, сопоставляет `WELL/UWI/API`, продолжает только
+  исходные LAS-кривые, а локальные/перенесённые значения сохраняет с пустым новым суффиксом;
+  расчётные кривые помечаются stale, source revisions входят в export template и паспорт отчёта.
+- [x] **PROJ-08:** встроен трёхъязычный помощник проекта и ежедневного LAS; основные инструкции
+  RU/KK/EN закрепляют первый импорт, `.geologpkg`, sync-folder, duplicate/conflict, печать трёх
+  языков, перенос и запрет параллельного редактирования, а документационный gate проверяет этот
+  пользовательский контракт.
+- [x] **PROJ-09:** реализован переносимый справочник кодов пород: импорт/экспорт
+  JSON для профиля конкретной фирмы или буровой хранит source-code, ID литотипа, RU/KK/EN,
+  категорию, цвет и рисунок; вкладка `LAS rock codes` применяет его без перезаписи ручных
+  интервалов. Новый LAS экспортирует заполненную литологию и шламограмму обратно в
+  `КОД_ПОРОДЫ`/`ПОРОДА1…5_*`, а ASCII-безопасная `~Other` секция с маркером
+  `GEOWORKBENCH_ROCK_DICTIONARY` позволяет передать контракт коллегам. Проверены старые
+  проекты без этого справочника, фактический LAS и RU/KK/EN пользовательские инструкции.
+  Исправлены согласованность изменённого кода при экспорте, защита используемых в шламе
+  пород от удаления, сохранение ручных настроек при повторном чтении и проверка дубликатов
+  кодов экспорта. Секция справочника размещается перед ASCII-данными.
+  Независимые сохранённые профили поставщиков с source binding и явным подтверждением
+  перепривязки, миграции и перенос пользовательских рисунков интегрированы в WELL-02.
+  Основание: запись о завершении WELL-02 в CHANGELOG, `rock_code_profiles.py`,
+  `persisted_rock_code_profiles.py`, `persisted_rock_code_profile_assignment.py` и regression
+  suites `tests/domain/test_rock_code_profile_records.py`, `tests/services/test_persisted_rock_code*`.
+  Разные source bindings могут иметь независимые версии профилей; старое ограничение
+  «одна фирма — отдельный проект» больше не описывает реализованный workflow.
+
+- [x] **PROJ-10:** добавлены две редактируемые A4-шапки Masterlog по предоставленному образцу,
+  отдельно книжная и альбомная: два слота логотипов, RU/KK/EN поля реквизитов, интервалы глубин,
+  литологическая/ЛБА легенды, каталог значков событий и редактируемая конструкция скважины.
+  BP Services установлен по умолчанию справа, слот заказчика слева пустой; обе формы сохраняются
+  через существующий каталог пользовательских шапок.
+
+## P0 — единая скважина, три языка и ежедневное ведение
+
+Решение утверждено пользователем **5 сентября 2026 года**. Одна скважина ведётся в одном
+каноническом `.geologpkg`: общие измерения и интервалы, тексты RU/KK/EN внутри тех же записей,
+общий паспорт и два связанных макета A4. Язык и ориентация — параметры представления/выдачи,
+а не основания создавать независимые копии Dataset или ежедневно поддерживать шесть проектов.
+Проект по-прежнему может содержать несколько скважин; паспорт и ручные слои принадлежат своей
+скважине. LAS остаётся исходным артефактом либо обменным экспортом, PDF — снимком выдачи.
+
+На 21 сентября основа PROJ-01…10 и WELL-01/02/03/06 интегрирована: numerical/geological
+update, поздние анализы, профили поставщиков, трёхъязычные редакторы/шаблоны и snapshot bundle
+не требуют повторной реализации. Старые реквизиты шапок переносятся в паспорт только явно.
+WELL-04 уже имеет field-level статусы и readiness; WELL-05 — family/orientation и tri-state
+выбор шапки. Открыты полная сквозная приёмка этих двух задач и устранение обнаруженных ею
+пробелов, включая сохранение пользовательских вариантов и выдачу всех шести сочетаний.
+
+Контракты: [REQUIREMENTS.md](REQUIREMENTS.md), [ARCHITECTURE.md](ARCHITECTURE.md),
+[I18N.md](I18N.md). Пользовательский сценарий: [RU](ru/PROJECT_WORKFLOW.md),
+[KK](kk/PROJECT_WORKFLOW.md), [EN](en/PROJECT_WORKFLOW.md).
+
+- [x] **WELL-01 — общий паспорт и совместимое хранение** (WFLOW-001).
+  Перенести общие реквизиты, конструкцию, ссылки на логотипы и языковые варианты текстовых
+  полей в модель скважины. Глубины, даты, координаты и числа вводятся один раз; каждая шапка
+  получает их по ссылке. Сохранить устойчивые ID интервалов, источников и форм.
+  Миграция сохраняет legacy-поля; разные значения в старых шаблонах показываются для выбора,
+  а не объединяются последним записанным значением. Отмена не меняет исходный проект.
+  Приёмка: save/reopen/recovery/перенос сохраняют все данные и связи, правка паспорта видна
+  в двух ориентациях и трёх языках, реквизиты другой скважины не затронуты.
+  Реализовано 6 сентября 2026: `Well.passport`, project v25, окно из меню «Файл»/«Печать»
+  и редактора шапки, явный перенос каждого legacy-значения. Конструкция A4 содержит пять
+  общих строк: диаметр в мм, глубина в м и название RU/KK/EN; свободный текст конструкции
+  остаётся отдельным полем. В JSON/пакете сохраняются паспорт, ссылки на assets и прежние
+  ID/тексты. Проверки находятся в `tests/test_well_passport_*.py`; физическая печать — REL-03.
+  Произвольное число строк конструкции и новые семейства макетов относятся к расширению WELL-05.
+- [x] **WELL-02 — единое обновление данных скважины** (WFLOW-002; после WELL-01).
+  Подготовить проверяемый план трёх операций: новая глубина, заполнение пропусков старого
+  участка и исправление прежних значений. Новый суточный LAS добавляет также распознанную
+  геологию незаполненного участка, не перезаписывая ручные слои и их переводы.
+  Preview отдельно считает измерения, геологию, анализы, пропуски и конфликты; источник,
+  ось/единицы, профиль кодов, перекрытия и изменённый после анализа файл проверяются до записи.
+  Для другой фирмы требуется явный профиль PROJ-09; одинаковый числовой код не означает одну
+  породу у всех поставщиков. Неизвестный код не получает выдуманный литотип.
+  Приёмка: повтор является no-op; старые значения/ID/ручные тексты сохраняются; поздний анализ
+  заполняет только выбранные пустоты; correction имеет подтверждённый diff и provenance;
+  ошибка/отмена не оставляет частичного применения. Проверить autosave, backup, disk-full и
+  external-change: сообщение об успешном сохранении возможно только после проверки записи.
+  Локальный инкремент 6 сентября 2026 укрепляет существующий numerical append: preview
+  фиксирует SHA-256 состояния обоих Dataset, включая значения вне перекрытия, локальные
+  кривые, оси/единицы, headers, provenance и ревизии. Изменение этих входов требует нового
+  анализа; ошибка повторной проверки, смена файла/набора и отмена сбрасывают подтверждение.
+  Исторический формат audit SHA-256 сохранён, хэширование массивов выполняется bounded-блоками.
+  Реализованный локальный инкремент добавляет Qt-независимый `well_update_plan`: полный подсчёт
+  новых строк, заполнений NaN, исправлений, пропусков источника и равных значений;
+  immutable diff ограничен 200 ячейками по умолчанию (максимум 10000). Ноль сохраняется,
+  NaN источника не очищает проект. Анализ ничего не применяет; сокращённый diff не подтверждает
+  скрытые исправления. Проверки схемы/оси общие со строгим append.
+  Повторная проверка числового плана заново вычисляет счётчики и diff, сверяет состояния
+  Dataset и независимо переданные имя/SHA-256 источника. Несовпадение требует нового анализа;
+  проверка не изменяет данные и не заменяет явный выбор ячеек.
+  Реализован числовой режим в окне ежедневного LAS: отдельный выбор всего нового суффикса
+  и явный выбор показанных ячеек fill/correction. Скрытые ячейки сокращённого preview
+  не применяются; после выбранного пакета можно повторить анализ. Сервис готовит массивы
+  и audit до записи в Dataset; контроллер откатывает сбой регистрации исходного LAS.
+  История `numerical_update_history` сохраняет выбранный diff, источник и before/after hashes;
+  project v26 мигрирует v25 без изменения прежних данных. Повторный анализ уже применённых
+  значений даёт no-op. Автосохранение использует существующий .geologpkg/backup workflow;
+  при ошибке записи целиком применённые изменения остаются dirty в памяти, успех не сообщается.
+  Геологическое дополнение project v27 и fill-only core поздних анализов уже интегрированы в
+  `main`. Интегрированный инкремент project v28 сохраняет `Well.analysis_update_history`: источник,
+  выбранные поля, точный diff и hashes до/после; миграция v27 добавляет пустой ledger без
+  изменения данных. Завершено 13 сентября 2026: application/UI workflow отдельных анализов,
+  rollback и сохранение на mutation boundary, явное подтверждение конфликтов профилей PROJ-09
+  и проверяемый перенос пользовательских рисунков интегрированы после полных Release gates.
+- [x] **WELL-03 — ввод RU/KK/EN и многоязычные шаблоны** (WFLOW-003; после WELL-01/02).
+  В одной записи интервала дать вкладки Русский / Қазақша / English с языком приложения
+  по умолчанию, сохраняя незавершённый ввод при переключении. Выбор нескольких готовых
+  описаний добавляет упорядоченные блоки сразу в три версии с ID, версией и сохранённым
+  содержимым шаблона. Пользователь может редактировать каждую версию и дополнения.
+  Обновление каталога не меняет ранее сохранённые описания без явного применения.
+  Приёмка: один ввод чисел и один выбор блоков дают согласованные языковые версии без
+  дублирования интервалов; правка одного языка сохраняет остальные; save/reopen не теряет
+  порядок, форматирование и ручные дополнения. В текущем этапе машинный перевод не требуется.
+  Первый инкремент 13 сентября 2026 добавляет вкладки RU/KK/EN в единый редактор пробы шлама:
+  незавершённые rich-text описания удерживаются при переключении, а выбранный готовый шаблон
+  добавляет соответствующий блок во все три языка. Второй инкремент вводит project v30 и
+  сохраняет для каждой вставки её уникальный ID, ID/версию шаблона, порядок и неизменяемый
+  снимок RU/KK/EN; миграция v29 создаёт пустую историю без изменения старых описаний.
+  Третий инкремент показывает упорядоченный список вставок и позволяет атомарно удалить
+  выбранный маркированный блок из RU/KK/EN, не затрагивая ручной текст; немаркированные записи
+  ранней v30 защищены от неоднозначного удаления. Четвёртый инкремент распространяет вкладки
+  RU/KK/EN и согласованную вставку заводских шаблонов на интервалы литологии; один набор глубин
+  и литотип сохраняется вместе со всеми языками атомарно, а legacy-fallback не превращается в
+  RU-перевод. Пятый инкремент добавляет общий RU/KK/EN-редактор названия и описания
+  стратиграфического интервала: справочник заполняет все доступные языки, а общие глубины, код,
+  ранг, цвет и параметры подписи сохраняются с переводами атомарно. Шестой инкремент добавляет
+  RU/KK/EN для ЛБА-описания и заключения геолога при однократном вводе общей кальциметрии и
+  стандартизованных признаков анализа. Седьмой инкремент распространяет RU/KK/EN на быстрый
+  ввод стратиграфии из планшета/Masterlog. Восьмой инкремент вводит project v31 и атомарный
+  controller API для RU/KK/EN названия/описания набора интерпретации и label/comment его
+  интервалов. Девятый инкремент добавляет соответствующие вкладки в менеджер интерпретаций,
+  сохраняя единичный ввод глубин, типа и цвета и безопасный legacy-fallback. Завершено
+  14 сентября 2026 после полного Release gate PR #111.
+- [ ] **WELL-04 — готовность и актуальность переводов** (WFLOW-004; после WELL-03).
+  Для каждого переводимого поля хранить оригинал/язык, ревизию и зависимости перевода,
+  состояния «не заполнено / черновик / проверено / требует обновления» и показать список
+  недостающих/устаревших записей. Состояние не выводится только из общего счётчика скважины.
+  Изменение оригинала или зависимых данных помечает только затронутые переводы, сохраняя текст;
+  добавление новой глубины не обесценивает проверенные старые интервалы.
+  Приёмка: переключение языка не пишет fallback в другую языковую версию, миграция не
+  объявляет старые тексты проверенными, список готовности соответствует выбранному диапазону.
+  Первый инкремент вводит project v32 и сохраняемое состояние каждого поля/языка: источник,
+  ревизии исходника и перевода, ревизии зависимостей и состояния missing/draft/reviewed/stale.
+  Миграция v31 создаёт пустой реестр и не объявляет прежний текст проверенным.
+  Второй инкремент добавляет атомарный доменный workflow переходов: редактирование создаёт
+  новую ревизию draft, проверка разрешена только для актуального источника и зависимостей,
+  а изменение конкретного исходного поля или зависимости переводит только связанные
+  draft/reviewed записи в stale, не затрагивая соседние интервалы.
+  Третий инкремент подключает workflow к ProjectSession: успешная команда атомарно заменяет
+  реестр, увеличивает content revision и dirty, поддерживает ограниченную историю undo/redo;
+  no-op и ошибочная проверка не меняют проект, а внешняя мутация блокирует небезопасный undo.
+  Четвёртый инкремент вводит project v33 с независимым ledger ревизий авторских полей.
+  Команда изменения исходника атомарно увеличивает его ревизию и помечает stale только
+  связанные переводы; миграция v32 создаёт пустой ledger без изменения прежних статусов.
+  Пятый инкремент добавляет чистую проекцию готовности по выбранному диапазону глубин и языкам:
+  глобальные поля учитываются всегда, интервальные — только при пересечении диапазона, а
+  missing/draft/stale возвращаются отдельным списком и счётчиками без изменения проекта.
+  Дополнительная сверка текущих ревизий fail-safe показывает stale даже до записи перехода.
+  Шестой инкремент добавляет явное подтверждение выбранного актуального draft прямо из окна
+  готовности. UI не вычисляет ревизии самостоятельно: application-controller повторно сверяет
+  текущий source revision, source language и только сохранённые зависимости выбранного перевода.
+  Missing/stale не подтверждаются; успешный review проходит через штатную command-history границу,
+  увеличивает content revision и dirty, после чего readiness пересчитывается заново.
+- [ ] **WELL-05 — два связанных макета, единая ориентация и язык** (WFLOW-005; после WELL-01,
+  приёмка с WELL-03/04).
+  Семейство формы содержит книжный и альбомный макеты шапки/колонок, общие ссылки на паспорт,
+  данные и локализованные подписи. Выбор фиксированной ориентации шапки меняет лист и планшет;
+  выбор листа выбирает пару того же семейства. Универсальная шапка сохраняется в обеих
+  ориентациях. Если пары нет, сообщить об этом и предложить настройку; не выбирать случайную
+  чужую шапку и не терять её правки. Сохранить явный выбор «без шапки».
+  Приёмка: screen/preview/PDF/printer используют одну конфигурацию, после открытия проекта
+  сохраняются язык выдачи, вариант и настройки; длинные RU/KK/EN-подписи и rich text не
+  обрезаются во всех шести сочетаниях. Частные языковые макеты — только явная настройка клиента.
+  При осмотре WELL-01 подтверждена читаемость паспортных чисел и конструкции; в книжной
+  A4-шапке длинные подписи существующей легенды ЛБА требуют переноса/подбора размера в WELL-05.
+  Первый инкремент WELL-05 вводит form schema v18 и явный persisted `family_id`: заводские
+  A4 portrait/landscape формы объединяются в одно семейство, legacy v0–v17 мигрируют как
+  безопасные одиночные семьи, а resolver выбирает макет только по `family_id + orientation`.
+  Отсутствующая пара возвращается явно, неоднозначная семья отклоняется; эвристики по имени
+  или суффиксу ID не используются при runtime-разрешении.
+  Второй инкремент связывает выбор A4-ориентации в библиотеке форм с макетом того же
+  семейства: portrait/landscape переключает именно sibling по `family_id`, явный выбор формы
+  синхронизирует лист перед применением/печатью, а отсутствующая или неоднозначная пара
+  отклоняется с сообщением о настройке без случайной подмены.
+  Третий инкремент делает тот же контракт обязательным для печатной шапки: Print Center
+  использует только явную пару формы, универсальную текущую шапку либо состояние «без шапки».
+  Поиск sibling по суффиксу ID и выбор первой чужой шапки удалены; fixed header без пары
+  удерживает собственную ориентацию и сообщает пользователю о необходимости настроить пару.
+  Четвёртый инкремент сохраняет последний успешно применённый/напечатанный `form_id` отдельно
+  для инженерного профиля. Библиотека восстанавливает точный вариант при следующем открытии;
+  удалённый или недоступный ID безопасно откатывается к макету текущей ориентации без подмены
+  семейства и без ошибки запуска.
+  Пятый инкремент закрепляет матрицу RU/KK/EN × portrait/landscape: factory A4 формы
+  сохраняют одну family identity и точную orientation-specific шапку во всех шести режимах.
+  Длинные локализованные системные labels в curated A4-шапках разрешают перенос строк;
+  acceptance отдельно защищает длинные казахские подписи от возврата к clip-only режиму.
+  Шестой инкремент прогоняет RU/KK/EN × portrait/landscape через общий print renderer:
+  exact paired header, rich-text Unicode content, system preview и PDF используют одну page/header
+  конфигурацию и обязаны давать одинаковое число страниц.
+  Седьмой инкремент сохраняет выбор печатной шапки как tri-state per engineer profile:
+  legacy «не настроено», конкретный template ID и явное «без шапки». Legacy v1/v2 остаются
+  неявными и продолжают брать form-default; explicit no-header не восстанавливается самопроизвольно.
+- [x] **WELL-06 — комплект документов одной ревизии** (WFLOW-006; после WELL-02…05).
+  Команда «Подготовить комплект документов» выбирает формы/отчёты, всю скважину, новый участок
+  либо произвольный интервал, языки и ориентации. До выпуска проверяет данные, расчётные
+  зависимости и переводы; все выбранные результаты получают один сохранённый snapshot.
+  Для итоговой выдачи отсутствие/устаревание обязательного перевода требует исправления;
+  рабочий черновик с исходным текстом допускается только с видимой отметкой.
+  Приёмка: PDF/отчёты содержат одинаковые числовые данные и границы, выбранные язык/ориентацию,
+  ID ревизии и параметры выдачи; ранее выданные файлы автоматически не обновляются. Сбой одного
+  результата не объявляет весь комплект готовым; повтор продолжает выпуск той же ревизии,
+  не смешивая его с новыми изменениями проекта. Физическая печать остаётся частью REL-03.
+  Первый инкремент WELL-06 фиксирует Qt-независимый immutable-контракт запроса комплекта:
+  скважина, набор результатов, RU/KK/EN, portrait/landscape и resolved scope whole-well /
+  new-section / arbitrary interval валидируются до запуска экспортёров. Пустые/дублирующиеся
+  выборы, неизвестный язык/ориентация, нечисловые либо обратные границы отклоняются fail-closed;
+  политика допуска черновиков хранится явно и не выводится из UI по умолчанию.
+  Второй инкремент связывает запрос только с проверенной сохранённой ревизией проекта:
+  dirty/несохранённое состояние запрещено, а binding фиксирует project save revision, well
+  content revision, storage kind, path identity и bundle SHA-256. Перед фиксацией повторно
+  проверяется отсутствие внешнего изменения файла; несовпадение памяти и persisted revision
+  отклоняется до запуска любого экспортёра. Следующий orchestration-инкремент обязан использовать
+  этот binding для всех результатов одного комплекта.
+  Третий инкремент вводит application orchestration через exporter Strategy ports без второй
+  реализации форматов: каждый output получает тот же snapshot binding, а persisted source
+  повторно проверяется перед каждым запуском. Ошибка одного output сохраняется как отдельный
+  failed result и не объявляет весь комплект готовым; retry запускает только неудачные outputs,
+  повторно используя тот же snapshot ID/revision. Неизвестный exporter или несовпадающий
+  registration contract отклоняется до создания файлов.
+  Четвёртый инкремент запрещает exporter-адаптерам читать mutable live-session после capture:
+  verified snapshot reader заново открывает сохранённый проект через штатный storage safety
+  boundary и сверяет path/storage identity, project/save revision, bundle SHA-256 и well content
+  revision. Только после этой проверки persisted ProjectDocument может быть передан адаптеру;
+  TOCTOU/external-change и несовпадающая скважина отклоняются до рендера.
+  Пятый инкремент фиксирует параметры каждого результата внутри immutable request: stable output ID,
+  exporter kind, source/template ID, optional dataset ID, формат и безопасное конечное имя файла.
+  Спецификации обязаны точно соответствовать output_ids и их порядку; path traversal и
+  несовпадающее расширение отклоняются до запуска. Это делает retry воспроизводимым и не даёт
+  сменившейся конфигурации адаптера незаметно изменить параметры той же snapshot-ревизии.
+  Шестой инкремент детерминированно разворачивает каждый logical output в artifact matrix
+  language × orientation. Для единственного режима сохраняется явное имя, для матрицы добавляются
+  стабильные __<lang>_<orientation> суффиксы; artifact IDs и target names обязаны быть уникальны
+  без учёта регистра. Expansion не выполняет I/O и становится единым входом для конкретных
+  exporter-адаптеров.
+  Седьмой инкремент подключает первый реальный exporter adapter для Masterlog PDF. Adapter
+  загружает только verified persisted snapshot, разрешает сохранённые template_id/dataset_id,
+  клонирует форму для выбранной ориентации и вызывает штатный export_masterlog_pdf вместо
+  дублирования renderer. Whole-well диапазон берётся из bound dataset, interval/new-section —
+  из immutable scope; incompatible kind/format, отсутствующие IDs и roll+landscape отклоняются
+  fail-closed до рендера.
+  Восьмой инкремент привязывает каждый Masterlog artifact к существующему Report Passport:
+  паспорт строится из того же persisted session/template/interval и фиксирует bundle snapshot ID,
+  project save revision, well content revision, project bundle SHA-256, logical output/artifact ID,
+  язык, ориентацию и render settings. Штатный masterlog output transaction атомарно финализирует
+  PDF и sidecar с fingerprints; оба файла считаются результатом artifact export.
+  Девятый инкремент добавляет единый application service: validated request один раз захватывает
+  verified snapshot, factory строит только поддерживаемые exporter strategies, orchestrator
+  выполняет outputs, а retry использует тот же snapshot без повторного capture. Unsupported kind
+  и неподдерживаемый формат отклоняются factory до запуска output; это становится стабильной
+  точкой входа для последующего UI/API слоя.
+  Десятый инкремент добавляет детерминированный bundle manifest без wall-clock timestamp:
+  complete/partial status строится из результата orchestrator, а каждый созданный regular-file
+  artifact внутри output root получает relative path, размер и SHA-256. Manifest фиксирует
+  snapshot/save/content revisions, project bundle SHA-256, scope, language/orientation и bound
+  output specs, имеет собственный SHA-256 и не позволяет partial run считаться complete.
+  Одиннадцатый инкремент связывает manifest с application service через Decorator:
+  каждый новый run после export автоматически получает signed manifest, а retry failed outputs
+  перезаписывает тот же snapshot manifest атомарно и без нового capture. Snapshot ID, save/content
+  revisions и project bundle SHA-256 обязаны оставаться неизменными между partial и complete;
+  смена snapshot при retry отклоняется fail-closed.
+  Двенадцатый инкремент вводит preflight boundary на той же persisted snapshot-ревизии.
+  Masterlog validator проверяет dataset/template, печатный depth range, границы scope, допустимую
+  orientation, обязательные curve dependencies и их calculation state; разрешение кривых
+  повторяет безопасную политику explicit bindings → direct mnemonic → semantic resolver >= 0.65.
+  Cross-cutting translation validator использует WELL-04 persisted readiness/revision ledger:
+  missing/draft/stale перевод блокирует final output, а allow_drafts понижает только translation
+  issues до warning и требует явной draft-отметки; data/dependency ошибки остаются blocking.
+  Тринадцатый инкремент встраивает preflight в application service между snapshot capture и
+  exporter factory: blocking report завершает команду до создания файлов и повторно проверяется
+  при retry той же ревизии. Для allow_drafts Masterlog adapter добавляет в detached template
+  отдельную видимую локализованную полосу «черновик / перевод не проверен», расширяя шапку без
+  перекрытия исходных элементов; Report Passport фиксирует требование draft-mark. Persisted
+  Masterlog template при этом не изменяется.
+  Четырнадцатый инкремент добавляет Qt-независимый selection controller для команды подготовки
+  комплекта: для выбранных well/dataset он строит стабильный каталог сохранённых Masterlog-форм,
+  safe target names и поддерживаемые orientation, а затем формирует immutable request из выбранных
+  outputs, RU/KK/EN, scope и draft policy. Roll-форма не позволяет выбрать landscape уже на
+  уровне selection; чужой dataset и пустой набор outputs отклоняются до snapshot capture.
+  Пятнадцатый инкремент добавляет production Composition Root: selection, snapshot capture,
+  verified snapshot reader, Masterlog/translation preflight, exporter factory, application service
+  и manifest recording собираются поверх одного ProjectFileSafetyService. Проверка и фактический
+  export поэтому читают один verified storage boundary; controller без файловой safety-семантики
+  fail-closed не получает production bundle runtime.
+  Шестнадцатый инкремент добавляет адаптивный RU/KK/EN Qt-диалог команды «Подготовить комплект
+  документов»: пользователь выбирает сохранённые формы, whole/new-section/custom scope, языки,
+  portrait/landscape и явную draft policy. Диалог использует output options selection-controller,
+  динамически запрещает landscape для roll-форм, валидирует интервал до accept и помещается в
+  текущую availableGeometry при Windows HiDPI. Сам диалог не выполняет export и возвращает только
+  типизированный selection для application boundary.
+  Семнадцатый инкремент добавляет Qt-независимый command-controller между MainWindow и runtime:
+  он разрешает текущие well/dataset/options и printable depth range, требует clean verified saved
+  project и существующий non-symlink output directory, затем передаёт typed selection в production
+  runtime. Project/application слой не импортирует UI-типы; MainWindow остаётся адаптером ввода/
+  отображения, а snapshot/preflight/export/manifest правила сохраняются в нижележащих boundaries.
+  Семнадцатый инкремент подключён к MainWindow: пункт меню открывает адаптивный selection dialog,
+  выбирает существующую папку выдачи, запускает command-controller и показывает complete/partial
+  manifest summary без прямого импорта snapshot/exporter/runtime деталей в оконный слой.
+  Частичный выпуск оставляет в MainWindow ссылку на последнюю recorded execution и включает
+  отдельную команду повтора: она повторяет только failed outputs той же snapshot-ревизии через
+  command-controller, а complete/no-op состояние отключает retry и не создаёт новый capture.
+  Закрытие WELL-06 подтверждено PR #228: head-коммит прошёл Release gate #1362, merge commit
+  `c004d72d` подтверждён зелёным main Release gate #1363 после повторного запуска нестабильного Windows
+  quality job; удалённо и локально после pruning остаётся только `main`.
+
+Отдельные будущие возможности — подготовка машинного перевода с проверкой геологом и совместное
+редактирование — не входят в первый цикл WELL-01…06 и не являются его скрытыми зависимостями.
+Проверки вводятся по этапам согласно [TESTING.md](TESTING.md); утверждение этого решения само
+по себе не закрывает задачи реализации. Изменение project v25 относится к реализации WELL-01;
+версии form и tablet layout в этом этапе не изменяются.
+
+## P0 — производительность и хранение
+
+- [x] **PERF-01:** acquisition `append_many()` batch 64, геометрические buffers, logical rollback
+  и incremental hash chains.
+- [x] **PERF-02:** replay больше не `deepcopy`-ит всю `Well`: fresh replay staging хранит только
+  нужные контейнеры, а checkpoint resume копирует один изменяемый acquisition Dataset; immutable
+  journal/checkpoints/events переиспользуются без второй materialized копии. PR #68 прошёл
+  release-gate #882 и интегрирован в `main`.
+- [x] **PERF-03:** enforcing benchmark 50k/100k/1M запускает каждый размер в отдельном worker,
+  измеряет production `enqueue_many()+drain()` batch64 и фиксирует peak RSS. Gate требует
+  `T(2N)/T(N) <= 2.5`, p95 batch64 `<= 50 ms`, last/first 10k `<= 2`. Windows baseline
+  release-gate #886 на `112d4bb4`: 50k — `3.504 s / 4.684 ms p95 / 69.6 MiB`, 100k —
+  `7.027 s / 4.663 ms / 107.9 MiB`, 1M — `70.605 s / 4.640 ms / 784.5 MiB`; ratio
+  `T(100k)/T(50k)=2.005`, last/first — `1.017 / 1.008 / 0.988`, violations отсутствуют.
+- [x] **PERF-04:** revision-based `CurveGeometryCache` ограничен hard NumPy payload budget
+  `64 MiB` поверх LRU entry limit; oversize geometry не удерживается сверх бюджета, а clear/
+  invalidate освобождают byte accounting. Canonical isolated benchmark выполняет cold/hit/zoom
+  на 1/5/10M samples с OS-level peak RSS. Windows release-gate #894 на `ac6c60d7` прошёл quality,
+  security и GUI/HiDPI/PDF: cold `43.049/161.581/289.547 ms`, hit около `0.004 ms`, zoom
+  `27.797/106.746/197.813 ms`, peak RSS `84.5/302.1/574.2 MiB`; две cached geometry занимают
+  `131 072 B` из `67 108 864 B` независимо от длины source fixture.
+- [ ] **PERF-05:** совместимый versioned storage port: manifest, column chunks, atomic commit и
+  crash recovery вместо монолитного JSON для больших проектов.
+- [x] **PERF-06:** исключён двойной PDF-render для preview/printer; постоянный файл создаётся
+  только явным export job, временные файлы имеют ownership-prefix и bounded stale cleanup, а
+  миграционная очистка legacy-копий fails closed при постороннем содержимом каталога.
+- [ ] **PERF-07 (P0, в работе):** отзывчивость больших LAS и тяжёлых проектов. Полевой
+  diagnostics baseline на Maksat M-1 фиксирует загрузку большого LAS до ~94 с и полный
+  TabletView rebuild 16 дорожек ~1.1–1.2 с на MainThread. Первый slice убирает full-file
+  allocation из encoding detection, передаёт LAS в parser через streaming TextIOWrapper и
+  переводит cursor/interval nearest-axis lookup для монотонных depth/time индексов с O(N)
+  argmin на cached searchsorted O(log N), сохраняя exact fallback для mixed axes. Второй slice
+  убирает двойной full rebuild в Curve Browser build, tablet preset apply и import recovery:
+  layout+dataset устанавливаются одной `set_layout_and_dataset()` транзакцией и дают один
+  full render pass вместо двух. Третий slice переводит rename дорожки на track-level
+  `DirtyReason.STATIC`, а rename группы — на lightweight rebuild только merged group-header
+  strip; curve widgets и full-render counter при этих действиях сохраняются. Четвёртый slice
+  добавляет `las.import.performance`: source read/encoding, `lasio` parse, Dataset materialize,
+  import-report и total измеряются отдельными `perf_counter()` checkpoints; diagnostics хранит
+  только bytes/rows/curves/warnings/encoding и basename, без LAS values/full path. Пятый slice
+  добавляет dependency-free RSS/peak-RSS probe для Windows/POSIX, memory snapshots к существующему
+  `las.import.performance`, application-level timing/RSS этапов `job_load/policy/review/register`
+  и отдельный `las.import.presentation` для Qt presentation/recovery boundary. Логи по-прежнему
+  не содержат LAS values/full path и дают измеримый baseline от чтения файла до первого UI render.
+  Шестой slice вводит Qt-независимый typed presentation-refresh accumulator и применяет
+  bounded coalescing только к вторичным Project Tree/window-title refresh при drag resize/reorder
+  треков; layout mutation и partial TabletView feedback остаются синхронными. Это намеренно не
+  является глобальным debounce: Dataset replacement, Undo/Redo, imports и full TabletView rebuild
+  сохраняют существующие немедленные контракты. Следующие измеряемые slices: расширять intent
+  classification только по подтверждённым hot paths и дальше сокращать MainThread rebuild без
+  ослабления viewport LOD/geometry-cache контрактов. Седьмой slice убирает подтверждённый
+  duplicate render в ручном visible-depth workflow: `set_visible_depth()` оставляет incremental
+  Y-range/LOD/geology/ruler/annotation update без full rebuild, а reset выполняет один full rebuild
+  вместо двух; Project Tree не перестраивается, потому что viewport depth в нём не представлен.
+  Тот же slice после воспроизводимого Windows native-crash устраняет ещё один подтверждённый
+  rebuild hot path: curve-metadata Undo/Redo больше не вызывает `_show_current_dataset()` и не
+  пересоздаёт `PlotWidget`; TabletView reconciles mnemonic membership и STYLE-refresh headers/data
+  in-place с сохранением track widget identity.
+  Восьмой slice добавляет isolated `benchmarks/benchmark_las_tablet_pipeline.py`: temporary
+  M-1-shaped LAS (27 500 × 351) проходит production import, затем один transactional render 16
+  curve-track и реальные scroll/zoom. Runner фиксирует time/RSS и geometry-cache counters;
+  navigation обязана сохранить full-render counter. `tablet.render.full.finished` теперь также
+  содержит duration/start-end/peak RSS. Windows quality gate сохраняет baseline artifact; timing
+  threshold до первой принятой точки не вводится. Следующий PERF-07 slice выбирается только после
+  сравнения import/first-render/viewport долей на exact PR head.
+  Девятый slice использует принятый Release gate #2297: import `12 484 ms`, first render
+  `629 ms`, scroll `60 ms`, zoom `110 ms`; initial full rebuild = 1, navigation full rebuild = 0.
+  Поэтому приоритет смещён с Qt/render на LAS import. Benchmark теперь переносит существующие
+  `las.import.performance` checkpoints `source_ms/parse_ms/dataset_ms/report_ms` и RSS по каждой
+  фазе в один CI JSON. Новый parser/storage backend до phase baseline не вводится; следующий
+  оптимизационный commit обязан адресовать только фактически доминирующую фазу.
+  Десятый slice использует Release gate #2299: source `809 ms`, lasio parse `5 957 ms`,
+  Dataset materialization `14 263 ms`, report `45 ms`. Materialization подтверждена крупнейшей
+  фазой и теперь профилируется по setup, column values, canonical inference, semantic resolution,
+  CurveData/store и headers. Следующая оптимизация допускается только для подфазы, которая
+  доминирует на Windows baseline этого exact head.
+  Одиннадцатый slice использует Release gate #2301 и field diagnostics Maksat M-1:
+  `curve_values` занимает `13 889 ms` из `14 094 ms` synthetic materialization, а реальный
+  LAS 28 146×342 — `18 734 ms` materialization из `24 840 ms` total import. Причина локализована
+  в повторном computed `LASFile.data` внутри per-curve helper. Positional matrix теперь строится
+  один раз на import и переиспользуется для column copies; regression фиксирует один data-read и
+  сохраняет fallback/duplicate-mnemonic semantics.
+
+## P1 — поддерживаемая архитектура
+
+- [x] **IMPORT-UX-01:** основной импорт сокращён до маршрута «выбрать файл → компактно проверить
+  → подтвердить». Формат определяется по расширению; совместимый LAS является безопасным
+  стандартным путём. Строгий/ручной режимы, индекс/NULL, ручное сопоставление, технические
+  метрики и подробные предупреждения сохранены как явно раскрываемые дополнительные настройки.
+
+- [x] **CUT-01:** единый экранный и печатный контракт описания шлама: `CuttingsSample.description`
+  отображается в `INTERPRETATION`, rich HTML безопасно преобразуется для печати, а сохранённое
+  отображаемое название колонки не заменяется системным. Старые интервалы интерпретации
+  сохраняются и остаются видимыми вне перекрывающего описания.
+- [x] **CUT-02:** в режиме выбора `Shift + левая кнопка` на дорожках описания и интерпретации
+  создаёт интервал свободного описания; диалог позволяет точно исправить кровлю/подошву,
+  выбрать готовый шаблон RU/KZ/EN или ввести любой форматированный текст. Двойной щелчок
+  повторно открывает описание; удаление текста не удаляет состав, ЛБА или кальциметрию пробы.
+- [x] **CUT-04:** экран и Masterlog/PDF автоматически переносят слова и уменьшают шрифт описания
+  до безопасного минимума. Если полный текст физически не помещается, экран показывает
+  сокращение с многоточием и восстанавливает полный текст после увеличения масштаба; печатный
+  painter жёстко ограничен прямоугольником интервала. Выравнивание слева, по центру или справа
+  выбирается в rich-text редакторе, сохраняется в HTML и применяется на экране и в печати.
+  Адаптация пересчитывается по фактической ширине viewport после каждого изменения ширины колонки;
+  перенос слов можно отключить отдельным сохраняемым флажком, включённым по умолчанию.
+- [x] **CUT-05:** в обе заводские формы MASTERLOG A4 включена системная колонка
+  `INTERPRETATION` с названием «Описание пород»; книжные ширины перераспределены до `714/718 px`,
+  глубина расширена до `64 px` для четырёхзначных отметок за счёт газа `144 px`, а
+  regression-тест фиксирует состав, локализацию RU/KK/EN и отсутствие скрытого масштабирования.
+- [ ] **CUT-03:** включить длинные rich-text описания и встроенные фотографии шлама в ручную
+  матрицу реальной печати A4/A3 в составе **REL-03**: проверить перенос, границы интервала,
+  пользовательский заголовок и читаемость на физическом отпечатке.
+
+- [x] **RULER-01:** единый Qt-независимый контракт глубинных/временных отметок, общей частоты и индивидуальной видимости колонок сериализуется в tablet layout v22; layouts v1–v21 получают безопасную миграцию.
+- [x] **RULER-02:** настройки видимости и частоты внутренней шкалы подключены к редактору живой графической колонки и редактору структуры формы на RU/KK/EN; сохраняются в layout v22 и form schema v14, а формы v1–v13 получают безопасный automatic/visible default.
+- [x] **RULER-03:** screen, preview, PDF и printer используют один resolved ruler; печатный snapshot сохраняет общий layout и фактические ticks колонок, а regression tests проверяют общий page-boundary и восстановление экранного состояния.
+- [x] **RULER-04:** после стабилизации шкал внедрён единый gas continuity/segment mask для C1–C5, relative gas, Haworth и Pixler с сохранением длинных остановок и реальных нулей.
+
+- [x] **UI-ADAPT-01:** единый laptop/HiDPI-контракт для top-level окон и рабочих областей:
+  минимальный размер не превышает `availableGeometry()` текущего монитора; длинное содержимое
+  прокручивается отдельно от закреплённой панели действий; основные кнопки OK/Cancel/Print/Export
+  остаются доступными при малой логической высоте Windows 125–175%. Последний инкремент перевёл
+  расширенный GeoScape/Paradox Import на общий `fit_window_to_screen`, вынес его вторичные
+  profile/dictionary-действия в горизонтально прокручиваемую панель и закрепил Cancel/Save/Open.
+  Contract-test теперь проходит все top-level `*_dialog.py` и отдельно проверяет адаптивную
+  реализацию unified cuttings adapter, предотвращая возврат desktop-only размеров.
+
+- [x] **ARCH-01:** `ApplicationContext` является production composition root: через него
+  создаётся независимый project scope/repository для окна, поставляются semantic mnemonic registry,
+  import-job controller, общий ReportPassportBuilder, WITSML/ETP credential stores и audit sinks.
+  Production MainWindow больше не создаёт вторые экземпляры этих infrastructure services; fallback
+  остаётся только для изолированных UI-тестов и совместимых embedding-сценариев.
+- [x] **ARCH-02:** разделить `MainWindow` на feature coordinators; запретить UI прямые записи в
+  project collections, Dataset, layout и dirty-state. Первый инкремент переносит WITSML
+  registration policy в `WitsmlImportCoordinator`: Qt-shell только выбирает источник,
+  показывает review/status и не создаёт project-mutation controller напрямую. Второй инкремент
+  переносит временный source/projection selection lag correction в
+  `LagCorrectionProjectController`; MainWindow больше не пишет `current_dataset_id` в этом
+  workflow. Третий инкремент переводит conditioned Gas Ratio/Haworth/Pixler persistence на
+  `GasRatioProjectController`, сохраняя старый session API только как compatibility shim.
+  Четвёртый инкремент консолидирует GS2 import вокруг одного `Gs2ImportCoordinator`: legacy
+  base и production subclass больше не содержат разные mutation paths. Пятый инкремент
+  переводит canvas-object transfer на session-bound `CanvasObjectTransferCoordinator`, чтобы
+  Qt не создавал controller/workflow вручную. Шестой инкремент переводит WELL-02 late-analysis
+  import на `LateAnalysisCoordinator`, включая source load, reviewed transaction и completion.
+  Финальный AST/source-contract проверяет оба MainWindow-слоя и запрещает прямые mutation paths.
+  Закрыт этот scope границ; дальнейшее сокращение Qt-shell выполняется вместе с изменяемым
+  сценарием, а не считается автоматически завершённым из-за AST-проверки.
+- [x] **ARCH-03:** вынести оставшиеся sampling/cache/navigation/track lifecycle/editing state из
+  `TabletView` в Qt-независимые компоненты с transition tests. Первый инкремент выносит
+  Curve Pencil editing-session state в `CurvePencilState`, второй — navigation control projection
+  в `TabletNavigationCoordinator`, третий — interval editing-session state в
+  `IntervalEditingState`, четвёртый — interpretation/interval selection ownership в
+  `InterpretationSelectionState` + `SelectionManager`, пятый — geometry/static caches, dirty
+  registry и overlay manager в `TabletRenderState`. Sampling остаётся stateless/headless, track
+  topology lifecycle уже принадлежит `TrackLifecycleCoordinator`. Финальный AST/source-contract
+  запрещает возврат legacy mutable state в `TabletView.__init__` и top-level Qt imports в state modules.
+- [x] **ARCH-04:** один immutable `SemanticContext` для всех importers с source mnemonic, UOM,
+  mapping evidence и версией каталога. Первый инкремент вводит DTO + `resolve_context()` и
+  переводит LAS import; `resolve()` остаётся compatibility shim. Второй инкремент переводит
+  CSV/TXT import и фиксирует column/header mapping evidence. Третий инкремент переводит
+  GeoScape/Paradox и фиксирует field ordinal/name/type и mapped mnemonic evidence. Четвёртый
+  инкремент переводит WITS0 Import Review и фиксирует record/item/source-id и mapping state.
+  Пятый инкремент переводит общий WITSML Import Review (2.x и нормализованный 1.4.1.1 flow)
+  и фиксирует channel position/key/uuid и mapping state. Шестой инкремент переводит общий
+  post-import Import Review и сохраняет исходное importer evidence при manual override. Седьмой
+  инкремент переводит ETP 1.2 Import Review и фиксирует channel URI/id и mapping state.
+  Финальный production-wide AST/source-contract запрещает legacy `SemanticChannelDictionary.resolve()`
+  у production consumers; compatibility shim остаётся только внутри semantic dictionary для
+  обратной совместимости и прямых compatibility tests. PR #267 дополнительно закрывает
+  instance-field gap в semantic audit; интегрирован в `152c32ea`.
+- [x] **ARCH-05:** закрепить границы слоёв AST/import-contract тестами и запретить зависимости
+  domain/calculations от Qt/UI/printing. Production-wide recursive contract проходит все Python-
+  модули `domain` и `calculations`, нормализует absolute/relative `Import`/`ImportFrom`
+  и запрещает PySide/PyQt, PyQtGraph/qtpy, `geoworkbench.ui` и `geoworkbench.printing`,
+  включая импорты внутри функций и `TYPE_CHECKING`.
+- [x] **ARCH-06:** calculation profiles и conditioning policies сделать версионированными
+  immutable DTO; UI выбирает профиль, но не реализует формулы или interpolation. Sourced
+  `FormulaProfile` уже использовал versioned immutable contract; финальный инкремент добавляет
+  `GasRatioCalculationProfile` и version/id к `CurveContinuityPolicy`, передаёт выбранный
+  profile через UI → `GasRatioProjectController` → calculations и сохраняет profile/policy
+  identity в project dataset parameters. Формулы и bounded interpolation остаются только в
+  `calculations`.
+- [ ] **ARCH-07:** единая application-level история обратимых изменений вместо независимых
+  локальных undo/redo стеков. Первый инкремент вводит bounded `CommandHistory` с атомарным
+  execute/undo/redo, полной invalidation redo-ветки после нового изменения, conflict-safe
+  stack semantics и listener projection для UI; Curve Pencil и LAS Header Editor используют
+  один хронологический стек. Второй инкремент подключает `CurveMetadataController`: rename/
+  unit/description, создание и удаление пользовательских кривых входят в тот же chronological
+  stack через typed callback adapter без ослабления existing conflict checks. Третий инкремент
+  переводит `CurveTransferController` с собственного undo/redo стека на общий history:
+  перенос нескольких кривых остаётся одной атомарной командой, metadata/value conflict checks
+  сохраняются, а полностью отменённая последующая правка значений больше не блокирует Undo
+  переноса только из-за монотонного `curve.version`. Четвёртый инкремент переводит
+  `DatasetMergeController`: каждое сращивание становится отдельной reversible command,
+  поэтому поддерживаются несколько последовательных Merge Undo/Redo; dataset/layout/source
+  sidecars восстанавливаются вместе, а conflict guard сравнивает фактическое содержимое без
+  монотонных curve version counters. History checkpoint входит в export transaction: disk/export
+  failure откатывает project state и возвращает прежние undo/redo stacks без потери redo-ветки.
+  Пятый инкремент переводит in-place `ExternalLasInsertController`: каждая вставка
+  внешнего LAS становится отдельной reversible command в общем history, поддерживаются несколько
+  последовательных вставок, а factual metadata/value guard позволяет Undo после полностью
+  отменённой последующей правки кривой без зависимости от монотонного `curve.version`.
+  Шестой инкремент переводит `LithologyController`: Add/Update/Delete интервала становятся
+  отдельными reversible commands, сохраняющими identity интервала и только связанные
+  translation-tracking sidecars; Undo fail-closed при внешнем изменении интервала или его
+  provenance и не делает полную копию геологической коллекции.
+  Глобальный Ctrl+Z/Ctrl+Shift+Z отменяет фактически последнее изменение между семью доменами;
+  локальные Curve Pencil, Header Editor, Data Inspector, Curve Transfer, Dataset Merge,
+  External LAS и Lithology controls остаются domain-safe и не перескакивают через более новую
+  команду другого типа. Создание отдельной копии dataset через External LAS остаётся отдельным
+  derived-dataset workflow и не включается в этот in-place slice. Следующие инкременты переводят
+  остальные project mutation controllers в тот же history boundary и добавляют savepoint/dirty
+  revision semantics.
+
+## P1 — полевая совместимость
+
+- [ ] **FIELD-01:** обезличенный WITS0 поток; reconnect/restart/disk-full и 8–24-часовой Windows soak.
+  Повышен до ближайшего P0-критерия работы с WITS; зависимости и измеримые критерии приведены
+  в разделе «WITS: подключение, графики и наблюдаемость» выше. Другие FIELD-задачи остаются P1.
+- [ ] **FIELD-02:** WITSML 1.4.1.1 минимум на двух Store implementations.
+- [ ] **FIELD-03:** ETP 1.2 matrix: TLS/auth/proxy, paging, quality, reconnect, replay и
+  subscription recovery.
+- [ ] **FIELD-04:** GS2/Paradox минимум на трёх обезличенных версиях; сравнить TIME/DEPTH,
+  C1–C5, total gas, UOM, Gas Ratio и Pixler с эталонным export.
+- [ ] **FIELD-05:** standard/version/provenance envelope для WITSML 2.1/ETP 1.2, PWLS property
+  kinds и Energistics UOM.
+
+
+## RPT-GEO / RPT-COMP / RPT-ANN — клиентский interpretation report
+
+Цель — довести GasRatio/Pixler/OPUS выдачу до единого профессионального ГТИ-отчёта, не меняя
+расчётное ядро. GasRatio/Haworth/Pixler/OPUS formulas, source curves, class codes и fluid
+classification являются read-only входом для presentation-layer; новые задачи меняют только
+report snapshot/composition/render/print.
+
+- [x] **RPT-DATE-01 — без видимого блока даты по умолчанию.**
+  Во всех клиентских GasRatio/Pixler/OPUS interpretation reports блок даты отсутствует при
+  default settings: не показываются ни пустая подписанная ячейка, ни текущая дата, ни часы/минуты.
+  Единственный non-passport generation audit record для этого отчёта — исходное поле
+  `HydrocarbonInterpretationReport.generated_at`: оно сохраняется в immutable report snapshot,
+  переносится без изменения через interval scoping/export preparation и **не** добавляется в
+  deterministic `ReportPassport`, его `dataset_sha256` или client-facing metadata. Если
+  пользователь явно вводит report date, соответствующий блок появляется.
+  Acceptance: screen preview, HTML, PDF, system print, DOCX и XLSX не содержат generation timestamp
+  и пустого date-control block при default settings; введённая вручную дата воспроизводится
+  одинаково в форматах, где отображается document-control зона; отдельный regression подтверждает,
+  что `generated_at` остаётся тем же после report scoping/export preparation, а Report Passport
+  по-прежнему не содержит абсолютного timestamp.
+
+- [x] **RPT-QA-01 — единая терминология УВ-фаз.**
+  Заголовки интерпретации GasRatio/Pixler/OPUS и подписи графических маркеров используют
+  один bounded RU/KK/EN словарь из пяти фазовых формулировок. Неоднозначные oil/gas,
+  water-dissolved и неизвестные гипотезы получают неопределённую фазу; wet gas marker
+  согласован с газовым заголовком. Каждая фаза имеет один shape/color/code, легенда
+  объединяет подтипы. Определённая фаза присваивается только явно известным кодам;
+  неизвестные plugin/future/ошибочные oil/gas строки остаются неопределёнными.
+  Численные формулы, подробные hypothesis/class codes, OPUS votes и доказательства
+  сохраняются. HTML metadata, DOCX custom XML и скрытый XLSX audit sheet содержат
+  исходные hypothesis codes/evidence активных и подавленных кандидатов и область расчёта.
+  Длинные Unicode evidence сохраняются без усечения и без исполнения Excel formulas.
+  Подтипы описаны отдельно в evidence, а не становятся более уверенным заголовком.
+  Контракт, единые маркеры и экспортный audit round-trip закреплены regression-тестами;
+  общая физическая приёмка RPT-QA-01 остаётся отдельной задачей.
+
+- [x] **RPT-GEO-01 — реализация шламограммы и ЛБА из актуальной геологии проекта.**
+  Реализованы shared Masterlog-compatible painters, immutable geology snapshot, depth-scoped `geology_sha256` в Report Passport и независимые `Auto/Show/Hide` для screen preview/PDF/system print. `Show` при полном отсутствии данных печатает локализованный empty-state, а частичные пробелы остаются пустыми. Screen preview использует тот же resolved geology composition и shared painters, а multi-page empty/partial edge cases закреплены regression-тестами. Реализация завершена; финальная физическая printer acceptance остаётся отдельным открытым критерием ниже.
+  Report-layer использует `Well.lithology`/`Well.cuttings`, включая данные, которые уже
+  материализованы из загруженного LAS существующим `import_las_geology()` и conservative
+  geology dialect resolver. Повторно читать/интерпретировать source LAS внутри отчёта нельзя.
+  Поэтому ручное исправление геологом после импорта автоматически становится актуальным
+  источником для следующего отчёта, а source LAS остаётся immutable.
+  Перед render строится отдельный immutable `ReportGeologySnapshot` с нормализованными
+  интервалами/пробами, используемыми `CatalogLithotype` entries и стабильным
+  `geology_sha256`. Его digest входит в report provenance как отдельный geology source
+  fingerprint и **не** изменяет существующий `dataset_sha256` или fingerprints газовых series.
+  Для GasRatio/Pixler/OPUS добавить две синхронизированные с общей depth axis колонки:
+  «Шламограмма» — состав проб/пород по фактическим интервалам; «ЛБА» — тип/группа,
+  интенсивность и цвет через существующие LBA domain/style contracts.
+  Для каждой колонки independently: `Auto` показывает track только при наличии валидных данных
+  в выбранном report interval; `Hide` подавляет track даже при заполненной геологии; `Show`
+  всегда резервирует и печатает track, а при полном отсутствии данных показывает локализованное
+  «Нет данных»/эквивалент без выдуманных интервалов. При частичной геологии `Show` и `Auto`
+  рисуют только фактические интервалы, а пробелы остаются явно пустыми. Неизвестные vendor geology
+  channels не угадывать.
+  Acceptance: LAS с portable geology → import → report без ручного дублирования даёт те же
+  интервалы шлама/ЛБА; project edit меняет следующий `geology_sha256`/report provenance, но
+  оставляет `dataset_sha256`, GasRatio/Pixler/OPUS numeric values, classification и gas-series
+  fingerprints неизменными; отдельная матрица на screen preview/PDF/printer проверяет
+  `Auto`, populated `Hide`, empty `Show` и partial-geology `Show`.
+
+- [x] **RPT-GEO-02 — базовая динамика геологических легенд.**
+  PR #417 интегрировал immutable legend snapshot только для символов выбранного интервала
+  и видимых geology tracks. Lithology использует Masterlog pattern/color brush, LBA — общий
+  intensity marker/type style. Длинные labels измеряются по Unicode font и destination device;
+  переполнение каталога сохраняется на отдельных legend pages, PNG canvas растёт без уменьшения
+  depth plot. Базовый full-first/compact-continuation layout оказался недостаточным по скриншотам
+  оператора 2 октября: повтор оставлял только коды, категории смешивались, позиции менялись.
+  Исправление представления выделено ниже; исходная динамика/численные расчёты переиспользуются.
+
+- [x] **RPT-GEO-03 — читаемые легенды, адаптивные заголовки и пояснения к графикам.**
+  На каждой chart-page одна расшифрованная легенда в одинаковом месте над дорожками; отдельные
+  секции литологии, типа битумоида, интенсивности и цвета ЛБА имеют устойчивый порядок.
+  Повтор не теряет значения кодов; legacy СЖ/О имеют собственные расшифровки без назначения
+  битумоида по одному цвету, неизвестный цвет остаётся явно неизвестным. Большой каталог
+  сохраняет отдельные страницы и понятную ссылку над каждым графиком.
+  Заголовки всех газовых/геологических колонок переносятся по фактической ширине и метрикам
+  шрифта; высота общей шапки резервируется до pagination и не перекрывает шкалу или кривые.
+  Шламограмма + ЛБА входят в расчёт ширины, стандартные и OPUS дорожки используют одну границу
+  typography. Текст не уменьшается до нечитаемого размера ради одной строки.
+  Перед графиками выводится поясняющая шапка с фактически показанными параметрами, смыслом
+  Wh/Bh/Ch и формулами из sourced calculation profiles; исторический OPUS screening явно
+  использует pi = 100 × Ci / Σ(C1…C5), не подменяется независимым TotalGas базисом Gasomer.
+  Проверка: реальные PDF-тексты RU/KK/EN, A4 portrait/landscape, standard/OPUS, no-geology,
+  LBA-only и шламограмма + ЛБА; 72/96/144/192 DPI, стабильное размещение на продолжениях,
+  компактная расшифровка, grayscale и большие каталоги. Итоговые результаты текущего head
+  фиксируются в PR/Release gate; физическая печать остаётся отдельной приёмкой.
+
+- [ ] **RPT-GEO-01/02 — физическая и содержательная приёмка.**
+  Распечатать один и тот же многостраничный snapshot на доступном A4/A3 устройстве; проверить
+  легенды, частичные/пустые geology tracks, Auto/Show/Hide, grayscale и ЛБА на границах выбранной
+  глубины. Сохранить модель/драйвер/DPI, ревизию отчёта и результат специалиста ГТИ.
+  Статус: блокировано внешним условием; зелёный CI и цифровой PDF этот критерий не закрывают.
+
+- [x] **RPT-COMP-01 — Final Report Composer.**
+  Единый финальный workspace перед PDF/печатью поверх существующих report renderer/preview
+  компонентов, а не второй независимый генератор отчётов. Пользователь управляет только
+  presentation snapshot: видимость/порядок разрешённых колонок, `Auto/Show/Hide` шламограммы и
+  ЛБА, legend mode, header fields, optional summary/conclusion и layout profile. Из Composer
+  нельзя менять source geology, расчётные кривые, формулы или классификацию. Preview и final
+  PDF/printer обязаны использовать один resolved composition snapshot.
+  - [x] Foundation в main: stable `composition_id`, orientation, print order, geology visibility,
+    legend mode, layout profile, localized header fields и report annotations сохраняются по
+    dataset и восстанавливаются после reopen.
+  - [x] RPT-COMP-02 slice (`55b3a056`): `show_summary`/`show_conclusion` сохраняются в том же
+    composition, старые v37 без этих ключей безопасно мигрируют к visible=true, UI Composer
+    восстанавливает выбор, а preview/PDF/system print применяют одинаковую narrative visibility
+    без удаления сохранённого текста.
+  - [x] Порядок/видимость разрешённых глубинных chart columns/panels сохраняются в том же
+    composition. Общий bounded resolver используется preview/PDF/system print; повторное
+    открытие JSON/package восстанавливает порядок и скрытые позиции, legacy v37 получает
+    прежние profile defaults. Неподдерживаемые ключи/дубликаты отклоняются; аннотация скрытой
+    колонки не переносится в соседнюю. Report Passport фиксирует presentation options,
+    сохраняя dataset fingerprint. RU/KK/EN, все скрытые колонки и фактические renderer paths
+    покрыты `tests/test_report_chart_panel_composition.py`; физическая приёмка остаётся отдельно.
+
+- [ ] **RPT-ANN-01 — printable annotations и remarks.**
+  Добавить report annotation snapshot для текста, callout, arrow, interval highlight и remarks
+  с привязкой к depth/interval/track; переиспользовать безопасные `AnnotationRecord`/style/layout
+  semantics, но **не** tablet ownership scope. Report annotations получают отдельный scope вида
+  `report:{well_id}:{dataset_id}:{composition_id}`, где `composition_id` стабилен для сохранённой
+  report composition. Track anchors используют logical report-track keys
+  (`geology:cuttings`, `geology:lba`, `curve:<canonical-channel>`, `depth:left/right`),
+  а не tablet `track_id`. Перенос существующей tablet annotation в отчёт возможен только через
+  явное mapping/copy action; implicit `annotation_scope_id(dataset, tablet_layout)` запрещён.
+  Report-specific annotations отделены от source curves и calculations, поддерживают RU/KK/EN
+  и печатаются одинаково в preview/PDF/printer. Не допускать перекрытия
+  header/legend/page-number зон; при переносе страницы depth-anchored annotation остаётся на
+  соответствующей глубине. Acceptance включает два разных saved tablet layouts на одном dataset,
+  две report compositions и две wells: annotation видна только в своём report scope, а
+  отсутствующий logical track не вызывает перенос заметки в соседнюю колонку.
+  Редактор аннотаций использует общий bounded `CommandHistory`, Ctrl+Z/Ctrl+Shift+Z,
+  compound commands и минимальные reversible diffs без копирования всего большого Dataset.
+  Cancel возвращает editor checkpoint; Save/Apply обновляет checkpoint, сохраняя историю
+  проекта. Приёмка включает 20 последовательных Undo/Redo, Cancel после правок, Save,
+  повторное открытие и проверку памяти на большом LAS.
+
+- [ ] **REPORT-I18N-01 — атомарный язык каждого отчёта.**
+  Выбор RU/KK/EN применяется ко всему preview/PDF/print/XLSX/DOCX одной ревизии: заголовкам,
+  легендам, подписям, выноскам и сообщениям. Проверить отсутствие смешанных языков на одном
+  report snapshot; технические source labels остаются в audit/provenance. Критерий сохранён
+  из старой ветки report UX roadmap вместе с обязательным Undo/Redo редактора.
+
+- [ ] **Общая acceptance-матрица:** один и тот же report snapshot на screen/PDF/printer; A4/A3,
+  portrait/landscape/roll где применимо; Windows 100/125/150/200% DPI; colour + grayscale;
+  длинные RU/KK/EN labels; пустая геология; частичная геология; LAS portable geology; ручные
+  project edits; `Auto/Show/Hide` для обеих geology tracks; multi-page intervals; cross-layout /
+  cross-well annotation isolation; неизменность всех GasRatio/Pixler/OPUS расчётных series и
+  dataset/gas fingerprints при чисто геологических edits.
+
+
+## P2 — расширение после P0/P1
+
+- [ ] **EXT-01:** versioned read-only API на immutable DTO/snapshots.
+- [ ] **EXT-02:** изменения только через validated transactional commands с permissions,
+  timeout, audit и rollback; код при открытии проекта не выполняется.
+- [ ] **EXT-03:** multiwell correlation и общий PDF только после performance/RSS gate.
+- [ ] **EXT-04:** 3D и AI import требуют отдельных validation/provenance gates внутри этого
+  плана и не входят в ближайший выпуск.
+
+## Обязательная матрица для каждого инкремента
+
+- **Domain/unit:** формулы, границы, NaN/zero/inf, ascending/descending/duplicate axes.
+- **Application/integration:** controller/session transaction, dirty/provenance, повторный запуск,
+  rollback и неизменность source.
+- **UI/render:** screen, HiDPI, scroll/zoom, forms, lifecycle и отсутствие native Qt crash.
+- **Output:** preview/PDF/printer используют один resolved range и одинаковую геометрию данных.
+- **Compatibility:** project/form/layout migration и старые LAS/GS2 fixtures.
+- **Performance:** большие массивы, cache hit/miss, bounded memory и отсутствие O(N²).
+- **Security:** недоверенный ввод, пути, XML/archive limits, secrets и dependency audit.
+- **Documentation:** runtime marker, архитектура, тестовые команды, RU/KK/EN и внутренние ссылки.
+
+## Критерий завершения задачи
+
+Задача закрывается только когда:
+
+1. контракт и риски определены до изменения кода;
+2. код находится в правильном слое и не создаёт скрытую вторую реализацию правила;
+3. source data остаются неизменными либо изменение выполняется явной транзакционной командой;
+4. для изменения поведения проверены применимые positive, boundary, negative и regression
+   сценарии; для документационного изменения достаточно документационного аудита и diff;
+5. Ruff, mypy, полный pytest, Windows acceptance и security gate проходят там, где применимо;
+6. обновлены этот план при изменении приоритетов, `ARCHITECTURE.md`, `TESTING.md`, нужные
+   инструкции RU/KK/EN и `CHANGELOG.md`;
+7. рабочее дерево чистое, временные ветки/workflow/trigger/artifacts отсутствуют.
+
+
+UI-SYS-01: Curve-pencil toolbar переведён на palette-aware application style: при выключенном
+карандаше скрываются вторичные mode/apply/clear/Undo/Redo controls; одиночные raw-mnemonic
+track titles заменяются на локализованное имя параметра с mnemonic в скобках.
+
+### RPT-ANN-01 — состояние команд при rollback checkpoint (завершено)
+
+- Checkpoint сохраняет bounded execution flags существующих report commands, включая Redo. После Redo → draft → Cancel восстанавливаются annotations, dirty state, исходный Redo и возможность повторного Redo/Undo для add/update/remove. Dataset arrays не копируются.
+- Это подготовительный инкремент Save/Apply: Undo до checkpoint и divergent branch по-прежнему отклоняются; UI Apply и сохранение истории между редакторами остаются открытыми. Требуются три exact-head gates.
+
+PR #565 интегрирован после трёх SUCCESS на f2191d61 (run 38176106732), main a1207d2d.
+
+### RPT-ANN-01 — rollback через Undo и новую ветвь истории (завершено)
+
+- Bounded stack-delta validation учитывает Undo до checkpoint и замену Redo новой ветвью. Возвращаются annotations, dirty state, command flags и исходные стеки; повторные Undo/Redo остаются рабочими. Undo создания composition отличается от внешнего удаления.
+- Чужой домен, session/dataset/composition и изменённые presentation settings блокируют восстановление до записи модели. UI Apply и сохранение истории между открытиями редактора остаются отдельными задачами. Требуются три exact-head gates.
+
+PR #566 интегрирован после трёх SUCCESS на dd59d702 (run 38178185688), main f6bc1f98.
+
+### RPT-ANN-01 — Apply обновляет editor checkpoint (завершено)
+
+- Явная RU/KK/EN кнопка Apply фиксирует текущий draft report annotations без закрытия диалога и очистки Undo/Redo. Последующий Cancel возвращает последний applied snapshot даже после Undo через checkpoint и replacement branch. Добавить/Сохранить по-прежнему применяют поля отдельной записи к draft; Apply не сохраняет файл проекта.
+- Сохранение общей истории между открытиями редакторов и скважинами остаётся следующим инкрементом. Приёмка: реальные Qt buttons, три языка, original stack identity, Cancel/Undo/Redo и source arrays; три exact-head gates обязательны.
+
+PR #567 интегрирован после трёх SUCCESS на 579e6e49 (run 38180846839), main 0b460e23.
+
+### RPT-ANN-01 — общая история между открытиями редактора (завершено)
+
+- Открытие редактора не очищает bounded shared history. Cancel восстанавливает checkpoint текущего открытия; Apply сохраняет историю. Undo/Redo допускаются только для команды текущих session/dataset/composition на вершине общей истории, без обхода более поздней команды чужой области.
+- RU/KK/EN Qt reopen/Cancel и две скважины проверяют сохранение command identity и блокировку чужих Undo/Redo. История остаётся runtime state и не сериализуется в project file. Source arrays неизменны; три exact-head gates обязательны.
+
+PR #568 интегрирован после трёх SUCCESS на 5825ec14 (run 38183415868), main 4fc48e27.
+
+### RPT-ANN-01 — Apply/Cancel и production save/reopen (завершено)
+
+- Шесть RU/KK/EN × JSON/package сценариев проверяют два последовательных Apply, Cancel последующего draft, production save/open, unchanged source arrays и clean reopened state. Latest applied snapshot сохраняется; команды старой session остаются недоступными в новой. Runtime не изменён. Три exact-head gates обязательны; физическая приёмка отдельно.
+
+PR #569 интегрирован после трёх SUCCESS на 989fb6c8 (run38185856544), main81ee1608.
+
+### PRINT-STYLE-01 — общий footer geology DOCX (завершено)
+
+- Geology Word export использует существующий shared DIGITAL GEOLOG footer с RU/KK/EN page label и PAGE/NUMPAGES. Footer part, content type, relationship и section reference согласованы; bottom/footer gap 720 twips резервирует 36 pt. Tables, report values и source arrays сохраняются; физическая Word/printer приёмка отдельно.
+
+PR #570 интегрирован после трёх SUCCESS на 8eb6e472 (run38189079224), main aaf0bbf6.
+
+### REPORT-I18N-01 — заголовок единицы geology XLSX (завершено)
+
+- Колонка единицы газовой статистики использует существующий RU/KK/EN output dictionary: «Единица измерения», «Өлшем бірлігі», «Unit». Значения UOM и numerical report snapshot не меняются. Реальные XLSX и production UI/output matrix проверяют выбранный язык; три exact-head gates обязательны.
+
+PR #571 интегрирован после трёх SUCCESS на 543644b9 (run38191052692), main32477a65. Main CI38194968297 также SUCCESS.
+
+### RPT-ANN-01 / ARCH-07 — общая составная команда (завершено)
+
+- CompoundCommand объединяет операции одного домена в одну запись существующей bounded CommandHistory: execute по порядку, Undo в обратном порядке, Redo по порядку. При ошибке компенсируются уже завершённые части; ошибка компенсации явно возвращается вместе с исходной и не отмечает операцию успешной. Child operations должны быть exception-atomic.
+- Это foundation, не новая массовая кнопка редактора. Report batch integration требует validation всего ввода до mutation, scope guards всех children и checkpoint flags вложенных команд; UI и физическая приёмка остаются открытыми. Три exact-head gates обязательны.
+
+PR #572 интегрирован после трёх SUCCESS на e646629c (run38196884398), main2dd8c1ba.
+
+### RPT-ANN-01 — compound remove controller (завершено)
+
+- remove_many проверяет все ID/ownership до mutation, отклоняет пустой/duplicate/неверный список и ограничивает batch лимитом истории. Записи удаляются по убывающим индексам одной CompoundCommand; Undo восстанавливает исходный порядок. Recursive ownership и checkpoint flags включают составную команду и children.
+- Grouped remove/Undo/Redo/checkpoint и foreign-session guards покрыты regression; UI массового выбора/удаления и физическая приёмка остаются отдельно. Source arrays не копируются. Три exact-head gates обязательны.
+
+PR #573 интегрирован после трёх SUCCESS на 3db47a91 (run38199177258), mainfc238436.
+
+### RPT-ANN-01 — выбор группы и удаление в Qt editor (завершено)
+
+- «Удалить группу…» открывает список только текущих report annotations с ExtendedSelection. Подтверждение недоступно без выбора; отмена выбора не меняет модель. Подтверждённый список передаётся validated remove_many как одна команда; Undo/Redo и Cancel/Apply используют существующую историю/checkpoint.
+- RU/KK/EN real controls проверяют два выбранных элемента, выбор Cancel, Undo/Redo и rollback к Apply. Source/calculation contracts сохраняются, физическая приёмка отдельно; три exact-head gates обязательны.
+
+PR #574 интегрирован после трёх SUCCESS на 0c1f3aba (run38201688828), main6dbeec71.
+
+### RPT-ANN-01 — persistence группового удаления (завершено)
+
+- Шесть RU/KK/EN × JSON/package сценариев реальных кнопок проверяют две скважины: group delete, single Undo/Redo, Apply, draft Cancel, production save/open. После reopen остаётся ровно выбранный retained record каждой области; source depth/curves unchanged, session clean, old-session history blocked. Runtime не изменён.
+- Grouped controller/UI implementation интегрирована #572–#574. После exact-head gates этой persistence-приёмки переходить к другим незавершённым задачам очереди; физическая/содержательная приёмка остаётся отдельно.
+
+PR #575 интегрирован после трёх SUCCESS на a8f7904e (run38205219057), mainb9385604. MainCI38206597219 SUCCESS.
+
+### WITS-UX-01 — overflow сохранённых workspace ranges (завершено)
+
+- Загрузка workspace settings возвращает существующий безопасный default при JSON integer вне float range в follow_span/history_start/history_end вместо необработанного OverflowError. Повреждённый payload не переписывается; raw WITS, acquisition state и расчёты не меняются.
+- Шесть positive/negative overflow regressions и связанные reliability/capture tests; три exact-head gates обязательны. Реальный reconnect/soak остаётся отдельной приёмкой.
+
+PR #576 интегрирован после трёх SUCCESS на43636bf3(run38210409087), main9c524b5c. MainCI38213481331 SUCCESS.
+
+### WITS-UX-01 — изоляция workspace ID в settings (завершено)
+
+- ID с символами, которые legacy заменял на underscore, получают отдельный bounded SHA256 key с префиксом ~. well/1 и well_1 больше не перезаписывают настройки друг друга. Безопасные буквенно-цифровые ID с -_. и empty/default сохраняют прежние ключи.
+- Legacy payload не содержит owner, поэтому неоднозначные записи не копируются в новую область автоматически и не удаляются. Для таких ID старый выбор вида потребуется задать заново; raw acquisition/source не меняются. Regression включает real QSettings INI reopen; три exact-head gates обязательны.
+
+PR #577 интегрирован после трёх SUCCESS на cb6e2c60(run38216954687), main66e0670b. MainCI38219736905 SUCCESS.
+
+### WITS-UX-01 — конечные границы истории workspace (завершено)
+
+- Wits0WorkspaceState отклоняет NaN/±Infinity в history_start/history_end до передачи диапазона графику; обе конечные границы и end>start обязательны. Saved settings используют existing default fallback без rewrite payload. Конечные отрицательные координаты сохраняются; raw/source/calculations unchanged.
+- Шесть domain/settings regressions плюс reliability/capture Qt construction; три exact-head gates обязательны. Реальный reconnect/soak отдельно.
+
+PR #578 интегрирован после трёх SUCCESS на0226219d(run38223975505), main42c8aabf. MainCI38227895013 SUCCESS.
+
+### WITS-UX-01 — production capture reopen и продолжение runtime (на проверке)
+
+- Шесть RU/KK/EN × JSON/package сценариев сохраняют открытую acquisition session с checkpoint, открывают проект и настоящий Wits0CaptureDialog, восстанавливают same session/Live tab/axis/Pause/Follow/span/max_points из isolated QSettings. Следующий frame продолжает sequence 1→2, ранее записанный numerical prefix unchanged.
+- Runtime не изменён; подменены только destination QSettings и lookup существующего custom profile. Это автоматическая приёмка offline restoration, не реальный TCP reconnect/Windows soak. Три exact-head gates обязательны.
