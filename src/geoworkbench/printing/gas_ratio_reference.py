@@ -425,10 +425,10 @@ def paint_ratio_reference_summary(
                 label_y = 386 + label_slots[int(row)] * 49
                 label_rect = QRectF(704, label_y, 282, 47)
                 color = _DEPTH_COLORS[depth_bin]
-                shade = QColor(color)
-                shade.setAlpha(22)
+                cue_fill = QColor(color)
+                cue_fill.setAlpha(22)
                 painter.setPen(QPen(QColor(color), 0.9))
-                painter.setBrush(shade)
+                painter.setBrush(cue_fill)
                 painter.drawRoundedRect(label_rect, 3, 3)
                 painter.setPen(_depth_pen(depth_bin, 1.5))
                 painter.drawLine(QLineF(712, label_y + 8, 744, label_y + 8))
@@ -478,10 +478,10 @@ def paint_ratio_reference_summary(
             ("rising", "#c62828"), ("mixed", "#2563eb"), ("falling", "#15803d"),
         )):
             card = QRectF(65 + index * 307, 720, 298, 30)
-            shade = QColor(color)
-            shade.setAlpha(18)
+            cue_fill = QColor(color)
+            cue_fill.setAlpha(18)
             painter.setPen(QPen(QColor(color), 0.8))
-            painter.setBrush(shade)
+            painter.setBrush(cue_fill)
             painter.drawRoundedRect(card, 3, 3)
             _text(painter, card.adjusted(5, 2, -5, -2),
                   pixler_visual_tendency(trend, language), typography.caption_pt, color=color)
