@@ -46,3 +46,31 @@ def pixler_profile_caption(
                          "unknown": "trend undetermined"},
     }[language]
     return phases[phase_index], trends.get(trend, trends["unknown"])
+
+
+def pixler_visual_tendency(trend: str, language: AppLanguage) -> str:
+    """Label a qualitative shape cue separately from interval phase evidence."""
+    labels = {
+        AppLanguage.RU: {
+            "rising": "↑ газовая тенденция по форме",
+            "falling": "↓ жидкая УВ-тенденция по форме",
+            "mixed": "↕ переходный / смешанный профиль",
+            "flat": "→ стабильные отношения",
+            "unknown": "тенденция не определена",
+        },
+        AppLanguage.KK: {
+            "rising": "↑ пішіні бойынша газ үрдісі",
+            "falling": "↓ пішіні бойынша сұйық КС үрдісі",
+            "mixed": "↕ өтпелі / аралас профиль",
+            "flat": "→ тұрақты қатынастар",
+            "unknown": "үрдіс анықталмаған",
+        },
+        AppLanguage.EN: {
+            "rising": "↑ gas tendency by profile shape",
+            "falling": "↓ liquid HC tendency by shape",
+            "mixed": "↕ transitional / mixed profile",
+            "flat": "→ stable ratios",
+            "unknown": "tendency undetermined",
+        },
+    }
+    return labels[language].get(trend, labels[language]["unknown"])

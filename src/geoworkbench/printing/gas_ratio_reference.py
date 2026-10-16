@@ -16,7 +16,7 @@ from geoworkbench.printing.hydrocarbon_fluid_markers import (
 )
 from geoworkbench.printing.report_painter_fonts import point_coordinate_font
 from geoworkbench.printing.pixler_profile_annotations import (
-    pixler_profile_caption, pixler_profile_trend,
+    pixler_profile_caption, pixler_profile_trend, pixler_visual_tendency,
 )
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.services.gas_curve_presentation import GasRatioScale, gas_ratio_scale
@@ -28,6 +28,9 @@ _ALIASES = {
     "CH": {"CH", "CHARACTER"},
     **{f"C1_C{i}": {f"C1_C{i}", f"PIXLER_C1_C{i}"} for i in range(2, 6)},
 }
+RATIO_REFERENCE_WIDTH = 1000.0
+RATIO_REFERENCE_HEIGHT = 840.0
+
 _DEPTH_COLORS = ("#2563eb", "#16a34a", "#ea580c", "#db2777", "#9333ea", "#0891b2")
 
 
@@ -164,9 +167,10 @@ def _depth_marker(painter: QPainter, center: QPointF, index: int, radius: float 
         painter.restore()
 
 
-def _text(painter: QPainter, rect: QRectF, text: str, size: float | None = None) -> None:
+def _text(painter: QPainter, rect: QRectF, text: str, size: float | None = None,
+          *, color: str | None = None) -> None:
     visual = modern_oilfield_report_profile()
-    painter.setPen(QColor(visual.palette.text))
+    painter.setPen(QColor(color or visual.palette.text))
     fitted_size = visual.typography.body_pt if size is None else size
     # Ratio plots use a virtual 1000-unit canvas so a portrait PDF scales its
     # labels to half-size. Font sizes must remain readable in *physical* points
@@ -267,11 +271,11 @@ def paint_ratio_reference_summary(
     painter.save()
     try:
         painter.translate(target.topLeft())
-        scale = min(target.width() / 1000, target.height() / 650)
+        scale = min(target.width() / RATIO_REFERENCE_WIDTH, target.height() / RATIO_REFERENCE_HEIGHT)
         painter.scale(scale, scale)
         visual = modern_oilfield_report_profile()
         palette, typography = visual.palette, visual.typography
-        painter.fillRect(QRectF(0, 0, 1000, 650), QColor(palette.page))
+        painter.fillRect(QRectF(0, 0, RATIO_REFERENCE_WIDTH, RATIO_REFERENCE_HEIGHT), QColor(palette.page))
         title = {
             AppLanguage.RU: "Газовые отношения: корреляция и профиль Пикслера",
             AppLanguage.KK: "Газ қатынастары: корреляция және Pixler профилі",
@@ -346,7 +350,7 @@ def paint_ratio_reference_summary(
             painter.drawLine(QLineF(65 + index * 150, 346, 100 + index * 150, 346))
             _depth_marker(painter, QPointF(82.5 + index * 150, 346), index, 3)
             _text(painter, QRectF(101 + index * 150, 335, 113, 24), f"{start:.{depth_decimals}f}–{end:.{depth_decimals}f} m", typography.caption_pt)
-        plot = QRectF(65, 385, 610, 205)
+        plot = QRectF(65, 385, 610, 295)
         _axes(painter, plot)
         _text(painter, QRectF(65, 362, 610, 20), "Pixler · C1/C2 – C1/C5", typography.section_pt)
         keys = [f"C1_C{i}" for i in range(2, 6)]
@@ -384,6 +388,9 @@ def paint_ratio_reference_summary(
                 painter.setPen(QPen(QColor(palette.border), 0.7))
                 painter.drawLine(QLineF(plot.left(), tick_y, plot.right(), tick_y))
                 _text(painter, QRectF(12, tick_y - 12, 45, 24), f"{10.0**power:g}", typography.caption_pt)
+            # Order callouts by endpoint height so neighbouring leader lines do not cross.
+            label_order = sorted((int(row) for row in selected), key=lambda row: -matrix[row, -1])
+            label_slots = {row: index for index, row in enumerate(label_order)}
             for profile_index, row in enumerate(selected):
                 depth_bin = min(
                     5,
@@ -413,35 +420,38 @@ def paint_ratio_reference_summary(
                     draw_fluid_marker(
                         painter, QPointF(point.x() + 9.0, point.y()), phase, size=7.0,
                     )
-                _text(
-                    painter,
-                    QRectF(742, 386 + profile_index * 33, 245, 15),
-                    f"{all_depth[row]:.2f} m · {phase.code}",
-                    typography.body_pt,
-                )
+                trend = pixler_profile_trend(matrix[row].tolist())
+                phase_caption, _trend_caption = pixler_profile_caption(phase.phase, trend, language)
+                label_y = 386 + label_slots[int(row)] * 49
+                label_rect = QRectF(704, label_y, 282, 47)
+                color = _DEPTH_COLORS[depth_bin]
+                shade = QColor(color)
+                shade.setAlpha(22)
+                painter.setPen(QPen(QColor(color), 0.9))
+                painter.setBrush(shade)
+                painter.drawRoundedRect(label_rect, 3, 3)
                 painter.setPen(_depth_pen(depth_bin, 1.5))
-                painter.drawLine(
-                    QLineF(700, 396 + profile_index * 33, 735, 396 + profile_index * 33)
-                )
-                _depth_marker(painter, QPointF(717.5, 396 + profile_index * 33), depth_bin, 3)
-                phase_caption, trend_caption = pixler_profile_caption(
-                    phase.phase, pixler_profile_trend(matrix[row].tolist()), language,
-                )
-                _text(
-                    painter, QRectF(696, 401 + profile_index * 33, 292, 16),
-                    f"{phase_caption} · {trend_caption}", typography.caption_pt,
-                )
-                painter.setPen(QPen(QColor(_DEPTH_COLORS[depth_bin]), 0.8))
+                painter.drawLine(QLineF(712, label_y + 8, 744, label_y + 8))
+                _depth_marker(painter, QPointF(728, label_y + 8), depth_bin, 3)
+                _text(painter, QRectF(749, label_y + 1, 232, 15),
+                      f"{all_depth[row]:.2f} m · {phase.code}", typography.body_pt, color=color)
+                _text(painter, QRectF(709, label_y + 16, 272, 15),
+                      pixler_visual_tendency(trend, language), typography.caption_pt, color=color)
+                _text(painter, QRectF(709, label_y + 31, 272, 15),
+                      phase_caption, typography.caption_pt, color=color)
+                painter.setPen(QPen(QColor(color), 1.1))
                 endpoint = points[-1]
-                elbow = QPointF(688, 396 + profile_index * 33)
+                elbow = QPointF(695, label_rect.center().y())
                 painter.drawLine(QLineF(endpoint, elbow))
-                painter.drawLine(QLineF(elbow, QPointF(698, elbow.y())))
+                painter.drawLine(QLineF(elbow, QPointF(label_rect.left(), elbow.y())))
                 direction = elbow - endpoint
                 length = max(1.0, (direction.x() ** 2 + direction.y() ** 2) ** 0.5)
                 unit = direction / length
                 normal = QPointF(-unit.y(), unit.x())
-                painter.drawLine(QLineF(endpoint, endpoint + unit * 6.0 + normal * 2.5))
-                painter.drawLine(QLineF(endpoint, endpoint + unit * 6.0 - normal * 2.5))
+                painter.drawLine(QLineF(endpoint, endpoint + unit * 7.0 + normal * 3.0))
+                painter.drawLine(QLineF(endpoint, endpoint + unit * 7.0 - normal * 3.0))
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.drawEllipse(endpoint, 4.0, 4.0)
 
         else:
             _text(
@@ -459,21 +469,39 @@ def paint_ratio_reference_summary(
                 painter,
                 QRectF(
                     plot.left() + index / 3 * plot.width() - 35,
-                    603, 70, 19,
+                    690, 70, 19,
                 ),
                 key.replace("_", "/"),
                 typography.caption_pt,
             )
+        for index, (trend, color) in enumerate((
+            ("rising", "#c62828"), ("mixed", "#2563eb"), ("falling", "#15803d"),
+        )):
+            card = QRectF(65 + index * 307, 720, 298, 30)
+            shade = QColor(color)
+            shade.setAlpha(18)
+            painter.setPen(QPen(QColor(color), 0.8))
+            painter.setBrush(shade)
+            painter.drawRoundedRect(card, 3, 3)
+            _text(painter, card.adjusted(5, 2, -5, -2),
+                  pixler_visual_tendency(trend, language), typography.caption_pt, color=color)
         _text(
-            painter,
-            QRectF(65, 623, 900, 26),
+            painter, QRectF(65, 760, 920, 28),
             {
-                AppLanguage.RU: "Фон — порядок отношений, не границы фаз. Стрелки — тренд C1/C3–C1/C5; фазы предварительные, ? — нет классификации.",
-                AppLanguage.KK: "Фон — қатынастар реті, фаза шекарасы емес. Көрсеткілер — C1/C3–C1/C5 тренді; фазалар алдын ала, ? — анықталмаған.",
-                AppLanguage.EN: "Background: ratio decades, not phase boundaries. Arrows: C1/C3–C1/C5 trend; phases preliminary, ? — unclassified.",
-            }[language],
-            typography.footer_pt,
+                AppLanguage.RU: "Предварительно по форме профиля; не доказательство фазы или притока. Фон — порядок отношений, не границы фаз. ? — фаза не определена.",
+                AppLanguage.KK: "Профиль пішіні бойынша алдын ала; фаза не ағын дәлелі емес. Фон — қатынастар реті, фаза шекарасы емес. ? — фаза анықталмаған.",
+                AppLanguage.EN: "Preliminary shape cues, not proof of phase or flow. Background: ratio decades, not phase boundaries. ? — phase undetermined.",
+            }[language], typography.footer_pt,
         )
+        if all(key in ratios for key in keys) and valid.size:
+            coverage = {
+                AppLanguage.RU: "Полные профили: {start:.2f}–{end:.2f} м; данные проекта: {low:.2f}–{high:.2f} м. Показано {count} глубин.",
+                AppLanguage.KK: "Толық профильдер: {start:.2f}–{end:.2f} м; жоба: {low:.2f}–{high:.2f} м. {count} тереңдік көрсетілген.",
+                AppLanguage.EN: "Complete profiles: {start:.2f}–{end:.2f} m; project data: {low:.2f}–{high:.2f} m. {count} depths shown.",
+            }[language].format(start=all_depth[valid[0]], end=all_depth[valid[-1]],
+                               low=low_depth, high=high_depth, count=len(selected))
+            _text(painter, QRectF(65, 798, 920, 24), coverage, typography.caption_pt)
+
     finally:
         painter.restore()
     return True
@@ -483,7 +511,7 @@ def ratio_reference_summary_uri(
     dataset: Dataset, language: AppLanguage,
     *, candidates: Sequence[HydrocarbonCandidateInterval] = (),
 ) -> str:
-    image = QImage(1600, 1040, QImage.Format.Format_ARGB32_Premultiplied)
+    image = QImage(1600, 1344, QImage.Format.Format_ARGB32_Premultiplied)
     image.fill(QColor(modern_oilfield_report_profile().palette.page))
     painter = QPainter(image)
     try:

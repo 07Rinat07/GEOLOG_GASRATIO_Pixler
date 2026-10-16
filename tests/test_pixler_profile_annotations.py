@@ -21,3 +21,14 @@ def test_rising_ratios_do_not_invent_phase_when_interval_evidence_is_missing(lan
     assert phase and trend
     assert phase == pixler_profile_caption(FluidPhaseContract.INDETERMINATE, "falling", language)[0]
     assert phase != pixler_profile_caption(FluidPhaseContract.GAS, "rising", language)[0]
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_qualitative_tendencies_are_distinct_and_do_not_change_phase_caption(language):
+    from geoworkbench.printing.pixler_profile_annotations import pixler_visual_tendency
+    cues = [pixler_visual_tendency(trend, language) for trend in ("rising", "falling", "mixed")]
+    assert len(set(cues)) == 3
+    assert cues[0].startswith("↑")
+    assert cues[1].startswith("↓")
+    assert cues[2].startswith("↕")
+    assert pixler_visual_tendency("invalid", language) == pixler_visual_tendency("unknown", language)
