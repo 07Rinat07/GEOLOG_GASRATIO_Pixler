@@ -51,6 +51,7 @@ class DailyLasGrowthPlan:
     historical_conflict_rows: int = 0
     historical_conflict_cells: int = 0
     duplicate_historical_rows: int = 0
+    matched_curve_mnemonics: tuple[tuple[str, str], ...] = ()
 
     @property
     def changes_data(self) -> bool:
@@ -281,6 +282,12 @@ def analyze_daily_las_growth(
         historical_conflict_rows=conflict_rows,
         historical_conflict_cells=conflict_cells,
         duplicate_historical_rows=duplicate_historical_rows,
+        matched_curve_mnemonics=tuple(
+            (source_curves[key].metadata.original_mnemonic,
+             target_native_curves[key].metadata.original_mnemonic)
+            for key in sorted(source_curves)
+            if source_curves[key].metadata.original_mnemonic.strip().casefold() != key
+        ),
     )
 
 
@@ -300,7 +307,7 @@ def _validate_numerical_update_inputs(
         for key, curve in target_curves.items()
         if not _is_local_project_curve(curve)
     }
-    source_curves = _curve_map(source)
+    source_curves = _matched_source_curves(target_native_curves, source)
     _validate_curve_lengths(target, target_curves, label="целевого dataset")
     _validate_curve_lengths(source, source_curves, label="исходного LAS")
     missing = sorted(set(target_native_curves) - set(source_curves))
@@ -385,7 +392,10 @@ def apply_daily_las_growth(
 
     rows = np.asarray(plan.new_row_indices, dtype=np.int64)
     target_curves = _curve_map(target)
-    source_curves = _curve_map(source)
+    source_curves = _matched_source_curves(
+        {key: curve for key, curve in target_curves.items() if not _is_local_project_curve(curve)},
+        source,
+    )
 
     # Prepare every resulting array before touching the target. This keeps the
     # operation transactional even if allocation or conversion fails.
@@ -518,6 +528,42 @@ def _curve_map(dataset: Dataset) -> dict[str, CurveData]:
             )
         result[key] = curve
     return result
+
+
+def _matched_source_curves(
+    target_curves: dict[str, CurveData], source: Dataset,
+) -> dict[str, CurveData]:
+    """Prefer exact source names; accept a canonical alias only with one target.
+
+    Canonical identities are populated by the import parameter dictionary.
+    Do not guess from similar captions, values or gas-family membership here.
+    Unit compatibility is checked by the caller before preview or application.
+    """
+    source_curves = _curve_map(source)
+    canonical_targets: dict[str, list[str]] = {}
+    for key, curve in target_curves.items():
+        canonical = (curve.metadata.canonical_mnemonic or "").strip().casefold()
+        if canonical:
+            canonical_targets.setdefault(canonical, []).append(key)
+    matched = {key: curve for key, curve in source_curves.items() if key in target_curves}
+    for key, curve in source_curves.items():
+        if key in target_curves:
+            continue
+        canonical = (curve.metadata.canonical_mnemonic or "").strip().casefold()
+        candidates = canonical_targets.get(canonical, []) if canonical else []
+        if len(candidates) > 1:
+            names = ", ".join(target_curves[item].metadata.original_mnemonic for item in candidates)
+            raise DailyLasGrowthError(
+                f"Неоднозначное сопоставление {curve.metadata.original_mnemonic}: {names}"
+            )
+        target_key = candidates[0] if candidates else key
+        if target_key in matched:
+            raise DailyLasGrowthError(
+                f"Несколько каналов нового LAS соответствуют одному параметру: "
+                f"{target_curves[target_key].metadata.original_mnemonic}"
+            )
+        matched[target_key] = curve
+    return matched
 
 
 def _unit(value: str | None) -> str:
