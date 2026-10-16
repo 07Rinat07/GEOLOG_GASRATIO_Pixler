@@ -417,7 +417,7 @@ def paint_ratio_reference_summary(
             # Schematic shape explanations, explicitly not numerical phase limits.
             guide_cards = (
                 (QRectF(72, 405, 215, 24), "#c62828", guide_labels[0]),
-                (QRectF(72, 505, 180, 54), "#1d4ed8", guide_labels[1]),
+                (QRectF(72, 450, 180, 54), "#1d4ed8", guide_labels[1]),
                 (QRectF(72, 630, 240, 40), "#15803d", guide_labels[2]),
                 (QRectF(350, 400, 305, 40), "#c62828", guide_labels[3]),
                 (QRectF(345, 632, 315, 40), "#15803d", guide_labels[4]),
