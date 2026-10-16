@@ -6,6 +6,7 @@ import tempfile
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, TextIO
+from collections.abc import Callable
 
 import numpy as np
 
@@ -166,6 +167,7 @@ def save_project(
     image_assets: dict[str, ImageAsset] | None = None,
     rock_code_profiles: dict[str, RockCodeProfileRecord] | None = None,
     rock_code_source_bindings: dict[str, RockCodeSourceBindingRecord] | None = None,
+    payload_transform: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
 ) -> None:
     for well in project.wells.values():
         if well.passport is not None:
@@ -264,6 +266,8 @@ def save_project(
             digest: asdict(binding) for digest, binding in bindings.items()
         },
     }
+    if payload_transform is not None:
+        document = payload_transform(document)
     fd, temp_name = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=target.parent)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as stream:

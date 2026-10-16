@@ -4284,27 +4284,13 @@ class MainWindow(QMainWindow):
         if current is not None and current.suffix.casefold() == ".geologpkg":
             return True
 
-        QMessageBox.information(
-            self,
-            self._t("daily_las_growth.project_target_title"),
-            self._t("daily_las_growth.project_target_required"),
-        )
-        initial = self._daily_las_project_target_hint(current)
-        filename, _ = QFileDialog.getSaveFileName(
-            self,
-            self._t("daily_las_growth.project_target_title"),
-            str(initial),
-            "GeoLog Package (*.geologpkg)",
-        )
-        if not filename:
-            return False
-
-        target = self._daily_las_package_path(Path(filename))
+        target = self._automatic_project_target()
         try:
+            target.parent.mkdir(parents=True, exist_ok=True)
             self.project_controller.save_project(
                 target,
                 mode=SaveMode.EXPLICIT,
-                allow_existing_target=True,
+                allow_existing_target=False,
             )
         except ProjectChangedExternallyError as exc:
             log_exception(
@@ -4346,6 +4332,18 @@ class MainWindow(QMainWindow):
         if current is not None:
             return self._daily_las_package_path(current)
         return Path.cwd() / "project.geologpkg"
+
+    def _automatic_project_target(self) -> Path:
+        """Choose a stable private target without overwriting another project."""
+        import hashlib
+        import re
+
+        project = self.session.project
+        name = re.sub(r'[^\w .-]', '_', project.name).strip(' .')[:80] or "Project"
+        identity = hashlib.sha256(str(project.project_id).encode("utf-8")).hexdigest()[:16]
+        location = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation)
+        root = Path(location) if location else Path.home() / ".digital_geolog"
+        return root / "Projects" / f"{name}-{identity}.geologpkg"
 
     def _handle_daily_las_persist_failure(
         self,
@@ -9492,10 +9490,11 @@ class MainWindow(QMainWindow):
         LithologyLegendDialog(entries, self, language=self.language).exec()
 
     def save_project(self) -> Path | None:
-        if self.project_path is None:
-            return self.save_project_as()
         try:
-            saved_path = self.project_controller.save_project()
+            target = self._automatic_project_target() if self.project_path is None else None
+            if target is not None:
+                target.parent.mkdir(parents=True, exist_ok=True)
+            saved_path = self.project_controller.save_project(target)
         except ProjectChangedExternallyError as exc:
             log_exception("project.save.external_change", exc, project_path=self.project_path)
             QMessageBox.critical(

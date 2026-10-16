@@ -242,53 +242,53 @@ def test_post_append_save_conflict_keeps_in_memory_rows_dirty(
     window.hide()
 
 
-def test_cancelled_package_target_leaves_dataset_unchanged(
-    qapp,
-    monkeypatch,
-) -> None:
+def test_new_project_gets_automatic_target_without_dialog(qapp, monkeypatch, tmp_path):
     window, project, daily, refreshes, _logs = _prepare_window(
-        monkeypatch,
-        project_path=None,
-        material=True,
+        monkeypatch, project_path=None, material=True,
     )
-    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *_args, **_kwargs: ("", ""))
-
+    target = tmp_path / "Projects" / "automatic.geologpkg"
+    monkeypatch.setattr(window, "_automatic_project_target", lambda: target)
+    def unexpected_dialog(*args, **kwargs):
+        raise AssertionError("Automatic project saving must not ask for a filename")
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", unexpected_dialog)
     window.show_daily_las_growth()
-
-    assert daily.apply_calls == 0
-    assert daily.reset_calls == 1
-    assert project.save_calls == []
+    assert daily.apply_calls == 1
+    assert project.save_calls == [
+        (target, SaveMode.EXPLICIT, False),
+        (None, SaveMode.MATERIAL_AUTOSAVE, False),
+    ]
+    assert target.parent.is_dir()
+    assert project.project_path == target
     assert project.session.dirty is False
-    assert refreshes == []
     window.hide()
 
 
-def test_legacy_project_is_saved_as_package_before_material_append(
-    qapp,
-    monkeypatch,
-    tmp_path: Path,
-) -> None:
-    window, project, daily, refreshes, _logs = _prepare_window(
-        monkeypatch,
-        project_path=tmp_path / "legacy.geolog.json",
-        material=True,
+def test_legacy_project_uses_automatic_package_without_overwrite(qapp, monkeypatch, tmp_path):
+    window, project, daily, _refreshes, _logs = _prepare_window(
+        monkeypatch, project_path=tmp_path / "legacy.geolog.json", material=True,
     )
-    monkeypatch.setattr(
-        QFileDialog,
-        "getSaveFileName",
-        lambda *_args, **_kwargs: (str(tmp_path / "working"), ""),
-    )
-
+    target = tmp_path / "automatic.geologpkg"
+    monkeypatch.setattr(window, "_automatic_project_target", lambda: target)
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *a, **k: (_ for _ in ()).throw(AssertionError("dialog")))
     window.show_daily_las_growth()
-
     assert daily.apply_calls == 1
-    assert project.save_calls == [
-        (tmp_path / "working.geologpkg", SaveMode.EXPLICIT, True),
-        (None, SaveMode.MATERIAL_AUTOSAVE, False),
-    ]
-    assert project.project_path == tmp_path / "working.geologpkg"
-    assert project.session.dirty is False
-    assert refreshes == ["yes"]
+    assert project.save_calls[0] == (target, SaveMode.EXPLICIT, False)
+    window.hide()
+
+
+def test_automatic_target_is_stable_safe_and_unique(qapp, monkeypatch, tmp_path):
+    from PySide6.QtCore import QStandardPaths
+    window, project, _daily, _refreshes, _logs = _prepare_window(
+        monkeypatch, project_path=None, material=False,
+    )
+    monkeypatch.setattr(QStandardPaths, "writableLocation", lambda location: str(tmp_path))
+    project.session.project.name = "../Well:one"
+    first = window._automatic_project_target()
+    assert first == window._automatic_project_target()
+    assert first.parent == tmp_path / "Projects"
+    assert first.suffix == ".geologpkg"
+    project.session.project.project_id = "another-project"
+    assert first != window._automatic_project_target()
     window.hide()
 
 
