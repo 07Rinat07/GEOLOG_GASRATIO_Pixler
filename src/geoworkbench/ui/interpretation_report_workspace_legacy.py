@@ -67,6 +67,8 @@ class InterpretationReportWorkspace(QWidget):
         super().__init__(parent)
         self.controller = controller
         self.language = language
+        # Follow the UI language until the operator explicitly selects a report language.
+        self._report_output_language_explicit = False
         self.report: HydrocarbonInterpretationReport | None = None
         self.gas_mixture_report: GasMixtureRampReport | None = None
         self._export_in_progress = False
@@ -171,6 +173,8 @@ class InterpretationReportWorkspace(QWidget):
             self.report_output_language.addItem(label, value)
         self.report_output_language.setCurrentIndex(self.report_output_language.findData(language))
         self.report_output_language.currentIndexChanged.connect(self._apply_output_language)
+        # `activated` also captures choosing the already-selected language.
+        self.report_output_language.activated.connect(self._mark_report_output_language_explicit)
         self.report_output_language_label = QLabel()
         self.report_output_language_label.setBuddy(self.report_output_language)
         form.addRow(self.report_output_language_label, self.report_output_language)
@@ -573,7 +577,11 @@ class InterpretationReportWorkspace(QWidget):
         except (ValueError, TypeError):
             return self.language
 
+    def _mark_report_output_language_explicit(self, _index: int) -> None:
+        self._report_output_language_explicit = True
+
     def _apply_output_language(self) -> None:
+        self._report_output_language_explicit = True
         if self._is_mixture_mode():
             self._apply_ramp_preview()
         elif self.report is not None:
@@ -780,6 +788,15 @@ class InterpretationReportWorkspace(QWidget):
 
     def set_language(self, language: AppLanguage) -> None:
         self.language = language
+        if not self._report_output_language_explicit:
+            index = self.report_output_language.findData(language)
+            if index >= 0:
+                # An application-language change is not a manual output-language choice.
+                signals_were_blocked = self.report_output_language.blockSignals(True)
+                try:
+                    self.report_output_language.setCurrentIndex(index)
+                finally:
+                    self.report_output_language.blockSignals(signals_were_blocked)
         self._retranslate()
         self.refresh()
 
