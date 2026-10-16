@@ -2454,5 +2454,18 @@
   "import_review.capability_limited": "шектеулі",
   "import_review.capability_unverified": "тексерілмеген",
   "import_review.capability_unavailable": "қолжетімсіз",
-  "import.las3_pilot": "LAS 3.0 импорты — scalar pilot…"
+  "import.las3_pilot": "LAS 3.0 импорты — scalar pilot…",
+  "backup.manual.title": "Сақтық көшірме жасау…",
+  "backup.manual.note": "Тек таңдалған сақталған жобалар көшіріледі. Алдымен ағымдағы түзетулерді сақтаңыз (Ctrl+S). Фондық көшіру мен кесте қосылмайды.",
+  "backup.manual.add": "Жобаларды қосу…",
+  "backup.manual.settings": "Интерфейс пен профиль баптауларын қосу (QSettings)",
+  "backup.manual.folder": "Қалтаны таңдау…",
+  "backup.manual.estimate": "Таңдалған жобалар көлемі: {size} МБ. Баптаулар мен қызметтік деректер архивке қосылады.",
+  "backup.manual.create": "Көшірме жасау",
+  "backup.manual.close": "Жабу",
+  "backup.manual.working": "Көшіру және тексеру…",
+  "backup.manual.choose_folder": "Сақтық көшірме үшін бар қалтаны таңдаңыз.",
+  "backup.manual.settings_failed": "Баптаулар суретін оқу немесе сақтау мүмкін болмады.",
+  "backup.manual.failed": "Сақтық көшірме жасалмады:\n{error}",
+  "backup.manual.done": "Көшірме жасалды және тексерілді:\n{path}"
 }

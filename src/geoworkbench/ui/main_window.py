@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from geoworkbench.ui.manual_backup_dialog import ManualBackupDialog
+
 from copy import deepcopy
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
@@ -1568,6 +1570,10 @@ class MainWindow(QMainWindow):
         self.save_as_action.setShortcut("Ctrl+Shift+S")
         self.save_as_action.triggered.connect(self.save_project_as)
         file_menu.addAction(self.save_as_action)
+
+        self.create_manual_backup_action = self._localized_action("backup.manual.title")
+        self.create_manual_backup_action.triggered.connect(self.create_manual_backup)
+        file_menu.addAction(self.create_manual_backup_action)
 
         self.restore_project_backup_action = self._localized_action(
             "shell.restore_project_backup"
@@ -9570,6 +9576,9 @@ class MainWindow(QMainWindow):
             self._t("shell.save_project"),
             self._t("project.recovery_warning"),
         )
+
+    def create_manual_backup(self) -> None:
+        ManualBackupDialog(self.project_path, self, language=self.language).exec()
 
     def restore_project_backup(self) -> None:
         source = self.project_path

@@ -2454,5 +2454,18 @@
   "import_review.capability_limited": "limited",
   "import_review.capability_unverified": "unverified",
   "import_review.capability_unavailable": "unavailable",
-  "import.las3_pilot": "Import LAS 3.0 — scalar pilot…"
+  "import.las3_pilot": "Import LAS 3.0 — scalar pilot…",
+  "backup.manual.title": "Create backup…",
+  "backup.manual.note": "Only selected saved projects are copied. Save current edits first (Ctrl+S). This does not enable scheduled or background backups.",
+  "backup.manual.add": "Add projects…",
+  "backup.manual.settings": "Include interface and profile settings (QSettings)",
+  "backup.manual.folder": "Choose folder…",
+  "backup.manual.estimate": "Selected projects: {size} MB. Settings and manifest overhead will be added.",
+  "backup.manual.create": "Create backup",
+  "backup.manual.close": "Close",
+  "backup.manual.working": "Copying and verifying…",
+  "backup.manual.choose_folder": "Choose an existing backup folder.",
+  "backup.manual.settings_failed": "Could not read or save the settings snapshot.",
+  "backup.manual.failed": "Backup was not created:\n{error}",
+  "backup.manual.done": "Backup created and verified:\n{path}"
 }
