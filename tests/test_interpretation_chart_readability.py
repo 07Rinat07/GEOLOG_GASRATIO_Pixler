@@ -27,7 +27,6 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
 from geoworkbench.printing.interpretation_chart_key import interpretation_chart_key_html
 from geoworkbench.printing.interpretation_track_headings import HEADING_FLAGS
-from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.project.lithotype_catalog_models import CatalogLithotype
 from geoworkbench.services.lba_standard import lba_groups_for_color
 from geoworkbench.services.localization import AppLanguage
@@ -172,14 +171,14 @@ def test_pdf_headers_fit_and_legends_repeat_above_plot(
 
 @pytest.mark.parametrize("dpi", [72, 96, 144, 192])
 def test_heading_wrap_reserves_complete_text_at_destination_dpi(qapp, dpi):
-    from geoworkbench.printing.interpretation_track_headings import track_heading_height
+    from geoworkbench.printing.interpretation_track_headings import track_heading_height, _heading_font
 
     image = QImage(600, 300, QImage.Format.Format_ARGB32_Premultiplied)
     image.setDotsPerMeterX(round(dpi / 0.0254))
     image.setDotsPerMeterY(round(dpi / 0.0254))
     title = "Общий и нормализованный газ"
     height = track_heading_height(title, 90.0, 7.5, image)
-    font = print_font(7.5, text=title, bold=True)
+    font = _heading_font(7.5, title, image, False, 90.0)
     bounds = QFontMetricsF(font, image).boundingRect(
         QRectF(0, 0, 86.0, height), int(HEADING_FLAGS), title,
     )

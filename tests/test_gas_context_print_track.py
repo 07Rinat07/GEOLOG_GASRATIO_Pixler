@@ -5,7 +5,7 @@ import fitz
 import numpy as np
 import pytest
 from PySide6.QtCore import QRectF
-from PySide6.QtGui import QPageLayout, QPageSize, QPainter, QPdfWriter
+from PySide6.QtGui import QImage, QPageLayout, QPageSize, QPainter, QPdfWriter
 
 from geoworkbench.domain.gas_context_events import (
     GasContextEvent, GasContextEventType, GasContextRegistry, InterpretationImpact,
@@ -72,7 +72,10 @@ def test_track_retains_monochrome_text_styles_and_clips_tiny_bands(qapp, monkeyp
     profile = modern_oilfield_report_profile(grayscale=True)
     monkeypatch.setattr(track, "modern_oilfield_report_profile", lambda: profile)
     painter = MagicMock()
-    painter.device.return_value.logicalDpiY.return_value = 72
+    device = QImage(300, 200, QImage.Format.Format_ARGB32_Premultiplied)
+    device.setDotsPerMeterX(round(72 / 0.0254))
+    device.setDotsPerMeterY(round(72 / 0.0254))
+    painter.device.return_value = device
     events = (GasContextEvent("conn", GasContextEventType.CONNECTION_GAS, 0, 5, impact=impact),
               GasContextEvent("tiny", GasContextEventType.TRIP_GAS, 8, 8.001, impact=impact))
     track.paint_context_track(painter, QRectF(0, 30, 48, 100), events, 0, 10, AppLanguage.EN, header_height=30)
