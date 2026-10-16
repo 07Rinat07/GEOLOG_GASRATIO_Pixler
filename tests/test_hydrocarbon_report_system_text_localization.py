@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import pytest
 
-from geoworkbench.services.hydrocarbon_interpretation import hydrocarbon_interpretation_html
 from geoworkbench.services.hydrocarbon_interpretation_legacy import (
     _METHODS,
     build_hydrocarbon_interpretation_report,
+    hydrocarbon_interpretation_html,
 )
 from geoworkbench.services.hydrocarbon_interpretation_report_locale import (
     localize_method_calculation,
