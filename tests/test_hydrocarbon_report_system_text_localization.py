@@ -4,10 +4,12 @@ import pytest
 
 from geoworkbench.services.hydrocarbon_interpretation_legacy import (
     _METHODS,
+    _readable_evidence_item,
     build_hydrocarbon_interpretation_report,
     hydrocarbon_interpretation_html,
 )
 from geoworkbench.services.hydrocarbon_interpretation_report_locale import (
+    localize_detector_metric,
     localize_method_calculation,
     localize_method_name,
     localize_system_warning,
@@ -77,3 +79,37 @@ def test_operator_entered_warnings_are_not_guessed_or_mutated():
     comment = "Слой глины пиритизирован. Верификация по шламу."
     assert localize_system_warning(comment, AppLanguage.KK) == comment
     assert localize_system_warning(comment, AppLanguage.EN) == comment
+
+
+@pytest.mark.parametrize(
+    ("language", "z_label", "max_label"),
+    [
+        (AppLanguage.RU, "порог 4.00", "максимум = 1.234e+07"),
+        (AppLanguage.KK, "шек 4.00", "ең жоғары мән = 1.234e+07"),
+        (AppLanguage.EN, "threshold 4.00", "max = 1.234e+07"),
+    ],
+)
+def test_detector_metric_evidence_is_localized_at_presentation_boundary(
+    language, z_label, max_label,
+):
+    # Exact values and curve provenance must remain unchanged in the report source.
+    source_evidence = (
+        "TG_NORM: max robust z = 7.20 (threshold 4.00)",
+        "TG_NORM: max = 1.234e+07",
+    )
+    source_snapshot = tuple(source_evidence)
+    rendered = tuple(_readable_evidence_item(item, language) for item in source_evidence)
+    assert z_label in rendered[0]
+    assert max_label in rendered[1]
+    assert "7.20" in rendered[0] and "4.00" in rendered[0]
+    assert "1.234e+07" in rendered[1]
+    assert source_evidence == source_snapshot
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_unrecognized_evidence_and_operator_comments_are_not_translated(language):
+    comment = "max = Слой аргиллита, пиритизация подтверждена шламом."
+    assert localize_detector_metric(comment, language) == comment
+    assert localize_detector_metric("max robust z = unknown", language) == (
+        "max robust z = unknown"
+    )
