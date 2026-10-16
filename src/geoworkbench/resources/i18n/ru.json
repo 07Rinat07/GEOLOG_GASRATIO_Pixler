@@ -2454,5 +2454,18 @@
   "import_review.capability_limited": "ограничено",
   "import_review.capability_unverified": "не проверено",
   "import_review.capability_unavailable": "недоступно",
-  "import.las3_pilot": "Импорт LAS 3.0 — scalar pilot…"
+  "import.las3_pilot": "Импорт LAS 3.0 — scalar pilot…",
+  "backup.manual.title": "Создать резервную копию…",
+  "backup.manual.note": "Копируются только выбранные сохранённые проекты. Перед копированием сохраните текущие правки (Ctrl+S). Фоновые копии и расписание не включаются.",
+  "backup.manual.add": "Добавить проекты…",
+  "backup.manual.settings": "Включить настройки интерфейса и профилей (QSettings)",
+  "backup.manual.folder": "Выбрать папку…",
+  "backup.manual.estimate": "Объём выбранных проектов: {size} МБ. Настройки и служебные данные добавятся к архиву.",
+  "backup.manual.create": "Создать копию",
+  "backup.manual.close": "Закрыть",
+  "backup.manual.working": "Копирование и проверка…",
+  "backup.manual.choose_folder": "Выберите существующую папку для резервной копии.",
+  "backup.manual.settings_failed": "Не удалось прочитать или сохранить снимок настроек.",
+  "backup.manual.failed": "Резервная копия не создана:\n{error}",
+  "backup.manual.done": "Копия создана и проверена:\n{path}"
 }
