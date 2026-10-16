@@ -7,6 +7,7 @@ import tempfile
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path, PurePosixPath
+from typing import Any
 from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile, ZipInfo
 
 from geoworkbench.storage.atomic_json import save_project
@@ -60,6 +61,13 @@ class PackageProjectRepository:
         ) as temporary:
             root = Path(temporary)
             project_path = root / PACKAGE_PROJECT
+            storage = ChunkedStorageDescriptor()
+
+            def externalize_payload(payload: dict[str, Any]) -> dict[str, Any]:
+                nonlocal storage
+                encoded, storage = self.chunk_codec.encode_document(payload, root)
+                return encoded
+
             save_project(
                 document.project,
                 project_path,
@@ -71,8 +79,8 @@ class PackageProjectRepository:
                 image_assets=document.image_assets,
                 rock_code_profiles=document.rock_code_profiles,
                 rock_code_source_bindings=document.rock_code_source_bindings,
+                payload_transform=externalize_payload,
             )
-            storage = self.chunk_codec.encode(project_path, root)
             entries = self._collect_entries(root)
             manifest = {
                 "format": PACKAGE_FORMAT,

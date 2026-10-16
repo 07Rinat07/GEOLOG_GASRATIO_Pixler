@@ -59,7 +59,7 @@ def test_chunked_codec_externalizes_large_scalar_lists_and_round_trips(tmp_path:
     assert json.loads(project_path.read_text(encoding="utf-8")) == original
 
 
-def test_package_v2_chunks_dataset_columns_and_recovers_pending_commit(tmp_path: Path) -> None:
+def test_package_v2_chunks_dataset_columns_and_recovers_pending_commit(tmp_path: Path, monkeypatch) -> None:
     package = tmp_path / "project.geologpkg"
     repository = PackageProjectRepository(
         chunk_codec=ChunkedProjectDocumentCodec(chunk_threshold=2, chunk_size=2)
@@ -76,6 +76,10 @@ def test_package_v2_chunks_dataset_columns_and_recovers_pending_commit(tmp_path:
         project=Project("project-perf05", "PERF-05", wells={well.well_id: well})
     )
 
+    def reject_monolithic_roundtrip(*args, **kwargs):
+        raise AssertionError("Package save must chunk arrays directly")
+
+    monkeypatch.setattr(repository.chunk_codec, "encode", reject_monolithic_roundtrip)
     repository.save(document, package)
 
     with ZipFile(package, "r") as archive:
@@ -127,3 +131,22 @@ def test_package_repository_reads_legacy_v1_monolithic_package(tmp_path: Path) -
 
     assert loaded.project.project_id == "legacy-project"
     assert loaded.project.name == "Legacy v1"
+
+
+def test_direct_numpy_chunks_match_legacy_json_chunks(tmp_path):
+    direct = tmp_path / "direct"
+    legacy = tmp_path / "legacy"
+    direct.mkdir()
+    legacy.mkdir()
+    values = np.asarray([1.0, float("nan"), 0.0, -3.5, 7.0])
+    codec = ChunkedProjectDocumentCodec(chunk_threshold=2, chunk_size=2)
+    legacy_file = legacy / PACKAGE_PROJECT
+    legacy_file.write_text(json.dumps({"values": values.tolist()}), encoding="utf-8")
+    expected = codec.encode(legacy_file, legacy)
+    encoded, actual = codec.encode_document({"values": values}, direct)
+    assert actual == expected
+    assert encoded == json.loads(legacy_file.read_text(encoding="utf-8"))
+    for chunk in (legacy / "chunks").rglob("*.json"):
+        assert chunk.read_bytes() == (direct / chunk.relative_to(legacy)).read_bytes()
+    assert np.isnan(values[1])
+    assert values[-1] == 7.0
