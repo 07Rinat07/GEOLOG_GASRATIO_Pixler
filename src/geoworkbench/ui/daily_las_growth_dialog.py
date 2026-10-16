@@ -208,6 +208,13 @@ class DailyLasGrowthDialog(QDialog):
             "them; duplicated new depth samples are rejected.",
         ))
         body_layout.addWidget(self.preserve_overlap)
+        self.fill_missing_existing = QCheckBox(self._text(
+            "Дополнить пустые параметры на существующих глубинах; несовместимые единицы пропустить",
+            "Бар тереңдіктердегі бос параметрлерді толтыру; үйлеспейтін бірліктерді өткізу",
+            "Fill empty parameters at existing depths; skip incompatible units",
+        ))
+        body_layout.addWidget(self.fill_missing_existing)
+
         self.geology_enabled = QCheckBox(self._text(
             "Дополнить все свободные геологические интервалы по профилю",
             "Профиль бойынша барлық бос геологиялық аралықтарды толықтыру",
@@ -296,6 +303,7 @@ class DailyLasGrowthDialog(QDialog):
         self.file_input.textChanged.connect(self._source_changed)
         self.target_combo.currentIndexChanged.connect(self._invalidate)
         self.numerical_mode.toggled.connect(self._switch_mode)
+        self.fill_missing_existing.toggled.connect(self._invalidate)
         self.preserve_overlap.toggled.connect(self._invalidate)
         self.geology_enabled.toggled.connect(self._invalidate)
         self.profile_input.textChanged.connect(self._invalidate)
@@ -445,8 +453,9 @@ class DailyLasGrowthDialog(QDialog):
                         allow_profile_reassignment=True,
                     ))
             else:
+                fill_missing = self.fill_missing_existing.isChecked()
                 historical_policy = (
-                    "keep_existing" if self.preserve_overlap.isChecked() else "strict"
+                    "keep_existing" if self.preserve_overlap.isChecked() or fill_missing else "strict"
                 )
                 plan = self._run_analysis(lambda: self.controller.analyze(
                     source,
@@ -454,6 +463,7 @@ class DailyLasGrowthDialog(QDialog):
                     provider_kind=provider_kind,
                     provider_location=provider_location,
                     historical_policy=historical_policy,
+                    fill_missing_existing=fill_missing,
                 ))
         except (OSError, RuntimeError, ValueError) as exc:
             log_exception(
@@ -549,6 +559,18 @@ class DailyLasGrowthDialog(QDialog):
             f"Not supplied by source: {missing_names}\n"
             f"Matched by canonical parameter: {alias_names}",
         )
+        if plan.fill_missing_existing:
+            skipped_units = "; ".join(
+                f"{name}: {old} → {new}" for name, old, new in plan.incompatible_curve_units
+            ) or "—"
+            channel_details += "\n" + self._text(
+                f"Будет заполнено пустых ячеек: {plan.cells_filled}. "
+                f"Пропущены несовместимые единицы: {skipped_units}. Старые значения сохраняются.",
+                f"Толтырылатын бос ұяшықтар: {plan.cells_filled}. "
+                f"Өткізілген үйлеспейтін бірліктер: {skipped_units}. Ескі мәндер сақталады.",
+                f"Empty cells to fill: {plan.cells_filled}. "
+                f"Skipped incompatible units: {skipped_units}. Existing values are preserved.",
+            )
         self.preview.setPlainText(
             channel_summary + "\n" + channel_details + "\n" + policy_summary + "\n\n" + self._text(
                 f"Ось: {role} ({plan.index_mnemonic})\nДиапазон файла: {plan.start_value} … {plan.stop_value}\nНовых строк: {plan.rows_added}\nСовпадающих строк: {plan.rows_skipped}\nФайл уже импортирован: {duplicate}\n\nБудет изменён только выбранный dataset.\n\n{next_step}",
@@ -605,6 +627,7 @@ class DailyLasGrowthDialog(QDialog):
             )
         self.append_rows.setVisible(enabled)
         self.preserve_overlap.setVisible(not enabled)
+        self.fill_missing_existing.setVisible(not enabled)
         self.geology_enabled.setVisible(enabled)
         self.profile_input.setVisible(enabled)
         self.profile_browse.setVisible(enabled)

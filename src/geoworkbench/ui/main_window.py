@@ -4260,7 +4260,10 @@ class MainWindow(QMainWindow):
         if updated_dataset is not None:
             QMessageBox.information(
                 self, self._t("daily_las_growth.action"),
-                daily_las_growth_result_text(updated_dataset, saved_path, self.language),
+                daily_las_growth_result_text(
+                    updated_dataset, saved_path, self.language,
+                    cells_filled=getattr(outcome.plan, "cells_filled", 0),
+                ),
             )
 
         warnings = tuple(getattr(save_result, "warnings", ()))
