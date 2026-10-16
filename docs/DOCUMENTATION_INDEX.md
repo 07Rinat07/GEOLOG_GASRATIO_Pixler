@@ -48,6 +48,7 @@ artifacts workflow `.github/workflows/release-gate.yml`.
 - Поздние анализы шлама: [RU](ru/LATE_ANALYSIS_UPDATE.md) ·
   [KK](kk/LATE_ANALYSIS_UPDATE.md) · [EN](en/LATE_ANALYSIS_UPDATE.md)
 - LAS Editor: [RU](ru/LAS_EDITOR.md) · [KK](kk/LAS_EDITOR.md) · [EN](en/LAS_EDITOR.md)
+- Покрытие газовых каналов после наращивания LAS: [LAS_GAS_COVERAGE.md](LAS_GAS_COVERAGE.md).
 - Планшет: [RU](ru/UI_WORKSPACE.md) · [KK](kk/UI_WORKSPACE.md) · [EN](en/UI_WORKSPACE.md)
 - Конструктор: [RU](ru/CONSTRUCTOR.md) · [KK](kk/CONSTRUCTOR.md) ·
   [EN](en/CONSTRUCTOR.md)
