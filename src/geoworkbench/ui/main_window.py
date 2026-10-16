@@ -122,6 +122,7 @@ from geoworkbench.project.curve_metadata_controller import CurveMetadataControll
 from geoworkbench.project.curve_transfer_controller import CurveTransferController
 from geoworkbench.project.external_las_insert_controller import ExternalLasInsertController
 from geoworkbench.project.gas_ratio_controller import GasRatioProjectController
+from geoworkbench.ui.gas_ratio_result import gas_ratio_result_text
 from geoworkbench.project.gs2_import_coordinator import Gs2ImportCoordinator
 from geoworkbench.project.custom_formula_controller import CustomFormulaController
 from geoworkbench.project.header_editing_controller import HeaderEditingController
@@ -7520,6 +7521,9 @@ class MainWindow(QMainWindow):
         self._refresh_tree()
         self._update_title()
         self.statusBar().showMessage(self._t("ratio.completed"))
+        summary = gas_ratio_result_text(outcome.dataset, self.language)
+        self._log(summary)
+        QMessageBox.information(self, self._t("ratio.title"), summary)
 
     def _after_interpretation_calculation(
         self,

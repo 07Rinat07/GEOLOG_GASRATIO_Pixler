@@ -6407,6 +6407,12 @@ class TabletView(QWidget):
                 # before the parent QWidget destroys its native graphics scene.
                 if plot.plotItem is not None:
                     plot.close()
+                # PlotWidget.close() detaches itself with setParent(None).
+                # Restore ownership before settling the track's DeferredDelete:
+                # otherwise its native viewport/scene outlives the track and is
+                # collected unpredictably while the next plot is constructed.
+                if _qt_object_is_alive(plot) and _qt_object_is_alive(widget):
+                    plot.setParent(widget)
             except RuntimeError as exc:
                 log_exception("tablet.track.dispose.plot_failed", exc, track_id=track_id)
         try:

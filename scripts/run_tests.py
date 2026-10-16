@@ -53,6 +53,10 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         # Release gate 38324037518 aborted while constructing MainWindow's
         # ViewBoxMenu before this lifecycle assertion ran in the shared shard.
         "tests/test_tablet_plot_close_order.py",
+        # Main run 38964585485 aborted in PlotItem menu construction when
+        # track resize followed unrelated Qt cases in a shared shard. Keep
+        # both resize tests mandatory with a fresh native heap per function.
+        "tests/test_track_resize.py",
         "tests/test_las3_pilot_entrypoint.py",
         "tests/test_las3_modal_reopen_acceptance.py",
         # Depth reset also hit PlotItem.__init__ access violation after earlier
