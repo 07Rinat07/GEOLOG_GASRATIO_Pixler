@@ -537,8 +537,20 @@ class DailyLasGrowthDialog(QDialog):
             f"Incoming LAS curves: {len(plan.curve_mnemonics)}. Missing: {omitted}. "
             "Omitted channels become NaN (not zero) at new depths.",
         )
+        missing_names = ", ".join(plan.missing_curve_mnemonics) or "—"
+        alias_names = "; ".join(
+            f"{source} → {target}" for source, target in plan.matched_curve_mnemonics
+        ) or "—"
+        channel_details = self._text(
+            f"Не предоставлены источником: {missing_names}\n"
+            f"Сопоставлены по каноническому параметру: {alias_names}",
+            f"Дереккөзде жоқ: {missing_names}\n"
+            f"Канондық параметр бойынша сәйкестендірілді: {alias_names}",
+            f"Not supplied by source: {missing_names}\n"
+            f"Matched by canonical parameter: {alias_names}",
+        )
         self.preview.setPlainText(
-            channel_summary + "\n" + policy_summary + "\n\n" + self._text(
+            channel_summary + "\n" + channel_details + "\n" + policy_summary + "\n\n" + self._text(
                 f"Ось: {role} ({plan.index_mnemonic})\nДиапазон файла: {plan.start_value} … {plan.stop_value}\nНовых строк: {plan.rows_added}\nСовпадающих строк: {plan.rows_skipped}\nФайл уже импортирован: {duplicate}\n\nБудет изменён только выбранный dataset.\n\n{next_step}",
                 f"Ось: {role} ({plan.index_mnemonic})\nФайл ауқымы: {plan.start_value} … {plan.stop_value}\nЖаңа жолдар: {plan.rows_added}\nСәйкес жолдар: {plan.rows_skipped}\nФайл бұрын импортталған: {duplicate}\n\nТек таңдалған dataset өзгереді.\n\n{next_step}",
                 f"Axis: {role} ({plan.index_mnemonic})\nFile range: {plan.start_value} … {plan.stop_value}\nNew rows: {plan.rows_added}\nMatching rows: {plan.rows_skipped}\nAlready imported: {duplicate}\n\nOnly the selected dataset will change.\n\n{next_step}",
