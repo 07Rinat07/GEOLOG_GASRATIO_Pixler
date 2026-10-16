@@ -34,6 +34,11 @@ def test_production_workspace_keeps_preview_pdf_and_printer_language_independent
         assert report is not None
         assert not workspace.report_output_language.isHidden()
         workspace.report_output_language.setCurrentIndex(workspace.report_output_language.findData(output_language))
+        # Explicit operator selection, including re-selecting the current language.
+        # setCurrentIndex() emits no signal when the index is unchanged.
+        workspace.report_output_language.activated.emit(
+            workspace.report_output_language.currentIndex()
+        )
         assert workspace.gas_mixture_report is report
         assert workspace.language == ui_language
         labels = ramp._labels(output_language)
