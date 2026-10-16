@@ -78,7 +78,7 @@ def test_reference_depth_keys_remain_distinct_in_monochrome_png(qapp, monkeypatc
         for index, name in enumerate(("C1_C2", "C1_C3", "C1_C4", "C1_C5")):
             point = path.elementAt(index)
             assert point.x == pytest.approx(65 + index / 3 * 610)
-            assert point.y == pytest.approx(590 - np.log10(dataset.curves[name].values[row]) / 3 * 205)
+            assert point.y == pytest.approx(680 - np.log10(dataset.curves[name].values[row]) / 3 * 295)
     for name, curve in dataset.curves.items():
         np.testing.assert_array_equal(curve.values, before[name])
 
@@ -93,15 +93,15 @@ def test_reference_pdf_has_filled_depth_markers_and_distinct_vector_line_keys(qa
     assert len([drawing for drawing in drawings if drawing["fill"] is not None]) >= 49
     large_fills = [drawing for drawing in drawings
                    if drawing["fill"] is not None and drawing["rect"].get_area() > 20]
-    # White page plus the three deliberate logarithmic guide bands. Curve
-    # strokes must not accidentally inherit a filled brush.
-    assert len(large_fills) == 4
+    # White page, three scale bands, six callout cards, five shape guides and one caution box.
+    # Curve strokes must not accidentally inherit a filled brush.
+    assert len(large_fills) == 16
     expected_colors = ((1.0, 1.0, 1.0), (231 / 255, 246 / 255, 234 / 255),
                        (232 / 255, 241 / 255, 1.0), (1.0, 240 / 255, 237 / 255))
-    for drawing, expected in zip(large_fills, expected_colors, strict=True):
+    for drawing, expected in zip(large_fills[:4], expected_colors, strict=True):
         assert drawing["fill"] == pytest.approx(expected, abs=0.005)
     depth_strokes = [drawing for drawing in drawings if drawing["color"] is not None
-                     and drawing["width"] == pytest.approx(1.05, abs=0.01)]
+                     and drawing["width"] == pytest.approx(1.5 * 455 / reference.RATIO_REFERENCE_HEIGHT, abs=0.01)]
     assert len({drawing["dashes"] for drawing in depth_strokes}) == 6
 
 
@@ -111,10 +111,10 @@ def test_narrow_depth_legend_retains_distinct_fractional_boundaries(qapp, monkey
     depth_labels = []
     original_text = reference._text
 
-    def capture_text(painter, rect, label, size=None):
+    def capture_text(painter, rect, label, size=None, **kwargs):
         if "–" in label and label.endswith(" m"):
             depth_labels.append(label)
-        original_text(painter, rect, label, size)
+        original_text(painter, rect, label, size, **kwargs)
 
     monkeypatch.setattr(reference, "_text", capture_text)
     assert reference.ratio_reference_summary_uri(dataset, AppLanguage.RU)

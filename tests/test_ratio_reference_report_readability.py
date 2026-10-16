@@ -13,6 +13,7 @@ from geoworkbench.printing.ratio_phase_summary import ratio_phase_summary_html
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.gas_ratio_reference import (
     _compact_tick, paint_ratio_reference_summary,
+    RATIO_REFERENCE_WIDTH, RATIO_REFERENCE_HEIGHT,
 )
 from geoworkbench.services.localization import AppLanguage
 from test_gas_ratio_reference import _dataset
@@ -69,6 +70,37 @@ def test_phase_key_fits_below_ratio_plot_on_landscape_and_portrait(qapp, width, 
         phase_html, width, visual=modern_oilfield_report_profile(),
     )
     target = _ratio_reference_chart_rect(QRectF(0.0, 0.0, width, height), key_height)
-    chart_height = 650.0 * min(target.width() / 1000.0, target.height() / 650.0)
+    chart_height = RATIO_REFERENCE_HEIGHT * min(target.width() / RATIO_REFERENCE_WIDTH, target.height() / RATIO_REFERENCE_HEIGHT)
     assert chart_height > 0.0
     assert chart_height + 10.0 + key_height + 32.0 <= height
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_production_reference_page_reports_missing_tail_and_preserves_phase_evidence(qapp, tmp_path, language):
+    from geoworkbench.printing.hydrocarbon_interpretation_report import export_hydrocarbon_interpretation_pdf
+    from test_hydrocarbon_report_client_limitations import _minimal_report
+
+    dataset = _dataset()
+    dataset.curves["C1_C5"].values[-1] = np.nan
+    report = _minimal_report(dataset_id=dataset.dataset_id)
+    target = tmp_path / "profile-coverage.pdf"
+    export_hydrocarbon_interpretation_pdf(report, target, dataset=dataset, include_chart=True, language=language)
+    with fitz.open(target) as pdf:
+        pages = [page for page in pdf if "Pixler ·" in page.get_text() and "102.00" in page.get_text()
+                 and "103.00" in page.get_text()]
+        assert pages
+        page = pages[0]
+        text = page.get_text()
+        assert "100.00–102.00" in text
+        assert "100.00–103.00" in text
+        assert "103.00 m ·" not in text
+        spans = [span for block in page.get_text("dict")["blocks"] if "lines" in block
+                 for line in block["lines"] for span in line["spans"]]
+        assert all(page.rect.contains(fitz.Rect(span["bbox"])) for span in spans)
+        # The qualitative tendency does not promote unknown interval phases to gas.
+        unknown = {AppLanguage.RU: "фаза не определена", AppLanguage.KK: "фаза анықталмаған",
+                   AppLanguage.EN: "phase undetermined"}[language]
+        assert unknown in text
+        headings = {AppLanguage.RU: "Предварительные фазы", AppLanguage.KK: "алдын ала фазалар",
+                    AppLanguage.EN: "Preliminary"}
+        assert headings[language] in text

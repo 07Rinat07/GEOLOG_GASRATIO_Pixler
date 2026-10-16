@@ -4,6 +4,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import cha
 
 from geoworkbench.printing.gas_ratio_reference import (
     has_ratio_reference_summary, paint_ratio_reference_summary,
+    RATIO_REFERENCE_WIDTH, RATIO_REFERENCE_HEIGHT,
 )
 from geoworkbench.printing.ratio_phase_summary import ratio_phase_summary_html
 
@@ -183,8 +184,8 @@ def render_hydrocarbon_interpretation_report(
                 paint_ratio_reference_summary(
                     painter, chart_rect, reference_dataset, language, candidates=report.candidates,
                 )
-                scale = min(chart_rect.width() / 1000.0, chart_rect.height() / 650.0)
-                canvas.y = chart_rect.top() + 650.0 * scale + 10.0
+                scale = min(chart_rect.width() / RATIO_REFERENCE_WIDTH, chart_rect.height() / RATIO_REFERENCE_HEIGHT)
+                canvas.y = chart_rect.top() + RATIO_REFERENCE_HEIGHT * scale + 10.0
                 render_report_html(
                     canvas,
                     phase_html,
