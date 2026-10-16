@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 from uuid import uuid4
 
-from PySide6.QtCore import QSettings, QTimer, Qt
+from PySide6.QtCore import QSettings, QSize, QTimer, Qt
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QCheckBox, QDialog, QFileDialog, QHBoxLayout, QLabel, QLineEdit,
@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.storage.manual_backup import BackupError, BackupPlan, ManualBackupService
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class ManualBackupDialog(QDialog):
@@ -25,7 +26,6 @@ class ManualBackupDialog(QDialog):
         super().__init__(parent)
         self.localizer = Localizer.create(language)
         self.setWindowTitle(self._t("title"))
-        self.resize(680, 460)
         self._worker: ThreadPoolExecutor | None = None
         self._pending: Future[Path] | None = None
         self._temporary: tempfile.TemporaryDirectory[str] | None = None
@@ -66,6 +66,9 @@ class ManualBackupDialog(QDialog):
         if current_project is not None and current_project.is_file() and current_project.suffix.lower() == ".geologpkg":
             self._add_project(current_project)
         self._update_estimate()
+        fit_window_to_screen(
+            self, preferred=QSize(680, 460), minimum=QSize(360, 300),
+        )
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(f"backup.manual.{key}", **values)
