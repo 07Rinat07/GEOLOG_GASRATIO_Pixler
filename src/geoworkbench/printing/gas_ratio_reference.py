@@ -270,8 +270,9 @@ def paint_ratio_reference_summary(
         return False
     painter.save()
     try:
-        painter.translate(target.topLeft())
         scale = min(target.width() / RATIO_REFERENCE_WIDTH, target.height() / RATIO_REFERENCE_HEIGHT)
+        painter.translate(target.left() + (target.width() - RATIO_REFERENCE_WIDTH * scale) / 2.0,
+                          target.top())
         painter.scale(scale, scale)
         visual = modern_oilfield_report_profile()
         palette, typography = visual.palette, visual.typography
