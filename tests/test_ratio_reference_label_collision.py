@@ -24,9 +24,9 @@ def test_ratio_labels_use_disjoint_reserved_rectangles(qapp, monkeypatch, langua
     captured: list[tuple[str, QRectF]] = []
     original = reference._text
 
-    def capture(painter, rect, label, size=None):
+    def capture(painter, rect, label, size=None, **kwargs):
         captured.append((label, QRectF(rect)))
-        original(painter, rect, label, size)
+        original(painter, rect, label, size, **kwargs)
 
     monkeypatch.setattr(reference, "_text", capture)
     assert reference.ratio_reference_summary_uri(dataset, language)
@@ -49,7 +49,7 @@ def test_ratio_labels_use_disjoint_reserved_rectangles(qapp, monkeypatch, langua
         rect for label, rect in captured
         if label == "1" and rect.left() == 12.0 and rect.top() >= 575.0
     )
-    assert lowest_log.center().y() == pytest.approx(590.0)
+    assert lowest_log.center().y() == pytest.approx(680.0)
     assert category.center().x() == pytest.approx(65.0)
     assert [rect.center().x() for rect in zeros_x] == pytest.approx([65.0, 555.0])
     assert _disjoint(category, lowest_log)

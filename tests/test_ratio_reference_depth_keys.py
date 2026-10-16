@@ -93,9 +93,9 @@ def test_reference_pdf_has_filled_depth_markers_and_distinct_vector_line_keys(qa
     assert len([drawing for drawing in drawings if drawing["fill"] is not None]) >= 49
     large_fills = [drawing for drawing in drawings
                    if drawing["fill"] is not None and drawing["rect"].get_area() > 20]
-    # White page, three scale bands, six callout cards and three trend keys.
+    # White page, three scale bands, six callout cards, five shape guides and one caution box.
     # Curve strokes must not accidentally inherit a filled brush.
-    assert len(large_fills) == 13
+    assert len(large_fills) == 16
     expected_colors = ((1.0, 1.0, 1.0), (231 / 255, 246 / 255, 234 / 255),
                        (232 / 255, 241 / 255, 1.0), (1.0, 240 / 255, 237 / 255))
     for drawing, expected in zip(large_fills[:4], expected_colors, strict=True):

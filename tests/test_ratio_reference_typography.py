@@ -39,9 +39,9 @@ def test_reference_png_profile_text_fits_complete_labels_and_empty_states(qapp, 
     requests = []
     original_text = reference._text
 
-    def capture_text(painter, rect, text, size=None):
+    def capture_text(painter, rect, text, size=None, **kwargs):
         requests.append((rect, text, size))
-        original_text(painter, rect, text, size)
+        original_text(painter, rect, text, size, **kwargs)
 
     class CapturePainter(QPainter):
         def drawText(self, rect, flags, text):
@@ -54,7 +54,7 @@ def test_reference_png_profile_text_fits_complete_labels_and_empty_states(qapp, 
     monkeypatch.setattr(reference, "_text", capture_text)
     monkeypatch.setattr(reference, "QPainter", CapturePainter)
     uri = reference.ratio_reference_summary_uri(dataset, language)
-    assert Image.open(BytesIO(b64decode(uri.split(",", 1)[1]))).size == (1600, 1040)
+    assert Image.open(BytesIO(b64decode(uri.split(",", 1)[1]))).size == (1600, 1344)
     assert drawn == [text for _, text, _ in requests]
     assert requests[0][2] == visual.typography.title_pt
     assert next(size for _, text, size in requests if text.startswith("Pixler")) == visual.typography.section_pt
@@ -71,7 +71,7 @@ def test_reference_png_profile_text_fits_complete_labels_and_empty_states(qapp, 
     assert "C1/C2" in drawn and "C1/C5" in drawn
     if partial:
         assert any(rect.height() == 205 and size is None for rect, _, size in requests)
-        assert any(rect.height() == 205 and size == visual.typography.body_pt for rect, _, size in requests)
+        assert any(rect.height() == 295 and size == visual.typography.body_pt for rect, _, size in requests)
     for name, curve in dataset.curves.items():
         np.testing.assert_array_equal(curve.values, before[name])
 

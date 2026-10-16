@@ -353,7 +353,9 @@ def paint_ratio_reference_summary(
             _text(painter, QRectF(101 + index * 150, 335, 113, 24), f"{start:.{depth_decimals}f}–{end:.{depth_decimals}f} m", typography.caption_pt)
         plot = QRectF(65, 385, 610, 295)
         _axes(painter, plot)
-        _text(painter, QRectF(65, 362, 610, 20), "Pixler · C1/C2 – C1/C5", typography.section_pt)
+        _text(painter, QRectF(65, 362, 920, 20), {AppLanguage.RU: "Pixler · предварительная фазовая интерпретация C1/C2 – C1/C5",
+                  AppLanguage.KK: "Pixler · C1/C2 – C1/C5 алдын ала фазалық түсіндіру",
+                  AppLanguage.EN: "Pixler · preliminary phase interpretation C1/C2 – C1/C5"}[language], typography.section_pt)
         keys = [f"C1_C{i}" for i in range(2, 6)]
         if all(key in ratios for key in keys):
             matrix = np.column_stack([ratios[key].values for key in keys])
@@ -389,6 +391,60 @@ def paint_ratio_reference_summary(
                 painter.setPen(QPen(QColor(palette.border), 0.7))
                 painter.drawLine(QLineF(plot.left(), tick_y, plot.right(), tick_y))
                 _text(painter, QRectF(12, tick_y - 12, 45, 24), f"{10.0**power:g}", typography.caption_pt)
+            guide_labels = {
+                AppLanguage.RU: (
+                    ("Газовая перспектива*",),
+                    ("Газоконденсатная /", "переходная", "тенденция*"),
+                    ("Жидкая УВ /", "нефтяная перспектива*"),
+                    ("Рост C1/C3–C1/C5 →", "более газовая, «сухая» тенденция"),
+                    ("Снижение C1/C3–C1/C5 →", "более жидкая УВ-тенденция"),
+                ),
+                AppLanguage.KK: (
+                    ("Газ перспективасы*",),
+                    ("Газ-конденсат /", "өтпелі", "үрдіс*"),
+                    ("Сұйық КС /", "мұнай перспективасы*"),
+                    ("C1/C3–C1/C5 өсуі →", "құрғақ газға бейім үрдіс"),
+                    ("C1/C3–C1/C5 төмендеуі →", "сұйық КС-ке бейім үрдіс"),
+                ),
+                AppLanguage.EN: (
+                    ("Gas prospectivity*",),
+                    ("Gas-condensate /", "transitional", "tendency*"),
+                    ("Liquid HC /", "oil prospectivity*"),
+                    ("Rising C1/C3–C1/C5 →", "more gas-like, drier tendency"),
+                    ("Falling C1/C3–C1/C5 →", "more liquid-HC-like tendency"),
+                ),
+            }[language]
+            # Schematic shape explanations, explicitly not numerical phase limits.
+            guide_cards = (
+                (QRectF(72, 405, 215, 24), "#c62828", guide_labels[0]),
+                (QRectF(72, 505, 180, 54), "#1d4ed8", guide_labels[1]),
+                (QRectF(72, 630, 240, 40), "#15803d", guide_labels[2]),
+                (QRectF(350, 400, 305, 40), "#c62828", guide_labels[3]),
+                (QRectF(345, 632, 315, 40), "#15803d", guide_labels[4]),
+            )
+            for card, guide_color, lines in guide_cards:
+                painter.setPen(QPen(QColor(guide_color), 0.8))
+                card_fill = QColor(palette.page)
+                card_fill.setAlpha(235)
+                painter.setBrush(card_fill)
+                painter.drawRoundedRect(card, 3, 3)
+                for line_index, line in enumerate(lines):
+                    line_height = card.height() / len(lines)
+                    _text(painter, QRectF(card.left() + 5, card.top() + line_index * line_height,
+                                         card.width() - 10, line_height), line,
+                          typography.body_pt, color=guide_color)
+            for guide_start, guide_end, arrow_color in (
+                (QPointF(320, 484), QPointF(540, 452), "#c62828"),
+                (QPointF(315, 607), QPointF(550, 624), "#15803d"),
+            ):
+                painter.setPen(QPen(QColor(arrow_color), 1.8))
+                painter.drawLine(QLineF(guide_start, guide_end))
+                direction = guide_end - guide_start
+                length = (direction.x() ** 2 + direction.y() ** 2) ** 0.5
+                unit = direction / length
+                normal = QPointF(-unit.y(), unit.x())
+                painter.drawLine(QLineF(guide_end, guide_end - unit * 10 + normal * 4))
+                painter.drawLine(QLineF(guide_end, guide_end - unit * 10 - normal * 4))
             # Order callouts by endpoint height so neighbouring leader lines do not cross.
             label_order = sorted((int(row) for row in selected), key=lambda row: -matrix[row, -1])
             label_slots = {row: index for index, row in enumerate(label_order)}
@@ -470,30 +526,31 @@ def paint_ratio_reference_summary(
                 painter,
                 QRectF(
                     plot.left() + index / 3 * plot.width() - 35,
-                    690, 70, 19,
+                    695, 70, 19,
                 ),
                 key.replace("_", "/"),
                 typography.caption_pt,
             )
-        for index, (trend, color) in enumerate((
-            ("rising", "#c62828"), ("mixed", "#2563eb"), ("falling", "#15803d"),
-        )):
-            card = QRectF(65 + index * 307, 720, 298, 30)
-            cue_fill = QColor(color)
-            cue_fill.setAlpha(18)
-            painter.setPen(QPen(QColor(color), 0.8))
-            painter.setBrush(cue_fill)
-            painter.drawRoundedRect(card, 3, 3)
-            _text(painter, card.adjusted(5, 2, -5, -2),
-                  pixler_visual_tendency(trend, language), typography.caption_pt, color=color)
-        _text(
-            painter, QRectF(65, 760, 920, 28),
-            {
-                AppLanguage.RU: "Предварительно по форме профиля; не доказательство фазы или притока. Фон — порядок отношений, не границы фаз. ? — фаза не определена.",
-                AppLanguage.KK: "Профиль пішіні бойынша алдын ала; фаза не ағын дәлелі емес. Фон — қатынастар реті, фаза шекарасы емес. ? — фаза анықталмаған.",
-                AppLanguage.EN: "Preliminary shape cues, not proof of phase or flow. Background: ratio decades, not phase boundaries. ? — phase undetermined.",
-            }[language], typography.footer_pt,
-        )
+        caution = QRectF(65, 724, 920, 58)
+        painter.setPen(QPen(QColor("#d99a16"), 0.8))
+        painter.setBrush(QColor("#fff7df"))
+        painter.drawRoundedRect(caution, 4, 4)
+        caution_lines = {
+            AppLanguage.RU: (
+                "Важно: предварительная схема по форме профиля; не доказательство фазы и промышленного притока.",
+                "Подписи не задают численных границ фаз. Фон — порядок отношений; ? — фаза не определена.",
+            ),
+            AppLanguage.KK: (
+                "Маңызды: профиль пішіні бойынша алдын ала сұлба; фаза мен өнеркәсіптік ағын дәлелі емес.",
+                "Жазулар сандық фаза шекараларын белгілемейді. Фон — қатынастар реті; ? — фаза анықталмаған.",
+            ),
+            AppLanguage.EN: (
+                "Important: preliminary shape-based tendencies, not proof of phase or commercial flow.",
+                "Labels do not define numerical phase boundaries. Background: ratio decades; ? — phase undetermined.",
+            ),
+        }[language]
+        for line_index, line in enumerate(caution_lines):
+            _text(painter, QRectF(73, 729 + line_index * 24, 904, 24), line, typography.footer_pt)
         if all(key in ratios for key in keys) and valid.size:
             coverage = {
                 AppLanguage.RU: "Полные профили: {start:.2f}–{end:.2f} м; данные проекта: {low:.2f}–{high:.2f} м. Показано {count} глубин.",
@@ -501,7 +558,7 @@ def paint_ratio_reference_summary(
                 AppLanguage.EN: "Complete profiles: {start:.2f}–{end:.2f} m; project data: {low:.2f}–{high:.2f} m. {count} depths shown.",
             }[language].format(start=all_depth[valid[0]], end=all_depth[valid[-1]],
                                low=low_depth, high=high_depth, count=len(selected))
-            _text(painter, QRectF(65, 798, 920, 24), coverage, typography.caption_pt)
+            _text(painter, QRectF(65, 798, 920, 24), coverage, typography.footer_pt)
 
     finally:
         painter.restore()
