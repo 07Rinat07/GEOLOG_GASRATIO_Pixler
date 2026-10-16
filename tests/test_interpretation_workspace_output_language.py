@@ -134,6 +134,8 @@ def test_ui_language_switch_controls_default_pdf_and_passport_language(
         assert _normalized(expected_title) in pdf_text
         assert _normalized(labels.project) in pdf_text
         assert _normalized(russian_title) not in pdf_text
+        assert _normalized("Автоматически отмечаются только кандидаты") not in pdf_text
+        assert _normalized("Перед принятием интервалов проверьте") not in pdf_text
     finally:
         workspace.close()
         workspace.deleteLater()
