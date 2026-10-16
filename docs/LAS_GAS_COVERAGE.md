@@ -13,3 +13,10 @@ The standard Gas Ratio / Haworth / Pixler action now displays and logs a receipt
 After calculation, regenerate the PDF to include the updated result. This receipt describes current project state and does not claim that an existing PDF has changed. Validation includes a real controller recalculation restoring a previously stale tail, active-index handling, gaps, missing profiles, all three languages and the main-window result/log integration.
 
 Next: continue report validation on user datasets and the remaining opt-in backup restore/scheduling plan. Manual backups remain opt-in; this increment introduces no scheduling or automatic copies.
+
+
+## Native plot ownership follow-up
+
+The first Windows quality run for the recalculation receipt aborted in pyqtgraph PlotItem menu construction during dataset-merge Undo. Investigation found a separate ownership defect: PlotWidget.close() calls setParent(None), so deleting the track did not delete the detached plot. Disposal now returns the closed plot to its track parent before the existing receiver-specific DeferredDelete settlement. This releases the native plot before replacement, without pumping unrelated events or skipping the failing Undo assertions.
+
+A regression checks that native plots are invalid after clear and after repeated full rebuilds. The new assertion fails on the previous implementation and passes with the ownership fix. This proves the orphan lifetime defect; confirmation of the Windows access-violation repair still requires all three checks on the updated head.
