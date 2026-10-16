@@ -31,6 +31,7 @@ from geoworkbench.services.lba_standard import (
 from geoworkbench.services.fluid_phase_contract import fluid_hypothesis_phase_label
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.hydrocarbon_interpretation_report_locale import (
+    localize_detector_metric,
     localize_method_calculation,
     localize_method_name,
     localize_system_warning,
@@ -1663,7 +1664,7 @@ def _readable_evidence_item(item: str, language: AppLanguage) -> str:
     ):
         return (
             f"{_readable_evidence_mnemonic(prefix, language)}"
-            f"{separator}{suffix}"
+            f"{separator}{localize_detector_metric(suffix, language)}"
         )
     return item
 
