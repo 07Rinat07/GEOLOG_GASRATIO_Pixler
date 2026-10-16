@@ -15,6 +15,9 @@ from geoworkbench.printing.hydrocarbon_fluid_markers import (
     draw_fluid_marker, fluid_marker_at_depth,
 )
 from geoworkbench.printing.report_painter_fonts import point_coordinate_font
+from geoworkbench.printing.pixler_profile_annotations import (
+    pixler_profile_caption, pixler_profile_trend,
+)
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.services.gas_curve_presentation import GasRatioScale, gas_ratio_scale
 from geoworkbench.services.localization import AppLanguage
@@ -364,6 +367,18 @@ def paint_ratio_reference_summary(
             minimum = (
                 min(0.0, float(np.floor(np.log10(np.min(matrix[valid]))))) if valid.size else 0.0
             )
+            # These decade bands orient the logarithmic scale only. They are not
+            # universal phase boundaries; phase labels use interval evidence.
+            for lower, upper, shade in (
+                (minimum, min(1.0, maximum), "#e7f6ea"),
+                (max(1.0, minimum), min(2.0, maximum), "#e8f1ff"),
+                (max(2.0, minimum), maximum, "#fff0ed"),
+            ):
+                if upper <= lower:
+                    continue
+                top = plot.bottom() - (upper - minimum) / (maximum - minimum) * plot.height()
+                bottom = plot.bottom() - (lower - minimum) / (maximum - minimum) * plot.height()
+                painter.fillRect(QRectF(plot.left(), top, plot.width(), bottom - top), QColor(shade))
             for power in _pixler_log_tick_powers(minimum, maximum, plot.height()):
                 tick_y = plot.bottom() - (power - minimum) / (maximum - minimum) * plot.height()
                 painter.setPen(QPen(QColor(palette.border), 0.7))
@@ -400,15 +415,34 @@ def paint_ratio_reference_summary(
                     )
                 _text(
                     painter,
-                    QRectF(742, 388 + profile_index * 25, 228, 24),
+                    QRectF(742, 386 + profile_index * 33, 245, 15),
                     f"{all_depth[row]:.2f} m · {phase.code}",
                     typography.body_pt,
                 )
                 painter.setPen(_depth_pen(depth_bin, 1.5))
                 painter.drawLine(
-                    QLineF(700, 400 + profile_index * 25, 735, 400 + profile_index * 25)
+                    QLineF(700, 396 + profile_index * 33, 735, 396 + profile_index * 33)
                 )
-                _depth_marker(painter, QPointF(717.5, 400 + profile_index * 25), depth_bin, 3)
+                _depth_marker(painter, QPointF(717.5, 396 + profile_index * 33), depth_bin, 3)
+                phase_caption, trend_caption = pixler_profile_caption(
+                    phase.phase, pixler_profile_trend(matrix[row].tolist()), language,
+                )
+                _text(
+                    painter, QRectF(696, 401 + profile_index * 33, 292, 16),
+                    f"{phase_caption} · {trend_caption}", typography.caption_pt,
+                )
+                painter.setPen(QPen(QColor(_DEPTH_COLORS[depth_bin]), 0.8))
+                endpoint = points[-1]
+                elbow = QPointF(688, 396 + profile_index * 33)
+                painter.drawLine(QLineF(endpoint, elbow))
+                painter.drawLine(QLineF(elbow, QPointF(698, elbow.y())))
+                direction = elbow - endpoint
+                length = max(1.0, (direction.x() ** 2 + direction.y() ** 2) ** 0.5)
+                unit = direction / length
+                normal = QPointF(-unit.y(), unit.x())
+                painter.drawLine(QLineF(endpoint, endpoint + unit * 6.0 + normal * 2.5))
+                painter.drawLine(QLineF(endpoint, endpoint + unit * 6.0 - normal * 2.5))
+
         else:
             _text(
                 painter,
@@ -434,9 +468,9 @@ def paint_ratio_reference_summary(
             painter,
             QRectF(65, 623, 900, 26),
             {
-                AppLanguage.RU: "Цвет линий — глубина; символы профиля — предварительная фаза (код у глубины и в таблице). ? — фаза не определена.",
-                AppLanguage.KK: "Сызық түсі — тереңдік; профиль таңбалары — алдын ала фаза (код тереңдік пен кестеде). ? — фаза анықталмаған.",
-                AppLanguage.EN: "Line colour: depth; profile symbols: preliminary phase (code by depth and in table). ? — phase undetermined.",
+                AppLanguage.RU: "Фон — порядок отношений, не границы фаз. Стрелки — тренд C1/C3–C1/C5; фазы предварительные, ? — нет классификации.",
+                AppLanguage.KK: "Фон — қатынастар реті, фаза шекарасы емес. Көрсеткілер — C1/C3–C1/C5 тренді; фазалар алдын ала, ? — анықталмаған.",
+                AppLanguage.EN: "Background: ratio decades, not phase boundaries. Arrows: C1/C3–C1/C5 trend; phases preliminary, ? — unclassified.",
             }[language],
             typography.footer_pt,
         )
