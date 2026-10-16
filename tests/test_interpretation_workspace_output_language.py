@@ -96,7 +96,7 @@ def test_ui_language_switch_controls_default_pdf_and_passport_language(
         workspace.set_language(output_language)
         assert workspace.language is output_language
         assert workspace._report_output_language() is output_language
-        assert workspace.report_output_language.currentData() is output_language
+        assert workspace.report_output_language.currentData() == output_language
 
         labels = hydrocarbon_report_labels(output_language)
         preview_text = _normalized(workspace.preview.toPlainText())
@@ -160,7 +160,7 @@ def test_manual_report_language_selection_is_preserved_across_ui_changes(
         workspace.set_language(AppLanguage.EN)
         workspace.set_language(AppLanguage.RU)
         assert workspace._report_output_language() is manual_language
-        assert workspace.report_output_language.currentData() is manual_language
+        assert workspace.report_output_language.currentData() == manual_language
     finally:
         workspace.close()
         workspace.deleteLater()
