@@ -7,6 +7,7 @@ from geoworkbench.services.localization import AppLanguage
 
 def daily_las_growth_result_text(
     dataset: Dataset, project_path: Path, language: AppLanguage,
+    *, cells_filled: int = 0,
 ) -> str:
     index = dataset.active_index
     values = index.values
@@ -29,6 +30,10 @@ def daily_las_growth_result_text(
             "Use Export LAS for this dataset and save it under a new name.",
         ),
     }[language]
+    fill_label = {AppLanguage.RU: "Заполнено пустых ячеек",
+                  AppLanguage.KK: "Толтырылған бос ұяшықтар",
+                  AppLanguage.EN: "Empty cells filled"}[language]
+    fill_summary = f"{fill_label}: {cells_filled}\n" if cells_filled else ""
     return (f"{labels[0]}: {dataset.name}\n"
             f"{labels[1]}: {start}–{stop} {index.unit or ''}\n"
-            f"{labels[2]}:\n{project_path}\n\n{labels[3]}")
+            f"{fill_summary}{labels[2]}:\n{project_path}\n\n{labels[3]}")
