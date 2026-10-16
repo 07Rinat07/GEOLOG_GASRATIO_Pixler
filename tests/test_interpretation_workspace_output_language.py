@@ -20,6 +20,9 @@ from geoworkbench.domain.report_composition import (
     with_report_header_fields,
 )
 from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
+from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
+    default_interpretation_report_identity,
+)
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.interpretation_calculation_controller import (
     InterpretationCalculationController,
@@ -73,6 +76,97 @@ def _file_text(path):
         book.close()
 
 
+
+@pytest.mark.parametrize("output_language", [AppLanguage.KK, AppLanguage.EN])
+def test_ui_language_switch_controls_default_pdf_and_passport_language(
+    qapp, tmp_path: Path, monkeypatch, output_language,
+):
+    """Changing application language must localize the next produced report."""
+    session = _session()
+    workspace = InterpretationReportWorkspace(
+        InterpretationCalculationController(session), language=AppLanguage.RU,
+    )
+    try:
+        workspace.report_mode.setCurrentIndex(
+            workspace.report_mode.findData("well_text")
+        )
+        assert workspace.report is not None
+        assert workspace._report_output_language() is AppLanguage.RU
+
+        workspace.set_language(output_language)
+        assert workspace.language is output_language
+        assert workspace._report_output_language() is output_language
+        assert workspace.report_output_language.currentData() is output_language
+
+        labels = hydrocarbon_report_labels(output_language)
+        preview_text = _normalized(workspace.preview.toPlainText())
+        assert _normalized(labels.project) in preview_text
+
+        monkeypatch.setattr(
+            final.InterpretationReportDetailsDialog,
+            "exec",
+            lambda self: QDialog.DialogCode.Accepted,
+        )
+        monkeypatch.setattr(
+            final.InterpretationPrintLayoutDialog,
+            "exec",
+            lambda self: QDialog.DialogCode.Accepted,
+        )
+        target = tmp_path / f"mud-gas-{output_language.value}.pdf"
+        monkeypatch.setattr(workspace, "_choose_target", lambda *_args: target)
+        monkeypatch.setattr(workspace, "_show_export_success", lambda *_args: None)
+        monkeypatch.setattr(
+            workspace, "_show_export_error", lambda error: pytest.fail(str(error))
+        )
+        workspace._export_pdf()
+
+        passport = json.loads(
+            passport_sidecar_path(target).read_text(encoding="utf-8")
+        )
+        assert passport["language"] == output_language.value
+        pdf_text = _normalized(_file_text(target))
+        expected_title = default_interpretation_report_identity(
+            workspace.report, output_language,
+        ).report_title
+        russian_title = default_interpretation_report_identity(
+            workspace.report, AppLanguage.RU,
+        ).report_title
+        assert _normalized(expected_title) in pdf_text
+        assert _normalized(labels.project) in pdf_text
+        assert _normalized(russian_title) not in pdf_text
+    finally:
+        workspace.close()
+        workspace.deleteLater()
+        qapp.processEvents()
+
+
+@pytest.mark.parametrize("manual_language", list(AppLanguage))
+def test_manual_report_language_selection_is_preserved_across_ui_changes(
+    qapp, manual_language,
+):
+    session = _session()
+    workspace = InterpretationReportWorkspace(
+        InterpretationCalculationController(session), language=AppLanguage.RU,
+    )
+    try:
+        workspace.set_language(AppLanguage.KK)
+        assert workspace._report_output_language() is AppLanguage.KK
+
+        index = workspace.report_output_language.findData(manual_language)
+        workspace.report_output_language.setCurrentIndex(index)
+        # Operators can explicitly select an already-selected language.
+        workspace.report_output_language.activated.emit(index)
+
+        workspace.set_language(AppLanguage.EN)
+        workspace.set_language(AppLanguage.RU)
+        assert workspace._report_output_language() is manual_language
+        assert workspace.report_output_language.currentData() is manual_language
+    finally:
+        workspace.close()
+        workspace.deleteLater()
+        qapp.processEvents()
+
+
 @pytest.mark.parametrize("ui_language", list(AppLanguage))
 @pytest.mark.parametrize("output_language", list(AppLanguage))
 @pytest.mark.parametrize("profile", ["standard", "opus"])
@@ -110,6 +204,10 @@ def test_production_output_language_routes_all_formats_and_saved_headers(
         before_report = deepcopy(report)
         workspace.report_output_language.setCurrentIndex(
             workspace.report_output_language.findData(output_language)
+        )
+        # Explicit selection (including reselecting the same value) pins output language.
+        workspace.report_output_language.activated.emit(
+            workspace.report_output_language.currentIndex()
         )
         assert workspace.report is report
         assert workspace.language == ui_language
