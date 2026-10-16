@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from geoworkbench.services.hydrocarbon_interpretation import (
+from geoworkbench.services.hydrocarbon_interpretation import hydrocarbon_interpretation_html
+from geoworkbench.services.hydrocarbon_interpretation_legacy import (
+    _METHODS,
     build_hydrocarbon_interpretation_report,
-    hydrocarbon_interpretation_html,
 )
-from geoworkbench.services.hydrocarbon_interpretation_legacy import _METHODS
 from geoworkbench.services.hydrocarbon_interpretation_report_locale import (
     localize_method_calculation,
     localize_method_name,
@@ -27,8 +27,8 @@ def test_built_in_methodology_is_localized_without_modifying_source_report(langu
     assert "Автоматически отмечаются только кандидаты" not in html
     assert "Перед принятием интервалов проверьте" not in html
     assert "Нормализованный газ не рассчитан." not in html
-    assert "C1/C2, C1/C3, C1/ΣC4 and C1/ΣC5;" not in html if language is AppLanguage.KK else True
     if language is AppLanguage.KK:
+        assert "C1/C2, C1/C3, C1/ΣC4 and C1/ΣC5;" not in html
         assert "Pixler: көмірсутек қатынастары" in html
         assert "палетка бойынша алдын ала бағаланады" in html
     else:
