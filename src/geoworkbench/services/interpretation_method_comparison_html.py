@@ -265,9 +265,9 @@ def method_comparison_html(
             + "</tbody></table>"
         )
     return (
-        "<section class='method-comparison-analytics'>"
+        "<div class='method-comparison-analytics'>"
         f"<h2>{label('title')}</h2><p>{label('intro')}</p>"
-        f"{content}</section>"
+        f"{content}</div>"
     )
 
 
