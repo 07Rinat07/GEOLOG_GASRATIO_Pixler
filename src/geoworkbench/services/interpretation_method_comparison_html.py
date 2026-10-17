@@ -285,10 +285,13 @@ def method_comparison_table(
     return LocalizedMethodComparisonTable(
         title=_HEADINGS["title"][language],
         intro=_HEADINGS["intro"][language],
-        headings=tuple(
-            _HEADINGS[key][language]
-            for key in ("standard", "opus", "status", "reason", "measurements")
-        ),  # type: ignore[arg-type]
+        headings=(
+            _HEADINGS["standard"][language],
+            _HEADINGS["opus"][language],
+            _HEADINGS["status"][language],
+            _HEADINGS["reason"][language],
+            _HEADINGS["measurements"][language],
+        ),
         rows=tuple(rows),
         empty_message=_HEADINGS["none"][language],
     )
