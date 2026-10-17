@@ -52,6 +52,11 @@ from geoworkbench.services.hydrocarbon_interpretation import (
     hydrocarbon_interpretation_html,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.interpretation_method_comparison import (
+    MethodComparisonInterval,
+    compare_standard_opus_reports,
+)
+from geoworkbench.services.interpretation_method_comparison_html import method_comparison_html
 
 
 class InterpretationReportWorkspace(QWidget):
@@ -71,6 +76,8 @@ class InterpretationReportWorkspace(QWidget):
         self._report_output_language_explicit = False
         self.report: HydrocarbonInterpretationReport | None = None
         self.gas_mixture_report: GasMixtureRampReport | None = None
+        self._method_comparisons: tuple[MethodComparisonInterval, ...] = ()
+        self._comparison_dialog: QDialog | None = None
         self._export_in_progress = False
         self.setObjectName("interpretation-report-workspace")
         self.setStyleSheet(
@@ -274,6 +281,25 @@ class InterpretationReportWorkspace(QWidget):
         )
         self.refresh_button.clicked.connect(self.refresh)
         actions.addWidget(self.refresh_button)
+        self.compare_methods_button = QPushButton(
+            self._text(
+                "Сопоставить стандартный метод и ОПУС",
+                "Стандартты әдіс пен ОПУС-ты салыстыру",
+                "Compare standard method and OPUS",
+            )
+        )
+        self.compare_methods_button.setObjectName("interpretation-compare-standard-opus")
+        self.compare_methods_button.setToolTip(
+            self._text(
+                "Только по запросу: новый парный расчёт с проверкой исходного набора и оси глубины.",
+                "Тек сұрау бойынша: деректер жиыны мен тереңдік осін тексеретін жұп есеп.",
+                "On request only: calculate both reports and validate their dataset and depth axis.",
+            )
+        )
+        self.compare_methods_button.clicked.connect(self._show_method_comparison)
+        self.threshold.valueChanged.connect(self._clear_method_comparison)
+        self.total_gas_lod.valueChanged.connect(self._clear_method_comparison)
+        actions.addWidget(self.compare_methods_button)
         actions.addStretch(1)
         root.addLayout(actions)
 
@@ -320,10 +346,13 @@ class InterpretationReportWorkspace(QWidget):
         }[language]
 
     def refresh(self) -> None:
+        # A recalculation, mode change or well change invalidates paired evidence.
+        self._clear_method_comparison()
         mixture_mode = self._is_mixture_mode()
         opus_mode = self._is_opus_mode()
         has_dataset = self.controller.session.current_dataset is not None
         self.calculate_button.setEnabled(has_dataset and not mixture_mode)
+        self.compare_methods_button.setEnabled(has_dataset and not mixture_mode)
         self.calculate_button.setText(
             self._text("Рассчитать ОПУС", "ОПУС есептеу", "Calculate OPUS")
             if opus_mode
@@ -467,6 +496,76 @@ class InterpretationReportWorkspace(QWidget):
             + (f"\n{issue_text}" if issue_text else "")
         )
 
+    def _clear_method_comparison(self) -> None:
+        """Never reuse a comparison after any input or output language change."""
+
+        self._method_comparisons = ()
+        dialog = self._comparison_dialog
+        self._comparison_dialog = None
+        if dialog is not None:
+            dialog.close()
+            dialog.deleteLater()
+
+    def _show_method_comparison(self) -> None:
+        """Build both reports only after an explicit operator action."""
+
+        if self._is_mixture_mode() or self.controller.session.current_dataset is None:
+            return
+        # Always rebuild the active report after any changed input controls;
+        # the export/print paths do not recalculate method comparisons.
+        self.refresh()
+        active = self.report
+        if active is None:
+            return
+        try:
+            threshold = self.threshold.value()
+            depth_interval = getattr(self.controller, "depth_interval", None)
+            if self._is_opus_mode():
+                standard = build_hydrocarbon_interpretation_report(
+                    self.controller.session,
+                    threshold=threshold,
+                    depth_interval=depth_interval,
+                )
+                opus = active
+            else:
+                lod = self.total_gas_lod.value()
+                opus = build_opus_interpretation_report(
+                    self.controller.session,
+                    threshold=threshold,
+                    total_gas_lod=lod if lod > 0.0 else None,
+                    depth_interval=depth_interval,
+                )
+                standard = active
+            comparisons = compare_standard_opus_reports(standard, opus)
+        except (RuntimeError, ValueError) as exc:
+            self._method_comparisons = ()
+            QMessageBox.warning(
+                self,
+                self._text("Сопоставление методов", "Әдістерді салыстыру", "Method comparison"),
+                self._text(
+                    "Сопоставление недоступно для текущих данных: ",
+                    "Ағымдағы деректер үшін салыстыру мүмкін емес: ",
+                    "Comparison is unavailable for the current data: ",
+                ) + str(exc),
+            )
+            return
+        self._method_comparisons = comparisons
+        dialog = QDialog(self)
+        dialog.setObjectName("interpretation-method-comparison-dialog")
+        dialog.setWindowTitle(
+            self._text("Сопоставление методов", "Әдістерді салыстыру", "Method comparison")
+        )
+        layout = QVBoxLayout(dialog)
+        content = QTextBrowser(dialog)
+        content.setObjectName("interpretation-method-comparison-content")
+        content.setHtml(method_comparison_html(
+            comparisons, self._report_output_language(), depth_unit=active.depth_unit,
+        ))
+        layout.addWidget(content)
+        dialog.resize(900, 540)
+        self._comparison_dialog = dialog
+        dialog.show()
+
     def _export_xlsx(self) -> None:
         report = self._require_report()
         if report is None:
@@ -581,6 +680,7 @@ class InterpretationReportWorkspace(QWidget):
         self._report_output_language_explicit = True
 
     def _apply_output_language(self) -> None:
+        self._clear_method_comparison()
         self._report_output_language_explicit = True
         if self._is_mixture_mode():
             self._apply_ramp_preview()
@@ -801,6 +901,11 @@ class InterpretationReportWorkspace(QWidget):
         self.refresh()
 
     def _retranslate(self) -> None:
+        self.compare_methods_button.setText(self._text(
+            "Сопоставить стандартный метод и ОПУС",
+            "Стандартты әдіс пен ОПУС-ты салыстыру",
+            "Compare standard method and OPUS",
+        ))
         self.report_output_language_label.setText(self._text(
             "Язык отчёта:", "Есеп тілі:", "Report language:",
         ))
