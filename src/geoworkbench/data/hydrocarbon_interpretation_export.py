@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from functools import partial
 from collections.abc import Callable
 import tempfile
 import zipfile
@@ -30,6 +31,7 @@ from geoworkbench.services.interval_gas_statistics import (
 )
 from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.interpretation_method_comparison import MethodComparisonInterval
 from geoworkbench.services.hydrocarbon_interpretation_report_locale import (
     localize_method_calculation,
     localize_method_name,
@@ -123,6 +125,7 @@ def export_hydrocarbon_interpretation_xlsx(
     language: AppLanguage = AppLanguage.RU,
     overwrite: bool = False,
     progress: Callable[[str, int, int], None] | None = None,
+    method_comparisons: tuple[MethodComparisonInterval, ...] = (),
 ) -> Path:
     """Export the single readable workbook used by every interpretation workflow."""
 
@@ -130,7 +133,11 @@ def export_hydrocarbon_interpretation_xlsx(
         export_readable_hydrocarbon_interpretation_xlsx,
     )
 
-    return export_readable_hydrocarbon_interpretation_xlsx(
+    exporter = (
+        partial(export_readable_hydrocarbon_interpretation_xlsx, method_comparisons=method_comparisons)
+        if method_comparisons else export_readable_hydrocarbon_interpretation_xlsx
+    )
+    return exporter(
         report,
         dataset,
         target,

@@ -1,3 +1,9 @@
+## INTERP-OUTPUT-01 — общий HTML/Excel слой сравнения standard и ОПУС (на проверке)
+
+- После срезов #655 (HTML с графиками) и #656 (контролируемый PDF и паспорт) выделен `method_comparison_table`: неизменяемые локализованные строки и заголовки, один источник отображаемых чисел, недоступных измерений и 14 причин RU/KK/EN. `method_comparison_html` использует тот же слой; структура `MethodComparisonInterval v1`, расчёты и границы интервалов не меняются.
+- `export_hydrocarbon_interpretation_xlsx(..., method_comparisons=())` и `export_readable_hydrocarbon_interpretation_xlsx(..., method_comparisons=())` добавляют видимый Excel-лист только при явной передаче snapshot; иначе набор листов и прежняя сигнатура внутреннего экспортера остаются неизменными. В листе пять человекочитаемых колонок; внутренние reason_code/schema_version остаются в скрытых столбцах для аудита, ввод Excel-формул экранируется.
+- Регрессии: RU/KK/EN содержимое реального XLSX сверяется с каноническим HTML; отсутствующий snapshot не создаёт листа; неизвестный reason_code с префиксом формулы не исполняется; исходный report/depth не меняется. UI, DOCX, print и автоматическое вычисление сравнения не входят в этот slice.
+
 ## INTERP-OUTPUT-01 — сравнение standard/ОПУС в контролируемом PDF (на проверке)
 
 - После #655 первый opt-in срез уже поддерживает оба HTML-layout с графиками. Следующий срез переносит **тот же неизменяемый** `MethodComparisonInterval v1` в `export_hydrocarbon_interpretation_pdf` и `render_hydrocarbon_interpretation_report`, а также в паспортный экспорт `export_hydrocarbon_interpretation_pdf_with_passport`.
