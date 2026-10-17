@@ -21,6 +21,18 @@ from test_interpretation_method_comparison_explicit_ui import _workspace
 _WORD = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
 
+def _reject_modal_export_error(monkeypatch: pytest.MonkeyPatch, workspace: object) -> None:
+    """Surface a real export exception; never hang Windows CI behind QMessageBox."""
+
+    def reject(error: Exception) -> None:
+        pytest.fail(
+            f"Unexpected Word export error: {error!r}; "
+            f"underlying cause: {error.__cause__!r}"
+        )
+
+    monkeypatch.setattr(workspace, "_show_export_error", reject)
+
+
 def _assert_word_contains_comparison(path: Path, language: AppLanguage) -> None:
     projection = method_comparison_table((_comparison(),), language, depth_unit="m")
     with ZipFile(path) as package:
@@ -65,6 +77,7 @@ def test_operator_comparison_flows_into_real_word_export(
     target = tmp_path / "selected.docx"
     monkeypatch.setattr(workspace, "_choose_target", lambda suffix, file_filter: target)
     monkeypatch.setattr(workspace, "_show_export_success", lambda path: None)
+    _reject_modal_export_error(monkeypatch, workspace)
 
     workspace.compare_methods_button.click()
     qapp.processEvents()
@@ -84,6 +97,7 @@ def test_word_without_operator_comparison_preserves_legacy_kwargs(
     target = tmp_path / "normal.docx"
     monkeypatch.setattr(workspace, "_choose_target", lambda suffix, file_filter: target)
     monkeypatch.setattr(workspace, "_show_export_success", lambda path: None)
+    _reject_modal_export_error(monkeypatch, workspace)
     calls: list[dict[str, object]] = []
 
     def capture(report, path, **kwargs):
@@ -138,6 +152,7 @@ def test_stale_comparison_fails_closed_for_word_export(
     target = tmp_path / "stale.docx"
     monkeypatch.setattr(workspace, "_choose_target", lambda suffix, file_filter: target)
     monkeypatch.setattr(workspace, "_show_export_success", lambda path: None)
+    _reject_modal_export_error(monkeypatch, workspace)
     calls: list[dict[str, object]] = []
 
     def capture(report, path, **kwargs):
