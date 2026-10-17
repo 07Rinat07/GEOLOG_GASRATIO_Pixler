@@ -11,6 +11,7 @@ from geoworkbench.services.fluid_phase_contract import FluidPhaseContract
 from geoworkbench.services.hydrocarbon_interpretation_legacy import (
     HydrocarbonCandidateInterval,
     HydrocarbonInterpretationReport,
+    OpusGasomerIndicatorReport,
     OpusGasomerIntervalReport,
     OpusGasomerReportSection,
 )
@@ -35,10 +36,20 @@ def _candidate(
 def _interval(
     top: float = 100.0, bottom: float = 104.0,
     *, code: int = 3, valid_rows: int = 8,
+    votes: tuple[int, ...] | None = None,
 ) -> OpusGasomerIntervalReport:
+    actual_votes = (code,) * 5 if votes is None else votes
+    indicators = tuple(
+        OpusGasomerIndicatorReport(
+            f"OPUS_GM_{number}", "formula", 1.0, vote, f"Class {vote}",
+            0.625, valid_rows, 10, ((vote, valid_rows),),
+            (("available", valid_rows),),
+        )
+        for number, vote in enumerate(actual_votes, start=1)
+    )
     return OpusGasomerIntervalReport(
         top, bottom, code, f"Class {code}", 0.625, valid_rows, 10,
-        0.02, 0.2, 0.18, 6.0, 9.0, (), (),
+        0.02, 0.2, 0.18, 6.0, 9.0, indicators, (),
     )
 
 
@@ -143,3 +154,39 @@ def test_missing_opus_valid_rows_precludes_agreement() -> None:
     item, = compare_standard_opus_reports(standard, opus)
     assert item.status is MethodComparisonStatus.INSUFFICIENT
     assert item.reason_code == "opus_no_valid_consensus"
+
+
+def test_conflicting_opus_five_vote_families_cannot_claim_agreement() -> None:
+    standard, opus = _reports(
+        (_candidate(phase="heavy_or_residual_oil"),),
+        (_interval(code=2, votes=(1, 2, 2, 3, 3)),),
+    )
+    result, = compare_standard_opus_reports(standard, opus)
+    assert result.status is MethodComparisonStatus.INSUFFICIENT
+    assert result.reason_code == "opus_mixed_indicator_families"
+    assert result.opus_class_code == 2
+
+
+def test_missing_five_formula_evidence_cannot_claim_agreement() -> None:
+    standard, opus = _reports()
+    section = opus.opus_gasomer
+    assert section is not None
+    opus = replace(
+        opus, opus_gasomer=replace(section, intervals=(
+            replace(section.intervals[0], indicators=()),),
+        ),
+    )
+    result, = compare_standard_opus_reports(standard, opus)
+    assert result.status is MethodComparisonStatus.INSUFFICIENT
+    assert result.reason_code == "opus_indicator_evidence_missing"
+
+
+def test_many_to_one_depth_overlap_is_not_method_agreement() -> None:
+    standard, opus = _reports(
+        (_candidate(100.0, 102.0), _candidate(102.0, 104.0)),
+        (_interval(100.0, 104.0),),
+    )
+    result = compare_standard_opus_reports(standard, opus)
+    assert len(result) == 2
+    assert all(item.status is MethodComparisonStatus.INSUFFICIENT for item in result)
+    assert all(item.reason_code == "multiple_standard_depth_overlaps" for item in result)
