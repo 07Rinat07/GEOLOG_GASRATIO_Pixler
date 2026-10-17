@@ -7,6 +7,7 @@ from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.text_normalization import clean_display_text, clean_mnemonic
 
 _CYRILLIC_RE = re.compile(r"[А-Яа-яЁёӘәҒғҚқҢңӨөҰұҮүҺһІі]")
+_KAZAKH_SPECIFIC_RE = re.compile(r"[ӘәҒғҚқҢңӨөҰұҮүҺһІі]")
 _VENDOR_SENSOR_CODE_RE = re.compile(r"^(?:S|GID)\d+$", re.IGNORECASE)
 _GENERIC_SOURCE_CHANNEL_RE = re.compile(
     r"^(?:исходн(?:ый|ая|ое)\s+(?:канал|кривая)|source\s+channel|"
@@ -19,6 +20,10 @@ _RUSSIAN_NAMES: dict[str, str] = {
     "TG": "Общий газ",
     "TG_NORM": "Нормализованный общий газ",
     "TG_NORM_CALC": "Расчётный нормализованный общий газ",
+    "NORMALIZED_TOTAL_GAS": "Нормализованный общий газ",
+    "TOTAL_GAS_NORM": "Нормализованный общий газ",
+    "NORM_TG": "Нормализованный общий газ",
+    "TGNORM": "Нормализованный общий газ",
     "C1": "Содержание метана",
     "C2": "Этан",
     "C3": "Пропан",
@@ -55,6 +60,8 @@ _RUSSIAN_NAMES: dict[str, str] = {
     "OPUS4": "ОПУС-4",
     "OPUS_K1_3": "ОПУС K1-3",
     "OPUS_1_5": "ОПУС 1-5",
+    **{f"OPUS_GM_{index}": f"ОПУС Газомер — показатель {index}" for index in range(1, 6)},
+    **{f"OPUS_P{index}": f"Доля компонента C{index} для ОПУС" for index in range(1, 6)},
 }
 
 _ENGLISH_NAMES: dict[str, str] = {
@@ -62,6 +69,10 @@ _ENGLISH_NAMES: dict[str, str] = {
     "TG": "Total Gas",
     "TG_NORM": "Normalized Total Gas",
     "TG_NORM_CALC": "Calculated Normalized Total Gas",
+    "NORMALIZED_TOTAL_GAS": "Normalized Total Gas",
+    "TOTAL_GAS_NORM": "Normalized Total Gas",
+    "NORM_TG": "Normalized Total Gas",
+    "TGNORM": "Normalized Total Gas",
     "C1_NORM": "Normalized Methane",
     "C1_NORM_REF": "Reference-normalized Methane",
     "C2_NORM": "Normalized Ethane",
@@ -117,6 +128,8 @@ _ENGLISH_NAMES: dict[str, str] = {
     "OPUS4": "OPUS-4",
     "OPUS_K1_3": "OPUS K1-3",
     "OPUS_1_5": "OPUS 1-5",
+    **{f"OPUS_GM_{index}": f"OPUS Gasomer indicator {index}" for index in range(1, 6)},
+    **{f"OPUS_P{index}": f"OPUS component C{index} fraction" for index in range(1, 6)},
 }
 
 _KAZAKH_NAMES: dict[str, str] = {
@@ -124,6 +137,10 @@ _KAZAKH_NAMES: dict[str, str] = {
     "TG": "Жалпы газ",
     "TG_NORM": "Нормаланған жалпы газ",
     "TG_NORM_CALC": "Есептелген нормаланған жалпы газ",
+    "NORMALIZED_TOTAL_GAS": "Нормаланған жалпы газ",
+    "TOTAL_GAS_NORM": "Нормаланған жалпы газ",
+    "NORM_TG": "Нормаланған жалпы газ",
+    "TGNORM": "Нормаланған жалпы газ",
     "C1_NORM": "Нормаланған метан",
     "C1_NORM_REF": "Тірек қисығы бойынша нормаланған метан",
     "C2_NORM": "Нормаланған этан",
@@ -179,6 +196,8 @@ _KAZAKH_NAMES: dict[str, str] = {
     "OPUS4": "ОПУС-4",
     "OPUS_K1_3": "ОПУС K1-3",
     "OPUS_1_5": "ОПУС 1-5",
+    **{f"OPUS_GM_{index}": f"ОПУС Газомер — {index}-көрсеткіш" for index in range(1, 6)},
+    **{f"OPUS_P{index}": f"ОПУС үшін C{index} компонентінің үлесі" for index in range(1, 6)},
 }
 
 
@@ -381,8 +400,13 @@ def localized_curve_name(
         return mnemonic
     if language is AppLanguage.RU:
         return clean_description
-    if language is AppLanguage.KK and _CYRILLIC_RE.search(clean_description):
-        # Russian vendor descriptions are not silently presented as Kazakh UI text.
+    if (
+        language is AppLanguage.KK
+        and _CYRILLIC_RE.search(clean_description)
+        and not _KAZAKH_SPECIFIC_RE.search(clean_description)
+    ):
+        # Russian vendor prose is not silently presented as Kazakh; an authored
+        # Kazakh caption with distinctive Kazakh letters remains readable.
         return mnemonic
     if language is AppLanguage.EN and _CYRILLIC_RE.search(clean_description):
         return mnemonic

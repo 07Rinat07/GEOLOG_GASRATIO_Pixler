@@ -49,6 +49,13 @@ from geoworkbench.services.gas_context_report_labels import (
 )
 
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.hydrocarbon_interpretation_report_locale import (
+    localize_method_calculation,
+    localize_method_name,
+)
+from geoworkbench.services.hydrocarbon_interpretation_legacy import (
+    pixler_assessment_labels,
+)
 from geoworkbench.services.interpretation_classification_audit import (
     CLASSIFICATION_AUDIT_SCHEMA,
     CLASSIFICATION_AUDIT_SHEET,
@@ -600,13 +607,13 @@ def _write_methods_sheet(
         sheet.append(
             protect_spreadsheet_row(
                 (
-                    method.method,
+                    localize_method_name(method.method, language),
                     labels.available if method.available else labels.no_data,
                     ", ".join(
                         localized_curve_reference(name, language=language)
                         for name in method.available_mnemonics
                     ) or labels.no_data,
-                    method.calculation or "—",
+                    localize_method_calculation(method.calculation, language) or "—",
                     method.source,
                 )
             )
@@ -751,7 +758,10 @@ def _write_opus_gasomer_sheet(
                         item.vote_support * 100.0,
                         f"{item.available_rows}/{item.total_rows}",
                         ", ".join(f"{code}:{count}" for code, count in item.vote_counts),
-                        ", ".join(f"{name}:{count}" for name, count in item.state_counts),
+                        ", ".join(
+                            f"{opus_report_label(name, language)}:{count}"
+                            for name, count in item.state_counts
+                        ),
                     )
                 )
             )
@@ -937,9 +947,10 @@ def _haworth_pixler_text(
     ]
     if candidate.pixler_assessment is not None:
         pixler = candidate.pixler_assessment
+        phase, shape = pixler_assessment_labels(pixler, language)
         parts.append(
-            f"Pixler={pixler.code}; C1/C2={pixler.c1_c2:.6g}; "
-            f"{labels.profile_word}={pixler.profile_shape or labels.insufficient_data}"
+            f"Pixler={phase}; C1/C2={pixler.c1_c2:.6g}; "
+            f"{labels.profile_word}={shape}"
         )
     return "; ".join(parts)
 

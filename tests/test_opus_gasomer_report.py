@@ -212,7 +212,10 @@ def test_gasomer_snapshot_is_exported_without_recalculation(tmp_path, qapp) -> N
         assert any("opus-gasomer-total-gas-workbook" in value for value in values)
         assert any("((p2 * p3 * p4 * p5) / p1)" in value for value in values)
         assert any("Признаки нефтяной фазы" == value for value in values)
-        assert any("available:" in value for value in values)
+        # Client-facing QC labels follow the requested output language; the
+        # indicator counts and underlying OPUS snapshot stay unchanged.
+        assert any("доступно:" in value for value in values)
+        assert not any("available:" in value for value in values)
         assert not any("Исправления исходной книги" in value for value in values)
         assert not any("AB2>AB5=250000" in value for value in values)
         assert not any("AB2>=250000" in value for value in values)
@@ -247,6 +250,55 @@ def test_gasomer_snapshot_is_exported_without_recalculation(tmp_path, qapp) -> N
     assert "Исправления исходной книги" not in pdf_text
     assert "AB2>AB5=250000" not in pdf_text
     assert "AB2>=250000" not in pdf_text
+
+
+
+@pytest.mark.parametrize(
+    ("language", "qc_label"),
+    (
+        (AppLanguage.RU, "доступно:"),
+        (AppLanguage.KK, "қолжетімді:"),
+        (AppLanguage.EN, "available:"),
+    ),
+)
+def test_opus_gasomer_office_qc_labels_follow_output_language(
+    tmp_path, language, qc_label,
+) -> None:
+    session = _gasomer_session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    report = build_opus_interpretation_report(session, total_gas_lod=0.001)
+    original = report.opus_gasomer
+    assert original is not None
+
+    xlsx = export_hydrocarbon_interpretation_xlsx(
+        report, dataset, tmp_path / f"gasomer-{language.value}.xlsx",
+        language=language,
+    )
+    from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
+
+    sheet_name = hydrocarbon_report_labels(language).sheet_opus
+    workbook = load_workbook(xlsx, read_only=True, data_only=True)
+    try:
+        visible_values = tuple(
+            str(cell.value or "")
+            for row in workbook[sheet_name].iter_rows()
+            for cell in row
+        )
+        assert any(qc_label in value for value in visible_values)
+        assert sum(qc_label in value for value in visible_values) >= 1
+    finally:
+        workbook.close()
+
+    docx = export_hydrocarbon_interpretation_docx(
+        report, tmp_path / f"gasomer-{language.value}.docx",
+        dataset=dataset, language=language,
+    )
+    with zipfile.ZipFile(docx) as archive:
+        visible_xml = unescape(archive.read("word/document.xml").decode("utf-8"))
+    assert qc_label in visible_xml
+    assert report.opus_gasomer == original
+
 
 
 def test_missing_lod_is_explicit_and_does_not_run_gasomer_detector() -> None:

@@ -30,6 +30,10 @@ from geoworkbench.services.interval_gas_statistics import (
 )
 from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.hydrocarbon_interpretation_report_locale import (
+    localize_method_calculation,
+    localize_method_name,
+)
 from geoworkbench.services.interpretation_classification_audit import (
     CLASSIFICATION_AUDIT_DOCX_PART,
     interpretation_classification_audit_json,
@@ -219,13 +223,13 @@ def _write_docx(
             ),
             tuple(
                 (
-                    method.method,
+                    localize_method_name(method.method, language),
                     labels.available if method.available else labels.no_data,
                     ", ".join(
                         localized_curve_reference(name, language=language)
                         for name in method.available_mnemonics
                     ) or labels.no_data,
-                    method.calculation or "—",
+                    localize_method_calculation(method.calculation, language) or "—",
                     method.source,
                 )
                 for method in report.methods
@@ -556,7 +560,7 @@ def _opus_gasomer_docx(
             (labels.input_label, labels.curve, labels.source_unit),
             tuple(
                 (
-                    name,
+                    localized_curve_reference(name, language=language),
                     localized_curve_reference(
                         curve_names.get(name, "—"),
                         language=language,
@@ -569,7 +573,10 @@ def _opus_gasomer_docx(
         ),
         _table(
             (labels.indicator, labels.exact_formula),
-            tuple(section.formulas),
+            tuple(
+                (localized_curve_reference(name, language=language), formula)
+                for name, formula in section.formulas
+            ),
             widths=(3_000, 12_100),
         ),
     ]
@@ -619,7 +626,8 @@ def _opus_gasomer_docx(
                         )
                         + "; "
                         + ", ".join(
-                            f"{name}:{count}" for name, count in item.state_counts
+                            f"{opus_report_label(name, language)}:{count}"
+                            for name, count in item.state_counts
                         ),
                     )
                     for item in interval.indicators

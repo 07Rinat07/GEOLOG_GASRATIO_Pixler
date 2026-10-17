@@ -146,17 +146,18 @@ def curve_display_name(
         if readable and readable.casefold() != candidate.casefold():
             return readable
 
-    if description and description.casefold() not in {
-        item.casefold() for item in candidates
-    }:
-        return _compact_description(description)
-
+    # Do not bypass the language-aware catalog fallback. The old direct
+    # description path printed Russian LAS/vendor text in Kazakh/English PDFs.
+    # A genuine Kazakh caption with Kazakh-specific letters is accepted by
+    # localized_curve_name; unmapped text keeps its source mnemonic.
     fallback = localized_curve_name(
         hint or canonical or original,
         description=description,
         unit=metadata.unit or "",
         language=language,
     )
+    if fallback == description and description.strip():
+        return _compact_description(description)
     return fallback.replace("_", "/")
 
 
