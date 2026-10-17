@@ -297,6 +297,8 @@ class InterpretationReportWorkspace(QWidget):
             )
         )
         self.compare_methods_button.clicked.connect(self._show_method_comparison)
+        self.threshold.valueChanged.connect(self._clear_method_comparison)
+        self.total_gas_lod.valueChanged.connect(self._clear_method_comparison)
         actions.addWidget(self.compare_methods_button)
         actions.addStretch(1)
         root.addLayout(actions)
@@ -345,10 +347,7 @@ class InterpretationReportWorkspace(QWidget):
 
     def refresh(self) -> None:
         # A recalculation, mode change or well change invalidates paired evidence.
-        self._method_comparisons = ()
-        if self._comparison_dialog is not None:
-            self._comparison_dialog.close()
-            self._comparison_dialog = None
+        self._clear_method_comparison()
         mixture_mode = self._is_mixture_mode()
         opus_mode = self._is_opus_mode()
         has_dataset = self.controller.session.current_dataset is not None
@@ -496,6 +495,16 @@ class InterpretationReportWorkspace(QWidget):
             )
             + (f"\n{issue_text}" if issue_text else "")
         )
+
+    def _clear_method_comparison(self) -> None:
+        """Never reuse a comparison after any input or output language change."""
+
+        self._method_comparisons = ()
+        dialog = self._comparison_dialog
+        self._comparison_dialog = None
+        if dialog is not None:
+            dialog.close()
+            dialog.deleteLater()
 
     def _show_method_comparison(self) -> None:
         """Build both reports only after an explicit operator action."""
@@ -671,6 +680,7 @@ class InterpretationReportWorkspace(QWidget):
         self._report_output_language_explicit = True
 
     def _apply_output_language(self) -> None:
+        self._clear_method_comparison()
         self._report_output_language_explicit = True
         if self._is_mixture_mode():
             self._apply_ramp_preview()
