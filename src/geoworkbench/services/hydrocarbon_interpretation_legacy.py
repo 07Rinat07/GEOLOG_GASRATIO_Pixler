@@ -1508,6 +1508,23 @@ small {{ color: #44566c; }}
 </body></html>"""
 
 
+
+def pixler_assessment_labels(
+    assessment: PixlerAssessment,
+    language: AppLanguage = AppLanguage.RU,
+) -> tuple[str, str]:
+    """Readable Pixler class/shape for Office tables, consistent with PDF HTML.
+
+    Source class codes and the numerical Pixler assessment are left unchanged.
+    """
+    labels = _HTML_LABELS[language]
+    phase = labels.get(f"pixler_{assessment.code}", assessment.code)
+    shape = labels.get(
+        f"shape_{assessment.profile_shape or 'insufficient'}",
+        assessment.profile_shape or "insufficient",
+    )
+    return phase, shape
+
 def fluid_hypothesis_label(
     candidate: HydrocarbonCandidateInterval,
     language: AppLanguage = AppLanguage.RU,
