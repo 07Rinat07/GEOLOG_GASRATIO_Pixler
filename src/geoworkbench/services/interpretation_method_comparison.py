@@ -6,7 +6,7 @@ modifies OPUS classes/palettes, or asserts geological productivity/water.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from math import isfinite
 
@@ -18,6 +18,9 @@ from geoworkbench.services.hydrocarbon_interpretation_legacy import (
     HydrocarbonCandidateInterval,
     HydrocarbonInterpretationReport,
     OpusGasomerIntervalReport,
+)
+from geoworkbench.services.opus_interpretation import (
+    _gasomer_ambiguous_hypothesis,
 )
 
 
@@ -106,7 +109,21 @@ def compare_standard_opus_reports(
             ) > 0.0
         ]
         if len(matched) == 1:
-            result.append(_compare_interval(candidate, matched[0]))
+            compared = _compare_interval(candidate, matched[0])
+            # One OPUS show covering multiple standard peaks does not imply
+            # independent one-to-one agreement for either standard interval.
+            opus_bounds = (matched[0].top_depth, matched[0].bottom_depth)
+            competing = sum(
+                _depth_overlap((other.top_depth, other.bottom_depth), opus_bounds) > 0.0
+                for other in standard.candidates
+            )
+            if competing > 1:
+                compared = replace(
+                    compared,
+                    status=MethodComparisonStatus.INSUFFICIENT,
+                    reason_code="multiple_standard_depth_overlaps",
+                )
+            result.append(compared)
         else:
             phase = fluid_phase_from_hypothesis(candidate.fluid_hypothesis)
             result.append(MethodComparisonInterval(
@@ -177,6 +194,10 @@ def _compare_interval(
         status, reason = MethodComparisonStatus.INSUFFICIENT, "partial_depth_overlap"
     elif opus.valid_rows <= 0 or opus.class_code == 7:
         status, reason = MethodComparisonStatus.INSUFFICIENT, "opus_no_valid_consensus"
+    elif len(opus.indicators) != 5:
+        status, reason = MethodComparisonStatus.INSUFFICIENT, "opus_indicator_evidence_missing"
+    elif _gasomer_ambiguous_hypothesis(opus) is not None:
+        status, reason = MethodComparisonStatus.INSUFFICIENT, "opus_mixed_indicator_families"
     elif opus.class_code == 4:
         status, reason = MethodComparisonStatus.INSUFFICIENT, "opus_class_four_unverified"
     elif not isfinite(opus.support_fraction) or opus.support_fraction <= 0.0:
