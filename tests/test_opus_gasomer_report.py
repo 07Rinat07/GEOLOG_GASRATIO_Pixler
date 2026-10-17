@@ -212,7 +212,10 @@ def test_gasomer_snapshot_is_exported_without_recalculation(tmp_path, qapp) -> N
         assert any("opus-gasomer-total-gas-workbook" in value for value in values)
         assert any("((p2 * p3 * p4 * p5) / p1)" in value for value in values)
         assert any("Признаки нефтяной фазы" == value for value in values)
-        assert any("available:" in value for value in values)
+        # Client-facing QC labels follow the requested output language; the
+        # indicator counts and underlying OPUS snapshot stay unchanged.
+        assert any("доступно:" in value for value in values)
+        assert not any("available:" in value for value in values)
         assert not any("Исправления исходной книги" in value for value in values)
         assert not any("AB2>AB5=250000" in value for value in values)
         assert not any("AB2>=250000" in value for value in values)
