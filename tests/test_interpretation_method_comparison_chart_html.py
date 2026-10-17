@@ -113,3 +113,51 @@ def test_chart_layout_forwards_same_opt_in_comparison_and_preserves_default(
     assert ("data:image/png;base64,AA==" in extended) is with_chart
     np.testing.assert_array_equal(dataset.depth, source_values)
     assert report == _report()
+
+
+
+@pytest.mark.parametrize("layout", ("front", "inline"))
+def test_empty_comparison_preserves_legacy_html_renderer_call_signature(
+    monkeypatch: pytest.MonkeyPatch,
+    layout: str,
+) -> None:
+    """An old 2-argument renderer must work without the new opt-in flag."""
+
+    report = _report()
+    dataset = Dataset(
+        "source-dataset", "Gas dataset", DatasetKind.GTI, DepthDomain.MD,
+        np.array([100.0, 102.0, 104.0]),
+    )
+    module = front if layout == "front" else chart
+    calls: list[tuple[HydrocarbonInterpretationReport, AppLanguage]] = []
+
+    def legacy_html_renderer(
+        rendered_report: HydrocarbonInterpretationReport,
+        language: AppLanguage,
+    ) -> str:
+        calls.append((rendered_report, language))
+        return "<html><body><h2>Body</h2></body></html>"
+
+    monkeypatch.setattr(module, "hydrocarbon_interpretation_html", legacy_html_renderer)
+    monkeypatch.setattr(
+        module, "hydrocarbon_interpretation_chart_data_uri",
+        lambda *args, **kwargs: "",
+    )
+    if layout == "front":
+        monkeypatch.setattr(
+            front, "ratio_reference_summary_uri",
+            lambda *args, **kwargs: None,
+        )
+        result = front.hydrocarbon_interpretation_html_with_front_chart(
+            report, dataset, AppLanguage.KK,
+            legend_mode=ReportLegendMode.HIDE,
+        )
+    else:
+        result = chart.hydrocarbon_interpretation_html_with_chart(
+            report, dataset, AppLanguage.KK,
+        )
+
+    assert len(calls) == 1
+    assert calls[0][1] is AppLanguage.KK
+    assert "Body" in result
+    assert "method-comparison-analytics" not in result
