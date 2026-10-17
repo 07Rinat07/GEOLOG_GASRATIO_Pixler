@@ -47,6 +47,9 @@ from geoworkbench.services.interpretation_method_comparison import (
     MethodComparisonStatus,
     compare_standard_opus_reports,
 )
+from geoworkbench.services.interpretation_method_comparison_html import (
+    method_comparison_html,
+)
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.interpretation_classification_audit import (
     CLASSIFICATION_AUDIT_META,
@@ -330,8 +333,14 @@ def build_interpretation_method_comparison(
 def hydrocarbon_interpretation_html(
     report: HydrocarbonInterpretationReport,
     language: AppLanguage = AppLanguage.RU,
+    *,
+    method_comparisons: tuple[MethodComparisonInterval, ...] = (),
 ) -> str:
-    """Render a presentation-ready report while retaining QC in structured data."""
+    """Render a report; an explicit comparison appends an analytical section.
+
+    Legacy HTML/PDF rendering stays unchanged unless the caller supplies the
+    already verified structured comparison snapshot from both methodologies.
+    """
 
     html = _base_hydrocarbon_interpretation_html(report, language)
     if report.analysis_depth_interval is not None:
@@ -382,6 +391,14 @@ def hydrocarbon_interpretation_html(
         html = html.replace(
             "</body>",
             _gas_context_html(report, language) + "</body>",
+            1,
+        )
+    if method_comparisons:
+        html = html.replace(
+            "</body>",
+            method_comparison_html(
+                method_comparisons, language, depth_unit=report.depth_unit,
+            ) + "</body>",
             1,
         )
     audit = escape(interpretation_classification_audit_json(report), quote=True)
@@ -882,6 +899,7 @@ __all__ = [
     "MethodComparisonStatus",
     "build_interpretation_method_comparison",
     "compare_standard_opus_reports",
+    "method_comparison_html",
     "build_hydrocarbon_interpretation_report",
     "build_opus_interpretation_report",
     "candidate_evidence_summary",
