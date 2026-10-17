@@ -3,6 +3,7 @@ from __future__ import annotations
 from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import chart_panel_render_options
 
 from dataclasses import replace
+from functools import partial
 import os
 from pathlib import Path
 import tempfile
@@ -61,6 +62,7 @@ from geoworkbench.services.report_passport import (
     ReportRenderSettings,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.interpretation_method_comparison import MethodComparisonInterval
 from geoworkbench.printing.report_preview_overlays import write_annotated_preview_pdf
 from geoworkbench.services.report_preview_marks import (
     PreviewMark,
@@ -96,6 +98,7 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
     chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
     target_depth_per_page: float = 100.0,
     include_preview_marks: bool = False,
+    method_comparisons: tuple[MethodComparisonInterval, ...] = (),
     overwrite: bool = False,
 ) -> ReportOutputTransactionResult:
     labels = hydrocarbon_report_print_labels(language)
@@ -166,6 +169,8 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
         ("layout_profile", layout_profile.value),
     )
     render_options = (*render_options, ("target_depth_per_page", str(target_depth_per_page)))
+    if method_comparisons:
+        render_options = (*render_options, ("method_comparison_intervals", str(len(method_comparisons))))
     if annotations:
         render_options = (*render_options, ("report_annotations", str(len(annotations))))
     if preview_marks:
@@ -202,7 +207,11 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
         # fingerprints the output, including the optional passport sidecar.
         unmarked = staged.with_name(f".unmarked-{staged.name}") if preview_marks else staged
         try:
-            export_hydrocarbon_interpretation_pdf(
+            export_pdf = (
+                partial(export_hydrocarbon_interpretation_pdf, method_comparisons=method_comparisons)
+                if method_comparisons else export_hydrocarbon_interpretation_pdf
+            )
+            export_pdf(
                 report,
                 unmarked,
                 language=language,
@@ -275,6 +284,7 @@ def export_hydrocarbon_interpretation_pdf(
     annotations: tuple[ReportAnnotationRecord, ...] = (),
     chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
     target_depth_per_page: float = 100.0,
+    method_comparisons: tuple[MethodComparisonInterval, ...] = (),
     overwrite: bool = False,
 ) -> Path:
     labels = hydrocarbon_report_print_labels(language)
@@ -328,7 +338,12 @@ def export_hydrocarbon_interpretation_pdf(
         writer.setTitle(details.report_title)
         writer.setCreator(REPORT_BRAND_WORDMARK)
 
-        html = hydrocarbon_interpretation_html(effective_report, language)
+        if method_comparisons:
+            html = hydrocarbon_interpretation_html(
+                effective_report, language, method_comparisons=method_comparisons,
+            )
+        else:
+            html = hydrocarbon_interpretation_html(effective_report, language)
         if dataset is not None:
             from geoworkbench.services.hydrocarbon_interpretation_gas_html import (
                 inject_interval_gas_statistics_html,
@@ -375,7 +390,11 @@ def export_hydrocarbon_interpretation_pdf(
                 unicode_report.error_message(language=language)
             )
 
-        render_hydrocarbon_interpretation_report(
+        pdf_renderer = (
+            partial(render_hydrocarbon_interpretation_report, method_comparisons=method_comparisons)
+            if method_comparisons else render_hydrocarbon_interpretation_report
+        )
+        pdf_renderer(
             writer,
             effective_report,
             language=language,
