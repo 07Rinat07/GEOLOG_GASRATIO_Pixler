@@ -509,21 +509,22 @@ class InterpretationReportWorkspace(QWidget):
         if active is None:
             return
         try:
-            settings = {
-                "threshold": self.threshold.value(),
-                "depth_interval": getattr(self.controller, "depth_interval", None),
-            }
+            threshold = self.threshold.value()
+            depth_interval = getattr(self.controller, "depth_interval", None)
             if self._is_opus_mode():
                 standard = build_hydrocarbon_interpretation_report(
-                    self.controller.session, **settings,
+                    self.controller.session,
+                    threshold=threshold,
+                    depth_interval=depth_interval,
                 )
                 opus = active
             else:
                 lod = self.total_gas_lod.value()
                 opus = build_opus_interpretation_report(
                     self.controller.session,
+                    threshold=threshold,
                     total_gas_lod=lod if lod > 0.0 else None,
-                    **settings,
+                    depth_interval=depth_interval,
                 )
                 standard = active
             comparisons = compare_standard_opus_reports(standard, opus)
