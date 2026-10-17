@@ -32,6 +32,7 @@ from geoworkbench.services.interval_gas_statistics import (
 from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.interpretation_method_comparison import MethodComparisonInterval
+from geoworkbench.services.interpretation_method_comparison_html import method_comparison_table
 from geoworkbench.services.hydrocarbon_interpretation_report_locale import (
     localize_method_calculation,
     localize_method_name,
@@ -155,6 +156,7 @@ def export_hydrocarbon_interpretation_docx(
     language: AppLanguage = AppLanguage.RU,
     overwrite: bool = False,
     progress: Callable[[str, int, int], None] | None = None,
+    method_comparisons: tuple[MethodComparisonInterval, ...] = (),
 ) -> Path:
     progress_prepare, progress_statistics, progress_save, progress_ready, error_export = (
         _DOCX_PROGRESS[language]
@@ -167,7 +169,11 @@ def export_hydrocarbon_interpretation_docx(
     destination = _prepare_target(target, ".docx", overwrite=overwrite)
     temporary = _temporary_path(destination)
     try:
-        _write_docx(temporary, report, dataset, language)
+        writer = (
+            partial(_write_docx, method_comparisons=method_comparisons)
+            if method_comparisons else _write_docx
+        )
+        writer(temporary, report, dataset, language)
         _notify_export_progress(progress, progress_save, 90, 100)
         os.replace(temporary, destination)
         _notify_export_progress(progress, progress_ready, 100, 100)
@@ -196,6 +202,8 @@ def _write_docx(
     report: HydrocarbonInterpretationReport,
     dataset: Dataset | None,
     language: AppLanguage = AppLanguage.RU,
+    *,
+    method_comparisons: tuple[MethodComparisonInterval, ...] = (),
 ) -> None:
     interval = getattr(report, "analysis_depth_interval", None)
     labels = hydrocarbon_report_labels(language)
@@ -248,6 +256,8 @@ def _write_docx(
         body.extend(_opus_gasomer_docx(report, language))
     if getattr(report, "gas_context_events", ()):
         body.extend(_gas_context_docx(report, language))
+    if method_comparisons:
+        body.extend(_method_comparisons_docx(method_comparisons, language, report.depth_unit))
     body.append(_paragraph(labels.prospective_heading, style="Heading1"))
     if report.candidates:
         body.append(
@@ -646,6 +656,27 @@ def _opus_gasomer_docx(
     body.extend(_paragraph(f"• {item}") for item in section.provenance)
     body.append(_paragraph(f"• {labels.workbook_sha}: {section.source_workbook_sha256}"))
     return body
+
+
+def _method_comparisons_docx(
+    comparisons: tuple[MethodComparisonInterval, ...],
+    language: AppLanguage,
+    depth_unit: str,
+) -> list[str]:
+    """Show only supplied, source-backed evidence in the same terms as HTML/XLSX."""
+
+    presentation = method_comparison_table(
+        comparisons, language, depth_unit=depth_unit,
+    )
+    return [
+        _paragraph(presentation.title, style="Heading1"),
+        _paragraph(presentation.intro),
+        _table(
+            presentation.headings,
+            tuple(row.cells for row in presentation.rows),
+            widths=(1_750, 1_750, 1_900, 4_200, 4_400),
+        ),
+    ]
 
 
 def _paragraph(text: str, *, style: str | None = None) -> str:
