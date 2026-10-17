@@ -173,9 +173,12 @@ def hydrocarbon_interpretation_html_with_chart(
 ) -> str:
     """Return the standard report HTML with a whole-well curve chart appended."""
 
-    base = hydrocarbon_interpretation_html(
-        report, language, method_comparisons=method_comparisons,
-    )
+    if method_comparisons:
+        base = hydrocarbon_interpretation_html(
+            report, language, method_comparisons=method_comparisons,
+        )
+    else:
+        base = hydrocarbon_interpretation_html(report, language)
     from geoworkbench.services.hydrocarbon_interpretation_gas_html import (
         inject_interval_gas_statistics_html,
     )
