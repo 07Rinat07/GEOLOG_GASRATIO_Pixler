@@ -513,6 +513,11 @@ def _detect_candidates(
     max_gap = max(step * 2.5, np.finfo(np.float64).eps)
     flagged_indices = np.flatnonzero(flagged)
     flagged_indices = flagged_indices[np.argsort(depth[flagged_indices], kind="stable")]
+    # A missing/invalid physical sample is not evidence of continuous gas.
+    # Keep valid low-gas dips eligible for existing small-gap grouping, but
+    # never merge flagged depths across an actual null/NaN/Inf/negative row.
+    # Sort once to support ascending/descending indexes without an O(N*K) scan.
+    missing_depths = np.sort(depth[np.isfinite(depth) & ~valid])
     fluid_context = _build_fluid_interpretation_context(
         dataset,
         background_valid & ~flagged,
@@ -524,10 +529,17 @@ def _detect_candidates(
             and max(top, bottom) >= depth[groups[-1][-1]]
             for top, bottom in candidate_exclusion_intervals
         )
+        crosses_missing = bool(groups) and (
+            np.searchsorted(missing_depths, depth[row_index], side="left")
+            > np.searchsorted(
+                missing_depths, depth[groups[-1][-1]], side="right"
+            )
+        )
         if (
             not groups
             or depth[row_index] - depth[groups[-1][-1]] > max_gap
             or crosses_exclusion
+            or crosses_missing
         ):
             groups.append([int(row_index)])
         else:
