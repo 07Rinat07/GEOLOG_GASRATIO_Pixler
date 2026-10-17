@@ -668,10 +668,27 @@ def detect_opus_gasomer_intervals(
         signal_usable,
         half_span=resolved_policy.smoothing_span / 2.0,
     )
+    # A confirmed technological interval is excluded from the background,
+    # including from the *source window* used to smooth adjacent valid rows.
+    # Otherwise the median at a nearby non-excluded row can still incorporate
+    # high technological samples (especially beside missing measurements), and
+    # that contaminated center would silently enter the local baseline.
+    # Keep the detector's signal smoothing unchanged; only the working
+    # background estimator uses a separate, exclusion-safe smoothing result.
+    background_smoothed = (
+        _rolling_median_by_depth(
+            work_depth,
+            work_values,
+            background_usable,
+            half_span=resolved_policy.smoothing_span / 2.0,
+        )
+        if np.any(background_excluded)
+        else smoothed
+    )
     background, robust_scale = _rolling_robust_background(
         work_depth,
-        smoothed,
-        np.isfinite(smoothed) & background_usable,
+        background_smoothed,
+        np.isfinite(background_smoothed) & background_usable,
         half_span=resolved_policy.background_half_span,
         lod_floor=lod_percent,
         policy=resolved_policy,
