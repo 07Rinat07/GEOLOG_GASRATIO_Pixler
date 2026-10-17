@@ -101,6 +101,7 @@ def test_bounded_status_and_reason_follow_both_independent_profiles(
     assert len(comparisons) == 1
     item = comparisons[0]
     assert item.status is expected_status
+    assert item.reason_schema_version == 1
     assert item.reason_code == expected_reason
     assert item.standard_bounds == (100.0, 104.0)
     assert item.opus_bounds == (100.0, 104.0)
