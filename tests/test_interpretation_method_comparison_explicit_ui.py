@@ -130,6 +130,41 @@ def test_axis_mismatch_is_rejected_without_any_stale_comparison(
     workspace.close()
 
 
+@pytest.mark.parametrize("change", ("language", "threshold", "lod"))
+def test_paired_evidence_is_invalidated_on_relevant_control_change(
+    qapp, monkeypatch: pytest.MonkeyPatch, change: str,
+) -> None:
+    workspace = _workspace(AppLanguage.RU)
+    assert workspace.report is not None
+
+    def opus_report(session, **kwargs):
+        del session, kwargs
+        assert workspace.report is not None
+        return replace(workspace.report, report_profile="opus")
+
+    monkeypatch.setattr(legacy, "build_opus_interpretation_report", opus_report)
+    monkeypatch.setattr(
+        legacy, "compare_standard_opus_reports",
+        lambda standard, opus: (_comparison(),),
+    )
+    workspace.compare_methods_button.click()
+    qapp.processEvents()
+    assert workspace._method_comparisons
+    assert workspace._comparison_dialog is not None
+
+    if change == "language":
+        index = workspace.report_output_language.findData(AppLanguage.EN)
+        workspace.report_output_language.setCurrentIndex(index)
+    elif change == "threshold":
+        workspace.threshold.setValue(workspace.threshold.value() + 0.5)
+    else:
+        workspace.total_gas_lod.setValue(0.25)
+    qapp.processEvents()
+    assert workspace._method_comparisons == ()
+    assert workspace._comparison_dialog is None
+    workspace.close()
+
+
 def test_mixture_mode_disables_comparison_action(qapp) -> None:
     workspace = _workspace()
     mode_index = workspace.report_mode.findData("mixture_text")
