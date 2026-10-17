@@ -39,6 +39,7 @@ from geoworkbench.services.hydrocarbon_interpretation import (
     hydrocarbon_interpretation_html,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.interpretation_method_comparison import MethodComparisonInterval
 
 
 def hydrocarbon_interpretation_html_with_front_chart(
@@ -57,13 +58,18 @@ def hydrocarbon_interpretation_html_with_front_chart(
     identity: InterpretationReportIdentity | None = None,
     annotations: tuple[ReportAnnotationRecord, ...] = (),
     chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
+    method_comparisons: tuple[MethodComparisonInterval, ...] = (),
 ) -> str:
     """Insert the whole-well chart before the first tabular report section."""
 
     depth_range = report.analysis_depth_interval or depth_range
-    base = hydrocarbon_interpretation_html(
-        report_with_presentation_identity(report, identity), language,
-    )
+    presentation_report = report_with_presentation_identity(report, identity)
+    if method_comparisons:
+        base = hydrocarbon_interpretation_html(
+            presentation_report, language, method_comparisons=method_comparisons,
+        )
+    else:
+        base = hydrocarbon_interpretation_html(presentation_report, language)
     from geoworkbench.services.hydrocarbon_interpretation_gas_html import (
         inject_interval_gas_statistics_html,
     )
