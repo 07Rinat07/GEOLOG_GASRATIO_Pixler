@@ -24,6 +24,9 @@ from geoworkbench.services.opus_interpretation import (
 )
 
 
+METHOD_COMPARISON_SCHEMA_VERSION = 1
+
+
 class MethodComparisonStatus(StrEnum):
     AGREEMENT = "agreement"
     DISAGREEMENT = "disagreement"
@@ -48,6 +51,7 @@ class MethodComparisonInterval:
     opus_class_code: int | None
     opus_support_fraction: float | None
     opus_valid_rows: int | None
+    reason_schema_version: int = METHOD_COMPARISON_SCHEMA_VERSION
 
 
 _OPUS_CLASS_PHASE: dict[int, FluidPhaseContract] = {
@@ -236,6 +240,7 @@ def _compare_interval(
 
 
 __all__ = [
+    "METHOD_COMPARISON_SCHEMA_VERSION",
     "MethodComparisonInterval",
     "MethodComparisonStatus",
     "compare_standard_opus_reports",
