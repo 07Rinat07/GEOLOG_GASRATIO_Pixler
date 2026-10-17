@@ -182,6 +182,8 @@ class HydrocarbonInterpretationReport:
     gas_context_audit: tuple[GasContextIntervalAudit, ...] = ()
     suppressed_candidates: tuple[HydrocarbonCandidateInterval, ...] = ()
     analysis_depth_interval: DepthInterval | None = None
+    # Prevent comparing two reports from distinct source/lag-corrected depth axes.
+    depth_axis_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -406,6 +408,7 @@ def build_hydrocarbon_interpretation_report(
         candidates,
         manual,
         tuple(warnings),
+        depth_axis_id=dataset.active_index_id,
     )
 
 
