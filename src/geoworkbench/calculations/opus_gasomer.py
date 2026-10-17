@@ -691,6 +691,11 @@ def detect_opus_gasomer_intervals(
     np.divide(smoothed, background_floor, out=contrast, where=finite_metrics)
     raw_candidates = (
         finite_metrics
+        # A center sample explicitly below the source detector's LOD is not
+        # observed high gas. Median smoothing may borrow high neighboring values;
+        # keep the censored value available for background estimation, but never
+        # promote that particular source row into a candidate gas-show sample.
+        & (work_states != int(OpusGasomerValueState.BELOW_LOD))
         & (delta >= lod_percent * resolved_policy.minimum_delta_lod_multiple)
         & (robust_z >= resolved_policy.robust_z_threshold)
         & (contrast >= resolved_policy.minimum_contrast)
