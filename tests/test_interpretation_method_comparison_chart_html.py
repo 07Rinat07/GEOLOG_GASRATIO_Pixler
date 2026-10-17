@@ -110,8 +110,6 @@ def test_chart_layout_forwards_same_opt_in_comparison_and_preserves_default(
     assert expected_section in extended
     assert extended.count("method-comparison-analytics") == 1
     assert "data-reason-code=\"bounded_phase_agreement\"" in extended
-    assert ('src="data:image/png;base64,AA=="' in extended) is with_chart or (
-        layout == "front" and with_chart and "data:image/png;base64,AA==" in extended
-    )
+    assert ("data:image/png;base64,AA==" in extended) is with_chart
     np.testing.assert_array_equal(dataset.depth, source_values)
     assert report == _report()
