@@ -74,6 +74,7 @@ from geoworkbench.services.hydrocarbon_interpretation import (
     hydrocarbon_interpretation_html,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.interpretation_method_comparison import MethodComparisonInterval
 from geoworkbench.services.gas_curve_presentation import (
     GAS_PREVIEW_POINT_RADIUS_PX,
     gas_ratio_position,
@@ -168,10 +169,13 @@ def hydrocarbon_interpretation_html_with_chart(
     *,
     annotations: tuple[ReportAnnotationRecord, ...] = (),
     chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
+    method_comparisons: tuple[MethodComparisonInterval, ...] = (),
 ) -> str:
     """Return the standard report HTML with a whole-well curve chart appended."""
 
-    base = hydrocarbon_interpretation_html(report, language)
+    base = hydrocarbon_interpretation_html(
+        report, language, method_comparisons=method_comparisons,
+    )
     from geoworkbench.services.hydrocarbon_interpretation_gas_html import (
         inject_interval_gas_statistics_html,
     )
