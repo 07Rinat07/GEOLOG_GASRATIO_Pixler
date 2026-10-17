@@ -42,6 +42,11 @@ from geoworkbench.services.hydrocarbon_interpretation_legacy import (
     OpusGasomerIntervalReport,
     OpusGasomerReportSection,
 )
+from geoworkbench.services.interpretation_method_comparison import (
+    MethodComparisonInterval,
+    MethodComparisonStatus,
+    compare_standard_opus_reports,
+)
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.interpretation_classification_audit import (
     CLASSIFICATION_AUDIT_META,
@@ -298,6 +303,28 @@ def build_opus_interpretation_report(
             session,
         )
     return _with_lag_axis_context_warning(contextual, session)
+
+
+def build_interpretation_method_comparison(
+    session: ProjectSession,
+    *,
+    threshold: float = 4.0,
+    total_gas_lod: float | None = None,
+    depth_interval: DepthInterval | None = None,
+) -> tuple[MethodComparisonInterval, ...]:
+    """Opt-in structured comparison of the two existing report snapshots.
+
+    Results are evidence/QC data, not a new fluid calculation or a client
+    warning block. A caller can render the result in a later audited slice.
+    """
+    standard = build_hydrocarbon_interpretation_report(
+        session, threshold=threshold, depth_interval=depth_interval,
+    )
+    opus = build_opus_interpretation_report(
+        session, threshold=threshold,
+        total_gas_lod=total_gas_lod, depth_interval=depth_interval,
+    )
+    return compare_standard_opus_reports(standard, opus)
 
 
 def hydrocarbon_interpretation_html(
@@ -851,6 +878,10 @@ __all__ = [
     "OpusGasomerIndicatorReport",
     "OpusGasomerIntervalReport",
     "OpusGasomerReportSection",
+    "MethodComparisonInterval",
+    "MethodComparisonStatus",
+    "build_interpretation_method_comparison",
+    "compare_standard_opus_reports",
     "build_hydrocarbon_interpretation_report",
     "build_opus_interpretation_report",
     "candidate_evidence_summary",
