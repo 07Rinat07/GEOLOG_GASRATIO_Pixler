@@ -8,6 +8,7 @@ from xml.etree import ElementTree as ET
 from zipfile import ZipFile
 
 import pytest
+from PySide6.QtWidgets import QMessageBox
 
 from geoworkbench.services.interpretation_method_comparison_html import (
     method_comparison_table,
@@ -19,6 +20,18 @@ from test_interpretation_method_comparison_explicit_ui import _workspace
 
 
 _WORD = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+
+
+@pytest.fixture(autouse=True)
+def _never_open_blocking_qt_dialog(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Unexpected Qt modal dialogs must fail tests instead of timing out."""
+
+    def reject(_parent: object, title: str, message: str, *args: object, **kwargs: object) -> None:
+        del args, kwargs
+        pytest.fail(f"Unexpected blocking QMessageBox {title!r}: {message}")
+
+    for method in ("critical", "warning", "information", "question"):
+        monkeypatch.setattr(QMessageBox, method, reject)
 
 
 def _reject_modal_export_error(monkeypatch: pytest.MonkeyPatch, workspace: object) -> None:
