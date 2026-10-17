@@ -700,6 +700,17 @@ def detect_opus_gasomer_intervals(
         & (robust_z >= resolved_policy.robust_z_threshold)
         & (contrast >= resolved_policy.minimum_contrast)
     )
+    # A censored, missing or invalid source row cannot demonstrate continuity
+    # of one gas show even when candidate peaks lie within the gap tolerance.
+    # A valid low/zero reading retains the existing short-gap grouping rule.
+    source_barriers = np.isin(
+        work_states,
+        (
+            int(OpusGasomerValueState.BELOW_LOD),
+            int(OpusGasomerValueState.MISSING),
+            int(OpusGasomerValueState.INVALID),
+        ),
+    )
     candidate_mask, intervals = _build_detected_intervals(
         work_depth,
         smoothed,
@@ -708,6 +719,7 @@ def detect_opus_gasomer_intervals(
         robust_z,
         contrast,
         raw_candidates,
+        barrier_mask=source_barriers,
         exclusion_intervals=candidate_exclusion_intervals,
         policy=resolved_policy,
     )
@@ -915,6 +927,7 @@ def _build_detected_intervals(
     contrast: Array,
     raw_candidates: NDArray[np.bool_],
     *,
+    barrier_mask: NDArray[np.bool_] | None = None,
     exclusion_intervals: tuple[tuple[float, float], ...] = (),
     policy: OpusGasomerDetectorPolicy,
 ) -> tuple[NDArray[np.bool_], tuple[OpusGasomerDetectedInterval, ...]]:
@@ -923,6 +936,13 @@ def _build_detected_intervals(
     if not candidate_indices.size:
         return accepted, ()
     tolerance = np.finfo(np.float64).eps * max(1.0, float(np.max(np.abs(depth)))) * 8.0
+    # Prefix counts make source-gap checks O(1) per adjacent candidate pair.
+    # The caller supplies QC states; this grouping helper never infers LOD.
+    barrier_counts = (
+        np.cumsum(barrier_mask, dtype=np.int64)
+        if barrier_mask is not None
+        else None
+    )
     groups: list[NDArray[np.int64]] = []
     start = 0
     for offset in range(1, candidate_indices.size):
@@ -933,7 +953,11 @@ def _build_detected_intervals(
             and max(top, bottom) >= depth[previous]
             for top, bottom in exclusion_intervals
         )
-        if crosses_exclusion or (
+        crosses_unobserved = (
+            barrier_counts is not None
+            and barrier_counts[current] > barrier_counts[previous]
+        )
+        if crosses_exclusion or crosses_unobserved or (
             depth[current] - depth[previous]
             - policy.maximum_candidate_separation
             > tolerance
