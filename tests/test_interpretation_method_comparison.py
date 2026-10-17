@@ -5,8 +5,14 @@ from __future__ import annotations
 from dataclasses import replace
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 
+from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
+from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.hydrocarbon_interpretation import (
+    build_interpretation_method_comparison,
+)
 from geoworkbench.services.fluid_phase_contract import FluidPhaseContract
 from geoworkbench.services.hydrocarbon_interpretation_legacy import (
     HydrocarbonCandidateInterval,
@@ -191,3 +197,37 @@ def test_many_to_one_depth_overlap_is_not_method_agreement() -> None:
     assert len(result) == 2
     assert all(item.status is MethodComparisonStatus.INSUFFICIENT for item in result)
     assert all(item.reason_code == "multiple_standard_depth_overlaps" for item in result)
+
+
+def test_opt_in_comparison_builds_actual_standard_and_opus_snapshots() -> None:
+    depth = np.round(np.arange(0.0, 100.2, 0.2), 1)
+    total = np.full(depth.shape, 0.01)
+    total[(depth >= 40.0) & (depth <= 42.0)] = 0.20
+    dataset = Dataset(
+        "compare-actual", "Real calculation fixture",
+        DatasetKind.GTI, DepthDomain.MD, depth,
+    )
+    for name, share in {"C1": 3, "C2": 2, "C3": 1, "C4": 1, "C5": 1}.items():
+        dataset.upsert_curve(
+            name, total * share / 8.0, unit="%vol",
+            provenance="source:comparison-regression",
+        )
+    source = dataset.upsert_curve(
+        "TOTAL_GAS", total.copy(), unit="%vol",
+        provenance="source:comparison-regression",
+    )
+    original = source.values.copy()
+    session = ProjectSession()
+    session.add_dataset(dataset, "Method comparison well")
+
+    items = build_interpretation_method_comparison(
+        session, threshold=3.0, total_gas_lod=0.001,
+    )
+
+    assert len(items) >= 1
+    assert any(item.standard_bounds is not None for item in items)
+    assert any(item.opus_bounds is not None for item in items)
+    assert all(item.reason_schema_version == 1 for item in items)
+    assert all(item.status in MethodComparisonStatus for item in items)
+    np.testing.assert_array_equal(source.values, original)
+    np.testing.assert_array_equal(dataset.depth, depth)
