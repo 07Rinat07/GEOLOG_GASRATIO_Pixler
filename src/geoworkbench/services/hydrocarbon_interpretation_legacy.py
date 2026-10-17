@@ -21,6 +21,7 @@ from geoworkbench.services.las_parameter_resolver import (
     DatasetParameterResolution,
     LasParameterResolver,
     ParameterResolutionError,
+    concentration_scale_to_percent,
     resolve_gas_ratio_inputs,
 )
 from geoworkbench.services.lba_standard import (
@@ -476,8 +477,19 @@ def _detect_candidates(
             None,
             "Для устойчивого фонового уровня требуется не менее 20 корректных газовых отсчётов.",
         )
+    # Robust-z after log1p must use a consistent physical concentration scale.
+    # The same mud gas recorded in ppm and %vol otherwise produces different
+    # threshold decisions even though the LAS measurements are equivalent.
+    # Normalize recognized units in the *working detector only*; original
+    # values, units and max_primary_value remain untouched for audit/reporting.
+    # Unknown vendor/normalized units retain their established behavior rather
+    # than being silently interpreted as a physical concentration.
+    physical_scale = concentration_scale_to_percent(primary_curve.metadata.unit)
+    detection_values = values[valid]
+    if physical_scale is not None:
+        detection_values = detection_values * physical_scale
     transformed = np.full(values.shape, np.nan, dtype=np.float64)
-    transformed[valid] = np.log1p(values[valid])
+    transformed[valid] = np.log1p(detection_values)
     finite_values = transformed[background_valid]
     median, scale = _robust_center_scale(finite_values)
     if scale is None:
