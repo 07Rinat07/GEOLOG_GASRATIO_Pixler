@@ -49,6 +49,8 @@ from geoworkbench.services.gas_context_report_labels import (
 )
 
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.interpretation_method_comparison import MethodComparisonInterval
+from geoworkbench.services.interpretation_method_comparison_html import method_comparison_table
 from geoworkbench.services.hydrocarbon_interpretation_report_locale import (
     localize_method_calculation,
     localize_method_name,
@@ -79,6 +81,7 @@ def export_readable_hydrocarbon_interpretation_xlsx(
     overwrite: bool = False,
     progress: Callable[[str, int, int], None] | None = None,
     identity: InterpretationReportIdentity | None = None,
+    method_comparisons: tuple[MethodComparisonInterval, ...] = (),
 ) -> Path:
     labels = hydrocarbon_report_labels(language)
     if dataset.dataset_id != report.dataset_id:
@@ -121,6 +124,10 @@ def export_readable_hydrocarbon_interpretation_xlsx(
         _write_main_sheet(main, report, dataset, language, details, custom_title=identity is not None)
         _notify(progress, labels.progress_intervals, 15, 100)
         _write_methods_sheet(workbook, report, language)
+        if method_comparisons:
+            _write_method_comparisons_sheet(
+                workbook, method_comparisons, language, depth_unit=report.depth_unit,
+            )
         _write_opus_gasomer_sheet(workbook, report, language)
         _write_gas_context_sheet(workbook, report, language)
         _write_whole_well_sheet(
@@ -156,6 +163,47 @@ def export_readable_hydrocarbon_interpretation_xlsx(
         workbook.close()
     return destination
 
+
+
+_METHOD_COMPARISON_SHEET_NAMES: dict[AppLanguage, str] = {
+    AppLanguage.RU: "Сравнение методов",
+    AppLanguage.KK: "Әдістерді салыстыру",
+    AppLanguage.EN: "Method comparison",
+}
+
+
+def _write_method_comparisons_sheet(
+    workbook: Workbook,
+    comparisons: tuple[MethodComparisonInterval, ...],
+    language: AppLanguage,
+    *,
+    depth_unit: str,
+) -> None:
+    """Record the same evidence and reasons as PDF/HTML, with audit IDs hidden."""
+
+    presentation = method_comparison_table(
+        comparisons, language, depth_unit=depth_unit,
+    )
+    if len(presentation.rows) + 1 > _EXCEL_MAX_ROWS:
+        raise HydrocarbonInterpretationExportError(
+            "Method comparison exceeds the Excel row limit"
+        )
+    sheet = workbook.create_sheet(_METHOD_COMPARISON_SHEET_NAMES[language])
+    sheet.append((*presentation.headings, "reason_code", "reason_schema_version"))
+    for entry in presentation.rows:
+        sheet.append(
+            protect_spreadsheet_row(
+                (*entry.cells, entry.reason_code, entry.reason_version)
+            )
+        )
+    _format_auxiliary_sheet(
+        sheet, widths=(28, 28, 29, 76, 100, 22, 22), wrap_header=True,
+    )
+    # Stable machine-audit provenance stays in the file but is not a client
+    # facing replacement for the localized explanation.
+    sheet.column_dimensions["F"].hidden = True
+    sheet.column_dimensions["G"].hidden = True
+    sheet.sheet_view.showGridLines = False
 
 
 def _write_document_control_sheet(
