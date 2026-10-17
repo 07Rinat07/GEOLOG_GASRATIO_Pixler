@@ -193,7 +193,7 @@ def build_hydrocarbon_interpretation_report(
                 effective_events,
                 session,
             )
-        return contextual
+        return _with_lag_axis_context_warning(contextual, session)
 
     requested_mode = _coerce_mode(
         normalized_gas_mode
@@ -259,7 +259,7 @@ def build_hydrocarbon_interpretation_report(
             effective_events,
             session,
         )
-    return contextual
+    return _with_lag_axis_context_warning(contextual, session)
 
 
 def build_opus_interpretation_report(
@@ -297,7 +297,7 @@ def build_opus_interpretation_report(
             effective_events,
             session,
         )
-    return contextual
+    return _with_lag_axis_context_warning(contextual, session)
 
 
 def hydrocarbon_interpretation_html(
@@ -408,12 +408,58 @@ def _merge_background_suppression_audit(
     )
 
 
+def _lag_corrected_axis_has_unbound_gas_context(session: ProjectSession) -> bool:
+    """Legacy gas events identify MD/TVD but not a lag profile axis/revision.
+
+    A corrected MD axis and its source MD axis share the same DepthDomain, but
+    the same numerical depth describes different acquisition rows. Applying
+    source-depth exclusions to corrected-depth rows silently biases screening.
+    """
+    dataset = session.current_dataset
+    well = session.current_well
+    return bool(
+        dataset is not None
+        and well is not None
+        and well.gas_context_events
+        and dataset.headers.get("LAG_PROFILE_ID")
+        and dataset.active_index.mnemonic.endswith("_LAG_CORR")
+    )
+
+
+def _with_lag_axis_context_warning(
+    report: HydrocarbonInterpretationReport,
+    session: ProjectSession,
+) -> HydrocarbonInterpretationReport:
+    if not _lag_corrected_axis_has_unbound_gas_context(session):
+        return report
+    return replace(
+        report,
+        warnings=tuple(
+            dict.fromkeys(
+                (
+                    *report.warnings,
+                    "События газового контекста не применены к скорректированной "
+                    "по лагу глубинной оси: сохранённые события имеют привязку "
+                    "MD/TVD, но не указывают ось и ревизию профиля лага. "
+                    "Нужна явная перепривязка; автоматический перенос по той "
+                    "же числовой глубине может исказить интервалы и фон.",
+                )
+            )
+        ),
+    )
+
+
 def _effective_session_gas_context_events(
     session: ProjectSession,
 ) -> tuple[GasContextEvent, ...]:
     well = session.current_well
     dataset = session.current_dataset
     if well is None or dataset is None:
+        return ()
+    if _lag_corrected_axis_has_unbound_gas_context(session):
+        # There is no persisted coordinate-axis identity on legacy events.
+        # Preserve the events on the well, but never silently project their
+        # source-depth numbers onto a different lag-corrected index.
         return ()
     events = tuple(well.gas_context_events)
     well_domains = {item.depth_domain for item in well.datasets.values()}
