@@ -176,7 +176,5 @@ def test_passport_export_forwards_snapshot_only_when_selected(
 
     assert len(observed) == 1
     assert observed[0].get("method_comparisons", ()) == comparison
-    assert ("method_comparison_intervals", "1") in passport_options[0] if with_comparison else (
-        "method_comparison_intervals", "1"
-    ) not in passport_options[0]
+    assert (("method_comparison_intervals", "1") in passport_options[0]) is with_comparison
     assert target.read_bytes().startswith(b"%PDF")
