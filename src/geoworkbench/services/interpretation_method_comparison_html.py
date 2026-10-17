@@ -6,6 +6,7 @@ Reason codes and numerics come exclusively from MethodComparisonInterval v1.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from html import escape
 from math import isfinite
 
@@ -212,63 +213,124 @@ def _bounds(bounds: tuple[float, float] | None, unit: str) -> str:
     return f"{bounds[0]:.2f}–{bounds[1]:.2f} {unit}".strip()
 
 
+@dataclass(frozen=True, slots=True)
+class LocalizedMethodComparisonRow:
+    """One presentation row with stable, independently auditable reason identity."""
+
+    cells: tuple[str, str, str, str, str]
+    reason_code: str
+    reason_version: int
+
+
+@dataclass(frozen=True, slots=True)
+class LocalizedMethodComparisonTable:
+    """The single language/number projection used by HTML and Office outputs."""
+
+    title: str
+    intro: str
+    headings: tuple[str, str, str, str, str]
+    rows: tuple[LocalizedMethodComparisonRow, ...]
+    empty_message: str
+
+
+def method_comparison_table(
+    items: tuple[MethodComparisonInterval, ...],
+    language: AppLanguage = AppLanguage.RU,
+    *,
+    depth_unit: str = "m",
+) -> LocalizedMethodComparisonTable:
+    """Project immutable source evidence into localized text without recalculation."""
+
+    rows: list[LocalizedMethodComparisonRow] = []
+    for item in items:
+        reason = _REASONS.get(item.reason_code, _UNKNOWN)
+        metrics = (
+            (
+                _HEADINGS["overlap"][language],
+                f"{_number(item.overlap_depth)} {depth_unit}"
+                if item.standard_bounds is not None and item.opus_bounds is not None
+                else "—",
+            ),
+            (
+                _HEADINGS["coverage"][language],
+                f"{_percent(item.standard_overlap_fraction)} / "
+                f"{_percent(item.opus_overlap_fraction)}",
+            ),
+            (_HEADINGS["wetness"][language], _number(item.standard_wetness_robust_z)),
+            (_HEADINGS["pixler"][language], _number(item.standard_pixler_c1_c2)),
+            (
+                _HEADINGS["class"][language],
+                str(item.opus_class_code) if item.opus_class_code is not None else "—",
+            ),
+            (_HEADINGS["support"][language], _percent(item.opus_support_fraction)),
+            (
+                _HEADINGS["valid"][language],
+                str(item.opus_valid_rows) if item.opus_valid_rows is not None else "—",
+            ),
+        )
+        evidence = "; ".join(f"{name}: {value}" for name, value in metrics)
+        rows.append(
+            LocalizedMethodComparisonRow(
+                cells=(
+                    _bounds(item.standard_bounds, depth_unit),
+                    _bounds(item.opus_bounds, depth_unit),
+                    _STATUSES[item.status][language],
+                    reason[language],
+                    evidence,
+                ),
+                reason_code=item.reason_code,
+                reason_version=item.reason_schema_version,
+            )
+        )
+    return LocalizedMethodComparisonTable(
+        title=_HEADINGS["title"][language],
+        intro=_HEADINGS["intro"][language],
+        headings=tuple(
+            _HEADINGS[key][language]
+            for key in ("standard", "opus", "status", "reason", "measurements")
+        ),  # type: ignore[arg-type]
+        rows=tuple(rows),
+        empty_message=_HEADINGS["none"][language],
+    )
+
+
 def method_comparison_html(
     items: tuple[MethodComparisonInterval, ...],
     language: AppLanguage = AppLanguage.RU,
     *,
     depth_unit: str = "m",
 ) -> str:
-    """Render one optional analytical section, not a limitations/warning block."""
+    """Render the shared evidence presentation as an opt-in HTML section."""
 
-    def label(key: str) -> str:
-        return escape(_HEADINGS[key][language])
-
-    rows: list[str] = []
-    for item in items:
-        reason = _REASONS.get(item.reason_code, _UNKNOWN)
-        metrics = (
-            (label("overlap"), f"{_number(item.overlap_depth)} {escape(depth_unit)}"
-             if item.standard_bounds is not None and item.opus_bounds is not None
-             else "—"),
-            (
-                label("coverage"),
-                f"{_percent(item.standard_overlap_fraction)} / "
-                f"{_percent(item.opus_overlap_fraction)}",
-            ),
-            (label("wetness"), _number(item.standard_wetness_robust_z)),
-            (label("pixler"), _number(item.standard_pixler_c1_c2)),
-            (label("class"), str(item.opus_class_code) if item.opus_class_code is not None else "—"),
-            (label("support"), _percent(item.opus_support_fraction)),
-            (label("valid"), str(item.opus_valid_rows) if item.opus_valid_rows is not None else "—"),
-        )
-        evidence = "; ".join(f"{name}: {value}" for name, value in metrics)
-        rows.append(
-            f'<tr data-reason-version="{item.reason_schema_version}" '
-            f'data-reason-code="{escape(item.reason_code, quote=True)}">'
-            f"<td>{escape(_bounds(item.standard_bounds, depth_unit))}</td>"
-            f"<td>{escape(_bounds(item.opus_bounds, depth_unit))}</td>"
-            f"<td>{escape(_STATUSES[item.status][language])}</td>"
-            f"<td>{escape(reason[language])}</td>"
-            f"<td>{evidence}</td></tr>"
-        )
-    if not rows:
-        content = f"<p>{label('none')}</p>"
+    table = method_comparison_table(items, language, depth_unit=depth_unit)
+    if not table.rows:
+        content = f"<p>{escape(table.empty_message)}</p>"
     else:
+        rows = []
+        for row in table.rows:
+            cells = "".join(f"<td>{escape(value)}</td>" for value in row.cells)
+            rows.append(
+                f'<tr data-reason-version="{row.reason_version}" '
+                f'data-reason-code="{escape(row.reason_code, quote=True)}">'
+                f"{cells}</tr>"
+            )
         content = (
             "<table class='method-comparison-table'><thead><tr>"
-            + "".join(
-                f"<th>{label(key)}</th>"
-                for key in ("standard", "opus", "status", "reason", "measurements")
-            )
+            + "".join(f"<th>{escape(name)}</th>" for name in table.headings)
             + "</tr></thead><tbody>"
             + "".join(rows)
             + "</tbody></table>"
         )
     return (
         "<div class='method-comparison-analytics'>"
-        f"<h2>{label('title')}</h2><p>{label('intro')}</p>"
+        f"<h2>{escape(table.title)}</h2><p>{escape(table.intro)}</p>"
         f"{content}</div>"
     )
 
 
-__all__ = ["method_comparison_html"]
+__all__ = [
+    "LocalizedMethodComparisonRow",
+    "LocalizedMethodComparisonTable",
+    "method_comparison_html",
+    "method_comparison_table",
+]
