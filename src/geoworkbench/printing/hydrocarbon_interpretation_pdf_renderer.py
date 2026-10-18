@@ -109,14 +109,18 @@ def render_hydrocarbon_interpretation_report(
     """Render one controlled multi-page report to QPdfWriter or QPrinter."""
 
     presentation_report = report_with_presentation_identity(report, identity)
-    if method_comparisons or geology_evidence:
-        evidence_kwargs = {}
-        if method_comparisons:
-            evidence_kwargs["method_comparisons"] = method_comparisons
-        if geology_evidence:
-            evidence_kwargs["geology_evidence"] = geology_evidence
+    if method_comparisons and geology_evidence:
         html = hydrocarbon_interpretation_html(
-            presentation_report, language, **evidence_kwargs,
+            presentation_report, language,
+            method_comparisons=method_comparisons, geology_evidence=geology_evidence,
+        )
+    elif method_comparisons:
+        html = hydrocarbon_interpretation_html(
+            presentation_report, language, method_comparisons=method_comparisons,
+        )
+    elif geology_evidence:
+        html = hydrocarbon_interpretation_html(
+            presentation_report, language, geology_evidence=geology_evidence,
         )
     else:
         html = hydrocarbon_interpretation_html(presentation_report, language)
