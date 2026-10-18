@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from functools import partial
+from html import escape
 from pathlib import Path
 from typing import Iterator
 
@@ -58,6 +59,13 @@ from geoworkbench.services.interpretation_method_comparison import (
     compare_standard_opus_reports,
 )
 from geoworkbench.services.interpretation_method_comparison_html import method_comparison_html
+from geoworkbench.services.interpretation_geology_interval_evidence import (
+    correlate_gas_interval_with_well_geology,
+)
+from geoworkbench.services.interpretation_geology_interval_evidence_html import (
+    geology_interval_evidence_html,
+)
+from geoworkbench.services.report_geology_snapshot import build_report_geology_snapshot
 
 
 class InterpretationReportWorkspace(QWidget):
@@ -80,6 +88,7 @@ class InterpretationReportWorkspace(QWidget):
         self._method_comparisons: tuple[MethodComparisonInterval, ...] = ()
         self._comparison_source_key: tuple[object, ...] | None = None
         self._comparison_dialog: QDialog | None = None
+        self._geology_evidence_dialog: QDialog | None = None
         self._export_in_progress = False
         self.setObjectName("interpretation-report-workspace")
         self.setStyleSheet(
@@ -302,6 +311,26 @@ class InterpretationReportWorkspace(QWidget):
         self.threshold.valueChanged.connect(self._clear_method_comparison)
         self.total_gas_lod.valueChanged.connect(self._clear_method_comparison)
         actions.addWidget(self.compare_methods_button)
+        self.geology_evidence_button = QPushButton(
+            self._text(
+                "Сопоставить газ с геологией…",
+                "Газды геологиямен салыстыру…",
+                "Compare gas with geology…",
+            )
+        )
+        self.geology_evidence_button.setObjectName("interpretation-geology-evidence-action")
+        self.geology_evidence_button.setToolTip(self._text(
+            "Только по запросу: MD-пересечения сохранённых шлама, ЛБА, "
+            "кальциметрии, литологии и стратиграфии. Без определения фазы.",
+            "Тек сұрау бойынша: MD бойымен сақталған геологиялық деректер. "
+            "Флюид фазасы анықталмайды.",
+            "On request: measured-depth intersections with saved geology; "
+            "no fluid phase determination.",
+        ))
+        self.geology_evidence_button.clicked.connect(self._show_geology_evidence)
+        self.threshold.valueChanged.connect(self._clear_geology_evidence)
+        self.total_gas_lod.valueChanged.connect(self._clear_geology_evidence)
+        actions.addWidget(self.geology_evidence_button)
         actions.addStretch(1)
         root.addLayout(actions)
 
@@ -350,11 +379,13 @@ class InterpretationReportWorkspace(QWidget):
     def refresh(self) -> None:
         # A recalculation, mode change or well change invalidates paired evidence.
         self._clear_method_comparison()
+        self._clear_geology_evidence()
         mixture_mode = self._is_mixture_mode()
         opus_mode = self._is_opus_mode()
         has_dataset = self.controller.session.current_dataset is not None
         self.calculate_button.setEnabled(has_dataset and not mixture_mode)
         self.compare_methods_button.setEnabled(has_dataset and not mixture_mode)
+        self.geology_evidence_button.setEnabled(has_dataset and not mixture_mode)
         self.calculate_button.setText(
             self._text("Рассчитать ОПУС", "ОПУС есептеу", "Calculate OPUS")
             if opus_mode
@@ -509,6 +540,15 @@ class InterpretationReportWorkspace(QWidget):
             dialog.close()
             dialog.deleteLater()
 
+    def _clear_geology_evidence(self) -> None:
+        """Discard transient evidence on recalculation or any input change."""
+
+        dialog = self._geology_evidence_dialog
+        self._geology_evidence_dialog = None
+        if dialog is not None:
+            dialog.close()
+            dialog.deleteLater()
+
     def _method_comparison_source_key(
         self, report: HydrocarbonInterpretationReport,
     ) -> tuple[object, ...] | None:
@@ -613,6 +653,92 @@ class InterpretationReportWorkspace(QWidget):
         dialog.resize(900, 540)
         self._comparison_dialog = dialog
         dialog.show()
+
+    def _show_geology_evidence(self) -> None:
+        """Expose measured MD intersections only after an operator click.
+
+        A single candidate is selected at a time; no thousands-row inference,
+        chart rewrites, automatic annotations or export-side effect occurs.
+        """
+
+        if self._is_mixture_mode() or self.controller.session.current_dataset is None:
+            return
+        # Rebuild against current settings exactly as the explicit method-comparison
+        # workflow does; never pair old candidate intervals with changed controls.
+        self.refresh()
+        report = self.report
+        if report is None:
+            return
+        if not report.candidates:
+            QMessageBox.information(
+                self,
+                self._text("Газ и геология", "Газ және геология", "Gas and geology"),
+                self._text(
+                    "В текущем отчёте нет кандидатных газовых интервалов.",
+                    "Ағымдағы есепте газдың кандидат аралықтары жоқ.",
+                    "The current report has no candidate gas intervals.",
+                ),
+            )
+            return
+        session = self.controller.session
+        well = session.current_well
+        dataset = session.current_dataset
+        source_key = self._method_comparison_source_key(report)
+        if well is None or dataset is None or source_key is None:
+            return
+        # Well geology is mutable in the editor. The digest guards a dialog's
+        # later selection against silently mixing multiple geological revisions.
+        geology_digest = build_report_geology_snapshot(session).geology_sha256
+        dialog = QDialog(self)
+        dialog.setObjectName("interpretation-geology-evidence-dialog")
+        dialog.setWindowTitle(
+            self._text("Газ и геология", "Газ және геология", "Gas and geology")
+        )
+        layout = QVBoxLayout(dialog)
+        selector = QComboBox(dialog)
+        selector.setObjectName("interpretation-geology-evidence-select")
+        for index, candidate in enumerate(report.candidates):
+            selector.addItem(
+                f"{candidate.top_depth:.2f}–{candidate.bottom_depth:.2f} "
+                f"{report.depth_unit} · {candidate.primary_mnemonic}",
+                index,
+            )
+        layout.addWidget(selector)
+        viewer = QTextBrowser(dialog)
+        viewer.setObjectName("interpretation-geology-evidence-content")
+        layout.addWidget(viewer)
+        self._geology_evidence_dialog = dialog
+
+        def update_candidate(index: int) -> None:
+            if not 0 <= index < len(report.candidates):
+                return
+            if (
+                session.current_well is not well
+                or session.current_dataset is not dataset
+                or self._method_comparison_source_key(report) != source_key
+                or build_report_geology_snapshot(session).geology_sha256 != geology_digest
+            ):
+                self._clear_geology_evidence()
+                return
+            candidate = report.candidates[index]
+            try:
+                evidence = correlate_gas_interval_with_well_geology(
+                    session,
+                    top_depth=candidate.top_depth,
+                    bottom_depth=candidate.bottom_depth,
+                )
+                html = geology_interval_evidence_html(
+                    evidence, self._report_output_language(),
+                )
+            except ValueError as exc:
+                html = f"<p>{escape(str(exc))}</p>"
+            viewer.setHtml(html)
+
+        selector.currentIndexChanged.connect(update_candidate)
+        update_candidate(0)
+        if self._geology_evidence_dialog is dialog:
+            dialog.resize(960, 580)
+            dialog.show()
 
     def _export_xlsx(self) -> None:
         report = self._require_report()
@@ -735,6 +861,7 @@ class InterpretationReportWorkspace(QWidget):
 
     def _apply_output_language(self) -> None:
         self._clear_method_comparison()
+        self._clear_geology_evidence()
         self._report_output_language_explicit = True
         if self._is_mixture_mode():
             self._apply_ramp_preview()
@@ -955,6 +1082,11 @@ class InterpretationReportWorkspace(QWidget):
         self.refresh()
 
     def _retranslate(self) -> None:
+        self.geology_evidence_button.setText(self._text(
+            "Сопоставить газ с геологией…",
+            "Газды геологиямен салыстыру…",
+            "Compare gas with geology…",
+        ))
         self.compare_methods_button.setText(self._text(
             "Сопоставить стандартный метод и ОПУС",
             "Стандартты әдіс пен ОПУС-ты салыстыру",
