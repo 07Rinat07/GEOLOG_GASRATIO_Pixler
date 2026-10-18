@@ -112,8 +112,7 @@ def _assert_word_contains_comparison(path: Path, language: AppLanguage) -> None:
     assert values == projection.rows[0].cells
 
 
-@pytest.mark.parametrize("language", list(AppLanguage))
-def test_operator_comparison_flows_into_real_word_export(
+def _assert_operator_comparison_flows_into_real_word_export(
     tmp_path: Path, qapp, monkeypatch: pytest.MonkeyPatch, language: AppLanguage,
 ) -> None:
     _ci_stage(f"begin real-word {language.value}")
@@ -155,8 +154,7 @@ def test_operator_comparison_flows_into_real_word_export(
     _ci_stage("after workspace close")
 
 
-@pytest.mark.parametrize("language", list(AppLanguage))
-def test_word_without_operator_comparison_preserves_legacy_kwargs(
+def _assert_word_without_operator_comparison_preserves_legacy_kwargs(
     tmp_path: Path, qapp, monkeypatch: pytest.MonkeyPatch, language: AppLanguage,
 ) -> None:
     workspace = _workspace(language)
@@ -181,8 +179,7 @@ def test_word_without_operator_comparison_preserves_legacy_kwargs(
     workspace.close()
 
 
-@pytest.mark.parametrize("invalidates", ("report", "dataset", "threshold"))
-def test_stale_comparison_fails_closed_for_word_export(
+def _assert_stale_comparison_fails_closed_for_word_export(
     tmp_path: Path, qapp, monkeypatch: pytest.MonkeyPatch, invalidates: str,
 ) -> None:
     workspace = _workspace()
@@ -237,3 +234,81 @@ def test_stale_comparison_fails_closed_for_word_export(
     assert workspace._comparison_source_key is None
     assert workspace._comparison_dialog is None
     workspace.close()
+
+
+# The Windows native-heavy runner isolates each top-level test function, not
+# parametrized invocations. Keep the same nine acceptance cases while giving
+# each real Qt workspace a fresh process. This mitigates the observed
+# 0xC0000005 GC/Qt crash; it does not close the native lifecycle issue #544.
+
+
+def test_operator_comparison_flows_into_real_word_export_ru(
+    tmp_path: Path, qapp, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_operator_comparison_flows_into_real_word_export(
+        tmp_path, qapp, monkeypatch, AppLanguage.RU,
+    )
+
+
+def test_operator_comparison_flows_into_real_word_export_kk(
+    tmp_path: Path, qapp, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_operator_comparison_flows_into_real_word_export(
+        tmp_path, qapp, monkeypatch, AppLanguage.KK,
+    )
+
+
+def test_operator_comparison_flows_into_real_word_export_en(
+    tmp_path: Path, qapp, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_operator_comparison_flows_into_real_word_export(
+        tmp_path, qapp, monkeypatch, AppLanguage.EN,
+    )
+
+
+def test_word_without_operator_comparison_preserves_legacy_kwargs_ru(
+    tmp_path: Path, qapp, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_word_without_operator_comparison_preserves_legacy_kwargs(
+        tmp_path, qapp, monkeypatch, AppLanguage.RU,
+    )
+
+
+def test_word_without_operator_comparison_preserves_legacy_kwargs_kk(
+    tmp_path: Path, qapp, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_word_without_operator_comparison_preserves_legacy_kwargs(
+        tmp_path, qapp, monkeypatch, AppLanguage.KK,
+    )
+
+
+def test_word_without_operator_comparison_preserves_legacy_kwargs_en(
+    tmp_path: Path, qapp, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_word_without_operator_comparison_preserves_legacy_kwargs(
+        tmp_path, qapp, monkeypatch, AppLanguage.EN,
+    )
+
+
+def test_stale_comparison_fails_closed_for_word_export_report(
+    tmp_path: Path, qapp, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_stale_comparison_fails_closed_for_word_export(
+        tmp_path, qapp, monkeypatch, "report",
+    )
+
+
+def test_stale_comparison_fails_closed_for_word_export_dataset(
+    tmp_path: Path, qapp, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_stale_comparison_fails_closed_for_word_export(
+        tmp_path, qapp, monkeypatch, "dataset",
+    )
+
+
+def test_stale_comparison_fails_closed_for_word_export_threshold(
+    tmp_path: Path, qapp, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_stale_comparison_fails_closed_for_word_export(
+        tmp_path, qapp, monkeypatch, "threshold",
+    )
