@@ -283,6 +283,10 @@ def _assert_queued_change_drops_comparison(
     def mutate_source() -> None:
         if change == "threshold":
             workspace.threshold.setValue(workspace.threshold.value() + 0.5)
+        elif change == "language":
+            index = workspace.report_output_language.findData(AppLanguage.EN)
+            assert index >= 0
+            workspace.report_output_language.setCurrentIndex(index)
         else:
             assert workspace.report is not None
             workspace.report = replace(workspace.report, generated_at="queued-revision")
@@ -298,12 +302,26 @@ def _assert_queued_change_drops_comparison(
     monkeypatch.setattr(readable, "export_readable_hydrocarbon_interpretation_xlsx", capture)
     monkeypatch.setattr(workspace, "_choose_target", lambda suffix, file_filter: target)
     monkeypatch.setattr(workspace, "_show_export_success", lambda path: None)
+    errors: list[Exception] = []
+    monkeypatch.setattr(workspace, "_show_export_error", errors.append)
     # _export_xlsx must not freeze comparison before the progress context
     # delivers the event; no test runner skips or UI signal suppression.
     QTimer.singleShot(0, mutate_source)
     workspace._export_xlsx()
-    assert len(calls) == 1
-    assert "method_comparisons" not in calls[0]
+    if change == "report":
+        # A report replaced mid-export must not produce even a legacy workbook
+        # from the obsolete report object.
+        assert calls == []
+        assert len(errors) == 1
+        assert "source changed" in str(errors[0])
+    else:
+        assert errors == []
+        assert len(calls) == 1
+        assert "method_comparisons" not in calls[0]
+        if change == "language":
+            assert calls[0]["language"] is AppLanguage.EN
+            # The passport uses the newly selected output language as well.
+            assert calls[0]["identity"] is not None
     assert workspace._method_comparisons == ()
     assert workspace._comparison_source_key is None
     workspace.close()
@@ -319,3 +337,10 @@ def test_queued_report_replacement_drops_comparison_before_xlsx_writer(
     qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _assert_queued_change_drops_comparison(qapp, tmp_path, monkeypatch, "report")
+
+
+
+def test_queued_language_change_uses_current_xlsx_language_without_comparison(
+    qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_queued_change_drops_comparison(qapp, tmp_path, monkeypatch, "language")
