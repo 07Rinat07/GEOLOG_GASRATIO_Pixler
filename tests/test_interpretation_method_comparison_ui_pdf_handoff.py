@@ -112,7 +112,7 @@ def _assert_real_pdf_handoff(
     assert target.read_bytes().startswith(b"%PDF")
     with fitz.open(target) as pdf:
         assert len(pdf) >= 1
-        text = re.sub(r"\\s+", " ", " ".join(page.get_text() for page in pdf))
+        text = re.sub(r"\s+", " ", " ".join(page.get_text() for page in pdf))
     assert status_text in text
     assert workspace._method_comparisons == (_comparison(),)
     sidecar = json.loads(passport_sidecar_path(target).read_text(encoding="utf-8"))
