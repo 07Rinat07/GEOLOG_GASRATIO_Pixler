@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import faulthandler
+import os
 from pathlib import Path
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile
 
 import pytest
+from PySide6.QtWidgets import QMessageBox
 
 from geoworkbench.services.interpretation_method_comparison_html import (
     method_comparison_table,
@@ -19,6 +22,52 @@ from test_interpretation_method_comparison_explicit_ui import _workspace
 
 
 _WORD = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+
+
+def _ci_stage(stage: str) -> None:
+    """Persist last reached Qt stage in the uploaded Windows Quality artifact."""
+
+    if not os.environ.get("CI"):
+        return
+    path = Path("build/ci-artifacts/quality/ui-docx-stage.txt")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as output:
+        output.write(stage + "\n")
+
+
+@pytest.fixture(autouse=True)
+def _dump_stack_if_gui_test_hangs():
+    """Bound newly added Qt/Word acceptance tests; never weaken CI failures."""
+
+    faulthandler.dump_traceback_later(35, exit=True)
+    try:
+        yield
+    finally:
+        faulthandler.cancel_dump_traceback_later()
+
+
+@pytest.fixture(autouse=True)
+def _never_open_blocking_qt_dialog(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Unexpected Qt modal dialogs must fail tests instead of timing out."""
+
+    def reject(_parent: object, title: str, message: str, *args: object, **kwargs: object) -> None:
+        del args, kwargs
+        pytest.fail(f"Unexpected blocking QMessageBox {title!r}: {message}")
+
+    for method in ("critical", "warning", "information", "question"):
+        monkeypatch.setattr(QMessageBox, method, reject)
+
+
+def _reject_modal_export_error(monkeypatch: pytest.MonkeyPatch, workspace: object) -> None:
+    """Surface a real export exception; never hang Windows CI behind QMessageBox."""
+
+    def reject(error: Exception) -> None:
+        pytest.fail(
+            f"Unexpected Word export error: {error!r}; "
+            f"underlying cause: {error.__cause__!r}"
+        )
+
+    monkeypatch.setattr(workspace, "_show_export_error", reject)
 
 
 def _assert_word_contains_comparison(path: Path, language: AppLanguage) -> None:
@@ -49,7 +98,9 @@ def _assert_word_contains_comparison(path: Path, language: AppLanguage) -> None:
 def test_operator_comparison_flows_into_real_word_export(
     tmp_path: Path, qapp, monkeypatch: pytest.MonkeyPatch, language: AppLanguage,
 ) -> None:
+    _ci_stage(f"begin real-word {language.value}")
     workspace = _workspace(language)
+    _ci_stage("workspace constructed")
     assert workspace.report is not None
 
     def companion_opus(session, **kwargs):
@@ -65,15 +116,24 @@ def test_operator_comparison_flows_into_real_word_export(
     target = tmp_path / "selected.docx"
     monkeypatch.setattr(workspace, "_choose_target", lambda suffix, file_filter: target)
     monkeypatch.setattr(workspace, "_show_export_success", lambda path: None)
+    _reject_modal_export_error(monkeypatch, workspace)
 
+    _ci_stage("before compare click")
     workspace.compare_methods_button.click()
     qapp.processEvents()
+    _ci_stage("after compare click")
     assert workspace._comparison_source_key is not None
+    _ci_stage("before docx export")
     workspace._export_docx()
+    _ci_stage("after docx export")
     assert target.exists()
+    _ci_stage("before docx XML inspection")
     _assert_word_contains_comparison(target, language)
+    _ci_stage("after docx XML inspection")
     assert workspace._method_comparisons == (_comparison(),)
+    _ci_stage("before workspace close")
     workspace.close()
+    _ci_stage("after workspace close")
 
 
 @pytest.mark.parametrize("language", list(AppLanguage))
@@ -84,6 +144,7 @@ def test_word_without_operator_comparison_preserves_legacy_kwargs(
     target = tmp_path / "normal.docx"
     monkeypatch.setattr(workspace, "_choose_target", lambda suffix, file_filter: target)
     monkeypatch.setattr(workspace, "_show_export_success", lambda path: None)
+    _reject_modal_export_error(monkeypatch, workspace)
     calls: list[dict[str, object]] = []
 
     def capture(report, path, **kwargs):
@@ -138,6 +199,7 @@ def test_stale_comparison_fails_closed_for_word_export(
     target = tmp_path / "stale.docx"
     monkeypatch.setattr(workspace, "_choose_target", lambda suffix, file_filter: target)
     monkeypatch.setattr(workspace, "_show_export_success", lambda path: None)
+    _reject_modal_export_error(monkeypatch, workspace)
     calls: list[dict[str, object]] = []
 
     def capture(report, path, **kwargs):

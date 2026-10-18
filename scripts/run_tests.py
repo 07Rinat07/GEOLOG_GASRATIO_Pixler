@@ -72,8 +72,9 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         # cases shared a process with earlier GUI tests. Give these cases a
         # clean subprocess without changing or skipping any assertions.
         "tests/test_report_document_control_docx_footer.py",
-        # UI→Word and UI→Excel renderers exercise Qt dialogs and real file
-        # exports; keep each acceptance function in a fresh native process.
+        # 39081611121: UI→Word acceptance stopped in a shared Qt shard even
+        # with a bounded faulthandler. Retain every RU/KK/EN and stale-source
+        # assertion, with a fresh QApplication/native heap per test function.
         "tests/test_interpretation_method_comparison_ui_docx_handoff.py",
         "tests/test_interpretation_method_comparison_ui_xlsx_handoff.py",
         # Release gate 38384970034 hit native heap corruption while enumerating
