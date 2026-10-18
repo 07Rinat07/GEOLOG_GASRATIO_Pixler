@@ -67,6 +67,9 @@ from geoworkbench.services.hydrocarbon_interpretation_gas_html import (
 )
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.interpretation_method_comparison import MethodComparisonInterval
+from geoworkbench.services.interpretation_geology_interval_evidence import (
+    GasGeologyIntervalEvidence,
+)
 
 
 def _ratio_reference_chart_rect(content: QRectF, phase_key_height: float) -> QRectF:
@@ -101,13 +104,19 @@ def render_hydrocarbon_interpretation_report(
     chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
     target_depth_per_page: float = 100.0,
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
+    geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
 ) -> None:
     """Render one controlled multi-page report to QPdfWriter or QPrinter."""
 
     presentation_report = report_with_presentation_identity(report, identity)
-    if method_comparisons:
+    if method_comparisons or geology_evidence:
+        evidence_kwargs = {}
+        if method_comparisons:
+            evidence_kwargs["method_comparisons"] = method_comparisons
+        if geology_evidence:
+            evidence_kwargs["geology_evidence"] = geology_evidence
         html = hydrocarbon_interpretation_html(
-            presentation_report, language, method_comparisons=method_comparisons,
+            presentation_report, language, **evidence_kwargs,
         )
     else:
         html = hydrocarbon_interpretation_html(presentation_report, language)
