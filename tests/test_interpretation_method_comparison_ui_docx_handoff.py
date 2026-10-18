@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import faulthandler
 from pathlib import Path
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile
@@ -20,6 +21,17 @@ from test_interpretation_method_comparison_explicit_ui import _workspace
 
 
 _WORD = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+
+
+@pytest.fixture(autouse=True)
+def _dump_stack_if_gui_test_hangs():
+    """Bound newly added Qt/Word acceptance tests; never weaken CI failures."""
+
+    faulthandler.dump_traceback_later(35, exit=True)
+    try:
+        yield
+    finally:
+        faulthandler.cancel_dump_traceback_later()
 
 
 @pytest.fixture(autouse=True)
