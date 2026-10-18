@@ -60,7 +60,11 @@ from geoworkbench.services.interpretation_method_comparison import (
 )
 from geoworkbench.services.interpretation_method_comparison_html import method_comparison_html
 from geoworkbench.services.interpretation_geology_interval_evidence import (
+    GasGeologyIntervalEvidence,
     correlate_gas_interval_with_well_geology,
+)
+from geoworkbench.services.interpretation_geology_evidence_export import (
+    verified_session_geology_evidence,
 )
 from geoworkbench.services.interpretation_geology_interval_evidence_html import (
     geology_interval_evidence_html,
@@ -89,6 +93,8 @@ class InterpretationReportWorkspace(QWidget):
         self._comparison_source_key: tuple[object, ...] | None = None
         self._comparison_dialog: QDialog | None = None
         self._geology_evidence_dialog: QDialog | None = None
+        self._geology_pdf_evidence: tuple[GasGeologyIntervalEvidence, ...] = ()
+        self._geology_pdf_source_key: tuple[object, ...] | None = None
         self._export_in_progress = False
         self.setObjectName("interpretation-report-workspace")
         self.setStyleSheet(
@@ -541,13 +547,36 @@ class InterpretationReportWorkspace(QWidget):
             dialog.deleteLater()
 
     def _clear_geology_evidence(self) -> None:
-        """Discard transient evidence on recalculation or any input change."""
+        """Revoke PDF opt-in as well as the dialog whenever inputs change."""
 
+        self._geology_pdf_evidence = ()
+        self._geology_pdf_source_key = None
         dialog = self._geology_evidence_dialog
         self._geology_evidence_dialog = None
         if dialog is not None:
             dialog.close()
             dialog.deleteLater()
+
+    def _geology_evidence_for_export(
+        self, report: HydrocarbonInterpretationReport,
+    ) -> tuple[GasGeologyIntervalEvidence, ...]:
+        """Fail closed on edits to the operator-confirmed MD source snapshot."""
+
+        selected = self._geology_pdf_evidence
+        if not selected:
+            return ()
+        source_key = self._method_comparison_source_key(report)
+        if source_key is None or source_key != self._geology_pdf_source_key:
+            self._clear_geology_evidence()
+            raise ValueError("Selected PDF geology source changed after confirmation")
+        try:
+            verified_session_geology_evidence(
+                self.controller.session, report, selected,
+            )
+        except ValueError:
+            self._clear_geology_evidence()
+            raise
+        return selected
 
     def _method_comparison_source_key(
         self, report: HydrocarbonInterpretationReport,
@@ -707,9 +736,27 @@ class InterpretationReportWorkspace(QWidget):
         viewer = QTextBrowser(dialog)
         viewer.setObjectName("interpretation-geology-evidence-content")
         layout.addWidget(viewer)
+        include_pdf = QPushButton(
+            self._text(
+                "Включить выбранные наблюдения в PDF",
+                "Таңдалған бақылауларды PDF-ке енгізу",
+                "Include selected observations in PDF",
+            ),
+            dialog,
+        )
+        include_pdf.setObjectName("interpretation-geology-include-in-pdf")
+        layout.addWidget(include_pdf)
         self._geology_evidence_dialog = dialog
 
         def update_candidate(index: int) -> None:
+            # A changed interval is not the one explicitly approved for PDF.
+            self._geology_pdf_evidence = ()
+            self._geology_pdf_source_key = None
+            include_pdf.setText(self._text(
+                "Включить выбранные наблюдения в PDF",
+                "Таңдалған бақылауларды PDF-ке енгізу",
+                "Include selected observations in PDF",
+            ))
             if not 0 <= index < len(report.candidates):
                 return
             if (
@@ -734,6 +781,44 @@ class InterpretationReportWorkspace(QWidget):
                 html = f"<p>{escape(str(exc))}</p>"
             viewer.setHtml(html)
 
+        def approve_for_pdf() -> None:
+            if self._geology_evidence_dialog is not dialog:
+                return
+            if (
+                session.current_well is not well
+                or session.current_dataset is not dataset
+                or self._method_comparison_source_key(report) != source_key
+                or build_report_geology_snapshot(session).geology_sha256 != geology_digest
+            ):
+                self._clear_geology_evidence()
+                return
+            index = selector.currentIndex()
+            if not 0 <= index < len(report.candidates):
+                return
+            candidate = report.candidates[index]
+            try:
+                observed = correlate_gas_interval_with_well_geology(
+                    session,
+                    top_depth=candidate.top_depth,
+                    bottom_depth=candidate.bottom_depth,
+                )
+                verified_session_geology_evidence(
+                    session, report, (observed,),
+                )
+            except ValueError as exc:
+                viewer.setHtml(f"<p>{escape(str(exc))}</p>")
+                self._geology_pdf_evidence = ()
+                self._geology_pdf_source_key = None
+                return
+            self._geology_pdf_evidence = (observed,)
+            self._geology_pdf_source_key = source_key
+            include_pdf.setText(self._text(
+                "Наблюдения выбраны для следующего PDF",
+                "Бақылаулар келесі PDF үшін таңдалды",
+                "Observations selected for next PDF",
+            ))
+
+        include_pdf.clicked.connect(approve_for_pdf)
         selector.currentIndexChanged.connect(update_candidate)
         update_candidate(0)
         if self._geology_evidence_dialog is dialog:
