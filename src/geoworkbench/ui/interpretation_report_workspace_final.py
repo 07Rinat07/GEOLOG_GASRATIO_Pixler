@@ -617,6 +617,8 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             return
         original_well_id = self.controller.session.current_well_id
         original_active_report = self.report
+        # Capture operator consent before any dialogs can dispatch Qt events.
+        confirmed_geology = self._geology_pdf_evidence
         geology = interpretation_geology_snapshot(self.controller.session)
 
         identity = self._select_report_identity(report)
@@ -671,13 +673,38 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                         "PDF report source changed during export preparation"
                     )
                 comparisons = self._method_comparisons_for_export(report)
-                pdf_exporter = (
-                    partial(
+                selected_geology = ()
+                if confirmed_geology:
+                    try:
+                        selected_geology = self._geology_evidence_for_export(report)
+                    except ValueError as exc:
+                        raise HydrocarbonInterpretationPdfError(
+                            "Operator-confirmed geology changed during PDF preparation"
+                        ) from exc
+                    if selected_geology != confirmed_geology:
+                        raise HydrocarbonInterpretationPdfError(
+                            "Operator-confirmed geology was revoked during PDF preparation"
+                        )
+                # The default path passes no new kwargs; selected geology only
+                # travels after the operator explicitly pressed Include in PDF.
+                if comparisons and selected_geology:
+                    pdf_exporter = partial(
+                        export_hydrocarbon_interpretation_pdf_with_passport,
+                        method_comparisons=comparisons,
+                        geology_evidence=selected_geology,
+                    )
+                elif comparisons:
+                    pdf_exporter = partial(
                         export_hydrocarbon_interpretation_pdf_with_passport,
                         method_comparisons=comparisons,
                     )
-                    if comparisons else export_hydrocarbon_interpretation_pdf_with_passport
-                )
+                elif selected_geology:
+                    pdf_exporter = partial(
+                        export_hydrocarbon_interpretation_pdf_with_passport,
+                        geology_evidence=selected_geology,
+                    )
+                else:
+                    pdf_exporter = export_hydrocarbon_interpretation_pdf_with_passport
                 export_result = pdf_exporter(
                     self.controller.session,
                     report,
