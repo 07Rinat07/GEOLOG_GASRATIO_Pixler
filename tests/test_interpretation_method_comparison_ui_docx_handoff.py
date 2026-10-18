@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 import faulthandler
+import os
 from pathlib import Path
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile
@@ -21,6 +22,17 @@ from test_interpretation_method_comparison_explicit_ui import _workspace
 
 
 _WORD = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+
+
+def _ci_stage(stage: str) -> None:
+    """Persist last reached Qt stage in the uploaded Windows Quality artifact."""
+
+    if not os.environ.get("CI"):
+        return
+    path = Path("build/ci-artifacts/quality/ui-docx-stage.txt")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as output:
+        output.write(stage + "\n")
 
 
 @pytest.fixture(autouse=True)
@@ -86,7 +98,9 @@ def _assert_word_contains_comparison(path: Path, language: AppLanguage) -> None:
 def test_operator_comparison_flows_into_real_word_export(
     tmp_path: Path, qapp, monkeypatch: pytest.MonkeyPatch, language: AppLanguage,
 ) -> None:
+    _ci_stage(f"begin real-word {language.value}")
     workspace = _workspace(language)
+    _ci_stage("workspace constructed")
     assert workspace.report is not None
 
     def companion_opus(session, **kwargs):
@@ -104,14 +118,22 @@ def test_operator_comparison_flows_into_real_word_export(
     monkeypatch.setattr(workspace, "_show_export_success", lambda path: None)
     _reject_modal_export_error(monkeypatch, workspace)
 
+    _ci_stage("before compare click")
     workspace.compare_methods_button.click()
     qapp.processEvents()
+    _ci_stage("after compare click")
     assert workspace._comparison_source_key is not None
+    _ci_stage("before docx export")
     workspace._export_docx()
+    _ci_stage("after docx export")
     assert target.exists()
+    _ci_stage("before docx XML inspection")
     _assert_word_contains_comparison(target, language)
+    _ci_stage("after docx XML inspection")
     assert workspace._method_comparisons == (_comparison(),)
+    _ci_stage("before workspace close")
     workspace.close()
+    _ci_stage("after workspace close")
 
 
 @pytest.mark.parametrize("language", list(AppLanguage))
