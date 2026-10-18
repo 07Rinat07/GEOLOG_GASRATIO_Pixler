@@ -63,6 +63,13 @@ from geoworkbench.services.report_passport import (
 )
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.interpretation_method_comparison import MethodComparisonInterval
+from geoworkbench.services.interpretation_geology_interval_evidence import (
+    GasGeologyIntervalEvidence,
+)
+from geoworkbench.services.interpretation_geology_evidence_export import (
+    verified_report_geology_evidence,
+    verified_session_geology_evidence,
+)
 from geoworkbench.printing.report_preview_overlays import write_annotated_preview_pdf
 from geoworkbench.services.report_preview_marks import (
     PreviewMark,
@@ -99,12 +106,17 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
     target_depth_per_page: float = 100.0,
     include_preview_marks: bool = False,
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
+    geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
     overwrite: bool = False,
 ) -> ReportOutputTransactionResult:
     labels = hydrocarbon_report_print_labels(language)
     dataset = session.current_dataset
     if dataset is None:
         raise HydrocarbonInterpretationPdfError(labels.pdf_passport_dataset_required)
+    try:
+        verified_session_geology_evidence(session, report, geology_evidence)
+    except ValueError as exc:
+        raise HydrocarbonInterpretationPdfError(str(exc)) from exc
     if not isinstance(include_preview_marks, bool):
         raise HydrocarbonInterpretationPdfError("Invalid report preview export selection")
     # Only the normal report exporter opts in. Full preview overlays the marks
@@ -171,6 +183,8 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
     render_options = (*render_options, ("target_depth_per_page", str(target_depth_per_page)))
     if method_comparisons:
         render_options = (*render_options, ("method_comparison_intervals", str(len(method_comparisons))))
+    if geology_evidence:
+        render_options = (*render_options, ("measured_geology_intervals", str(len(geology_evidence))))
     if annotations:
         render_options = (*render_options, ("report_annotations", str(len(annotations))))
     if preview_marks:
@@ -207,9 +221,14 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
         # fingerprints the output, including the optional passport sidecar.
         unmarked = staged.with_name(f".unmarked-{staged.name}") if preview_marks else staged
         try:
+            options = {}
+            if method_comparisons:
+                options["method_comparisons"] = method_comparisons
+            if geology_evidence:
+                options["geology_evidence"] = geology_evidence
             export_pdf = (
-                partial(export_hydrocarbon_interpretation_pdf, method_comparisons=method_comparisons)
-                if method_comparisons else export_hydrocarbon_interpretation_pdf
+                partial(export_hydrocarbon_interpretation_pdf, **options)
+                if options else export_hydrocarbon_interpretation_pdf
             )
             export_pdf(
                 report,
@@ -285,9 +304,14 @@ def export_hydrocarbon_interpretation_pdf(
     chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
     target_depth_per_page: float = 100.0,
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
+    geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
     overwrite: bool = False,
 ) -> Path:
     labels = hydrocarbon_report_print_labels(language)
+    try:
+        verified_report_geology_evidence(report, geology_evidence)
+    except ValueError as exc:
+        raise HydrocarbonInterpretationPdfError(str(exc)) from exc
     destination = Path(target)
     if destination.suffix.casefold() != ".pdf":
         destination = destination.with_suffix(".pdf")
@@ -338,9 +362,14 @@ def export_hydrocarbon_interpretation_pdf(
         writer.setTitle(details.report_title)
         writer.setCreator(REPORT_BRAND_WORDMARK)
 
+        html_kwargs = {}
         if method_comparisons:
+            html_kwargs["method_comparisons"] = method_comparisons
+        if geology_evidence:
+            html_kwargs["geology_evidence"] = geology_evidence
+        if html_kwargs:
             html = hydrocarbon_interpretation_html(
-                effective_report, language, method_comparisons=method_comparisons,
+                effective_report, language, **html_kwargs,
             )
         else:
             html = hydrocarbon_interpretation_html(effective_report, language)
@@ -390,9 +419,14 @@ def export_hydrocarbon_interpretation_pdf(
                 unicode_report.error_message(language=language)
             )
 
+        renderer_kwargs = {}
+        if method_comparisons:
+            renderer_kwargs["method_comparisons"] = method_comparisons
+        if geology_evidence:
+            renderer_kwargs["geology_evidence"] = geology_evidence
         pdf_renderer = (
-            partial(render_hydrocarbon_interpretation_report, method_comparisons=method_comparisons)
-            if method_comparisons else render_hydrocarbon_interpretation_report
+            partial(render_hydrocarbon_interpretation_report, **renderer_kwargs)
+            if renderer_kwargs else render_hydrocarbon_interpretation_report
         )
         pdf_renderer(
             writer,
