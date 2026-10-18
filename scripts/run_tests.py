@@ -82,6 +82,8 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         "tests/test_interpretation_method_comparison_ui_pdf_handoff.py",
         # Native Qt spooler/driver-dialog lifetimes must be isolated (#544).
         "tests/test_interpretation_method_comparison_ui_print_handoff.py",
+        # Qt modeless geology-evidence dialogs are isolated by test function (#544).
+        "tests/test_interpretation_geology_evidence_operator_ui.py",
         # Real HTML/PDF/DOCX/XLSX acceptance owns Qt and Office native objects;
         # isolate each case due to the known Windows native lifecycle issue #544.
         "tests/test_interpretation_method_comparison_cross_format_acceptance.py",
