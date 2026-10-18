@@ -88,6 +88,7 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         "tests/test_interpretation_geology_evidence_signed_pdf.py",
         # Production Qt dialog + signed PDF output are native-heavy (#544).
         "tests/test_interpretation_geology_evidence_ui_pdf_handoff.py",
+        "tests/test_interpretation_geology_evidence_ui_word_handoff.py",
         # Real HTML/PDF/DOCX/XLSX acceptance owns Qt and Office native objects;
         # isolate each case due to the known Windows native lifecycle issue #544.
         "tests/test_interpretation_method_comparison_cross_format_acceptance.py",
