@@ -992,6 +992,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if dataset is None:
             return
         original_well_id = self.controller.session.current_well_id
+        original_active_report = self.report
         target = self._choose_target(".xlsx", "Excel (*.xlsx)")
         if target is None:
             return
@@ -1010,7 +1011,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 # Target selection and progress startup can deliver queued Qt
                 # events. Never write an old report for a newly selected well.
                 if (
-                    self.report is not report
+                    self.report is not original_active_report
                     or self.controller.session.current_dataset is not dataset
                     or self.controller.session.current_well_id != original_well_id
                 ):
