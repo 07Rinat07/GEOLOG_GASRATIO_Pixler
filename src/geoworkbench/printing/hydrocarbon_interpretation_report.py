@@ -221,15 +221,24 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
         # fingerprints the output, including the optional passport sidecar.
         unmarked = staged.with_name(f".unmarked-{staged.name}") if preview_marks else staged
         try:
-            options = {}
-            if method_comparisons:
-                options["method_comparisons"] = method_comparisons
-            if geology_evidence:
-                options["geology_evidence"] = geology_evidence
-            export_pdf = (
-                partial(export_hydrocarbon_interpretation_pdf, **options)
-                if options else export_hydrocarbon_interpretation_pdf
-            )
+            if method_comparisons and geology_evidence:
+                export_pdf = partial(
+                    export_hydrocarbon_interpretation_pdf,
+                    method_comparisons=method_comparisons,
+                    geology_evidence=geology_evidence,
+                )
+            elif method_comparisons:
+                export_pdf = partial(
+                    export_hydrocarbon_interpretation_pdf,
+                    method_comparisons=method_comparisons,
+                )
+            elif geology_evidence:
+                export_pdf = partial(
+                    export_hydrocarbon_interpretation_pdf,
+                    geology_evidence=geology_evidence,
+                )
+            else:
+                export_pdf = export_hydrocarbon_interpretation_pdf
             export_pdf(
                 report,
                 unmarked,
@@ -362,14 +371,18 @@ def export_hydrocarbon_interpretation_pdf(
         writer.setTitle(details.report_title)
         writer.setCreator(REPORT_BRAND_WORDMARK)
 
-        html_kwargs = {}
-        if method_comparisons:
-            html_kwargs["method_comparisons"] = method_comparisons
-        if geology_evidence:
-            html_kwargs["geology_evidence"] = geology_evidence
-        if html_kwargs:
+        if method_comparisons and geology_evidence:
             html = hydrocarbon_interpretation_html(
-                effective_report, language, **html_kwargs,
+                effective_report, language,
+                method_comparisons=method_comparisons, geology_evidence=geology_evidence,
+            )
+        elif method_comparisons:
+            html = hydrocarbon_interpretation_html(
+                effective_report, language, method_comparisons=method_comparisons,
+            )
+        elif geology_evidence:
+            html = hydrocarbon_interpretation_html(
+                effective_report, language, geology_evidence=geology_evidence,
             )
         else:
             html = hydrocarbon_interpretation_html(effective_report, language)
@@ -419,15 +432,24 @@ def export_hydrocarbon_interpretation_pdf(
                 unicode_report.error_message(language=language)
             )
 
-        renderer_kwargs = {}
-        if method_comparisons:
-            renderer_kwargs["method_comparisons"] = method_comparisons
-        if geology_evidence:
-            renderer_kwargs["geology_evidence"] = geology_evidence
-        pdf_renderer = (
-            partial(render_hydrocarbon_interpretation_report, **renderer_kwargs)
-            if renderer_kwargs else render_hydrocarbon_interpretation_report
-        )
+        if method_comparisons and geology_evidence:
+            pdf_renderer = partial(
+                render_hydrocarbon_interpretation_report,
+                method_comparisons=method_comparisons,
+                geology_evidence=geology_evidence,
+            )
+        elif method_comparisons:
+            pdf_renderer = partial(
+                render_hydrocarbon_interpretation_report,
+                method_comparisons=method_comparisons,
+            )
+        elif geology_evidence:
+            pdf_renderer = partial(
+                render_hydrocarbon_interpretation_report,
+                geology_evidence=geology_evidence,
+            )
+        else:
+            pdf_renderer = render_hydrocarbon_interpretation_report
         pdf_renderer(
             writer,
             effective_report,
