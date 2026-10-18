@@ -3,6 +3,7 @@ from __future__ import annotations
 from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import chart_panel_render_options
 
 from dataclasses import replace
+from functools import partial
 import logging
 from pathlib import Path
 import tempfile
@@ -1018,7 +1019,18 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     "Building Excel report…",
                 )
             ):
-                exported = export_readable_hydrocarbon_interpretation_xlsx(
+                # The progress context drains queued Qt events. Validate only
+                # afterwards, so a queued input/language change cannot export
+                # evidence confirmed for the previous source.
+                comparisons = self._method_comparisons_for_export(report)
+                workbook_exporter = (
+                    partial(
+                        export_readable_hydrocarbon_interpretation_xlsx,
+                        method_comparisons=comparisons,
+                    )
+                    if comparisons else export_readable_hydrocarbon_interpretation_xlsx
+                )
+                exported = workbook_exporter(
                     report,
                     dataset,
                     target,
