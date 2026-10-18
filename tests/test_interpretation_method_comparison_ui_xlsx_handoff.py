@@ -49,15 +49,7 @@ def _ci_stage(stage: str) -> None:
         output.write(stage + "\n")
 
 
-@pytest.mark.parametrize(
-    ("language", "sheet_name"),
-    (
-        (AppLanguage.RU, "Сравнение методов"),
-        (AppLanguage.KK, "Әдістерді салыстыру"),
-        (AppLanguage.EN, "Method comparison"),
-    ),
-)
-def test_explicit_comparison_included_in_real_readable_xlsx(
+def _assert_explicit_comparison_included_in_real_readable_xlsx(
     tmp_path: Path,
     qapp,
     monkeypatch: pytest.MonkeyPatch,
@@ -114,8 +106,7 @@ def test_explicit_comparison_included_in_real_readable_xlsx(
     _ci_stage("after workspace close")
 
 
-@pytest.mark.parametrize("language", list(AppLanguage))
-def test_default_ui_workbook_keeps_legacy_export_arguments(
+def _assert_default_ui_workbook_keeps_legacy_export_arguments(
     qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, language: AppLanguage,
 ) -> None:
     workspace = _workspace(language)
@@ -138,8 +129,7 @@ def test_default_ui_workbook_keeps_legacy_export_arguments(
     workspace.close()
 
 
-@pytest.mark.parametrize("change", ("report", "dataset", "threshold"))
-def test_stale_pair_never_reaches_xlsx_export(
+def _assert_stale_pair_never_reaches_xlsx_export(
     qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, change: str,
 ) -> None:
     workspace = _workspace()
@@ -187,3 +177,80 @@ def test_stale_pair_never_reaches_xlsx_export(
     assert workspace._method_comparisons == ()
     assert workspace._comparison_source_key is None
     workspace.close()
+
+
+# One real Qt workspace per test process on the Windows native-heavy runner.
+# Preserve all nine RU/KK/EN, legacy-kwargs and stale-input assertions.
+# Native 0xC0000005 remains tracked independently as issue #544.
+
+
+def test_explicit_comparison_included_in_real_readable_xlsx_ru(
+    tmp_path: Path, qapp, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_explicit_comparison_included_in_real_readable_xlsx(
+        tmp_path, qapp, monkeypatch, AppLanguage.RU, "Сравнение методов",
+    )
+
+
+def test_explicit_comparison_included_in_real_readable_xlsx_kk(
+    tmp_path: Path, qapp, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_explicit_comparison_included_in_real_readable_xlsx(
+        tmp_path, qapp, monkeypatch, AppLanguage.KK, "Әдістерді салыстыру",
+    )
+
+
+def test_explicit_comparison_included_in_real_readable_xlsx_en(
+    tmp_path: Path, qapp, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_explicit_comparison_included_in_real_readable_xlsx(
+        tmp_path, qapp, monkeypatch, AppLanguage.EN, "Method comparison",
+    )
+
+
+def test_default_ui_workbook_keeps_legacy_export_arguments_ru(
+    qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_default_ui_workbook_keeps_legacy_export_arguments(
+        qapp, tmp_path, monkeypatch, AppLanguage.RU,
+    )
+
+
+def test_default_ui_workbook_keeps_legacy_export_arguments_kk(
+    qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_default_ui_workbook_keeps_legacy_export_arguments(
+        qapp, tmp_path, monkeypatch, AppLanguage.KK,
+    )
+
+
+def test_default_ui_workbook_keeps_legacy_export_arguments_en(
+    qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_default_ui_workbook_keeps_legacy_export_arguments(
+        qapp, tmp_path, monkeypatch, AppLanguage.EN,
+    )
+
+
+def test_stale_pair_never_reaches_xlsx_export_report(
+    qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_stale_pair_never_reaches_xlsx_export(
+        qapp, tmp_path, monkeypatch, "report",
+    )
+
+
+def test_stale_pair_never_reaches_xlsx_export_dataset(
+    qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_stale_pair_never_reaches_xlsx_export(
+        qapp, tmp_path, monkeypatch, "dataset",
+    )
+
+
+def test_stale_pair_never_reaches_xlsx_export_threshold(
+    qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_stale_pair_never_reaches_xlsx_export(
+        qapp, tmp_path, monkeypatch, "threshold",
+    )
