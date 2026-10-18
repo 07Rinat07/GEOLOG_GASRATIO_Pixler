@@ -16,6 +16,10 @@ from geoworkbench.services.interpretation_method_comparison_html import (
     method_comparison_table,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
+    default_interpretation_report_identity,
+)
+from geoworkbench.ui import interpretation_report_workspace_drilling as drilling
 from geoworkbench.ui import interpretation_report_workspace_legacy as legacy
 from test_interpretation_method_comparison_chart_html import _comparison
 from test_interpretation_method_comparison_explicit_ui import _workspace
@@ -56,6 +60,20 @@ def _never_open_blocking_qt_dialog(monkeypatch: pytest.MonkeyPatch) -> None:
 
     for method in ("critical", "warning", "information", "question"):
         monkeypatch.setattr(QMessageBox, method, reject)
+
+
+def _mock_report_details_dialog(monkeypatch: pytest.MonkeyPatch, workspace) -> None:
+    """Real polished export requests report identity before showing file picker."""
+
+    monkeypatch.setattr(
+        workspace,
+        "_select_report_identity",
+        lambda report: default_interpretation_report_identity(
+            report,
+            workspace._report_output_language(),
+            interval=workspace._report_interval(report),
+        ),
+    )
 
 
 def _reject_modal_export_error(monkeypatch: pytest.MonkeyPatch, workspace: object) -> None:
@@ -116,6 +134,7 @@ def test_operator_comparison_flows_into_real_word_export(
     target = tmp_path / "selected.docx"
     monkeypatch.setattr(workspace, "_choose_target", lambda suffix, file_filter: target)
     monkeypatch.setattr(workspace, "_show_export_success", lambda path: None)
+    _mock_report_details_dialog(monkeypatch, workspace)
     _reject_modal_export_error(monkeypatch, workspace)
 
     _ci_stage("before compare click")
@@ -144,6 +163,7 @@ def test_word_without_operator_comparison_preserves_legacy_kwargs(
     target = tmp_path / "normal.docx"
     monkeypatch.setattr(workspace, "_choose_target", lambda suffix, file_filter: target)
     monkeypatch.setattr(workspace, "_show_export_success", lambda path: None)
+    _mock_report_details_dialog(monkeypatch, workspace)
     _reject_modal_export_error(monkeypatch, workspace)
     calls: list[dict[str, object]] = []
 
@@ -152,7 +172,7 @@ def test_word_without_operator_comparison_preserves_legacy_kwargs(
         calls.append(kwargs)
         return path
 
-    monkeypatch.setattr(legacy, "export_hydrocarbon_interpretation_docx", capture)
+    monkeypatch.setattr(drilling, "export_polished_hydrocarbon_interpretation_docx", capture)
     workspace._export_docx()
     assert len(calls) == 1
     assert "method_comparisons" not in calls[0]
@@ -197,8 +217,10 @@ def test_stale_comparison_fails_closed_for_word_export(
         workspace.threshold.blockSignals(False)
 
     target = tmp_path / "stale.docx"
+    _mock_report_details_dialog(monkeypatch, workspace)
     monkeypatch.setattr(workspace, "_choose_target", lambda suffix, file_filter: target)
     monkeypatch.setattr(workspace, "_show_export_success", lambda path: None)
+    _mock_report_details_dialog(monkeypatch, workspace)
     _reject_modal_export_error(monkeypatch, workspace)
     calls: list[dict[str, object]] = []
 
@@ -207,7 +229,7 @@ def test_stale_comparison_fails_closed_for_word_export(
         calls.append(kwargs)
         return path
 
-    monkeypatch.setattr(legacy, "export_hydrocarbon_interpretation_docx", capture)
+    monkeypatch.setattr(drilling, "export_polished_hydrocarbon_interpretation_docx", capture)
     workspace._export_docx()
     assert len(calls) == 1
     assert "method_comparisons" not in calls[0]
