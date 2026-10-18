@@ -7,6 +7,7 @@ correlation service; no LAS, well or gas report is read or mutated here.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from html import escape
 from math import isfinite
 
@@ -100,11 +101,23 @@ _KINDS: dict[EvidenceKind, dict[AppLanguage, str]] = {
 }
 
 
-def geology_interval_evidence_html(
+@dataclass(frozen=True, slots=True)
+class GeologyEvidenceTable:
+    title: str
+    intro: str
+    interval: str
+    coverage_title: str
+    coverage_headings: tuple[str, ...]
+    coverage_rows: tuple[tuple[str, ...], ...]
+    headings: tuple[str, ...]
+    rows: tuple[tuple[str, ...], ...]
+
+
+def geology_interval_evidence_table(
     evidence: GasGeologyIntervalEvidence,
     language: AppLanguage = AppLanguage.RU,
-) -> str:
-    """Render a bounded, escaped view of one already verified MD snapshot.
+) -> GeologyEvidenceTable:
+    """Project a bounded, escaped view of one already verified MD snapshot.
 
     Zero *coverage* displays as unavailable rather than as a false negative.
     A measured zero carbonate value remains visible as '0'. Coverage is a
@@ -125,62 +138,65 @@ def geology_interval_evidence_html(
     def interval(low: float, high: float) -> str:
         return f"{fmt(low)}–{fmt(high)} m"
 
-    def td(value: object) -> str:
-        return f"<td>{escape(str(value))}</td>"
-
-    coverage_rows: list[str] = []
+    coverage_rows: list[tuple[str, ...]] = []
     for kind, fraction in evidence.coverage_by_kind:
         if kind not in _KINDS or not isfinite(fraction) or not 0.0 <= fraction <= 1.0:
             raise ValueError("Invalid measured geology coverage entry")
         result = f"{100.0 * fraction:.1f}%" if fraction > 0.0 else words["none"]
         coverage_rows.append(
-            f"<tr>{td(_KINDS[kind][language])}{td(result)}</tr>"
+            (_KINDS[kind][language], result)
         )
 
-    observed_rows: list[str] = []
+    observed_rows: list[tuple[str, ...]] = []
     for item in evidence.intersections:
         if item.kind not in _KINDS or not (
             evidence.gas_top <= item.overlap_top < item.overlap_bottom <= evidence.gas_bottom
         ):
             raise ValueError("Evidence observation is outside the requested gas interval")
         measurements = "; ".join(f"{key}: {value}" for key, value in item.attributes)
-        observed_rows.append(
-            "<tr>" + "".join((
-                td(_KINDS[item.kind][language]),
-                td(item.source_id),
-                td(interval(item.source_top, item.source_bottom)),
-                td(interval(item.overlap_top, item.overlap_bottom)),
-                td(measurements),
-            )) + "</tr>"
+        observed_rows.append((
+            _KINDS[item.kind][language], item.source_id,
+            interval(item.source_top, item.source_bottom),
+            interval(item.overlap_top, item.overlap_bottom), measurements,
+        ))
+    return GeologyEvidenceTable(
+        words["title"], words["intro"],
+        f"{words['interval']}: {interval(evidence.gas_top, evidence.gas_bottom)}",
+        words["coverage"], (words["kind"], words["measured"]), tuple(coverage_rows),
+        tuple(words[name] for name in ("kind", "source", "bounds", "overlap", "observed")),
+        tuple(observed_rows),
+    )
+
+
+def geology_interval_evidence_html(
+    evidence: GasGeologyIntervalEvidence,
+    language: AppLanguage = AppLanguage.RU,
+) -> str:
+    presentation = geology_interval_evidence_table(evidence, language)
+
+    def table(headings: tuple[str, ...], rows: tuple[tuple[str, ...], ...]) -> str:
+        return (
+            "<table><thead><tr>"
+            + "".join(f"<th>{escape(cell)}</th>" for cell in headings)
+            + "</tr></thead><tbody>"
+            + "".join("<tr>" + "".join(f"<td>{escape(cell)}</td>" for cell in row) + "</tr>" for row in rows)
+            + ("" if rows else f"<tr><td colspan='5'>{escape(_LABELS[language]['none'])}</td></tr>")
+            + "</tbody></table>"
         )
 
     head = (
         "<section class='gas-geology-evidence' data-axis='MD' "
         f"data-axis-id='{escape(evidence.depth_axis_id, quote=True)}' "
         f"data-dataset-id='{escape(evidence.dataset_id, quote=True)}'>"
-        f"<h2>{escape(words['title'])}</h2>"
-        f"<p>{escape(words['intro'])}</p>"
-        f"<p>{escape(words['interval'])}: "
-        f"{escape(interval(evidence.gas_top, evidence.gas_bottom))}</p>"
+        f"<h2>{escape(presentation.title)}</h2>"
+        f"<p>{escape(presentation.intro)}</p>"
+        f"<p>{escape(presentation.interval)}</p>"
     )
-    overview = (
-        f"<h3>{escape(words['coverage'])}</h3><table><thead><tr>"
-        f"<th>{escape(words['kind'])}</th><th>{escape(words['measured'])}</th>"
-        "</tr></thead><tbody>" + "".join(coverage_rows) + "</tbody></table>"
+    return (
+        head + f"<h3>{escape(presentation.coverage_title)}</h3>"
+        + table(presentation.coverage_headings, presentation.coverage_rows)
+        + table(presentation.headings, presentation.rows) + "</section>"
     )
-    observations = (
-        "<table><thead><tr>"
-        + "".join(
-            f"<th>{escape(words[name])}</th>"
-            for name in ("kind", "source", "bounds", "overlap", "observed")
-        )
-        + "</tr></thead><tbody>"
-        + ("".join(observed_rows) if observed_rows else (
-            f"<tr><td colspan='5'>{escape(words['none'])}</td></tr>"
-        ))
-        + "</tbody></table>"
-    )
-    return head + overview + observations + "</section>"
 
 
-__all__ = ["geology_interval_evidence_html"]
+__all__ = ["geology_interval_evidence_html", "geology_interval_evidence_table"]
