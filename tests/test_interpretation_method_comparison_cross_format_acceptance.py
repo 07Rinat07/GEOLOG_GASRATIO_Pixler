@@ -18,7 +18,6 @@ from zipfile import ZipFile
 import fitz
 import numpy as np
 from openpyxl import load_workbook
-import pytest
 
 from geoworkbench.data.hydrocarbon_interpretation_export_docx_polished import (
     export_polished_hydrocarbon_interpretation_docx,
@@ -113,7 +112,8 @@ def _check_one_snapshot_in_all_formats(tmp_path: Path, language: AppLanguage) ->
 
     assert _docx_table_cells(word, projection.headings) == projection.rows[0].cells
 
-    with load_workbook(xlsx, read_only=False, data_only=False) as book:
+    book = load_workbook(xlsx, read_only=False, data_only=False)
+    try:
         sheet = book[_SHEET[language]]
         assert tuple(sheet.cell(1, i).value for i in range(1, 6)) == projection.headings
         assert tuple(sheet.cell(2, i).value for i in range(1, 6)) == projection.rows[0].cells
@@ -121,6 +121,8 @@ def _check_one_snapshot_in_all_formats(tmp_path: Path, language: AppLanguage) ->
         assert sheet["G2"].value == comparison.reason_schema_version
         assert sheet.column_dimensions["F"].hidden
         assert sheet.column_dimensions["G"].hidden
+    finally:
+        book.close()
 
     sidecar = json.loads(
         passport_sidecar_path(pdf.primary_path).read_text(encoding="utf-8")
@@ -184,8 +186,11 @@ def test_no_operator_snapshot_stays_out_of_all_output_formats(tmp_path, qapp) ->
         root = ET.fromstring(package.read("word/document.xml"))
     word_text = " ".join(node.text or "" for node in root.iter(_WORD + "t"))
     assert expected.title not in word_text
-    with load_workbook(xlsx) as book:
+    book = load_workbook(xlsx)
+    try:
         assert _SHEET[language] not in book.sheetnames
+    finally:
+        book.close()
     sidecar = json.loads(
         passport_sidecar_path(pdf.primary_path).read_text(encoding="utf-8")
     )
