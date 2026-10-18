@@ -7,7 +7,7 @@ from functools import partial
 import os
 from pathlib import Path
 import tempfile
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from PySide6.QtCore import QMarginsF
 from PySide6.QtGui import QPageLayout, QPageSize, QPdfWriter
@@ -221,6 +221,7 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
         # fingerprints the output, including the optional passport sidecar.
         unmarked = staged.with_name(f".unmarked-{staged.name}") if preview_marks else staged
         try:
+            export_pdf: Callable[..., Path]
             if method_comparisons and geology_evidence:
                 export_pdf = partial(
                     export_hydrocarbon_interpretation_pdf,
@@ -432,6 +433,7 @@ def export_hydrocarbon_interpretation_pdf(
                 unicode_report.error_message(language=language)
             )
 
+        pdf_renderer: Callable[..., None]
         if method_comparisons and geology_evidence:
             pdf_renderer = partial(
                 render_hydrocarbon_interpretation_report,
