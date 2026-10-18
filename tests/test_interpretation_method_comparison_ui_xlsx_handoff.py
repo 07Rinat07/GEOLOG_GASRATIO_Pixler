@@ -127,6 +127,7 @@ def _assert_default_ui_workbook_keeps_legacy_export_arguments(
     assert "method_comparisons" not in calls[0]
     assert calls[0]["language"] is language
     assert calls[0]["identity"] is not None
+    assert calls[0]["progress"] == workspace._update_report_export_progress
     workspace.close()
 
 
@@ -344,3 +345,54 @@ def test_queued_language_change_uses_current_xlsx_language_without_comparison(
     qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _assert_queued_change_drops_comparison(qapp, tmp_path, monkeypatch, "language")
+
+
+
+def test_xlsx_progress_rejects_queued_comparison_change_before_atomic_save(
+    qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Do not commit a once-verified comparison after progress pumps Qt events."""
+
+    workspace = _workspace()
+    assert workspace.report is not None
+
+    def opus(session, **kwargs):
+        del session, kwargs
+        assert workspace.report is not None
+        return replace(workspace.report, report_profile="opus")
+
+    monkeypatch.setattr(legacy, "build_opus_interpretation_report", opus)
+    monkeypatch.setattr(
+        legacy, "compare_standard_opus_reports",
+        lambda standard, companion: (_comparison(),),
+    )
+    workspace.compare_methods_button.click()
+    qapp.processEvents()
+    assert workspace._method_comparisons == (_comparison(),)
+
+    target = tmp_path / "must-not-be-written.xlsx"
+    errors: list[Exception] = []
+    successes: list[Path] = []
+
+    def simulate_export(report, dataset, path, **kwargs):
+        del report, dataset, path
+        assert kwargs["method_comparisons"] == (_comparison(),)
+        callback = kwargs["progress"]
+        assert callable(callback)
+        QTimer.singleShot(
+            0, lambda: workspace.threshold.setValue(workspace.threshold.value() + 0.5),
+        )
+        callback("Writing", 20, 100)
+        pytest.fail("The stale source must raise before the workbook is saved")
+
+    monkeypatch.setattr(readable, "export_readable_hydrocarbon_interpretation_xlsx", simulate_export)
+    monkeypatch.setattr(workspace, "_choose_target", lambda suffix, file_filter: target)
+    monkeypatch.setattr(workspace, "_show_export_success", successes.append)
+    monkeypatch.setattr(workspace, "_show_export_error", errors.append)
+    workspace._export_xlsx()
+    assert len(errors) == 1
+    assert "comparison changed" in str(errors[0])
+    assert successes == []
+    assert not target.exists()
+    assert workspace._method_comparisons == ()
+    workspace.close()
