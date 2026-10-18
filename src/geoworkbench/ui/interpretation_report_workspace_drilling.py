@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from functools import partial
+
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from geoworkbench.data.hydrocarbon_interpretation_export import (
@@ -124,6 +126,11 @@ class InterpretationReportWorkspace(_FinalInterpretationReportWorkspace):
         target = self._choose_target(".docx", "Word (*.docx)")
         if target is None:
             return
+        comparisons = self._method_comparisons_for_export(report)
+        word_exporter = (
+            partial(export_polished_hydrocarbon_interpretation_docx, method_comparisons=comparisons)
+            if comparisons else export_polished_hydrocarbon_interpretation_docx
+        )
         try:
             with self._report_export_progress(
                 self._text(
@@ -132,7 +139,7 @@ class InterpretationReportWorkspace(_FinalInterpretationReportWorkspace):
                     "Building Word report with a separate cover page…",
                 )
             ):
-                exported = export_polished_hydrocarbon_interpretation_docx(
+                exported = word_exporter(
                     report,
                     target,
                     dataset=dataset,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from functools import partial
 from pathlib import Path
 from typing import Iterator
 
@@ -77,6 +78,7 @@ class InterpretationReportWorkspace(QWidget):
         self.report: HydrocarbonInterpretationReport | None = None
         self.gas_mixture_report: GasMixtureRampReport | None = None
         self._method_comparisons: tuple[MethodComparisonInterval, ...] = ()
+        self._comparison_source_key: tuple[object, ...] | None = None
         self._comparison_dialog: QDialog | None = None
         self._export_in_progress = False
         self.setObjectName("interpretation-report-workspace")
@@ -500,11 +502,53 @@ class InterpretationReportWorkspace(QWidget):
         """Never reuse a comparison after any input or output language change."""
 
         self._method_comparisons = ()
+        self._comparison_source_key = None
         dialog = self._comparison_dialog
         self._comparison_dialog = None
         if dialog is not None:
             dialog.close()
             dialog.deleteLater()
+
+    def _method_comparison_source_key(
+        self, report: HydrocarbonInterpretationReport,
+    ) -> tuple[object, ...] | None:
+        """Identity of the explicit source, not just a matching well name."""
+
+        session = self.controller.session
+        dataset = session.current_dataset
+        if (
+            dataset is None
+            or report.dataset_id != dataset.dataset_id
+            or not report.depth_axis_id
+            or report.depth_axis_id != dataset.active_index_id
+        ):
+            return None
+        return (
+            session.current_well_id,
+            id(dataset),
+            dataset.dataset_id,
+            dataset.active_index_id,
+            id(dataset.active_index),
+            id(report),
+            self._report_mode(),
+            self.threshold.value(),
+            self.total_gas_lod.value(),
+            getattr(self.controller, "depth_interval", None),
+            self._report_output_language(),
+        )
+
+    def _method_comparisons_for_export(
+        self, report: HydrocarbonInterpretationReport,
+    ) -> tuple[MethodComparisonInterval, ...]:
+        """Fail closed if the operator's paired report is no longer current."""
+
+        if not self._method_comparisons:
+            return ()
+        key = self._method_comparison_source_key(report)
+        if key is None or key != self._comparison_source_key:
+            self._clear_method_comparison()
+            return ()
+        return self._method_comparisons
 
     def _show_method_comparison(self) -> None:
         """Build both reports only after an explicit operator action."""
@@ -550,6 +594,9 @@ class InterpretationReportWorkspace(QWidget):
             )
             return
         self._method_comparisons = comparisons
+        self._comparison_source_key = (
+            self._method_comparison_source_key(active) if comparisons else None
+        )
         dialog = QDialog(self)
         dialog.setObjectName("interpretation-method-comparison-dialog")
         dialog.setWindowTitle(
@@ -607,6 +654,12 @@ class InterpretationReportWorkspace(QWidget):
         target = self._choose_target(".docx", "Word (*.docx)")
         if target is None:
             return
+        comparisons = self._method_comparisons_for_export(report)
+        # Keep legacy exporter kwargs bit-for-bit when the user never compared.
+        word_exporter = (
+            partial(export_hydrocarbon_interpretation_docx, method_comparisons=comparisons)
+            if comparisons else export_hydrocarbon_interpretation_docx
+        )
         try:
             with self._report_export_progress(
                 self._text(
@@ -615,7 +668,7 @@ class InterpretationReportWorkspace(QWidget):
                     "Building Word report…",
                 )
             ):
-                exported = export_hydrocarbon_interpretation_docx(
+                exported = word_exporter(
                     report,
                     target,
                     dataset=dataset,
