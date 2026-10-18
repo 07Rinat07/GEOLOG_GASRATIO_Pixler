@@ -735,3 +735,6 @@ The **Files** tab is visible in the main workspace and can also be opened throug
 or `Ctrl+Alt+F`. After `git pull`, update the active environment with
 `python -m pip install -e ".[dev]"`. PyMuPDF is imported as `fitz`; when it is missing, the
 application now starts in a safe fallback mode and displays recovery instructions in the tab.
+
+
+In Compare gas with geology, select an interval and click Include selected observations in Word, then export Word. PDF approval is separate. Confirm again after changing the interval or settings; source or sample changes during preparation cancel the export.

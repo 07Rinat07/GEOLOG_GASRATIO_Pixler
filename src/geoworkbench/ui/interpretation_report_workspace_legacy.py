@@ -95,6 +95,8 @@ class InterpretationReportWorkspace(QWidget):
         self._geology_evidence_dialog: QDialog | None = None
         self._geology_pdf_evidence: tuple[GasGeologyIntervalEvidence, ...] = ()
         self._geology_pdf_source_key: tuple[object, ...] | None = None
+        self._geology_word_evidence: tuple[GasGeologyIntervalEvidence, ...] = ()
+        self._geology_word_source_key: tuple[object, ...] | None = None
         self._export_in_progress = False
         self.setObjectName("interpretation-report-workspace")
         self.setStyleSheet(
@@ -551,6 +553,8 @@ class InterpretationReportWorkspace(QWidget):
 
         self._geology_pdf_evidence = ()
         self._geology_pdf_source_key = None
+        self._geology_word_evidence = ()
+        self._geology_word_source_key = None
         dialog = self._geology_evidence_dialog
         self._geology_evidence_dialog = None
         if dialog is not None:
@@ -558,15 +562,16 @@ class InterpretationReportWorkspace(QWidget):
             dialog.deleteLater()
 
     def _geology_evidence_for_export(
-        self, report: HydrocarbonInterpretationReport,
+        self, report: HydrocarbonInterpretationReport, *, for_word: bool = False,
     ) -> tuple[GasGeologyIntervalEvidence, ...]:
         """Fail closed on edits to the operator-confirmed MD source snapshot."""
 
-        selected = self._geology_pdf_evidence
+        selected = self._geology_word_evidence if for_word else self._geology_pdf_evidence
         if not selected:
             return ()
         source_key = self._method_comparison_source_key(report)
-        if source_key is None or source_key != self._geology_pdf_source_key:
+        confirmed_key = self._geology_word_source_key if for_word else self._geology_pdf_source_key
+        if source_key is None or source_key != confirmed_key:
             self._clear_geology_evidence()
             raise ValueError("Selected PDF geology source changed after confirmation")
         try:
@@ -746,10 +751,21 @@ class InterpretationReportWorkspace(QWidget):
         )
         include_pdf.setObjectName("interpretation-geology-include-in-pdf")
         layout.addWidget(include_pdf)
+        word_caption = self._text(
+            "Включить выбранные наблюдения в Word",
+            "Таңдалған бақылауларды Word-қа енгізу",
+            "Include selected observations in Word",
+        )
+        include_word = QPushButton(word_caption, dialog)
+        include_word.setObjectName("interpretation-geology-include-in-word")
+        layout.addWidget(include_word)
         self._geology_evidence_dialog = dialog
 
         def update_candidate(index: int) -> None:
-            # A changed interval is not the one explicitly approved for PDF.
+            # Each output requires its own approval of this exact interval.
+            self._geology_word_evidence = ()
+            self._geology_word_source_key = None
+            include_word.setText(word_caption)
             self._geology_pdf_evidence = ()
             self._geology_pdf_source_key = None
             include_pdf.setText(self._text(
@@ -781,7 +797,7 @@ class InterpretationReportWorkspace(QWidget):
                 html = f"<p>{escape(str(exc))}</p>"
             viewer.setHtml(html)
 
-        def approve_for_pdf() -> None:
+        def approve_observations(*, for_word: bool = False) -> None:
             if self._geology_evidence_dialog is not dialog:
                 return
             if (
@@ -809,6 +825,17 @@ class InterpretationReportWorkspace(QWidget):
                 viewer.setHtml(f"<p>{escape(str(exc))}</p>")
                 self._geology_pdf_evidence = ()
                 self._geology_pdf_source_key = None
+                self._geology_word_evidence = ()
+                self._geology_word_source_key = None
+                return
+            if for_word:
+                self._geology_word_evidence = (observed,)
+                self._geology_word_source_key = source_key
+                include_word.setText(self._text(
+                    "Наблюдения выбраны для Word",
+                    "Бақылаулар Word үшін таңдалды",
+                    "Observations selected for Word",
+                ))
                 return
             self._geology_pdf_evidence = (observed,)
             self._geology_pdf_source_key = source_key
@@ -818,7 +845,8 @@ class InterpretationReportWorkspace(QWidget):
                 "Observations selected for next PDF",
             ))
 
-        include_pdf.clicked.connect(approve_for_pdf)
+        include_pdf.clicked.connect(lambda: approve_observations())
+        include_word.clicked.connect(lambda: approve_observations(for_word=True))
         selector.currentIndexChanged.connect(update_candidate)
         update_candidate(0)
         if self._geology_evidence_dialog is dialog:
