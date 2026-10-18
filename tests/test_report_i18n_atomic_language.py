@@ -148,7 +148,12 @@ def test_workspace_office_exports_explicitly_propagate_language() -> None:
 
     assert "language=self._report_output_language()" in legacy_xlsx
     assert "language=self._report_output_language()" in legacy_docx
-    assert "language=self._report_output_language()" in final_xlsx
+    # Excel now freezes one output language after queued Qt events are drained.
+    # Validate both the capture and the actual exporter keyword rather than
+    # requiring a second language lookup that could mismatch the passport.
+    assert "output_language = self._report_output_language()" in final_xlsx
+    assert "language=output_language" in final_xlsx
+    assert "report, output_language, interval=" in final_xlsx
     assert "language=self._report_output_language()" in drilling_docx
 
 
