@@ -3,6 +3,7 @@ from __future__ import annotations
 from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import chart_panel_render_options
 
 from dataclasses import replace
+from functools import partial
 import logging
 from pathlib import Path
 import tempfile
@@ -990,19 +991,8 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         dataset = self.controller.session.current_dataset
         if dataset is None:
             return
-        composition = self._report_composition()
-        header = report_header_fields(composition, self._report_output_language().value, report.report_profile)
-        saved_identity = (
-            self._identity_with_narrative_visibility(
-                identity_with_report_header_fields(
-                    default_interpretation_report_identity(
-                        report, self._report_output_language(), interval=self._report_interval(report),
-                    ),
-                    header,
-                ),
-                composition,
-            )
-        )
+        original_well_id = self.controller.session.current_well_id
+        original_active_report = self.report
         target = self._choose_target(".xlsx", "Excel (*.xlsx)")
         if target is None:
             return
@@ -1018,13 +1008,72 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     "Building Excel report…",
                 )
             ):
-                exported = export_readable_hydrocarbon_interpretation_xlsx(
+                # Target selection and progress startup can deliver queued Qt
+                # events. Never write an old report for a newly selected well.
+                if (
+                    self.report is not original_active_report
+                    or self.controller.session.current_dataset is not dataset
+                    or self.controller.session.current_well_id != original_well_id
+                ):
+                    self._clear_method_comparison()
+                    raise HydrocarbonInterpretationExportError(
+                        "Excel report source changed during export preparation"
+                    )
+                # Capture one output language and matching passport only after
+                # draining queued events. Never combine stale RU identity with
+                # newly selected KK/EN report labels.
+                output_language = self._report_output_language()
+                composition = self._report_composition()
+                header = report_header_fields(
+                    composition, output_language.value, report.report_profile,
+                )
+                saved_identity = self._identity_with_narrative_visibility(
+                    identity_with_report_header_fields(
+                        default_interpretation_report_identity(
+                            report, output_language, interval=self._report_interval(report),
+                        ),
+                        header,
+                    ),
+                    composition,
+                )
+                comparisons = self._method_comparisons_for_export(report)
+                progress_callback = self._update_report_export_progress
+                if comparisons:
+                    # A large XLSX export also pumps Qt events between stages.
+                    # Fail before the atomic file replacement when the operator
+                    # changes the verified source mid-export.
+                    def checked_progress(stage: str, current: int, total: int) -> None:
+                        self._update_report_export_progress(stage, current, total)
+                        if current >= total:
+                            # The final 100% notification occurs after os.replace;
+                            # the workbook was already consistent at commit time.
+                            return
+                        if (
+                            self.report is not report
+                            or self.controller.session.current_dataset is not dataset
+                            or self.controller.session.current_well_id != original_well_id
+                            or self._method_comparisons_for_export(report) != comparisons
+                        ):
+                            self._clear_method_comparison()
+                            raise HydrocarbonInterpretationExportError(
+                                "Verified method comparison changed during Excel export"
+                            )
+
+                    progress_callback = checked_progress
+                workbook_exporter = (
+                    partial(
+                        export_readable_hydrocarbon_interpretation_xlsx,
+                        method_comparisons=comparisons,
+                    )
+                    if comparisons else export_readable_hydrocarbon_interpretation_xlsx
+                )
+                exported = workbook_exporter(
                     report,
                     dataset,
                     target,
-                    language=self._report_output_language(),
+                    language=output_language,
                     overwrite=target.exists(),
-                    progress=self._update_report_export_progress,
+                    progress=progress_callback,
                     identity=saved_identity,
                 )
         except (OSError, FileExistsError, HydrocarbonInterpretationExportError) as exc:
