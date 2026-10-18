@@ -49,19 +49,19 @@ def _candidate(top: float, bottom: float) -> HydrocarbonCandidateInterval:
 
 def _workspace(monkeypatch, language=AppLanguage.EN, *, with_candidates=True):
     session = _session()
-    if with_candidates:
-        builder = legacy.build_hydrocarbon_interpretation_report
+    builder = legacy.build_hydrocarbon_interpretation_report
 
-        def with_test_candidates(active_session, **kwargs):
-            report = builder(active_session, **kwargs)
-            return replace(
-                report,
-                candidates=(_candidate(1002.0, 1010.0), _candidate(1005.0, 1010.0)),
-            )
-
-        monkeypatch.setattr(
-            legacy, "build_hydrocarbon_interpretation_report", with_test_candidates,
+    def with_test_candidates(active_session, **kwargs):
+        report = builder(active_session, **kwargs)
+        candidates = (
+            (_candidate(1002.0, 1010.0), _candidate(1005.0, 1010.0))
+            if with_candidates else ()
         )
+        return replace(report, candidates=candidates)
+
+    monkeypatch.setattr(
+        legacy, "build_hydrocarbon_interpretation_report", with_test_candidates,
+    )
     workspace = InterpretationReportWorkspace(
         InterpretationCalculationController(session), language=language,
     )
