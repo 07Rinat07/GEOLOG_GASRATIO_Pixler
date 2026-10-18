@@ -133,10 +133,10 @@ def correlate_gas_interval_with_well_geology(
             if 0.0 <= item.percentage <= 100.0
         )
         if components or sample.description:
-            attrs = components + (
+            cuttings_attrs = components + (
                 (("description", sample.description),) if sample.description else ()
             )
-            add("cuttings", sample.sample_id, sample.top_depth, sample.bottom_depth, attrs)
+            add("cuttings", sample.sample_id, sample.top_depth, sample.bottom_depth, cuttings_attrs)
 
         lba: list[tuple[str, _NumberOrText]] = []
         for name in (
@@ -160,16 +160,16 @@ def correlate_gas_interval_with_well_geology(
                 sample.bottom_depth, tuple(carbonate),
             )
 
-    for interval in well.stratigraphy:
-        code = str(interval.code).strip()
+    for stratum in well.stratigraphy:
+        code = str(stratum.code).strip()
         if not code:
             continue
-        attrs: list[tuple[str, _NumberOrText]] = [("code", code)]
-        if interval.name and interval.name.strip():
-            attrs.append(("name", interval.name))
-        if interval.rank and interval.rank.strip():
-            attrs.append(("rank", interval.rank))
-        add("stratigraphy", interval.interval_id, interval.top_depth, interval.bottom_depth, tuple(attrs))
+        stratigraphy_attrs: list[tuple[str, _NumberOrText]] = [("code", code)]
+        if stratum.name and stratum.name.strip():
+            stratigraphy_attrs.append(("name", stratum.name))
+        if stratum.rank and stratum.rank.strip():
+            stratigraphy_attrs.append(("rank", stratum.rank))
+        add("stratigraphy", stratum.interval_id, stratum.top_depth, stratum.bottom_depth, tuple(stratigraphy_attrs))
 
     intersections = tuple(sorted(
         evidence, key=lambda value: (
