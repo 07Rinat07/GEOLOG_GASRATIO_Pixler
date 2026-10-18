@@ -21,6 +21,15 @@ from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.gas_context_report_labels import (
     gas_context_type_text, gas_context_impact_label, gas_context_identity_label,
 )
+from geoworkbench.services.interpretation_geology_interval_evidence import (
+    GasGeologyIntervalEvidence,
+)
+from geoworkbench.services.interpretation_geology_interval_evidence_html import (
+    geology_interval_evidence_html,
+)
+from geoworkbench.services.interpretation_geology_evidence_export import (
+    verified_report_geology_evidence,
+)
 from geoworkbench.services import hydrocarbon_interpretation_legacy as _legacy
 from geoworkbench.services.gas_context_candidate_policy import apply_gas_context_to_report
 from geoworkbench.services.gas_context_interval_audit import (
@@ -335,8 +344,9 @@ def hydrocarbon_interpretation_html(
     language: AppLanguage = AppLanguage.RU,
     *,
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
+    geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
 ) -> str:
-    """Render a report; an explicit comparison appends an analytical section.
+    """Render a report; explicit evidence appends read-only analytical sections.
 
     Legacy HTML/PDF rendering stays unchanged unless the caller supplies the
     already verified structured comparison snapshot from both methodologies.
@@ -399,6 +409,12 @@ def hydrocarbon_interpretation_html(
             method_comparison_html(
                 method_comparisons, language, depth_unit=report.depth_unit,
             ) + "</body>",
+            1,
+        )
+    for evidence in verified_report_geology_evidence(report, geology_evidence):
+        html = html.replace(
+            "</body>",
+            geology_interval_evidence_html(evidence, language) + "</body>",
             1,
         )
     audit = escape(interpretation_classification_audit_json(report), quote=True)
