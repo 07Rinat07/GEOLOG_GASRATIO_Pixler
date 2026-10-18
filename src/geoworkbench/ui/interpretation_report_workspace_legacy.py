@@ -518,6 +518,7 @@ class InterpretationReportWorkspace(QWidget):
         dataset = session.current_dataset
         if (
             dataset is None
+            or report is not self.report
             or report.dataset_id != dataset.dataset_id
             or not report.depth_axis_id
             or report.depth_axis_id != dataset.active_index_id
