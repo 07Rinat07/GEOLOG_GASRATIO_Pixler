@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import faulthandler
+import os
 from pathlib import Path
 
 import pytest
+from PySide6.QtWidgets import QMessageBox
 from openpyxl import load_workbook  # type: ignore[import-untyped]
 
 from geoworkbench.data import hydrocarbon_interpretation_export_readable as readable
@@ -16,6 +19,34 @@ from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui import interpretation_report_workspace_legacy as legacy
 from test_interpretation_method_comparison_chart_html import _comparison
 from test_interpretation_method_comparison_explicit_ui import _workspace
+
+
+@pytest.fixture(autouse=True)
+def _bound_gui_acceptance():
+    faulthandler.dump_traceback_later(35, exit=True)
+    try:
+        yield
+    finally:
+        faulthandler.cancel_dump_traceback_later()
+
+
+@pytest.fixture(autouse=True)
+def _no_modal_gui_dialogs(monkeypatch: pytest.MonkeyPatch) -> None:
+    def reject(_parent: object, title: str, message: str, *args: object, **kwargs: object) -> None:
+        del args, kwargs
+        pytest.fail(f"Unexpected blocking XLSX Qt dialog {title!r}: {message}")
+
+    for method in ("critical", "warning", "information", "question"):
+        monkeypatch.setattr(QMessageBox, method, reject)
+
+
+def _ci_stage(stage: str) -> None:
+    if not os.environ.get("CI"):
+        return
+    path = Path("build/ci-artifacts/quality/ui-xlsx-stage.txt")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as output:
+        output.write(stage + "\n")
 
 
 @pytest.mark.parametrize(
@@ -33,7 +64,9 @@ def test_explicit_comparison_included_in_real_readable_xlsx(
     language: AppLanguage,
     sheet_name: str,
 ) -> None:
+    _ci_stage(f"xlsx start {language.value}")
     workspace = _workspace(language)
+    _ci_stage("workspace constructed")
     assert workspace.report is not None
 
     def opus(session, **kwargs):
@@ -49,15 +82,21 @@ def test_explicit_comparison_included_in_real_readable_xlsx(
     target = tmp_path / "explicit.xlsx"
     monkeypatch.setattr(workspace, "_choose_target", lambda suffix, file_filter: target)
     monkeypatch.setattr(workspace, "_show_export_success", lambda path: None)
+    _ci_stage("before compare click")
     workspace.compare_methods_button.click()
     qapp.processEvents()
+    _ci_stage("after compare click")
 
+    _ci_stage("before xlsx export")
     workspace._export_xlsx()
+    _ci_stage("after xlsx export")
     assert target.exists()
     expected = method_comparison_table(
         (_comparison(),), language, depth_unit=workspace.report.depth_unit,
     )
+    _ci_stage("before workbook load")
     workbook = load_workbook(target, read_only=False, data_only=False)
+    _ci_stage("after workbook load")
     try:
         assert sheet_name in workbook.sheetnames
         sheet = workbook[sheet_name]
@@ -70,7 +109,9 @@ def test_explicit_comparison_included_in_real_readable_xlsx(
     finally:
         workbook.close()
     assert workspace._method_comparisons == (_comparison(),)
+    _ci_stage("before workspace close")
     workspace.close()
+    _ci_stage("after workspace close")
 
 
 @pytest.mark.parametrize("language", list(AppLanguage))
