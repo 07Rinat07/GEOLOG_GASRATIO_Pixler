@@ -133,11 +133,11 @@ def _check_one_snapshot_in_all_formats(tmp_path: Path, language: AppLanguage) ->
             r"\s+", " ", " ".join(page.get_text() for page in document)
         )
     assert projection.title in visible_pdf
-    assert projection.rows[0].cells[2] in visible_pdf
-    # Long table cells can wrap; verify localized explanation is present
-    # without depending on PDF physical column widths.
-    assert projection.rows[0].cells[3].split(" ")[0] in visible_pdf
-    assert str(comparison.standard_bounds[0])[:3] in visible_pdf
+    # PDF line wrapping may split words; compare every complete cell after
+    # removing whitespace only, retaining all letters, numbers and punctuation.
+    compact_pdf = re.sub(r"\s+", "", visible_pdf)
+    for cell in projection.rows[0].cells:
+        assert re.sub(r"\s+", "", cell) in compact_pdf, cell
 
     np.testing.assert_array_equal(dataset.depth, original_depth)
     for key, samples in original_curves.items():
