@@ -31,6 +31,9 @@ from geoworkbench.services.interval_gas_statistics import (
 )
 from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.interpretation_geology_interval_evidence import GasGeologyIntervalEvidence
+from geoworkbench.services.interpretation_geology_evidence_export import verified_report_geology_evidence
+from geoworkbench.services.interpretation_geology_interval_evidence_html import geology_interval_evidence_table
 from geoworkbench.services.interpretation_method_comparison import MethodComparisonInterval
 from geoworkbench.services.interpretation_method_comparison_html import method_comparison_table
 from geoworkbench.services.hydrocarbon_interpretation_report_locale import (
@@ -157,7 +160,9 @@ def export_hydrocarbon_interpretation_docx(
     overwrite: bool = False,
     progress: Callable[[str, int, int], None] | None = None,
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
+    geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
 ) -> Path:
+    verified_report_geology_evidence(report, geology_evidence)
     progress_prepare, progress_statistics, progress_save, progress_ready, error_export = (
         _DOCX_PROGRESS[language]
     )
@@ -173,6 +178,8 @@ def export_hydrocarbon_interpretation_docx(
             partial(_write_docx, method_comparisons=method_comparisons)
             if method_comparisons else _write_docx
         )
+        if geology_evidence:
+            writer = partial(writer, geology_evidence=geology_evidence)
         writer(temporary, report, dataset, language)
         _notify_export_progress(progress, progress_save, 90, 100)
         os.replace(temporary, destination)
@@ -204,6 +211,7 @@ def _write_docx(
     language: AppLanguage = AppLanguage.RU,
     *,
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
+    geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
 ) -> None:
     interval = getattr(report, "analysis_depth_interval", None)
     labels = hydrocarbon_report_labels(language)
@@ -258,6 +266,16 @@ def _write_docx(
         body.extend(_gas_context_docx(report, language))
     if method_comparisons:
         body.extend(_method_comparisons_docx(method_comparisons, language, report.depth_unit))
+    for evidence in geology_evidence:
+        presentation = geology_interval_evidence_table(evidence, language)
+        body.extend((
+            _paragraph(presentation.title, style="Heading1"),
+            _paragraph(presentation.intro),
+            _paragraph(presentation.interval),
+            _paragraph(presentation.coverage_title),
+            _table(presentation.coverage_headings, presentation.coverage_rows, widths=(7000, 7000)),
+            _table(presentation.headings, presentation.rows, widths=(1800, 2200, 2500, 2500, 5000)),
+        ))
     body.append(_paragraph(labels.prospective_heading, style="Heading1"))
     if report.candidates:
         body.append(
