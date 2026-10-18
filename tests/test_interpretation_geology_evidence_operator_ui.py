@@ -33,7 +33,7 @@ def _candidate(top: float, bottom: float) -> HydrocarbonCandidateInterval:
         primary_mnemonic="C1",
         max_robust_z=3.0,
         max_primary_value=4.0,
-        fluid_hypothesis="insufficient",
+        fluid_hypothesis="insufficient_data",
         interval_wetness=None,
         background_wetness=None,
         wetness_robust_z=None,
@@ -41,7 +41,7 @@ def _candidate(top: float, bottom: float) -> HydrocarbonCandidateInterval:
         interval_character=None,
         pixler_assessment=None,
         lba_assessments=(),
-        gas_lba_correlation="",
+        gas_lba_correlation="gas_only",
         metrics=(),
         evidence=(),
     )
