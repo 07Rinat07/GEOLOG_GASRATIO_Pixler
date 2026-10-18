@@ -93,3 +93,60 @@ def test_row_limit_preserves_destination(tmp_path, monkeypatch):
     with pytest.raises(HydrocarbonInterpretationExportError, match="Geology evidence exceeds"):
         export_hydrocarbon_interpretation_xlsx(report, session.current_dataset, target, language=AppLanguage.EN, overwrite=True, geology_evidence=(evidence,))
     assert target.read_bytes() == b"existing workbook"
+
+
+@pytest.mark.parametrize("exporter", (export_hydrocarbon_interpretation_xlsx, readable.export_readable_hydrocarbon_interpretation_xlsx))
+@pytest.mark.parametrize("field", ("description", "protected_id"))
+@pytest.mark.parametrize("length", (32767, 32768))
+def test_cell_text_limit_checked_before_target_preparation(tmp_path, exporter, field, length):
+    session, report, evidence = _actual_source()
+    observation = evidence.intersections[0]
+    if field == "description":
+        value = "description: " + "x" * (length - len("description: "))
+        observation = replace(observation, attributes=(("description", value[len("description: "):]),))
+    else:
+        # The stored apostrophe counts toward the limit as well.
+        value = "'=" + "x" * (length - 2)
+        observation = replace(observation, source_id=value[1:])
+    evidence = replace(evidence, intersections=(observation,))
+    target = tmp_path / "new-parent" / "observed.xlsx"
+    if length > 32767:
+        with pytest.raises(HydrocarbonInterpretationExportError, match="cell text limit"):
+            exporter(report, session.current_dataset, target, language=AppLanguage.EN, geology_evidence=(evidence,))
+        assert not target.parent.exists()
+        target = tmp_path / "existing.xlsx"
+        target.write_bytes(b"existing workbook")
+        with pytest.raises(HydrocarbonInterpretationExportError, match="cell text limit"):
+            exporter(report, session.current_dataset, target, overwrite=True, language=AppLanguage.EN, geology_evidence=(evidence,))
+        assert target.read_bytes() == b"existing workbook"
+    else:
+        exporter(report, session.current_dataset, target, language=AppLanguage.EN, geology_evidence=(evidence,))
+        workbook = load_workbook(target)
+        try:
+            assert value in [cell.value for row in workbook["Gas and geology MD"] for cell in row]
+        finally:
+            workbook.close()
+
+
+def test_multi_interval_geology_has_no_global_filter(tmp_path):
+    from test_interpretation_geology_evidence_operator_ui import _candidate
+    from geoworkbench.services.interpretation_geology_interval_evidence import correlate_gas_interval_with_well_geology
+    session, report, evidence = _actual_source()
+    second = correlate_gas_interval_with_well_geology(session, top_depth=1001.0, bottom_depth=1010.0)
+    report = replace(report, candidates=(*report.candidates, _candidate(1001.0, 1010.0)))
+    target = export_hydrocarbon_interpretation_xlsx(
+        report, session.current_dataset, tmp_path / "multiple.xlsx", language=AppLanguage.EN,
+        geology_evidence=(evidence, second),
+    )
+    workbook = load_workbook(target)
+    try:
+        sheet = workbook["Gas and geology MD"]
+        assert sheet.auto_filter.ref is None
+        assert not sheet.tables
+        cells = [cell.value for row in sheet for cell in row]
+        for selected in (evidence, second):
+            assert geology_interval_evidence_table(selected, AppLanguage.EN).interval in cells
+        # Ordinary single-table auxiliary sheets retain their filter.
+        assert workbook.worksheets[1].auto_filter.ref is not None
+    finally:
+        workbook.close()

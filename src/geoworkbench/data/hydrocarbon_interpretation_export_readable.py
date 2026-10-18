@@ -5,7 +5,7 @@ from geoworkbench.data.report_document_control_excel import write_document_contr
 import os
 from pathlib import Path
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 
 import numpy as np
 from openpyxl import Workbook  # type: ignore[import-untyped]
@@ -76,6 +76,7 @@ from geoworkbench.services.opus_report_labels import opus_report_label
 
 
 _EXCEL_MAX_ROWS = 1_048_576
+_EXCEL_MAX_CELL_CHARACTERS = 32_767
 
 def export_readable_hydrocarbon_interpretation_xlsx(
     report: HydrocarbonInterpretationReport,
@@ -127,6 +128,16 @@ def export_readable_hydrocarbon_interpretation_xlsx(
     geology_rows = sum(7 + len(item.coverage_rows) + len(item.rows) for item in geology_tables)
     if geology_rows > _EXCEL_MAX_ROWS:
         raise HydrocarbonInterpretationExportError("Geology evidence exceeds the Excel row limit")
+    for row in _geology_evidence_rows(geology_tables):
+        # Formula protection may add an apostrophe: check the exact stored text,
+        # before openpyxl can silently truncate it or any target is prepared.
+        if any(
+            isinstance(value, str) and len(value) > _EXCEL_MAX_CELL_CHARACTERS
+            for value in protect_spreadsheet_row(row)
+        ):
+            raise HydrocarbonInterpretationExportError(
+                "Geology evidence exceeds the Excel cell text limit"
+            )
     destination = Path(target)
     if destination.suffix.casefold() != ".xlsx":
         destination = destination.with_suffix(".xlsx")
@@ -196,6 +207,20 @@ _GEOLOGY_EVIDENCE_SHEET_NAMES: dict[AppLanguage, str] = {
 }
 
 
+def _geology_evidence_rows(
+    presentations: tuple[GeologyEvidenceTable, ...],
+) -> Iterator[tuple[str, ...]]:
+    for item in presentations:
+        yield from (
+            (item.title,), (item.intro,), (item.interval,), (item.coverage_title,),
+            item.coverage_headings,
+        )
+        yield from item.coverage_rows
+        yield item.headings
+        yield from item.rows
+        yield ()
+
+
 def _write_geology_evidence_sheet(
     workbook: Workbook,
     presentations: tuple[GeologyEvidenceTable, ...],
@@ -204,13 +229,11 @@ def _write_geology_evidence_sheet(
     """Publish selected source observations using the shared HTML/Word projection."""
 
     sheet = workbook.create_sheet(_GEOLOGY_EVIDENCE_SHEET_NAMES[language])
-    for item in presentations:
-        for row in (
-            (item.title,), (item.intro,), (item.interval,), (item.coverage_title,),
-            item.coverage_headings, *item.coverage_rows, item.headings, *item.rows, (),
-        ):
-            sheet.append(protect_spreadsheet_row(row))
+    for row in _geology_evidence_rows(presentations):
+        sheet.append(protect_spreadsheet_row(row))
     _format_auxiliary_sheet(sheet, widths=(32, 40, 32, 32, 100), wrap_header=True)
+    # Several narrative/coverage/observation sections are not one sortable table.
+    sheet.auto_filter.ref = None
     sheet.sheet_view.showGridLines = False
 
 
