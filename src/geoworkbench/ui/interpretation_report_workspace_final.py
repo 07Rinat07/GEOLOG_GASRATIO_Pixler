@@ -991,19 +991,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         dataset = self.controller.session.current_dataset
         if dataset is None:
             return
-        composition = self._report_composition()
-        header = report_header_fields(composition, self._report_output_language().value, report.report_profile)
-        saved_identity = (
-            self._identity_with_narrative_visibility(
-                identity_with_report_header_fields(
-                    default_interpretation_report_identity(
-                        report, self._report_output_language(), interval=self._report_interval(report),
-                    ),
-                    header,
-                ),
-                composition,
-            )
-        )
+        original_well_id = self.controller.session.current_well_id
         target = self._choose_target(".xlsx", "Excel (*.xlsx)")
         if target is None:
             return
@@ -1019,9 +1007,34 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     "Building Excel report…",
                 )
             ):
-                # The progress context drains queued Qt events. Validate only
-                # afterwards, so a queued input/language change cannot export
-                # evidence confirmed for the previous source.
+                # Target selection and progress startup can deliver queued Qt
+                # events. Never write an old report for a newly selected well.
+                if (
+                    self.report is not report
+                    or self.controller.session.current_dataset is not dataset
+                    or self.controller.session.current_well_id != original_well_id
+                ):
+                    self._clear_method_comparison()
+                    raise HydrocarbonInterpretationExportError(
+                        "Excel report source changed during export preparation"
+                    )
+                # Capture one output language and matching passport only after
+                # draining queued events. Never combine stale RU identity with
+                # newly selected KK/EN report labels.
+                output_language = self._report_output_language()
+                composition = self._report_composition()
+                header = report_header_fields(
+                    composition, output_language.value, report.report_profile,
+                )
+                saved_identity = self._identity_with_narrative_visibility(
+                    identity_with_report_header_fields(
+                        default_interpretation_report_identity(
+                            report, output_language, interval=self._report_interval(report),
+                        ),
+                        header,
+                    ),
+                    composition,
+                )
                 comparisons = self._method_comparisons_for_export(report)
                 workbook_exporter = (
                     partial(
@@ -1034,7 +1047,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     report,
                     dataset,
                     target,
-                    language=self._report_output_language(),
+                    language=output_language,
                     overwrite=target.exists(),
                     progress=self._update_report_export_progress,
                     identity=saved_identity,
