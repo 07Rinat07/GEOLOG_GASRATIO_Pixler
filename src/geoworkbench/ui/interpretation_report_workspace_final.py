@@ -1036,6 +1036,29 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     composition,
                 )
                 comparisons = self._method_comparisons_for_export(report)
+                progress_callback = self._update_report_export_progress
+                if comparisons:
+                    # A large XLSX export also pumps Qt events between stages.
+                    # Fail before the atomic file replacement when the operator
+                    # changes the verified source mid-export.
+                    def checked_progress(stage: str, current: int, total: int) -> None:
+                        self._update_report_export_progress(stage, current, total)
+                        if current >= total:
+                            # The final 100% notification occurs after os.replace;
+                            # the workbook was already consistent at commit time.
+                            return
+                        if (
+                            self.report is not report
+                            or self.controller.session.current_dataset is not dataset
+                            or self.controller.session.current_well_id != original_well_id
+                            or self._method_comparisons_for_export(report) != comparisons
+                        ):
+                            self._clear_method_comparison()
+                            raise HydrocarbonInterpretationExportError(
+                                "Verified method comparison changed during Excel export"
+                            )
+
+                    progress_callback = checked_progress
                 workbook_exporter = (
                     partial(
                         export_readable_hydrocarbon_interpretation_xlsx,
@@ -1049,7 +1072,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     target,
                     language=output_language,
                     overwrite=target.exists(),
-                    progress=self._update_report_export_progress,
+                    progress=progress_callback,
                     identity=saved_identity,
                 )
         except (OSError, FileExistsError, HydrocarbonInterpretationExportError) as exc:
