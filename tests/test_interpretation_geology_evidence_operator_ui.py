@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 import pytest
-from PySide6.QtWidgets import QComboBox, QDialog, QMessageBox, QTextBrowser
+from PySide6.QtWidgets import QComboBox, QMessageBox, QTextBrowser
 
 from geoworkbench.domain.models import DatasetIndex, IndexRole, IndexType
 from geoworkbench.project.interpretation_calculation_controller import (
