@@ -714,6 +714,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if dataset is None:
             return
         original_well_id = self.controller.session.current_well_id
+        original_active_report = self.report
         geology = interpretation_geology_snapshot(self.controller.session)
 
         identity = self._select_report_identity(report)
@@ -730,6 +731,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if (
             self.controller.session.current_dataset is not dataset
             or self.controller.session.current_well_id != original_well_id
+            or self.report is not original_active_report
             or report.dataset_id != dataset.dataset_id
         ):
             self._show_export_error(
@@ -761,12 +763,24 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 if (
                     session.current_dataset is not dataset
                     or session.current_well_id != original_well_id
+                    or self.report is not original_active_report
                     or report.dataset_id != dataset.dataset_id
                 ):
                     raise RuntimeError(
                         "Report source changed during system print preparation"
                     )
-                export_hydrocarbon_interpretation_pdf(
+                # Only the verified operator-selected comparison can enter the
+                # temporary document that is subsequently sent to the printer.
+                # Keep the legacy renderer invocation unchanged otherwise.
+                comparisons = self._method_comparisons_for_export(report)
+                print_pdf_exporter = (
+                    partial(
+                        export_hydrocarbon_interpretation_pdf,
+                        method_comparisons=comparisons,
+                    )
+                    if comparisons else export_hydrocarbon_interpretation_pdf
+                )
+                print_pdf_exporter(
                     report,
                     prepared_pdf,
                     language=self._report_output_language(),
@@ -827,6 +841,21 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             dialog.setFromTo(1, total_pages)
             dialog.setPrintRange(QAbstractPrintDialog.PrintRange.AllPages)
             if dialog.exec() != QDialog.DialogCode.Accepted:
+                return
+
+            # A native driver dialog may pump events after the temporary PDF
+            # was rendered. Never spool another well's or an invalidated
+            # comparison snapshot, even if the file was internally valid.
+            if (
+                self.controller.session.current_dataset is not dataset
+                or self.controller.session.current_well_id != original_well_id
+                or self.report is not original_active_report
+                or (comparisons and self._method_comparisons_for_export(report) != comparisons)
+            ):
+                self._clear_method_comparison()
+                self._show_export_error(
+                    RuntimeError("Report source changed before system print spooling"),
+                )
                 return
 
             range_selected = (
