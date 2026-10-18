@@ -615,6 +615,8 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         dataset = self.controller.session.current_dataset
         if dataset is None:
             return
+        original_well_id = self.controller.session.current_well_id
+        original_active_report = self.report
         geology = interpretation_geology_snapshot(self.controller.session)
 
         identity = self._select_report_identity(report)
@@ -657,7 +659,26 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     "Building PDF report with charts…",
                 )
             ):
-                export_result = export_hydrocarbon_interpretation_pdf_with_passport(
+                # File/identity/layout dialogs and progress startup can dispatch
+                # queued Qt changes. Never render an old report for a new well.
+                if (
+                    self.controller.session.current_dataset is not dataset
+                    or self.controller.session.current_well_id != original_well_id
+                    or self.report is not original_active_report
+                ):
+                    self._clear_method_comparison()
+                    raise HydrocarbonInterpretationPdfError(
+                        "PDF report source changed during export preparation"
+                    )
+                comparisons = self._method_comparisons_for_export(report)
+                pdf_exporter = (
+                    partial(
+                        export_hydrocarbon_interpretation_pdf_with_passport,
+                        method_comparisons=comparisons,
+                    )
+                    if comparisons else export_hydrocarbon_interpretation_pdf_with_passport
+                )
+                export_result = pdf_exporter(
                     self.controller.session,
                     report,
                     target,

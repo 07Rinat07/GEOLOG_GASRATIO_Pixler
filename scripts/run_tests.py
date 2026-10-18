@@ -77,6 +77,9 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         # assertion, with a fresh QApplication/native heap per test function.
         "tests/test_interpretation_method_comparison_ui_docx_handoff.py",
         "tests/test_interpretation_method_comparison_ui_xlsx_handoff.py",
+        # Real Qt report/export dialogs retain native lifetime after each PDF
+        # variant; run every scenario with a fresh native heap (#544).
+        "tests/test_interpretation_method_comparison_ui_pdf_handoff.py",
         # Release gate 38384970034 hit native heap corruption while enumerating
         # top-level Qt roots after shared report/editor cases. Retain all tests
         # in fresh processes, following the existing native report isolation.
