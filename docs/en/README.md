@@ -14,6 +14,8 @@ for status and acceptance criteria.
 
 In gas/geology comparison, saved LBA, cuttings, calcimetry and stratigraphy field names follow the selected report language in HTML, PDF, Word, Excel and printing. Measured composition is labelled in percent; source values, IDs and user descriptions remain unchanged.
 
+Comparison also includes separately recorded LBA cut speed/color, residue type/color, odour and stain. Empty fields are not measurements; changing these observations requires renewed approval for report output.
+
 ## Installation and startup
 
 Python 3.11 or newer is required. Run every command from the project root.
