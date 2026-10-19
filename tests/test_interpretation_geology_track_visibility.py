@@ -9,6 +9,7 @@ from PySide6.QtCore import QRectF
 
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart_enhanced as chart
 from geoworkbench.domain.report_composition import ReportGeologyLegendPages
+from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import DepthPage
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.printing.geology_track_rendering import (
@@ -336,7 +337,7 @@ def test_multi_page_auto_keeps_global_tracks_without_page_local_empty_state(
         y=0.0,
         new_page=lambda: None,
     )
-    dataset = SimpleNamespace(depth=np.asarray([1000.0, 1010.0], dtype=np.float64))
+    dataset = Dataset("pages", "Pages", DatasetKind.GTI, DepthDomain.MD, np.asarray([1000.0, 1010.0], dtype=np.float64))
     report = SimpleNamespace(depth_unit="m", candidates=(), methods=())
 
     chart.render_chart_pages(

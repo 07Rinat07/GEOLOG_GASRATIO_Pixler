@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+from dataclasses import replace
 from types import SimpleNamespace
 
 import numpy as np
@@ -14,6 +15,8 @@ from geoworkbench.domain.models import (
     Dataset,
     DatasetKind,
     DepthDomain,
+    IndexRole,
+    IndexType,
 )
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart_enhanced as pdf_chart
 from geoworkbench.printing import hydrocarbon_interpretation_chart as preview_chart
@@ -286,6 +289,61 @@ def test_multi_page_partial_geology_keeps_page_gaps_empty(qapp, monkeypatch) -> 
     assert all(item[2] == ("cuttings", "lba") for item in observed)
     assert all(item[3] == () for item in observed)
     assert any(top > 1006.0 for top, _bottom, _tracks, _empty in observed)
+
+
+@pytest.mark.parametrize("source", ("md", "tvd", "tvdss", "time", "feet", "unknown", "foreign", "axis", "lag"))
+@pytest.mark.parametrize("language", tuple(AppLanguage))
+def test_real_preview_and_pdf_reject_unaligned_geology(qapp, monkeypatch, tmp_path, source, language):
+    import fitz
+
+    dataset = _dataset()
+    geology = replace(_geology(), dataset_id=dataset.dataset_id, depth_axis_id=dataset.active_index_id)
+    if source in {"tvd", "tvdss"}:
+        dataset.active_index.index_type = IndexType.TVD if source == "tvd" else IndexType.TVDSS
+    elif source == "time":
+        dataset.active_index.index_type = IndexType.RELATIVE_TIME
+        dataset.active_index.role = IndexRole.TIME
+        dataset.active_index.unit = "s"
+    elif source in {"feet", "unknown"}:
+        dataset.active_index.unit = "ft" if source == "feet" else None
+    elif source == "foreign":
+        dataset.dataset_id = "foreign-dataset"
+    elif source == "axis":
+        dataset.add_index(replace(dataset.active_index, index_id="other-md"), make_active=True)
+    elif source == "lag":
+        dataset.headers["LAG_PROFILE_ID"] = "derived"
+        dataset.parameters["LAG_FORMULA_ID"] = "lag-correction"
+    depth = dataset.depth.copy()
+    before = repr(geology)
+    auto = hydrocarbon_interpretation_chart_data_uri(_report(), dataset, language, geology=geology)
+    without = hydrocarbon_interpretation_chart_data_uri(_report(), dataset, language)
+    assert bool(auto)
+    assert (auto == without) is (source != "md")
+    captures = []
+    original = pdf_chart._draw_geology_tracks
+    def capture(painter, geometry, page, observed, tracks, empty, lang):
+        captures.append((observed, tracks))
+        return original(painter, geometry, page, observed, tracks, empty, lang)
+    monkeypatch.setattr(pdf_chart, "_draw_geology_tracks", capture)
+    output = tmp_path / "axis-proof.pdf"
+    writer = QPdfWriter(str(output))
+    writer.setResolution(72)
+    writer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+    writer.setPageOrientation(QPageLayout.Orientation.Landscape)
+    painter = QPainter(writer)
+    try:
+        pdf_chart.render_chart_pages(PageCanvas(writer, painter, language), _report(), dataset, language, geology=geology)
+    finally:
+        painter.end()
+    assert bool(captures) is (source == "md")
+    for observed, tracks in captures:
+        assert observed == (geology if source == "md" else None)
+        assert tracks == (("cuttings", "lba") if source == "md" else ())
+    with fitz.open(output) as document:
+        text = " ".join(page.get_text() for page in document)
+        assert (("LBA" if language is AppLanguage.EN else "ЛБА") in text) is (source == "md")
+    np.testing.assert_array_equal(dataset.depth, depth)
+    assert repr(geology) == before
 
 
 @pytest.mark.parametrize("language", tuple(AppLanguage))

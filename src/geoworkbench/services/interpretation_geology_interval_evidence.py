@@ -14,8 +14,8 @@ from typing import Literal
 
 import numpy as np
 
-from geoworkbench.domain.models import IndexRole, IndexType
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.geology_depth_alignment import supports_saved_md_geology
 from geoworkbench.services.report_geology_snapshot import build_report_geology_snapshot
 from geoworkbench.services.lba_observations import LBA_OBSERVATION_FIELDS
 
@@ -103,12 +103,8 @@ def correlate_gas_interval_with_well_geology(
     if dataset is None or well is None:
         raise ValueError("A selected well and dataset are required")
     axis = dataset.active_index
-    if (
-        axis.role is not IndexRole.DEPTH
-        or axis.index_type is not IndexType.MD
-        or (axis.unit or "").strip().casefold() not in {"m", "meter", "metre", "meters", "metres"}
-    ):
-        raise ValueError("Geology correlation requires an explicit metre MD depth axis")
+    if not supports_saved_md_geology(dataset):
+        raise ValueError("Geology correlation requires an explicit metre MD depth axis with verified source alignment")
 
     top, bottom = float(top_depth), float(bottom_depth)
     if not (isfinite(top) and isfinite(bottom) and top < bottom):

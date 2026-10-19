@@ -42,6 +42,7 @@ from geoworkbench.printing.geology_track_rendering import (
 )
 from geoworkbench.printing.hydrocarbon_interpretation_geology import (
     InterpretationGeologySnapshot,
+    geology_for_dataset,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_geology_legend import (
     GeologyLegendItem,
@@ -181,6 +182,7 @@ def render_chart_pages(
     interval = getattr(report, "analysis_depth_interval", None)
     depth_range = interval or depth_range
     dataset = scope_dataset(dataset, interval)
+    geology = geology_for_dataset(geology, dataset)
     depth = np.asarray(dataset.depth, dtype=np.float64)
     finite_depth = np.isfinite(depth)
     if depth.ndim != 1 or np.count_nonzero(finite_depth) < 2:

@@ -21,7 +21,8 @@ from geoworkbench.data.spreadsheet_safety import (
     protect_spreadsheet_value,
 )
 from geoworkbench.domain.depth_interval import scope_dataset
-from geoworkbench.domain.models import CurveData, Dataset, IndexRole, IndexType
+from geoworkbench.domain.models import CurveData, Dataset
+from geoworkbench.services.geology_depth_alignment import supports_saved_md_geology
 from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
 from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import InterpretationReportIdentity
@@ -106,10 +107,7 @@ def export_readable_hydrocarbon_interpretation_xlsx(
         )
     if geology_evidence and (
         dataset.active_index_id != report.depth_axis_id
-        or dataset.active_index.index_type is not IndexType.MD
-        or dataset.active_index.role is not IndexRole.DEPTH
-        or (dataset.active_index.unit or "").strip().casefold()
-        not in {"m", "meter", "metre", "meters", "metres"}
+        or not supports_saved_md_geology(dataset)
     ):
         raise ValueError("Measured geology evidence requires the report's metre MD dataset axis")
     dataset = scope_dataset(dataset, report.analysis_depth_interval)
