@@ -184,6 +184,13 @@ for _group in LBA_STANDARD_GROUPS:
 
 @dataclass(frozen=True, slots=True)
 class LbaStandardAssessment:
+    """Bitumoid group and residual ring/spot score are independent scales.
+
+    Historical `intensity` is the 1–5 visual residue-pattern score for
+    capillary extract, NOT brightness of fluorescence or reservoir saturation.
+    It is retained for source LAS and project schema compatibility.
+    """
+
     standard: LbaStandardGroup
     intensity: int | None
     color_code: str | None
@@ -257,10 +264,12 @@ def assess_lba_standard(
 
 
 def lba_intensity_name(intensity: int, language: AppLanguage) -> str:
+    """Name the residual capillary ring/spot class, not fluorescence brightness."""
+
     names = {
         AppLanguage.RU: {
             1: "единичные точки",
-            2: "фрагментарное кольцо",
+            2: "прерывистое кольцо",
             3: "тонкое сплошное кольцо",
             4: "толстое кольцо",
             5: "сплошное пятно",
@@ -298,7 +307,7 @@ def describe_lba_assessment(
             parts.append(f"түс {assessment.color_code}")
         if assessment.intensity is not None:
             parts.append(
-                f"қарқындылық {assessment.intensity}: "
+                f"қалдық сақина/дақ бағасы {assessment.intensity}: "
                 f"{lba_intensity_name(assessment.intensity, language)}"
             )
         if assessment.conflicts:
@@ -314,7 +323,7 @@ def describe_lba_assessment(
             parts.append(f"colour {assessment.color_code}")
         if assessment.intensity is not None:
             parts.append(
-                f"intensity {assessment.intensity}: "
+                f"residual ring/spot score {assessment.intensity}: "
                 f"{lba_intensity_name(assessment.intensity, language)}"
             )
         if assessment.conflicts:
@@ -329,7 +338,7 @@ def describe_lba_assessment(
         parts.append(f"цвет {assessment.color_code}")
     if assessment.intensity is not None:
         parts.append(
-            f"интенсивность {assessment.intensity}: "
+            f"оценка остаточного кольца/пятна {assessment.intensity}: "
             f"{lba_intensity_name(assessment.intensity, language)}"
         )
     if assessment.conflicts:
