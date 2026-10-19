@@ -17,6 +17,7 @@ import numpy as np
 from geoworkbench.domain.models import IndexRole, IndexType
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.report_geology_snapshot import build_report_geology_snapshot
+from geoworkbench.services.lba_observations import LBA_OBSERVATION_FIELDS
 
 
 EvidenceKind = Literal["lithology", "cuttings", "lba", "calcimetry", "stratigraphy"]
@@ -162,12 +163,7 @@ def correlate_gas_interval_with_well_geology(
             add("cuttings", sample.sample_id, sample.top_depth, sample.bottom_depth, cuttings_attrs)
 
         lba: list[tuple[str, _NumberOrText]] = []
-        for name in (
-            "lba_group", "lba_type_id", "lba_intensity", "lba_color",
-            "lba_distribution", "lba_cut", "lba_cut_speed", "lba_cut_color",
-            "lba_residue_type", "lba_residue_color", "lba_odour", "lba_stain",
-            "lba_description",
-        ):
+        for name in LBA_OBSERVATION_FIELDS:
             value = getattr(sample, name)
             if value is not None and (not isinstance(value, str) or value.strip()):
                 lba.append((name, value))

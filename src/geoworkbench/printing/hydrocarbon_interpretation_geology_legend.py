@@ -10,6 +10,7 @@ from geoworkbench.printing.geology_track_rendering import paint_lba_intensity_sy
 from geoworkbench.printing.hydrocarbon_interpretation_geology import (
     InterpretationGeologySnapshot,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import visible_geology_samples
 from geoworkbench.printing.lba_visuals import (
     UNKNOWN_LBA_STYLE,
     lba_intensity_name,
@@ -25,6 +26,7 @@ from geoworkbench.services.lba_standard import (
     lba_standard_group,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.lba_observations import has_recorded_lba
 from geoworkbench.tablet.lithology_patterns import masterlog_lithology_brush
 
 
@@ -69,11 +71,7 @@ def build_interpretation_geology_legend(
     if geology is None or bottom_depth <= top_depth:
         return InterpretationGeologyLegend(())
 
-    visible = tuple(
-        sample
-        for sample in geology.samples
-        if sample.bottom_depth >= top_depth and sample.top_depth <= bottom_depth
-    )
+    visible = visible_geology_samples(geology, top_depth, bottom_depth)
     if not visible:
         return InterpretationGeologyLegend(())
 
@@ -117,19 +115,7 @@ def build_interpretation_geology_legend(
             )
 
     for sample in visible if include_lba else ():
-        has_lba = any(
-            value not in (None, "")
-            for value in (
-                sample.lba_group,
-                sample.lba_type_id,
-                sample.lba_intensity,
-                sample.lba_color,
-                sample.lba_distribution,
-                sample.lba_cut,
-                sample.lba_description,
-            )
-        )
-        if not has_lba:
+        if not has_recorded_lba(sample):
             continue
         standard_group = lba_standard_group(sample.lba_group)
         style = resolve_lba_type_style(sample.lba_type_id)
