@@ -856,7 +856,7 @@ _LBA_LABELS = {
     AppLanguage.RU: {
         "group": "Группа",
         "type": "Тип",
-        "intensity": "Интенсивность",
+        "intensity": "Остаточное кольцо/пятно, балл",
         "color": "Цвет флуоресценции",
         "distribution": "Распределение",
         "cut": "Cut",
@@ -871,7 +871,7 @@ _LBA_LABELS = {
     AppLanguage.KK: {
         "group": "Топ",
         "type": "Түр",
-        "intensity": "Қарқындылық",
+        "intensity": "Қалдық сақина/дақ, балл",
         "color": "Флуоресценция түсі",
         "distribution": "Таралуы",
         "cut": "Cut",
@@ -886,7 +886,7 @@ _LBA_LABELS = {
     AppLanguage.EN: {
         "group": "Group",
         "type": "Type",
-        "intensity": "Intensity",
+        "intensity": "Residual ring/spot score",
         "color": "Fluorescence color",
         "distribution": "Distribution",
         "cut": "Cut",
