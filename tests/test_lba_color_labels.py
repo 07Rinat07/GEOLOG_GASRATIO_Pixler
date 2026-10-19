@@ -58,3 +58,9 @@ def test_tablet_keeps_readable_lba_text_outside_compact_colour_cell() -> None:
     assert "self._localizer.text('tablet.lba_color')" in source
     assert "self._localizer.text('tablet.lba_cut_color')" in source
     assert "self._localizer.text('tablet.lba_residue_color')" in source
+
+def test_extended_florovskaya_palette_is_available_to_editor() -> None:
+    labels = all_lba_color_labels(AppLanguage.RU)
+    assert "О — оранжевый" in labels
+    assert "ЖК — желтовато-коричневый" in labels
+    assert len([label for label in labels if label.startswith("О — ")]) == 1
