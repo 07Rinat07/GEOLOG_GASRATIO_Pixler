@@ -92,6 +92,12 @@ def test_one_reviewed_snapshot_reaches_html_pdf_word_excel(qapp, monkeypatch, tm
     assert len(printed) == 1
     assert projection.title in printed[0][1]
     assert projection.title in excel and projection.title in word and projection.title in pdf
+    assert projection.coverage_rows[1][2] == "1002.00–1004.00 m; 1009.00–1010.00 m"
+    for rendered in (viewer.toPlainText(), " ".join(excel), word, pdf, printed[0][1]):
+        compact = re.sub(r"\s+", "", rendered)
+        assert re.sub(r"\s+", "", projection.coverage_headings[2]) in compact
+        for row in projection.coverage_rows:
+            assert re.sub(r"\s+", "", row[2]) in compact
     for row in (*projection.coverage_rows, *projection.rows):
         for cell in row:
             assert cell in excel

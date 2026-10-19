@@ -16,6 +16,8 @@ In gas/geology comparison, saved LBA, cuttings, calcimetry and stratigraphy fiel
 
 Comparison also includes separately recorded LBA cut speed/color, residue type/color, odour and stain. Empty fields are not measurements; changing these observations requires renewed approval for report output.
 
+The coverage table lists MD intervals without observations for each geological data type. With no records, the entire gas interval is listed; full coverage is marked separately. A gap means no observation, not a negative assay result.
+
 ## Installation and startup
 
 Python 3.11 or newer is required. Run every command from the project root.

@@ -29,6 +29,8 @@ _LABELS: dict[AppLanguage, dict[str, str]] = {
         "coverage": "Покрытие исходными наблюдениями",
         "kind": "Тип данных",
         "measured": "Покрыто, % длины",
+        "uncovered": "Интервалы без наблюдений (MD)",
+        "complete": "Непокрытых интервалов нет",
         "source": "Источник (ID записи)",
         "bounds": "Интервал источника",
         "overlap": "Пересечение с газовым интервалом",
@@ -46,6 +48,8 @@ _LABELS: dict[AppLanguage, dict[str, str]] = {
         "coverage": "Бастапқы бақылаулармен қамтылуы",
         "kind": "Деректер түрі",
         "measured": "Қамтылған ұзындық, %",
+        "uncovered": "Бақылаусыз аралықтар (MD)",
+        "complete": "Қамтылмаған аралықтар жоқ",
         "source": "Дереккөз (жазба ID)",
         "bounds": "Дереккөз аралығы",
         "overlap": "Газ аралығымен қиылысуы",
@@ -63,6 +67,8 @@ _LABELS: dict[AppLanguage, dict[str, str]] = {
         "coverage": "Coverage by source observations",
         "kind": "Evidence type",
         "measured": "Covered length, %",
+        "uncovered": "Intervals without observations (MD)",
+        "complete": "No uncovered intervals",
         "source": "Source record ID",
         "bounds": "Source interval",
         "overlap": "Gas interval intersection",
@@ -178,8 +184,10 @@ def geology_interval_evidence_table(
         if kind not in _KINDS or not isfinite(fraction) or not 0.0 <= fraction <= 1.0:
             raise ValueError("Invalid measured geology coverage entry")
         result = f"{100.0 * fraction:.1f}%" if fraction > 0.0 else words["none"]
+        gaps = evidence.uncovered_intervals(kind)
+        uncovered = "; ".join(interval(low, high) for low, high in gaps) if gaps else words["complete"]
         coverage_rows.append(
-            (_KINDS[kind][language], result)
+            (_KINDS[kind][language], result, uncovered)
         )
 
     observed_rows: list[tuple[str, ...]] = []
@@ -199,7 +207,7 @@ def geology_interval_evidence_table(
     return GeologyEvidenceTable(
         words["title"], words["intro"],
         f"{words['interval']}: {interval(evidence.gas_top, evidence.gas_bottom)}",
-        words["coverage"], (words["kind"], words["measured"]), tuple(coverage_rows),
+        words["coverage"], (words["kind"], words["measured"], words["uncovered"]), tuple(coverage_rows),
         tuple(words[name] for name in ("kind", "source", "bounds", "overlap", "observed")),
         tuple(observed_rows),
     )

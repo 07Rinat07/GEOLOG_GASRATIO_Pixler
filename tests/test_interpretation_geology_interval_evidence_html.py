@@ -12,9 +12,30 @@ from geoworkbench.services.interpretation_geology_interval_evidence import (
 )
 from geoworkbench.services.interpretation_geology_interval_evidence_html import (
     geology_interval_evidence_html,
+    geology_interval_evidence_table,
 )
+from geoworkbench.domain.models import StratigraphyInterval
 from geoworkbench.services.localization import AppLanguage
 from test_report_geology_snapshot import _session
+
+
+@pytest.mark.parametrize(("language", "heading", "complete"), (
+    (AppLanguage.RU, "Интервалы без наблюдений (MD)", "Непокрытых интервалов нет"),
+    (AppLanguage.KK, "Бақылаусыз аралықтар (MD)", "Қамтылмаған аралықтар жоқ"),
+    (AppLanguage.EN, "Intervals without observations (MD)", "No uncovered intervals"),
+))
+def test_partial_absent_and_complete_observation_coverage_has_explicit_md_gaps(language, heading, complete):
+    session = _session()
+    session.current_well.stratigraphy.append(StratigraphyInterval("full", 1000.0, 1015.0, "C"))
+    evidence = correlate_gas_interval_with_well_geology(session, top_depth=1002.0, bottom_depth=1010.0)
+    projection = geology_interval_evidence_table(evidence, language)
+    assert projection.coverage_headings[2] == heading
+    assert projection.coverage_rows[1][2] == "1002.00–1004.00 m; 1009.00–1010.00 m"
+    assert projection.coverage_rows[3][2] == "1002.00–1010.00 m"
+    assert projection.coverage_rows[4][2] == complete
+    html = geology_interval_evidence_html(evidence, language)
+    assert heading in html and complete in html
+    assert "1002.00–1004.00 m; 1009.00–1010.00 m" in html
 
 
 @pytest.mark.parametrize(

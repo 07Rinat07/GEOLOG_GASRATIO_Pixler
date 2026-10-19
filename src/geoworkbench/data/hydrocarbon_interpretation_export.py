@@ -276,7 +276,7 @@ def _write_docx(
             _paragraph(presentation.intro),
             _paragraph(presentation.interval),
             _paragraph(presentation.coverage_title),
-            _table(presentation.coverage_headings, presentation.coverage_rows, widths=(7000, 7000)),
+            _table(presentation.coverage_headings, presentation.coverage_rows, widths=(4000, 3500, 6500)),
             _table(presentation.headings, presentation.rows, widths=(1800, 2200, 2500, 2500, 5000)),
         ))
     body.append(_paragraph(labels.prospective_heading, style="Heading1"))
