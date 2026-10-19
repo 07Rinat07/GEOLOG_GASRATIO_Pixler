@@ -97,6 +97,8 @@ class InterpretationReportWorkspace(QWidget):
         self._geology_pdf_source_key: tuple[object, ...] | None = None
         self._geology_word_evidence: tuple[GasGeologyIntervalEvidence, ...] = ()
         self._geology_word_source_key: tuple[object, ...] | None = None
+        self._geology_excel_evidence: tuple[GasGeologyIntervalEvidence, ...] = ()
+        self._geology_excel_source_key: tuple[object, ...] | None = None
         self._export_in_progress = False
         self.setObjectName("interpretation-report-workspace")
         self.setStyleSheet(
@@ -549,12 +551,14 @@ class InterpretationReportWorkspace(QWidget):
             dialog.deleteLater()
 
     def _clear_geology_evidence(self) -> None:
-        """Revoke PDF opt-in as well as the dialog whenever inputs change."""
+        """Revoke every output approval and the dialog whenever inputs change."""
 
         self._geology_pdf_evidence = ()
         self._geology_pdf_source_key = None
         self._geology_word_evidence = ()
         self._geology_word_source_key = None
+        self._geology_excel_evidence = ()
+        self._geology_excel_source_key = None
         dialog = self._geology_evidence_dialog
         self._geology_evidence_dialog = None
         if dialog is not None:
@@ -563,17 +567,22 @@ class InterpretationReportWorkspace(QWidget):
 
     def _geology_evidence_for_export(
         self, report: HydrocarbonInterpretationReport, *, for_word: bool = False,
+        for_excel: bool = False,
     ) -> tuple[GasGeologyIntervalEvidence, ...]:
         """Fail closed on edits to the operator-confirmed MD source snapshot."""
 
         selected = self._geology_word_evidence if for_word else self._geology_pdf_evidence
+        if for_excel:
+            selected = self._geology_excel_evidence
         if not selected:
             return ()
         source_key = self._method_comparison_source_key(report)
         confirmed_key = self._geology_word_source_key if for_word else self._geology_pdf_source_key
+        if for_excel:
+            confirmed_key = self._geology_excel_source_key
         if source_key is None or source_key != confirmed_key:
             self._clear_geology_evidence()
-            raise ValueError("Selected PDF geology source changed after confirmation")
+            raise ValueError("Selected geology source changed after confirmation")
         try:
             verified_session_geology_evidence(
                 self.controller.session, report, selected,
@@ -759,6 +768,14 @@ class InterpretationReportWorkspace(QWidget):
         include_word = QPushButton(word_caption, dialog)
         include_word.setObjectName("interpretation-geology-include-in-word")
         layout.addWidget(include_word)
+        excel_caption = self._text(
+            "Включить выбранные наблюдения в Excel",
+            "Таңдалған бақылауларды Excel-ге енгізу",
+            "Include selected observations in Excel",
+        )
+        include_excel = QPushButton(excel_caption, dialog)
+        include_excel.setObjectName("interpretation-geology-include-in-excel")
+        layout.addWidget(include_excel)
         self._geology_evidence_dialog = dialog
 
         def update_candidate(index: int) -> None:
@@ -766,6 +783,9 @@ class InterpretationReportWorkspace(QWidget):
             self._geology_word_evidence = ()
             self._geology_word_source_key = None
             include_word.setText(word_caption)
+            self._geology_excel_evidence = ()
+            self._geology_excel_source_key = None
+            include_excel.setText(excel_caption)
             self._geology_pdf_evidence = ()
             self._geology_pdf_source_key = None
             include_pdf.setText(self._text(
@@ -797,7 +817,7 @@ class InterpretationReportWorkspace(QWidget):
                 html = f"<p>{escape(str(exc))}</p>"
             viewer.setHtml(html)
 
-        def approve_observations(*, for_word: bool = False) -> None:
+        def approve_observations(*, for_word: bool = False, for_excel: bool = False) -> None:
             if self._geology_evidence_dialog is not dialog:
                 return
             if (
@@ -827,6 +847,17 @@ class InterpretationReportWorkspace(QWidget):
                 self._geology_pdf_source_key = None
                 self._geology_word_evidence = ()
                 self._geology_word_source_key = None
+                self._geology_excel_evidence = ()
+                self._geology_excel_source_key = None
+                return
+            if for_excel:
+                self._geology_excel_evidence = (observed,)
+                self._geology_excel_source_key = source_key
+                include_excel.setText(self._text(
+                    "Наблюдения выбраны для Excel",
+                    "Бақылаулар Excel үшін таңдалды",
+                    "Observations selected for Excel",
+                ))
                 return
             if for_word:
                 self._geology_word_evidence = (observed,)
@@ -847,6 +878,7 @@ class InterpretationReportWorkspace(QWidget):
 
         include_pdf.clicked.connect(lambda: approve_observations())
         include_word.clicked.connect(lambda: approve_observations(for_word=True))
+        include_excel.clicked.connect(lambda: approve_observations(for_excel=True))
         selector.currentIndexChanged.connect(update_candidate)
         update_candidate(0)
         if self._geology_evidence_dialog is dialog:
