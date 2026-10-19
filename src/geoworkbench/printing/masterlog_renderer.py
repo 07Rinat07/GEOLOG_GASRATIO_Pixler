@@ -1381,9 +1381,9 @@ def _paint_lba_legend(
         AppLanguage.EN: "Bitumen type",
     }
     intensity_titles = {
-        AppLanguage.RU: "Интенсивность",
-        AppLanguage.KK: "Қарқындылық",
-        AppLanguage.EN: "Intensity",
+        AppLanguage.RU: "Остаточное кольцо/пятно",
+        AppLanguage.KK: "Қалдық сақина/дақ",
+        AppLanguage.EN: "Residual ring/spot",
     }
     default_size = visual.typography.table_pt * 25.4 / 72.0
     raw_size = properties.get("font_size_mm", default_size)
