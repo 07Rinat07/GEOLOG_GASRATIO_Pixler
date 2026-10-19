@@ -20,6 +20,8 @@ The coverage table lists MD intervals without observations for each geological d
 
 Auto tracks and geological legends include only samples with positive depth overlap with the selected range. Touching an edge does not create an empty track; Show retains the column with its no-data indication. Actual intervals crossing page boundaries remain visible.
 
+A sample recorded only through additional LBA details (cut, residue, odour or stain) is retained in the graphical track. Missing type or intensity uses the existing neutral unknown symbol; empty text does not create an observation.
+
 ## Installation and startup
 
 Python 3.11 or newer is required. Run every command from the project root.

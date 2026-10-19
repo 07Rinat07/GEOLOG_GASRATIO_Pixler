@@ -13,6 +13,7 @@ from geoworkbench.printing.lba_visuals import (
 )
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.services.lba_standard import lba_color_code, lba_standard_group
+from geoworkbench.services.lba_observations import has_recorded_lba
 from geoworkbench.tablet.lithology_patterns import masterlog_lithology_brush
 
 
@@ -83,6 +84,12 @@ class FrozenCuttingsSample:
     lba_distribution: str | None = None
     lba_cut: str | None = None
     lba_description: str | None = None
+    lba_cut_speed: str | None = None
+    lba_cut_color: str | None = None
+    lba_residue_type: str | None = None
+    lba_residue_color: str | None = None
+    lba_odour: str | None = None
+    lba_stain: str | None = None
 
 
 def paint_cuttings_track(
@@ -199,19 +206,7 @@ def paint_lba_track(
         if sample.bottom_depth < top or sample.top_depth > bottom:
             continue
         color_code = lba_color_code(sample.lba_color)
-        has_lba = any(
-            value not in (None, "")
-            for value in (
-                sample.lba_group,
-                sample.lba_type_id,
-                sample.lba_intensity,
-                color_code,
-                sample.lba_distribution,
-                sample.lba_cut,
-                sample.lba_description,
-            )
-        )
-        if not has_lba:
+        if not has_recorded_lba(sample):
             continue
         visible_top = max(top, sample.top_depth)
         visible_bottom = min(bottom, sample.bottom_depth)

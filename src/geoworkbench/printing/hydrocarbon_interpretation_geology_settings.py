@@ -6,6 +6,7 @@ from math import isfinite
 from typing import TYPE_CHECKING
 
 from geoworkbench.domain.report_composition import InterpretationReportComposition
+from geoworkbench.services.lba_observations import has_recorded_lba
 
 if TYPE_CHECKING:
     from geoworkbench.printing.geology_track_rendering import FrozenCuttingsSample
@@ -46,19 +47,7 @@ def resolve_geology_track_kinds(
 ) -> tuple[str, ...]:
     visible = visible_geology_samples(geology, top_depth, bottom_depth)
     has_cuttings = any(sample.components for sample in visible)
-    has_lba = any(
-        value not in (None, "")
-        for sample in visible
-        for value in (
-            sample.lba_group,
-            sample.lba_type_id,
-            sample.lba_intensity,
-            sample.lba_color,
-            sample.lba_distribution,
-            sample.lba_cut,
-            sample.lba_description,
-        )
-    )
+    has_lba = any(has_recorded_lba(sample) for sample in visible)
     tracks: list[str] = []
     if settings.cuttings is GeologyTrackVisibility.SHOW or (
         settings.cuttings is GeologyTrackVisibility.AUTO and has_cuttings
@@ -79,19 +68,7 @@ def forced_empty_geology_tracks(
 ) -> tuple[str, ...]:
     visible = visible_geology_samples(geology, top_depth, bottom_depth)
     has_cuttings = any(sample.components for sample in visible)
-    has_lba = any(
-        value not in (None, "")
-        for sample in visible
-        for value in (
-            sample.lba_group,
-            sample.lba_type_id,
-            sample.lba_intensity,
-            sample.lba_color,
-            sample.lba_distribution,
-            sample.lba_cut,
-            sample.lba_description,
-        )
-    )
+    has_lba = any(has_recorded_lba(sample) for sample in visible)
     empty: list[str] = []
     if settings.cuttings is GeologyTrackVisibility.SHOW and not has_cuttings:
         empty.append("cuttings")

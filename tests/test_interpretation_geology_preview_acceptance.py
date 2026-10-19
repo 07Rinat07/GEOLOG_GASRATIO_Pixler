@@ -288,6 +288,55 @@ def test_multi_page_partial_geology_keeps_page_gaps_empty(qapp, monkeypatch) -> 
     assert any(top > 1006.0 for top, _bottom, _tracks, _empty in observed)
 
 
+@pytest.mark.parametrize("language", tuple(AppLanguage))
+def test_partial_lba_details_render_in_real_preview_and_pdf_without_inferred_intensity(qapp, monkeypatch, tmp_path, language):
+    import fitz
+    from geoworkbench.printing import geology_track_rendering as renderer
+    from geoworkbench.printing.lba_visuals import UNKNOWN_LBA_STYLE
+
+    fields = ("lba_cut_speed", "lba_cut_color", "lba_residue_type", "lba_residue_color", "lba_odour", "lba_stain")
+    geology = InterpretationGeologySnapshot(tuple(
+        FrozenCuttingsSample(str(index), 1000.0 + index * 2, 1001.0 + index * 2, (), **{field: "Recorded detail"})
+        for index, field in enumerate(fields)
+    ), ())
+    before = repr(geology)
+    dataset = _dataset()
+    depth = dataset.depth.copy()
+    symbols = []
+    original = renderer.paint_lba_intensity_symbol
+    def capture(*args):
+        symbols.append((args[-2].name(), args[-1]))
+        return original(*args)
+    monkeypatch.setattr(renderer, "paint_lba_intensity_symbol", capture)
+    auto = hydrocarbon_interpretation_chart_data_uri(_report(), dataset, language, geology=geology)
+    hidden = hydrocarbon_interpretation_chart_data_uri(
+        _report(), dataset, language, geology=geology,
+        geology_track_settings=InterpretationGeologyTrackSettings(lba=GeologyTrackVisibility.HIDE),
+    )
+    assert auto != hidden
+    assert len(symbols) >= len(fields)
+    assert set(symbols) == {(UNKNOWN_LBA_STYLE.color, None)}
+    symbols.clear()
+    output = tmp_path / "partial-lba.pdf"
+    writer = QPdfWriter(str(output))
+    writer.setResolution(72)
+    writer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+    writer.setPageOrientation(QPageLayout.Orientation.Landscape)
+    painter = QPainter(writer)
+    try:
+        pdf_chart.render_chart_pages(PageCanvas(writer, painter, language), _report(), dataset, language, geology=geology)
+    finally:
+        painter.end()
+    assert len(symbols) >= len(fields)
+    assert set(symbols) == {(UNKNOWN_LBA_STYLE.color, None)}
+    with fitz.open(output) as document:
+        text = " ".join(page.get_text() for page in document)
+        assert ("LBA" if language is AppLanguage.EN else "ЛБА") in text
+        assert "?" in text
+    np.testing.assert_array_equal(dataset.depth, depth)
+    assert repr(geology) == before
+
+
 def test_multi_page_forced_empty_tracks_keep_one_report_level_empty_state(qapp, monkeypatch) -> None:
     dataset = _dataset(depth_span=2500.0, samples=501)
     report = _report()

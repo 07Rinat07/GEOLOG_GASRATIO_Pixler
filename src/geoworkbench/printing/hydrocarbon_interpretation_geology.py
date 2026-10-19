@@ -9,6 +9,7 @@ from geoworkbench.printing.geology_track_rendering import (
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.lithotype_catalog_models import CatalogLithotype
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.lba_observations import has_recorded_lba
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,19 +27,7 @@ class InterpretationGeologySnapshot:
 
     @property
     def has_lba(self) -> bool:
-        return any(
-            value not in (None, "")
-            for sample in self.samples
-            for value in (
-                sample.lba_group,
-                sample.lba_type_id,
-                sample.lba_intensity,
-                sample.lba_color,
-                sample.lba_distribution,
-                sample.lba_cut,
-                sample.lba_description,
-            )
-        )
+        return any(has_recorded_lba(sample) for sample in self.samples)
 
 
 def interpretation_geology_snapshot(
@@ -67,6 +56,12 @@ def interpretation_geology_snapshot(
             lba_distribution=sample.lba_distribution,
             lba_cut=sample.lba_cut,
             lba_description=sample.lba_description,
+            lba_cut_speed=sample.lba_cut_speed,
+            lba_cut_color=sample.lba_cut_color,
+            lba_residue_type=sample.lba_residue_type,
+            lba_residue_color=sample.lba_residue_color,
+            lba_odour=sample.lba_odour,
+            lba_stain=sample.lba_stain,
         )
         for sample in well.cuttings
     )
