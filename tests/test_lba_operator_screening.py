@@ -129,3 +129,17 @@ def test_invalid_qc_flag_rejected_explicitly() -> None:
                 coal_or_organic_matter_present="yes",  # type: ignore[arg-type]
             ),
         )
+
+@pytest.mark.parametrize(
+    ("group", "type_id"),
+    ((6, "ЛБ"), (-1, "ЛБ"), (True, "ЛБ"), (1, "unknown type")),
+)
+def test_invalid_operator_group_or_type_cannot_be_salvaged_by_other_field(
+    group: object, type_id: str,
+) -> None:
+    result = screen_lba_operator_pattern(
+        group=group,  # type: ignore[arg-type]
+        type_id=type_id, colour="БГ", residual_ring_score=1,
+    )
+    assert result.status is LbaScreeningStatus.INVALID_OBSERVATION
+    assert result.candidate_contexts == ()
