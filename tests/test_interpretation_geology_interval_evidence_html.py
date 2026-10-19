@@ -96,9 +96,9 @@ def test_measured_zero_remains_measurement_not_missing() -> None:
 @pytest.mark.parametrize(
     ("language", "calcite", "description", "intensity", "composition"),
     (
-        (AppLanguage.RU, "Кальцит, %", "Описание", "Интенсивность ЛБА", "ID литотипа sandstone, %"),
-        (AppLanguage.KK, "Кальцит, %", "Сипаттама", "ЛБА қарқындылығы", "Литотип ID sandstone, %"),
-        (AppLanguage.EN, "Calcite, %", "Description", "LBA intensity", "Lithotype ID sandstone, %"),
+        (AppLanguage.RU, "Кальцит, %", "Описание", "Остаточное кольцо/пятно, балл", "ID литотипа sandstone, %"),
+        (AppLanguage.KK, "Кальцит, %", "Сипаттама", "Қалдық сақина/дақ, балл", "Литотип ID sandstone, %"),
+        (AppLanguage.EN, "Calcite, %", "Description", "Residual ring/spot score", "Lithotype ID sandstone, %"),
     ),
 )
 def test_measurement_names_and_units_follow_language_without_translating_values(
