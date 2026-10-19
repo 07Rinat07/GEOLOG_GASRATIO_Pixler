@@ -60,6 +60,25 @@ class GasGeologyIntervalEvidence:
     def coverage(self, kind: EvidenceKind) -> float:
         return dict(self.coverage_by_kind)[kind]
 
+    def attribute_coverage(self, kind: EvidenceKind, attribute: str) -> float:
+        """Observed fraction for one recorded field, not its entire evidence kind.
+
+        A sample with measured calcite but no dolomite cannot imply dolomite
+        coverage. Recorded zero values remain observations, and overlapping
+        records count only once. An absent field has zero measured coverage.
+        """
+        if not isinstance(attribute, str) or not attribute.strip():
+            raise ValueError("Evidence attribute name must be non-empty")
+        # Reuse the verified MD bounds and per-observation interval guard.
+        self.uncovered_intervals(kind)
+        observed = (
+            (item.overlap_top, item.overlap_bottom)
+            for item in self.intersections
+            if item.kind == kind
+            and any(name == attribute for name, _ in item.attributes)
+        )
+        return _union_coverage(observed, self.gas_bottom - self.gas_top)
+
     def uncovered_intervals(self, kind: EvidenceKind) -> tuple[tuple[float, float], ...]:
         """Complement of observed depth union, never negative assay intervals."""
 
