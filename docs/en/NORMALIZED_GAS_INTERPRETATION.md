@@ -125,3 +125,30 @@ the residual ring is also distinct from a solvent-cut residue observation.
 Correlation with gas anomalies, Haworth and Pixler requires verified
 sample depth and gas lag. The LBA group or ring score cannot calculate
 oil/water saturation or prove commercial productivity.
+
+### Operator LBA patterns: field hypotheses, not fluid identification
+
+`lba_operator_screening.py` contains **selected field observations
+provided by an experienced mud logger**. They are not international
+cutoffs and have not been calibrated as a general reservoir model.
+
+| LBA | Possible context before independent gas/GIS correlation |
+|---|---|
+| `1-БГ-ЛБ` | Trace light bitumoid. Sometimes accompanies gas shows, but organic material or drilling additives may explain it. |
+| `2-БГ-ЛБ` | Gas/gas-condensate context, occasionally light oil; no established fluid phase. |
+| `2-БЖ-МБ`, `3-БЖ-МБ`, `3-ГЖ-МБ` | Light oil or condensate/gas-condensate is possible; review C2–C5, solvent cut, gas background and GIS. |
+| `3-ОЖ-МСБ` | Oily-resinous show; could be formation oil or residual organic bitumen, not proven movable oil. |
+
+**Mandatory QC:** sample lag and provenance, a control extract from
+mud/solvent, coal and coaly layers, natural organic material, and
+timing of lubricating/organic mud additives (the operator mentioned
+“Петролюб” and “Суперборетрол”; their chemical composition is not assumed).
+When contamination is suspected, the helper suppresses phase hypotheses.
+Missing checks or unlisted patterns remain uncertain. Methane alone
+cannot explain the fluorescence of an extracted bitumoid; examine
+co-occurring extractable organics.
+
+This feature is **data-only API**, not yet connected to the report,
+Haworth/Pixler/OPUS or the UI. Coupled gas/GIS interpretation requires
+a separately verified integration. The 1–5 score is **not** pore-fluid
+hydrocarbon saturation.
