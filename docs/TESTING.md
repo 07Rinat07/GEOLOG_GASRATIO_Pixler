@@ -1,3 +1,32 @@
+## PR #682 CI39321437752: tabular-language MainWindow isolation
+
+The Windows gate aborted with `0xC0000005` in pyqtgraph
+`ViewBoxMenu.__init__` while reopening MainWindow in
+`test_all_six_outputs_share_language_without_relocalizing_operator_ui[en-ru]`.
+The preceding RU/KK case passed in a shared 58-file tablet/dialog shard.
+No assertion failure preceded the native abort. The whole tabular-language
+module passed all eight cases when run in a fresh process. The exact 58-file
+CI shard was replayed locally and reproduced `0xC0000005` at the same EN/RU
+selector. Six fresh-process runs of the end-to-end function then passed all
+18 language cases with native statuses checked.
+
+The runner now schedules `test_tabular_export_output_language.py` through the
+existing single-function native batches. The end-to-end function still tests
+all three UI/output-language pairs and both initial open and reopen; all six
+real output checks and persistence assertions remain unchanged. The runner
+contract verifies complete scheduling and exclusion from regular shards.
+Native nonzero statuses remain failures; no retries, skips, GC disabling or
+production lifecycle changes are introduced. This bounds shared test context,
+but does not establish or close the general production-native root cause #544.
+
+Reproduce the original selector with UTF-8 and the project runner:
+
+```powershell
+$env:PYTHONUTF8 = '1'
+.\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_tabular_export_output_language.py -q
+.\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_test_runner_contract_0790.py -q
+```
+
 ## Main CI39180284242: Qt root ownership during pytest final GC
 
 At main `64c8fcbd` the Word stale-input selector completed all four cases,

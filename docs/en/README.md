@@ -22,6 +22,8 @@ Auto tracks and geological legends include only samples with positive depth over
 
 A sample recorded only through additional LBA details (cut, residue, odour or stain) is retained in the graphical track. Missing type or intensity uses the existing neutral unknown symbol; empty text does not create an observation.
 
+Saved MD samples are overlaid and compared with gas only on a verified metre MD axis. TVD/TVDSS, time, feet and unconfirmed corrected lag coordinates do not inherit that alignment automatically. A lag profile’s explicitly preserved source MD axis remains available; depths are not converted.
+
 ## Installation and startup
 
 Python 3.11 or newer is required. Run every command from the project root.

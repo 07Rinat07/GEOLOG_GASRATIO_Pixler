@@ -57,6 +57,10 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         # track resize followed unrelated Qt cases in a shared shard. Keep
         # both resize tests mandatory with a fresh native heap per function.
         "tests/test_track_resize.py",
+        # PR #682 / run 39321437752 aborted in ViewBoxMenu construction on
+        # MainWindow reopen after unrelated tablet tests in a shared shard.
+        # Retain the real six-format/language assertions with a fresh Qt heap.
+        "tests/test_tabular_export_output_language.py",
         "tests/test_las3_pilot_entrypoint.py",
         "tests/test_las3_modal_reopen_acceptance.py",
         # Depth reset also hit PlotItem.__init__ access violation after earlier

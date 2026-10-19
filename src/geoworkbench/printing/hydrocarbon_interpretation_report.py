@@ -31,6 +31,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_renderer import (
 from geoworkbench.printing.hydrocarbon_interpretation_geology import (
     InterpretationGeologySnapshot,
 )
+from geoworkbench.services.geology_depth_alignment import supports_saved_md_geology
 from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
     DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
     InterpretationGeologyTrackSettings,
@@ -322,6 +323,12 @@ def export_hydrocarbon_interpretation_pdf(
         verified_report_geology_evidence(report, geology_evidence)
     except ValueError as exc:
         raise HydrocarbonInterpretationPdfError(str(exc)) from exc
+    if geology_evidence and dataset is not None and (
+        dataset.dataset_id != report.dataset_id
+        or dataset.active_index_id != report.depth_axis_id
+        or not supports_saved_md_geology(dataset)
+    ):
+        raise HydrocarbonInterpretationPdfError("Measured geology evidence requires a verified metre MD dataset axis")
     destination = Path(target)
     if destination.suffix.casefold() != ".pdf":
         destination = destination.with_suffix(".pdf")
