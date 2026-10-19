@@ -1,3 +1,26 @@
+## Main CI39180284242: Qt root ownership during pytest final GC
+
+At main `64c8fcbd` the Word stale-input selector completed all four cases,
+then its process exited `0xC0000005`. A bounded local stress reproduced
+`0xC0000374` on attempt 5; faulthandler located it in
+`pytest_unconfigure -> unraisableexception.gc_collect_harder`. Replacing
+geology signal closures with weak references did not fix it; that experiment
+was discarded.
+
+The session fixture retained QApplication but only hid top-level windows,
+without retaining their Python wrappers. The unchanged fixture demonstrably
+lost a hidden root on `del window; gc.collect()`. The fixture now retains valid
+root wrappers as well as hiding them, until the existing isolated-process exit.
+This keeps Python cyclic GC from dismantling a still-live Qt root graph during
+pytest unconfigure. No production lifecycle change, GC disabling, skipped tests,
+weakened assertions or native exit-code suppression is introduced. Memory
+retention is bounded by the existing subprocess shards.
+
+The new regression checks that a hidden QWidget remains valid after dropping
+the caller reference and explicit GC. The originally failing selector passed
+12 fresh stress processes (48 cases) after the fix. Full Windows gates on the
+new HEAD remain required; these results do not close every native Qt issue #544.
+
 PR #620 CI38570984430: native 0xC0000005 at pyqtgraph PlotItem QWidgetAction creation during dataset-merge Undo. This selector already uses a fresh subprocess; production disposal calls PlotWidget.close before parent deletion. Standalone selector passed in 12.52s, then three faulthandler-enabled fresh-process diagnostics passed with exits [0,0,0], 27.31s total. Native cause remains unproven. The prior dialog work-area assertion is fixed and its nine related tests pass. A single new exact-head gate run follows these diagnostics; recurrence requires investigation rather than repeated retries. No assertions/skips/thresholds changed.
 
 PR #619 CI38529184973: native 0xC0000005 in pyqtgraph PlotItem QWidgetAction construction during LAS3 entrypoint language refresh. The failing function already runs in a fresh process. PlotWidget.close precedes parent deletion; no proven production defect yet. Standalone acceptance passed (15.72s), then three fresh faulthandler-enabled diagnostic processes passed with exit codes [0,0,0] (31.39s total). One controlled failed-job rerun follows this diagnostic; recurrence requires further lifecycle investigation. No skips, weakened assertions or speculative runtime changes.
