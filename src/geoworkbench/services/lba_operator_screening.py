@@ -123,10 +123,19 @@ def screen_lba_operator_pattern(
             LbaScreeningStatus.INVALID_OBSERVATION,
             None, (), ("invalid_florovskaya_group",),
         )
-    if type_id is not None and type_id.strip() and lba_standard_type(type_id) is None:
+    if type_id is not None and (
+        not isinstance(type_id, str)
+        or (bool(type_id.strip()) and lba_standard_type(type_id) is None)
+    ):
         return LbaOperatorScreening(
             LbaScreeningStatus.INVALID_OBSERVATION,
             None, (), ("unknown_bitumoid_type",),
+        )
+
+    if colour is not None and not isinstance(colour, str):
+        return LbaOperatorScreening(
+            LbaScreeningStatus.INVALID_OBSERVATION,
+            None, (), ("invalid_fluorescence_colour",),
         )
 
     assessment = assess_lba_standard(
