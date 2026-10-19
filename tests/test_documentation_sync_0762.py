@@ -325,5 +325,5 @@ def test_florovskaya_status_and_instructions_use_single_canonical_plan() -> None
     assert "docs/ru" in policy
     assert "docs/kk" in policy
     assert "docs/en" in policy
-    assert "PR #685" in plan
-    assert "на проверке" in plan
+    assert "DOCUMENTATION_POLICY.md" in plan
+    assert "docs/{ru,kk,en}" in plan
