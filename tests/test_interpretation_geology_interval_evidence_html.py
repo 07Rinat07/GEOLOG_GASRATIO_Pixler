@@ -67,9 +67,53 @@ def test_measured_zero_remains_measurement_not_missing() -> None:
         session, top_depth=1002.0, bottom_depth=1010.0,
     )
     rendered = geology_interval_evidence_html(evidence, AppLanguage.EN)
-    assert "calcite_percent: 0.0" in rendered
+    assert "Calcite, %: 0.0" in rendered
     assert evidence.coverage("calcimetry") == pytest.approx(5 / 8)
     assert rendered.count("62.5%") >= 1
+
+
+@pytest.mark.parametrize(
+    ("language", "calcite", "description", "intensity", "composition"),
+    (
+        (AppLanguage.RU, "Кальцит, %", "Описание", "Интенсивность ЛБА", "ID литотипа sandstone, %"),
+        (AppLanguage.KK, "Кальцит, %", "Сипаттама", "ЛБА қарқындылығы", "Литотип ID sandstone, %"),
+        (AppLanguage.EN, "Calcite, %", "Description", "LBA intensity", "Lithotype ID sandstone, %"),
+    ),
+)
+def test_measurement_names_and_units_follow_language_without_translating_values(
+    language, calcite, description, intensity, composition,
+) -> None:
+    session = _session()
+    sample = session.current_well.cuttings[0]
+    sample.calcite_percent = 0.0
+    sample.lba_intensity = 2
+    sample.description = "Авторский текст <source> & saved description"
+    evidence = correlate_gas_interval_with_well_geology(
+        session, top_depth=1002.0, bottom_depth=1010.0,
+    )
+    before = repr(evidence)
+    rendered = geology_interval_evidence_html(evidence, language)
+    assert f"{calcite}: 0.0" in rendered
+    assert f"{intensity}: 2" in rendered
+    assert f"{composition}: 70.0" in rendered
+    assert f"{description}: {escape(sample.description)}" in rendered
+    assert "calcite_percent" not in rendered
+    assert "lba_intensity" not in rendered
+    assert "lithotype:sandstone" not in rendered
+    assert repr(evidence) == before
+
+
+def test_unknown_attribute_and_custom_lithotype_ids_remain_verbatim_and_escaped() -> None:
+    session = _session()
+    evidence = correlate_gas_interval_with_well_geology(
+        session, top_depth=1002.0, bottom_depth=1010.0,
+    )
+    observation = replace(evidence.intersections[0], attributes=(
+        ("vendor_<field>", "<untranslated>"), ("lithotype:<custom>", 0.0),
+    ))
+    rendered = geology_interval_evidence_html(replace(evidence, intersections=(observation,)), AppLanguage.EN)
+    assert "vendor_&lt;field&gt;: &lt;untranslated&gt;" in rendered
+    assert "Lithotype ID &lt;custom&gt;, %: 0.0" in rendered
 
 
 def test_untrusted_source_fields_and_provenance_are_html_escaped() -> None:

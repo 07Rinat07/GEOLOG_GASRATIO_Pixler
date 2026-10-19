@@ -158,6 +158,6 @@ def test_measured_zero_and_missing_lba_are_not_synthesized_in_pdf(
         language=AppLanguage.EN, geology_evidence=(observation,),
     )
     text = _pdf_text(exported.primary_path)
-    assert "calcite_percent: 0.0" in text
+    assert "Calcite, %: 0.0" in text
     assert "No measurement / record" in text
     assert "lba_group" not in text

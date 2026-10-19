@@ -55,6 +55,10 @@ def _excel_values(path, language):
 @pytest.mark.parametrize("language", tuple(AppLanguage))
 def test_one_reviewed_snapshot_reaches_html_pdf_word_excel(qapp, monkeypatch, tmp_path, language):
     workspace, session, errors = _prepare(qapp, monkeypatch, tmp_path, language)
+    session.current_well.cuttings[0].calcite_percent = 0.0
+    session.current_well.cuttings[0].description = "Saved geological observation"
+    workspace.geology_evidence_button.click()
+    qapp.processEvents()
     dataset = session.current_dataset
     depth = dataset.depth.copy()
     curves = {key: curve.values.copy() for key, curve in dataset.curves.items()}
@@ -88,6 +92,12 @@ def test_one_reviewed_snapshot_reaches_html_pdf_word_excel(qapp, monkeypatch, tm
     for observation in selected[0].intersections:
         assert observation.source_id in pdf
         assert observation.source_id in printed[0][1]
+    carbonate_label = "Calcite, %" if language is AppLanguage.EN else "Кальцит, %"
+    for rendered in (viewer.toPlainText(), " ".join(excel), word, pdf, printed[0][1]):
+        assert carbonate_label in rendered
+        assert "Saved geological observation" in rendered
+        assert "calcite_percent" not in rendered
+        assert "lba_group:" not in rendered
     np.testing.assert_array_equal(dataset.depth, depth)
     for key, values in curves.items():
         np.testing.assert_array_equal(dataset.curves[key].values, values)

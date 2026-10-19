@@ -101,6 +101,35 @@ _KINDS: dict[EvidenceKind, dict[AppLanguage, str]] = {
 }
 
 
+# Values and record IDs remain verbatim; only the schema-owned field names
+# are localized. Percent units belong to measured composition, not LBA codes.
+_ATTRIBUTE_LABELS = {
+    "lithotype_id": ("ID литотипа", "Литотип ID", "Lithotype ID"),
+    "description": ("Описание", "Сипаттама", "Description"),
+    "lba_group": ("Группа ЛБА", "ЛБА тобы", "LBA group"),
+    "lba_type_id": ("ID типа ЛБА", "ЛБА түрінің ID", "LBA type ID"),
+    "lba_intensity": ("Интенсивность ЛБА", "ЛБА қарқындылығы", "LBA intensity"),
+    "lba_color": ("Цвет ЛБА", "ЛБА түсі", "LBA color"),
+    "lba_distribution": ("Распределение ЛБА", "ЛБА таралуы", "LBA distribution"),
+    "lba_cut": ("Вытяжка ЛБА", "ЛБА сорындысы", "LBA solvent cut"),
+    "lba_description": ("Описание ЛБА", "ЛБА сипаттамасы", "LBA description"),
+    "calcite_percent": ("Кальцит, %", "Кальцит, %", "Calcite, %"),
+    "dolomite_percent": ("Доломит, %", "Доломит, %", "Dolomite, %"),
+    "total_carbonate_percent": ("Общие карбонаты, %", "Жалпы карбонаттар, %", "Total carbonate, %"),
+    "code": ("Код", "Код", "Code"),
+    "name": ("Название", "Атауы", "Name"),
+    "rank": ("Ранг", "Дәрежесі", "Rank"),
+}
+
+
+def _measurement_label(key: str, language: AppLanguage) -> str:
+    column = {AppLanguage.RU: 0, AppLanguage.KK: 1, AppLanguage.EN: 2}[language]
+    if key.startswith("lithotype:"):
+        return f"{_ATTRIBUTE_LABELS['lithotype_id'][column]} {key[len('lithotype:'):]}, %"
+    labels = _ATTRIBUTE_LABELS.get(key)
+    return labels[column] if labels is not None else key
+
+
 @dataclass(frozen=True, slots=True)
 class GeologyEvidenceTable:
     title: str
@@ -153,7 +182,9 @@ def geology_interval_evidence_table(
             evidence.gas_top <= item.overlap_top < item.overlap_bottom <= evidence.gas_bottom
         ):
             raise ValueError("Evidence observation is outside the requested gas interval")
-        measurements = "; ".join(f"{key}: {value}" for key, value in item.attributes)
+        measurements = "; ".join(
+            f"{_measurement_label(key, language)}: {value}" for key, value in item.attributes
+        )
         observed_rows.append((
             _KINDS[item.kind][language], item.source_id,
             interval(item.source_top, item.source_bottom),
