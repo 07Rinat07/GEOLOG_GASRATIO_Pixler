@@ -57,6 +57,13 @@ def test_one_reviewed_snapshot_reaches_html_pdf_word_excel(qapp, monkeypatch, tm
     workspace, session, errors = _prepare(qapp, monkeypatch, tmp_path, language)
     session.current_well.cuttings[0].calcite_percent = 0.0
     session.current_well.cuttings[0].description = "Saved geological observation"
+    lba_details = {
+        "lba_cut_speed": "Saved-speed", "lba_cut_color": "Saved-cut-color",
+        "lba_residue_type": "Saved-residue", "lba_residue_color": "Saved-residue-color",
+        "lba_odour": "Saved-odour", "lba_stain": "Saved-stain",
+    }
+    for field, value in lba_details.items():
+        setattr(session.current_well.cuttings[0], field, value)
     workspace.geology_evidence_button.click()
     qapp.processEvents()
     dataset = session.current_dataset
@@ -98,6 +105,10 @@ def test_one_reviewed_snapshot_reaches_html_pdf_word_excel(qapp, monkeypatch, tm
         assert "Saved geological observation" in rendered
         assert "calcite_percent" not in rendered
         assert "lba_group:" not in rendered
+        for field, value in lba_details.items():
+            # PDF text extraction inserts line breaks inside wrapped values.
+            assert re.sub(r"\s+", "", value) in re.sub(r"\s+", "", rendered)
+            assert field not in rendered
     np.testing.assert_array_equal(dataset.depth, depth)
     for key, values in curves.items():
         np.testing.assert_array_equal(dataset.curves[key].values, values)
@@ -135,6 +146,8 @@ def _assert_change_preserves_excel(qapp, monkeypatch, tmp_path, phase, change):
     def mutate():
         if change == "geology":
             session.current_well.cuttings[0].description = "Changed after confirmation"
+        elif change == "lba_detail":
+            session.current_well.cuttings[0].lba_odour = "Changed after confirmation"
         elif change == "threshold":
             workspace.threshold.setValue(workspace.threshold.value() + 1)
         elif change == "language":
@@ -161,17 +174,17 @@ def _assert_change_preserves_excel(qapp, monkeypatch, tmp_path, phase, change):
     workspace.close()
 
 
-@pytest.mark.parametrize("change", ("geology", "threshold", "language", "dataset"))
+@pytest.mark.parametrize("change", ("geology", "lba_detail", "threshold", "language", "dataset"))
 def test_file_dialog_changes_preserve_excel(qapp, monkeypatch, tmp_path, change):
     _assert_change_preserves_excel(qapp, monkeypatch, tmp_path, "file_dialog", change)
 
 
-@pytest.mark.parametrize("change", ("geology", "threshold", "language", "dataset"))
+@pytest.mark.parametrize("change", ("geology", "lba_detail", "threshold", "language", "dataset"))
 def test_intermediate_progress_changes_preserve_excel(qapp, monkeypatch, tmp_path, change):
     _assert_change_preserves_excel(qapp, monkeypatch, tmp_path, "progress_15", change)
 
 
-@pytest.mark.parametrize("change", ("geology", "threshold", "language", "dataset"))
+@pytest.mark.parametrize("change", ("geology", "lba_detail", "threshold", "language", "dataset"))
 def test_precommit_progress_changes_preserve_excel(qapp, monkeypatch, tmp_path, change):
     _assert_change_preserves_excel(qapp, monkeypatch, tmp_path, "progress_95", change)
 

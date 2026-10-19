@@ -28,6 +28,51 @@ def _intersect(session, top=1002.0, bottom=1010.0):
     )
 
 
+@pytest.mark.parametrize("field", (
+    "lba_cut_speed", "lba_cut_color", "lba_residue_type",
+    "lba_residue_color", "lba_odour", "lba_stain",
+))
+@pytest.mark.parametrize("value", ("Saved observation <original>", None, "", "   "))
+def test_independent_lba_observation_counts_only_when_recorded(field, value):
+    session = _session()
+    sample = session.current_well.cuttings[0]
+    for name in (
+        "lba_group", "lba_type_id", "lba_intensity", "lba_color",
+        "lba_distribution", "lba_cut", "lba_description",
+    ):
+        setattr(sample, name, None)
+    setattr(sample, field, value)
+    before = repr(sample)
+    evidence = _intersect(session)
+    observed = [item for item in evidence.intersections if item.kind == "lba"]
+    if value and value.strip():
+        assert len(observed) == 1
+        assert observed[0].source_id == sample.sample_id
+        assert observed[0].attributes == ((field, value),)
+        assert evidence.coverage("lba") == pytest.approx(5 / 8)
+        assert "lba" not in evidence.missing_kinds
+    else:
+        assert not observed
+        assert evidence.coverage("lba") == 0.0
+        assert "lba" in evidence.missing_kinds
+    assert repr(sample) == before
+
+
+@pytest.mark.parametrize("field", (
+    "lba_cut_speed", "lba_cut_color", "lba_residue_type",
+    "lba_residue_color", "lba_odour", "lba_stain",
+))
+def test_changed_lba_detail_invalidates_confirmed_evidence(field):
+    from test_interpretation_geology_evidence_signed_pdf import _actual_source
+    from geoworkbench.services.interpretation_geology_evidence_export import verified_session_geology_evidence
+
+    session, report, selected = _actual_source()
+    assert verified_session_geology_evidence(session, report, (selected,)) == (selected,)
+    setattr(session.current_well.cuttings[0], field, "New recorded detail")
+    with pytest.raises(ValueError, match="changed after operator selection"):
+        verified_session_geology_evidence(session, report, (selected,))
+
+
 def test_measured_md_lithology_cuttings_lba_and_stratigraphy_have_traceable_coverage() -> None:
     session = _session()
     well = session.current_well

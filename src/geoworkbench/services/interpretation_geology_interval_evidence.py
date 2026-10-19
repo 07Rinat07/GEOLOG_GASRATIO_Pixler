@@ -141,7 +141,9 @@ def correlate_gas_interval_with_well_geology(
         lba: list[tuple[str, _NumberOrText]] = []
         for name in (
             "lba_group", "lba_type_id", "lba_intensity", "lba_color",
-            "lba_distribution", "lba_cut", "lba_description",
+            "lba_distribution", "lba_cut", "lba_cut_speed", "lba_cut_color",
+            "lba_residue_type", "lba_residue_color", "lba_odour", "lba_stain",
+            "lba_description",
         ):
             value = getattr(sample, name)
             if value is not None and (not isinstance(value, str) or value.strip()):
