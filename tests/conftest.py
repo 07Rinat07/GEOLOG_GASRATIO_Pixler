@@ -13,6 +13,7 @@ os.environ.setdefault("LIBGL_ALWAYS_SOFTWARE", "1")
 os.environ.setdefault("GEOLOG_DISABLE_UNSAVED_PROMPT", "1")
 
 _SESSION_QAPP: object | None = None
+_SESSION_QT_WINDOWS: dict[int, object] = {}
 
 
 @pytest.fixture(scope="session")
@@ -65,6 +66,23 @@ def close_qt_windows_after_test():
             widget.hide()
         except RuntimeError:
             pass
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Retain remaining Qt roots only after the last test, before final GC."""
+
+    if "PySide6.QtWidgets" not in sys.modules:
+        return
+    from PySide6.QtWidgets import QApplication
+    from shiboken6 import isValid
+
+    app = QApplication.instance()
+    if app is not None:
+        # No test runs after this hook. Unlike per-test retention, this cannot
+        # preserve a previous test's windows/timers into the next test.
+        for widget in app.topLevelWidgets():
+            if isValid(widget):
+                _SESSION_QT_WINDOWS[id(widget)] = widget
 
 
 @pytest.fixture
