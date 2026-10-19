@@ -19,6 +19,7 @@ from test_interpretation_geology_evidence_ui_pdf_handoff import (
     _no_unexpected_modal_message as _no_unexpected_modal_message,
 )
 from test_interpretation_method_comparison_ui_pdf_handoff import _prepare_dialogs
+from test_interpretation_method_comparison_ui_print_handoff import _prepare_print, _capture_spooled_pdf
 
 
 def _prepare(qapp, monkeypatch, tmp_path, language=AppLanguage.EN):
@@ -57,10 +58,10 @@ def test_one_reviewed_snapshot_reaches_html_pdf_word_excel(qapp, monkeypatch, tm
     dataset = session.current_dataset
     depth = dataset.depth.copy()
     curves = {key: curve.values.copy() for key, curve in dataset.curves.items()}
-    for output in ("excel", "pdf", "word"):
+    for output in ("excel", "pdf", "word", "print"):
         _approve(workspace, output)
     selected = workspace._geology_excel_evidence
-    assert selected == workspace._geology_pdf_evidence == workspace._geology_word_evidence
+    assert selected == workspace._geology_pdf_evidence == workspace._geology_word_evidence == workspace._geology_print_evidence
     assert len(selected) == 1
     projection = geology_interval_evidence_table(selected[0], language)
     viewer = workspace._geology_evidence_dialog.findChild(QTextBrowser, "interpretation-geology-evidence-content")
@@ -74,6 +75,11 @@ def test_one_reviewed_snapshot_reaches_html_pdf_word_excel(qapp, monkeypatch, tm
         word = " ".join(ET.fromstring(archive.read("word/document.xml")).itertext())
     with fitz.open(tmp_path / "report.pdf") as document:
         pdf = re.sub(r"\s+", " ", " ".join(page.get_text() for page in document))
+    _prepare_print(monkeypatch, workspace)
+    printed = _capture_spooled_pdf(monkeypatch)
+    workspace._print_report()
+    assert len(printed) == 1
+    assert projection.title in printed[0][1]
     assert projection.title in excel and projection.title in word and projection.title in pdf
     for row in (*projection.coverage_rows, *projection.rows):
         for cell in row:
@@ -81,6 +87,7 @@ def test_one_reviewed_snapshot_reaches_html_pdf_word_excel(qapp, monkeypatch, tm
             assert cell in word
     for observation in selected[0].intersections:
         assert observation.source_id in pdf
+        assert observation.source_id in printed[0][1]
     np.testing.assert_array_equal(dataset.depth, depth)
     for key, values in curves.items():
         np.testing.assert_array_equal(dataset.curves[key].values, values)

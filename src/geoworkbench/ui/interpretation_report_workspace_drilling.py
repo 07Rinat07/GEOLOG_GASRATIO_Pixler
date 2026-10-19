@@ -153,7 +153,7 @@ class InterpretationReportWorkspace(_FinalInterpretationReportWorkspace):
                 selected_geology: tuple[GasGeologyIntervalEvidence, ...] = ()
                 if confirmed_geology:
                     try:
-                        selected_geology = self._geology_evidence_for_export(report, for_word=True)
+                        selected_geology = self._geology_evidence_for_export(report, output="word")
                     except ValueError as exc:
                         raise HydrocarbonInterpretationExportError(
                             "Confirmed geology changed during Word preparation"

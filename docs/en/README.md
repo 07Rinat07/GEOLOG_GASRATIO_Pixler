@@ -740,3 +740,5 @@ application now starts in a safe fallback mode and displays recovery instruction
 In Compare gas with geology, select an interval and click Include selected observations in Word, then export Word. PDF approval is separate. Confirm again after changing the interval or settings; source or sample changes during preparation cancel the export.
 
 For Excel, separately click Include selected observations in Excel in the same dialog, then export Excel. PDF, Word and Excel approvals are independent. Source, sample or setting changes during preparation cancel export and preserve the existing file. Descriptions exceeding the Excel cell limit are rejected without truncation; use Word/PDF for the complete text.
+
+For system printing, separately click Include selected observations in printing, then print the report. The job uses the confirmed observation snapshot; changes before its first page cancel submission. Source or setting changes during printing stop remaining pages, but pages already submitted to Windows may remain queued. Cancelling the printer dialog removes the temporary PDF.
