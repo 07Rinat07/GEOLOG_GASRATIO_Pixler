@@ -5,7 +5,7 @@ from geoworkbench.data.report_document_control_excel import write_document_contr
 import os
 from pathlib import Path
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 
 import numpy as np
 from openpyxl import Workbook  # type: ignore[import-untyped]
@@ -21,7 +21,7 @@ from geoworkbench.data.spreadsheet_safety import (
     protect_spreadsheet_value,
 )
 from geoworkbench.domain.depth_interval import scope_dataset
-from geoworkbench.domain.models import CurveData, Dataset
+from geoworkbench.domain.models import CurveData, Dataset, IndexRole, IndexType
 from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
 from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import InterpretationReportIdentity
@@ -49,6 +49,11 @@ from geoworkbench.services.gas_context_report_labels import (
 )
 
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.interpretation_geology_interval_evidence import GasGeologyIntervalEvidence
+from geoworkbench.services.interpretation_geology_evidence_export import verified_report_geology_evidence
+from geoworkbench.services.interpretation_geology_interval_evidence_html import (
+    GeologyEvidenceTable, geology_interval_evidence_table,
+)
 from geoworkbench.services.interpretation_method_comparison import MethodComparisonInterval
 from geoworkbench.services.interpretation_method_comparison_html import method_comparison_table
 from geoworkbench.services.hydrocarbon_interpretation_report_locale import (
@@ -71,6 +76,7 @@ from geoworkbench.services.opus_report_labels import opus_report_label
 
 
 _EXCEL_MAX_ROWS = 1_048_576
+_EXCEL_MAX_CELL_CHARACTERS = 32_767
 
 def export_readable_hydrocarbon_interpretation_xlsx(
     report: HydrocarbonInterpretationReport,
@@ -82,6 +88,7 @@ def export_readable_hydrocarbon_interpretation_xlsx(
     progress: Callable[[str, int, int], None] | None = None,
     identity: InterpretationReportIdentity | None = None,
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
+    geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
 ) -> Path:
     labels = hydrocarbon_report_labels(language)
     if dataset.dataset_id != report.dataset_id:
@@ -97,6 +104,14 @@ def export_readable_hydrocarbon_interpretation_xlsx(
         raise HydrocarbonInterpretationExportError(
             f"{labels.xlsx_invalid_sample_count}: {names}{suffix}"
         )
+    if geology_evidence and (
+        dataset.active_index_id != report.depth_axis_id
+        or dataset.active_index.index_type is not IndexType.MD
+        or dataset.active_index.role is not IndexRole.DEPTH
+        or (dataset.active_index.unit or "").strip().casefold()
+        not in {"m", "meter", "metre", "meters", "metres"}
+    ):
+        raise ValueError("Measured geology evidence requires the report's metre MD dataset axis")
     dataset = scope_dataset(dataset, report.analysis_depth_interval)
     if dataset.depth.size + 1 > _EXCEL_MAX_ROWS:
         raise HydrocarbonInterpretationExportError(
@@ -105,6 +120,24 @@ def export_readable_hydrocarbon_interpretation_xlsx(
                 limit=_EXCEL_MAX_ROWS - 1,
             )
         )
+    verified_report_geology_evidence(report, geology_evidence)
+    geology_tables = tuple(
+        geology_interval_evidence_table(item, language) for item in geology_evidence
+    )
+    # Each interval contributes four labels, two headers and a separating row.
+    geology_rows = sum(7 + len(item.coverage_rows) + len(item.rows) for item in geology_tables)
+    if geology_rows > _EXCEL_MAX_ROWS:
+        raise HydrocarbonInterpretationExportError("Geology evidence exceeds the Excel row limit")
+    for row in _geology_evidence_rows(geology_tables):
+        # Formula protection may add an apostrophe: check the exact stored text,
+        # before openpyxl can silently truncate it or any target is prepared.
+        if any(
+            isinstance(value, str) and len(value) > _EXCEL_MAX_CELL_CHARACTERS
+            for value in protect_spreadsheet_row(row)
+        ):
+            raise HydrocarbonInterpretationExportError(
+                "Geology evidence exceeds the Excel cell text limit"
+            )
     destination = Path(target)
     if destination.suffix.casefold() != ".xlsx":
         destination = destination.with_suffix(".xlsx")
@@ -128,6 +161,8 @@ def export_readable_hydrocarbon_interpretation_xlsx(
             _write_method_comparisons_sheet(
                 workbook, method_comparisons, language, depth_unit=report.depth_unit,
             )
+        if geology_tables:
+            _write_geology_evidence_sheet(workbook, geology_tables, language)
         _write_opus_gasomer_sheet(workbook, report, language)
         _write_gas_context_sheet(workbook, report, language)
         _write_whole_well_sheet(
@@ -163,6 +198,43 @@ def export_readable_hydrocarbon_interpretation_xlsx(
         workbook.close()
     return destination
 
+
+
+_GEOLOGY_EVIDENCE_SHEET_NAMES: dict[AppLanguage, str] = {
+    AppLanguage.RU: "Газ и геология MD",
+    AppLanguage.KK: "Газ және геология MD",
+    AppLanguage.EN: "Gas and geology MD",
+}
+
+
+def _geology_evidence_rows(
+    presentations: tuple[GeologyEvidenceTable, ...],
+) -> Iterator[tuple[str, ...]]:
+    for item in presentations:
+        yield from (
+            (item.title,), (item.intro,), (item.interval,), (item.coverage_title,),
+            item.coverage_headings,
+        )
+        yield from item.coverage_rows
+        yield item.headings
+        yield from item.rows
+        yield ()
+
+
+def _write_geology_evidence_sheet(
+    workbook: Workbook,
+    presentations: tuple[GeologyEvidenceTable, ...],
+    language: AppLanguage,
+) -> None:
+    """Publish selected source observations using the shared HTML/Word projection."""
+
+    sheet = workbook.create_sheet(_GEOLOGY_EVIDENCE_SHEET_NAMES[language])
+    for row in _geology_evidence_rows(presentations):
+        sheet.append(protect_spreadsheet_row(row))
+    _format_auxiliary_sheet(sheet, widths=(32, 40, 32, 32, 100), wrap_header=True)
+    # Several narrative/coverage/observation sections are not one sortable table.
+    sheet.auto_filter.ref = None
+    sheet.sheet_view.showGridLines = False
 
 
 _METHOD_COMPARISON_SHEET_NAMES: dict[AppLanguage, str] = {

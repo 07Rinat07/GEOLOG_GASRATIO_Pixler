@@ -130,6 +130,7 @@ def export_hydrocarbon_interpretation_xlsx(
     overwrite: bool = False,
     progress: Callable[[str, int, int], None] | None = None,
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
+    geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
 ) -> Path:
     """Export the single readable workbook used by every interpretation workflow."""
 
@@ -137,10 +138,12 @@ def export_hydrocarbon_interpretation_xlsx(
         export_readable_hydrocarbon_interpretation_xlsx,
     )
 
-    exporter = (
+    exporter: Callable[..., Path] = (
         partial(export_readable_hydrocarbon_interpretation_xlsx, method_comparisons=method_comparisons)
         if method_comparisons else export_readable_hydrocarbon_interpretation_xlsx
     )
+    if geology_evidence:
+        exporter = partial(exporter, geology_evidence=geology_evidence)
     return exporter(
         report,
         dataset,
