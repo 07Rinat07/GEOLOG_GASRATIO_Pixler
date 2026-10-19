@@ -1078,6 +1078,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             return
         original_well_id = self.controller.session.current_well_id
         original_active_report = self.report
+        confirmed_geology = self._geology_excel_evidence
         target = self._choose_target(".xlsx", "Excel (*.xlsx)")
         if target is None:
             return
@@ -1101,6 +1102,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     or self.controller.session.current_well_id != original_well_id
                 ):
                     self._clear_method_comparison()
+                    self._clear_geology_evidence()
                     raise HydrocarbonInterpretationExportError(
                         "Excel report source changed during export preparation"
                     )
@@ -1122,8 +1124,25 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     composition,
                 )
                 comparisons = self._method_comparisons_for_export(report)
+                selected_geology: tuple[GasGeologyIntervalEvidence, ...] = ()
+
+                def verify_geology() -> tuple[GasGeologyIntervalEvidence, ...]:
+                    try:
+                        selected = self._geology_evidence_for_export(report, for_excel=True)
+                    except ValueError as exc:
+                        raise HydrocarbonInterpretationExportError(
+                            "Confirmed geology changed during Excel export"
+                        ) from exc
+                    if selected != confirmed_geology:
+                        raise HydrocarbonInterpretationExportError(
+                            "Confirmed geology was revoked during Excel export"
+                        )
+                    return selected
+
+                if confirmed_geology:
+                    selected_geology = verify_geology()
                 progress_callback = self._update_report_export_progress
-                if comparisons:
+                if comparisons or selected_geology:
                     # A large XLSX export also pumps Qt events between stages.
                     # Fail before the atomic file replacement when the operator
                     # changes the verified source mid-export.
@@ -1140,18 +1159,24 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                             or self._method_comparisons_for_export(report) != comparisons
                         ):
                             self._clear_method_comparison()
+                            self._clear_geology_evidence()
                             raise HydrocarbonInterpretationExportError(
                                 "Verified method comparison changed during Excel export"
                             )
 
+                        if selected_geology:
+                            verify_geology()
+
                     progress_callback = checked_progress
-                workbook_exporter = (
+                workbook_exporter: Callable[..., Path] = (
                     partial(
                         export_readable_hydrocarbon_interpretation_xlsx,
                         method_comparisons=comparisons,
                     )
                     if comparisons else export_readable_hydrocarbon_interpretation_xlsx
                 )
+                if selected_geology:
+                    workbook_exporter = partial(workbook_exporter, geology_evidence=selected_geology)
                 exported = workbook_exporter(
                     report,
                     dataset,
