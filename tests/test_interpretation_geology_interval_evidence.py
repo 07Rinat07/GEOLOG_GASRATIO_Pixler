@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, replace
 from math import nan
 
 import numpy as np
@@ -26,6 +26,54 @@ def _intersect(session, top=1002.0, bottom=1010.0):
     return correlate_gas_interval_with_well_geology(
         session, top_depth=top, bottom_depth=bottom,
     )
+
+
+@pytest.mark.parametrize(("bounds", "expected"), (
+    ((), ((1002.0, 1010.0),)),
+    (((1004.0, 1006.0),), ((1002.0, 1004.0), (1006.0, 1010.0))),
+    (((1000.0, 1004.0), (1006.0, 1008.0)), ((1004.0, 1006.0), (1008.0, 1010.0))),
+    (((1000.0, 1006.0), (1004.0, 1007.0), (1005.0, 1006.0)), ((1007.0, 1010.0),)),
+    (((1000.0, 1006.0), (1006.0, 1015.0)), ()),
+    (((1015.0, 1000.0),), ()),
+    (((1000.0, 1002.0), (1010.0, 1015.0)), ((1002.0, 1010.0),)),
+))
+def test_uncovered_md_intervals_complement_union_without_filling_missing_samples(bounds, expected):
+    session = _session()
+    well = session.current_well
+    well.cuttings[:] = [
+        CuttingsSample(str(index), top, bottom, [CuttingsComponent("sandstone", 100.0)])
+        for index, (top, bottom) in enumerate(bounds)
+    ]
+    before = repr(well.cuttings)
+    evidence = _intersect(session)
+    assert evidence.uncovered_intervals("cuttings") == expected
+    gap_length = sum(high - low for low, high in expected)
+    assert gap_length + evidence.coverage("cuttings") * 8.0 == pytest.approx(8.0)
+    assert repr(well.cuttings) == before
+
+
+def test_gaps_are_independent_for_each_evidence_kind():
+    evidence = _intersect(_session())
+    assert evidence.uncovered_intervals("lithology") == ((1008.0, 1010.0),)
+    assert evidence.uncovered_intervals("cuttings") == ((1002.0, 1004.0), (1009.0, 1010.0))
+    assert evidence.uncovered_intervals("lba") == evidence.uncovered_intervals("cuttings")
+    assert evidence.uncovered_intervals("calcimetry") == ((1002.0, 1010.0),)
+    assert evidence.uncovered_intervals("stratigraphy") == ((1002.0, 1010.0),)
+
+
+@pytest.mark.parametrize("changes", ({"depth_unit": "ft"}, {"gas_top": nan}, {"gas_bottom": 1002.0}))
+def test_uncovered_intervals_refuse_unverified_units_or_bounds(changes):
+    evidence = replace(_intersect(_session()), **changes)
+    with pytest.raises(ValueError, match="known kind and finite MD bounds"):
+        evidence.uncovered_intervals("lba")
+
+
+@pytest.mark.parametrize(("top", "bottom"), ((1001.0, 1004.0), (1003.0, 1011.0), (nan, 1004.0), (1004.0, 1004.0)))
+def test_uncovered_intervals_refuse_outside_or_invalid_observations(top, bottom):
+    evidence = _intersect(_session())
+    invalid = replace(evidence.intersections[0], overlap_top=top, overlap_bottom=bottom)
+    with pytest.raises(ValueError, match="outside the requested"):
+        replace(evidence, intersections=(invalid,)).uncovered_intervals(invalid.kind)
 
 
 @pytest.mark.parametrize("field", (

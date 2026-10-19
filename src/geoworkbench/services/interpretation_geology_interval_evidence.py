@@ -59,6 +59,29 @@ class GasGeologyIntervalEvidence:
     def coverage(self, kind: EvidenceKind) -> float:
         return dict(self.coverage_by_kind)[kind]
 
+    def uncovered_intervals(self, kind: EvidenceKind) -> tuple[tuple[float, float], ...]:
+        """Complement of observed depth union, never negative assay intervals."""
+
+        if self.depth_unit != "m" or kind not in _KINDS or not (
+            isfinite(self.gas_top) and isfinite(self.gas_bottom)
+            and self.gas_top < self.gas_bottom
+        ):
+            raise ValueError("Uncovered intervals require a known kind and finite MD bounds")
+        cursor = self.gas_top
+        gaps: list[tuple[float, float]] = []
+        for start, stop in sorted(
+            (item.overlap_top, item.overlap_bottom)
+            for item in self.intersections if item.kind == kind
+        ):
+            if not self.gas_top <= start < stop <= self.gas_bottom:
+                raise ValueError("Evidence observation is outside the requested gas interval")
+            if start > cursor:
+                gaps.append((cursor, start))
+            cursor = max(cursor, stop)
+        if cursor < self.gas_bottom:
+            gaps.append((cursor, self.gas_bottom))
+        return tuple(gaps)
+
 
 def correlate_gas_interval_with_well_geology(
     session: ProjectSession,
