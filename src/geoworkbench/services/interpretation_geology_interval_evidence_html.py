@@ -114,7 +114,7 @@ _ATTRIBUTE_LABELS = {
     "description": ("Описание", "Сипаттама", "Description"),
     "lba_group": ("Группа ЛБА", "ЛБА тобы", "LBA group"),
     "lba_type_id": ("ID типа ЛБА", "ЛБА түрінің ID", "LBA type ID"),
-    "lba_intensity": ("Интенсивность ЛБА", "ЛБА қарқындылығы", "LBA intensity"),
+    "lba_intensity": ("Остаточное кольцо/пятно, балл", "Қалдық сақина/дақ, балл", "Residual ring/spot score"),
     "lba_color": ("Цвет ЛБА", "ЛБА түсі", "LBA color"),
     "lba_distribution": ("Распределение ЛБА", "ЛБА таралуы", "LBA distribution"),
     "lba_cut": ("Вытяжка ЛБА", "ЛБА сорындысы", "LBA solvent cut"),
