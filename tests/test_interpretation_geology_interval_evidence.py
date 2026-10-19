@@ -162,6 +162,58 @@ def test_measured_md_lithology_cuttings_lba_and_stratigraphy_have_traceable_cove
     assert well.cuttings[0].description == source_sample
 
 
+def test_individual_assay_field_coverage_never_inherits_sibling_measurements() -> None:
+    session = _session()
+    sample = session.current_well.cuttings[0]
+    sample.calcite_percent = 0.0
+    sample.dolomite_percent = None
+    sample.total_carbonate_percent = None
+    original = repr(sample)
+
+    evidence = _intersect(session)
+    assert evidence.coverage("calcimetry") == pytest.approx(5 / 8)
+    assert evidence.attribute_coverage("calcimetry", "calcite_percent") == pytest.approx(5 / 8)
+    assert evidence.attribute_coverage("calcimetry", "dolomite_percent") == 0.0
+    assert evidence.attribute_coverage("calcimetry", "total_carbonate_percent") == 0.0
+    assert evidence.attribute_coverage("lba", "lba_group") == pytest.approx(5 / 8)
+    assert evidence.attribute_coverage("lba", "lba_odour") == 0.0
+    assert repr(sample) == original
+
+
+def test_individual_fields_use_union_across_partially_overlapping_samples() -> None:
+    session = _session()
+    well = session.current_well
+    well.cuttings[0].calcite_percent = 0.0
+    well.cuttings.append(CuttingsSample(
+        "second-assay", 1006.0, 1012.0,
+        [CuttingsComponent("limestone", 100.0)],
+        calcite_percent=20.0,
+        dolomite_percent=10.0,
+        lba_odour="Recorded odour",
+    ))
+    before = repr(well.cuttings)
+
+    evidence = _intersect(session)
+    assert evidence.coverage("calcimetry") == pytest.approx(6 / 8)
+    assert evidence.attribute_coverage("calcimetry", "calcite_percent") == pytest.approx(6 / 8)
+    assert evidence.attribute_coverage("calcimetry", "dolomite_percent") == pytest.approx(4 / 8)
+    assert evidence.attribute_coverage("calcimetry", "total_carbonate_percent") == 0.0
+    assert evidence.coverage("lba") == pytest.approx(6 / 8)
+    assert evidence.attribute_coverage("lba", "lba_group") == pytest.approx(5 / 8)
+    assert evidence.attribute_coverage("lba", "lba_odour") == pytest.approx(4 / 8)
+    assert repr(well.cuttings) == before
+
+
+def test_field_coverage_rejects_unknown_axis_metadata_and_blank_field() -> None:
+    evidence = _intersect(_session())
+    with pytest.raises(ValueError, match="attribute name"):
+        evidence.attribute_coverage("lba", " ")
+    with pytest.raises(ValueError, match="known kind and finite MD bounds"):
+        replace(evidence, depth_unit="ft").attribute_coverage("lba", "lba_group")
+    with pytest.raises(ValueError, match="known kind and finite MD bounds"):
+        evidence.attribute_coverage("nonexistent", "lba_group")  # type: ignore[arg-type]
+
+
 def test_missing_lba_and_calcimetry_are_unknown_not_negative() -> None:
     session = _session()
     evidence = _intersect(session)
