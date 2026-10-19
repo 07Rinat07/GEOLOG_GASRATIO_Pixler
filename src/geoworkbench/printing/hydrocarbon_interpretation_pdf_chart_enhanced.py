@@ -56,6 +56,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
     InterpretationGeologyTrackSettings,
     forced_empty_geology_tracks,
     resolve_geology_track_kinds,
+    visible_geology_samples,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
@@ -535,12 +536,7 @@ def _draw_geology_tracks(
     typography = visual.typography
     layout = visual.layout
     labels = _geology_track_labels(language)
-    page_samples = tuple(
-        sample
-        for sample in (geology.samples if geology is not None else ())
-        if sample.bottom_depth >= page.top_depth
-        and sample.top_depth <= page.bottom_depth
-    )
+    page_samples = visible_geology_samples(geology, page.top_depth, page.bottom_depth)
     lithotypes = geology.lithotype_map if geology is not None else {}
     for track, rect in zip(geology_tracks, geometry.geology_rects, strict=True):
         painter.fillRect(rect, QColor(palette.page))

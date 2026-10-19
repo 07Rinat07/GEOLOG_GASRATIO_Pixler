@@ -10,6 +10,7 @@ from geoworkbench.printing.geology_track_rendering import paint_lba_intensity_sy
 from geoworkbench.printing.hydrocarbon_interpretation_geology import (
     InterpretationGeologySnapshot,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import visible_geology_samples
 from geoworkbench.printing.lba_visuals import (
     UNKNOWN_LBA_STYLE,
     lba_intensity_name,
@@ -69,11 +70,7 @@ def build_interpretation_geology_legend(
     if geology is None or bottom_depth <= top_depth:
         return InterpretationGeologyLegend(())
 
-    visible = tuple(
-        sample
-        for sample in geology.samples
-        if sample.bottom_depth >= top_depth and sample.top_depth <= bottom_depth
-    )
+    visible = visible_geology_samples(geology, top_depth, bottom_depth)
     if not visible:
         return InterpretationGeologyLegend(())
 

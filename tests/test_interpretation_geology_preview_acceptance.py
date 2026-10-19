@@ -233,7 +233,7 @@ def test_landscape_pdf_exports_extreme_labels_and_catalogs(qapp, tmp_path, count
     assert geology.lithotypes == lithotypes
 
 
-def test_multi_page_partial_geology_keeps_page_gaps_empty(monkeypatch) -> None:
+def test_multi_page_partial_geology_keeps_page_gaps_empty(qapp, monkeypatch) -> None:
     dataset = _dataset(depth_span=2500.0, samples=501)
     report = _report()
     geology = _geology()
@@ -288,7 +288,7 @@ def test_multi_page_partial_geology_keeps_page_gaps_empty(monkeypatch) -> None:
     assert any(top > 1006.0 for top, _bottom, _tracks, _empty in observed)
 
 
-def test_multi_page_forced_empty_tracks_keep_one_report_level_empty_state(monkeypatch) -> None:
+def test_multi_page_forced_empty_tracks_keep_one_report_level_empty_state(qapp, monkeypatch) -> None:
     dataset = _dataset(depth_span=2500.0, samples=501)
     report = _report()
     settings = InterpretationGeologyTrackSettings(
@@ -334,15 +334,17 @@ def test_multi_page_forced_empty_tracks_keep_one_report_level_empty_state(monkey
 
 
 
-def test_screen_preview_auto_ignores_geology_outside_selected_interval(qapp) -> None:
+@pytest.mark.parametrize(("top", "bottom"), ((1015.0, 1018.0), (995.0, 1000.0), (1010.0, 1015.0)))
+@pytest.mark.parametrize("language", tuple(AppLanguage))
+def test_screen_preview_auto_ignores_geology_outside_selected_interval(qapp, top, bottom, language) -> None:
     dataset = _dataset()
     report = _report()
     geology = InterpretationGeologySnapshot(
         samples=(
             FrozenCuttingsSample(
                 sample_id="outside",
-                top_depth=1015.0,
-                bottom_depth=1018.0,
+                top_depth=top,
+                bottom_depth=bottom,
                 components=(FrozenCuttingsComponent("sandstone", 100.0),),
                 lba_group=2,
             ),
@@ -354,7 +356,7 @@ def test_screen_preview_auto_ignores_geology_outside_selected_interval(qapp) -> 
     auto_uri = hydrocarbon_interpretation_chart_data_uri(
         report,
         dataset,
-        AppLanguage.RU,
+        language,
         geology=geology,
         geology_track_settings=InterpretationGeologyTrackSettings(),
         depth_range=depth_range,
@@ -362,7 +364,7 @@ def test_screen_preview_auto_ignores_geology_outside_selected_interval(qapp) -> 
     hidden_uri = hydrocarbon_interpretation_chart_data_uri(
         report,
         dataset,
-        AppLanguage.RU,
+        language,
         geology=geology,
         geology_track_settings=InterpretationGeologyTrackSettings(
             cuttings=GeologyTrackVisibility.HIDE,

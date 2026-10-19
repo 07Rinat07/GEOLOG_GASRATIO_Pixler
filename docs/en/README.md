@@ -18,6 +18,8 @@ Comparison also includes separately recorded LBA cut speed/color, residue type/c
 
 The coverage table lists MD intervals without observations for each geological data type. With no records, the entire gas interval is listed; full coverage is marked separately. A gap means no observation, not a negative assay result.
 
+Auto tracks and geological legends include only samples with positive depth overlap with the selected range. Touching an edge does not create an empty track; Show retains the column with its no-data indication. Actual intervals crossing page boundaries remain visible.
+
 ## Installation and startup
 
 Python 3.11 or newer is required. Run every command from the project root.

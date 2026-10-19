@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from dataclasses import replace
 
 import numpy as np
+import pytest
 from PySide6.QtCore import QRectF
 
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart_enhanced as chart
@@ -19,7 +21,9 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology import (
 from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
     GeologyTrackVisibility,
     InterpretationGeologyTrackSettings,
+    visible_geology_samples,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_geology_legend import build_interpretation_geology_legend
 
 
 def _snapshot(*, cuttings: bool = True, lba: bool = True) -> InterpretationGeologySnapshot:
@@ -49,6 +53,41 @@ def test_geology_tracks_auto_follow_visible_interval_data() -> None:
         "lba",
     )
     assert chart._geology_track_kinds(_snapshot(), 1100.0, 1110.0, settings) == ()
+
+
+@pytest.mark.parametrize(("top", "bottom", "visible"), (
+    (995.0, 1000.0, False), (1005.0, 1010.0, False),
+    (999.0, 1001.0, True), (1004.0, 1006.0, True),
+    (1000.0, 1005.0, True), (1002.0, 1003.0, True),
+    (1000.0, 1000.0, False), (1005.0, 1000.0, False),
+    (float("nan"), 1005.0, False), (1000.0, float("inf"), False),
+))
+@pytest.mark.parametrize("language", tuple(AppLanguage))
+def test_tracks_and_legend_require_positive_depth_overlap(top, bottom, visible, language):
+    geology = _snapshot()
+    before = repr(geology)
+    auto = InterpretationGeologyTrackSettings()
+    show = InterpretationGeologyTrackSettings(GeologyTrackVisibility.SHOW, GeologyTrackVisibility.SHOW)
+    expected = ("cuttings", "lba") if visible else ()
+    assert chart._geology_track_kinds(geology, top, bottom, auto) == expected
+    assert chart._geology_track_kinds(geology, top, bottom, show) == ("cuttings", "lba")
+    assert chart._forced_empty_geology_tracks(geology, top, bottom, show) == (() if visible else ("cuttings", "lba"))
+    legend = build_interpretation_geology_legend(geology, top, bottom, language)
+    assert legend.empty is (not visible)
+    assert repr(geology) == before
+
+
+@pytest.mark.parametrize(("top", "bottom"), (
+    (1002.0, 1002.0), (1004.0, 1001.0),
+    (float("nan"), 1004.0), (1001.0, float("inf")),
+))
+def test_invalid_sample_bounds_never_enable_tracks_or_legend(top, bottom):
+    original = _snapshot()
+    sample = replace(original.samples[0], top_depth=top, bottom_depth=bottom)
+    geology = replace(original, samples=(sample,))
+    assert visible_geology_samples(geology, 1000.0, 1005.0) == ()
+    assert chart._geology_track_kinds(geology, 1000.0, 1005.0, InterpretationGeologyTrackSettings()) == ()
+    assert build_interpretation_geology_legend(geology, 1000.0, 1005.0, AppLanguage.EN).empty
 
 
 def test_geology_tracks_hide_overrides_populated_data() -> None:
@@ -173,6 +212,20 @@ def _snapshot_before_second_page() -> InterpretationGeologySnapshot:
         ),
         lithotypes=(),
     )
+
+
+@pytest.mark.parametrize(("top", "bottom", "count"), ((995.0, 1000.0, 0), (1005.0, 1010.0, 0), (1004.0, 1006.0, 1)))
+@pytest.mark.parametrize("language", tuple(AppLanguage))
+def test_page_painters_receive_only_positive_overlapping_samples(qapp, monkeypatch, top, bottom, count, language):
+    page = DepthPage(top, bottom, 100, 300.0)
+    geometry = chart.chart_geometry(QRectF(0.0, 0.0, 800.0, 500.0), page, 1, geology_track_count=2)
+    geology = _snapshot()
+    captured = []
+    monkeypatch.setattr(chart, "paint_cuttings_track", lambda _p, _r, samples, *_: captured.append(tuple(samples)))
+    monkeypatch.setattr(chart, "paint_lba_track", lambda _p, _r, samples, *_: captured.append(tuple(samples)))
+    chart._draw_geology_tracks(_RecordingPainter(), geometry, page, geology, ("cuttings", "lba"), (), language)
+    expected = geology.samples if count else ()
+    assert captured == [expected, expected]
 
 
 def test_forced_show_without_snapshot_draws_headings_and_localized_empty_state(qapp) -> None:
