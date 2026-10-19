@@ -349,9 +349,9 @@ def _inspect_sample_analysis(
     if sample is None:
         return MasterlogInspection(column.column_id, column.title, depth)
     labels = {
-        AppLanguage.RU: ("Кальцит", "Доломит", "Интенсивность"),
-        AppLanguage.KK: ("Кальцит", "Доломит", "Қарқындылық"),
-        AppLanguage.EN: ("Calcite", "Dolomite", "Intensity"),
+        AppLanguage.RU: ("Кальцит", "Доломит", "Остаточное кольцо/пятно (балл)"),
+        AppLanguage.KK: ("Кальцит", "Доломит", "Қалдық сақина/дақ (балл)"),
+        AppLanguage.EN: ("Calcite", "Dolomite", "Residual ring/spot score"),
     }[language]
     if column.column_type == "calcimetry":
         parts = []
