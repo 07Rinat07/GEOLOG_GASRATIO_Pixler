@@ -60,35 +60,73 @@ def test_ambiguous_light_brown_colour_needs_group_or_type_context() -> None:
         is None
     )
 
-@pytest.mark.parametrize("code", ("Ж", "О", "ОЖ", "ЖК"))
-def test_published_florovskaya_group_three_colors_are_resolvable(code: str) -> None:
-    """Published shorthand in the classic III (oily-resinous) range."""
-    assert [group.group for group in lba_groups_for_color(code)] == [3]
-    assessment = assess_lba_standard(
+@pytest.mark.parametrize(
+    ("group", "code", "colours"),
+    (
+        (1, "ЛБ", ("БГ",)),
+        (2, "МБ", ("Б", "ГЖ", "БЖ")),
+        (3, "МСБ", ("Ж", "ОЖ", "СК")),
+        (4, "СБ", ("ОК", "СК", "К")),
+        (5, "САБ", ("ТК", "ЗК", "КК", "ЧК", "Ч")),
+    ),
+)
+def test_operator_reference_chart_exact_type_palette(
+    group: int, code: str, colours: tuple[str, ...],
+) -> None:
+    """The uploaded classification chart is the authoritative five-group palette."""
+    record = LBA_STANDARD_GROUPS[group - 1]
+    assert record.group == group
+    assert record.code == code
+    assert tuple(colour.code for colour in record.colors) == colours
+
+
+@pytest.mark.parametrize("code", ("О", "ЖК", "СЖ"))
+def test_additional_colour_alone_does_not_invent_florovskaya_group(code: str) -> None:
+    assert lba_groups_for_color(code) == ()
+    assert assess_lba_standard(
         group=None, type_id=None, color=code, intensity=2,
+    ) is None
+
+
+@pytest.mark.parametrize(
+    ("score", "form"),
+    (
+        (1, "единичные точки"),
+        (2, "фрагментарное кольцо"),
+        (3, "тонкое сплошное кольцо"),
+        (4, "толстое кольцо"),
+        (5, "сплошное пятно"),
+    ),
+)
+def test_extracted_bitumen_quantity_scale_is_independent_of_type(
+    score: int, form: str,
+) -> None:
+    assert lba_intensity_name(score, AppLanguage.RU) == form
+    match = assess_lba_standard(
+        group=4, type_id="СБ", color="К", intensity=score,
     )
-    assert assessment is not None
-    assert assessment.standard.code == "МСБ"
-    assert assessment.intensity == 2
-    assert assessment.consistent
+    assert match is not None
+    assert match.standard.group == 4
+    assert match.intensity == score
+    assert match.consistent
 
 
-def test_group_two_does_not_claim_all_asphaltenes_are_absent() -> None:
+def test_group_two_matches_operator_chart_asphaltene_wording() -> None:
     group_two = LBA_STANDARD_GROUPS[1]
-    assert "мало или нет" in group_two.composition_ru
+    assert "незначительно или нет" in group_two.composition_ru
     assert "little or no" in group_two.composition_en
 
 
-def test_light_brown_ambiguity_survives_extended_group_three_palette() -> None:
+def test_shared_light_brown_remains_ambiguous_without_group_or_type() -> None:
     assert {group.group for group in lba_groups_for_color("СК")} == {3, 4}
     assert assess_lba_standard(
         group=None, type_id=None, color="СК", intensity=5,
     ) is None
 
 
-def test_published_group_three_with_foreign_group_one_is_flagged() -> None:
+def test_known_color_conflicting_with_operator_group_is_reported() -> None:
     assessment = assess_lba_standard(
-        group=1, type_id=None, color="О — оранжевый", intensity=3,
+        group=1, type_id=None, color="ОЖ — оранжево-жёлтый", intensity=3,
     )
     assert assessment is not None
     assert assessment.standard.group == 3
