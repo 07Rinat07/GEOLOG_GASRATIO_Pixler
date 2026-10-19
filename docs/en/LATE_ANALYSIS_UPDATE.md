@@ -37,3 +37,29 @@ If project persistence fails, the operation is treated as unsuccessful: cuttings
 - Excel import uses the first worksheet.
 - This command updates analyses of existing samples only and does not transfer user drawings.
 - Conflicting numeric rock codes from different suppliers belong to PROJ-09 profiles and are not resolved automatically by this command.
+
+## Recording LBA using the Florovskaya reference chart
+
+Open LBA analysis in the cuttings-sample editor and check **three independent
+observations**: bitumoid group/type (I–V: ЛБ, МБ, МСБ, СБ, САБ),
+fluorescence colour (for example, БГ), and the **1–5 residual ring/spot
+pattern score** after examining the capillary extract.
+This score is not ultraviolet fluorescence brightness.
+
+| Score | Residual capillary-extract pattern |
+|---|---|
+| 1 | Separate points |
+| 2 | Broken (discontinuous) ring |
+| 3 | Thin continuous ring |
+| 4 | Thick continuous ring |
+| 5 | Completely filled spot |
+
+Example `2-БГ-ЛБ`: **2** is a broken residual ring, **БГ** is whitish blue,
+and **ЛБ** is group I light bitumoid. This does not mean 2% oil saturation or
+a brightness level. Do not confuse the capillary-extract residual ring with
+the separate **solvent-cut residue** type and colour fields.
+
+The existing project/LAS field name `lba_intensity` remains for compatibility;
+its UI meaning is specifically the residual ring/spot pattern score.
+Leave unmeasured fields blank; missing data is not zero or a negative
+hydrocarbon indication.
