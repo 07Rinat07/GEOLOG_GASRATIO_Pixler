@@ -13,6 +13,7 @@ from enum import StrEnum
 from geoworkbench.services.lba_standard import (
     assess_lba_standard,
     lba_color_code,
+    lba_standard_type,
 )
 
 
@@ -113,6 +114,19 @@ def screen_lba_operator_pattern(
         return LbaOperatorScreening(
             LbaScreeningStatus.INVALID_OBSERVATION,
             None, (), ("invalid_residual_ring_score",),
+        )
+
+    if group is not None and (
+        isinstance(group, bool) or not isinstance(group, int) or not 1 <= group <= 5
+    ):
+        return LbaOperatorScreening(
+            LbaScreeningStatus.INVALID_OBSERVATION,
+            None, (), ("invalid_florovskaya_group",),
+        )
+    if type_id is not None and type_id.strip() and lba_standard_type(type_id) is None:
+        return LbaOperatorScreening(
+            LbaScreeningStatus.INVALID_OBSERVATION,
+            None, (), ("unknown_bitumoid_type",),
         )
 
     assessment = assess_lba_standard(
