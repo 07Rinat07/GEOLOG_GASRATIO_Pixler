@@ -39,7 +39,7 @@ def close_qt_windows_after_test():
     partially constructed window can therefore raise during ``widget.close()``
     and remain in QApplication, poisoning every later non-GUI test at teardown.
     Test cases that need close semantics call ``close()`` explicitly; the global
-    safety net retains and hides valid top-level roots until the isolated shard exits.
+    safety net only hides valid top-level roots until the isolated shard exits.
     """
 
     yield
@@ -52,8 +52,8 @@ def close_qt_windows_after_test():
     if app is None:
         return
 
-    # Tests run in isolated subprocess shards. Retaining and hiding leftover top-level windows
-    # prevents them from affecting the next test while keeping the
+    # Tests run in isolated subprocess shards. Hiding leftover top-level windows
+    # is enough to prevent them from affecting the next test while keeping the
     # native Qt object graph intact until the shard exits. Do not call close(),
     # deleteLater(), sendPostedEvents() or processEvents() here: close handlers may
     # reference optional services on partially constructed windows, and forcing
@@ -62,14 +62,27 @@ def close_qt_windows_after_test():
     for widget in tuple(app.topLevelWidgets()):
         if not isinstance(widget, QWidget) or not isValid(widget):
             continue
-        # Hiding is not Python ownership. Keep the wrapper too: otherwise
-        # pytest's final cyclic GC can destroy a live top-level Qt object graph
-        # before the runner's immediate process exit.
-        _SESSION_QT_WINDOWS[id(widget)] = widget
         try:
             widget.hide()
         except RuntimeError:
             pass
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Retain remaining Qt roots only after the last test, before final GC."""
+
+    if "PySide6.QtWidgets" not in sys.modules:
+        return
+    from PySide6.QtWidgets import QApplication
+    from shiboken6 import isValid
+
+    app = QApplication.instance()
+    if app is not None:
+        # No test runs after this hook. Unlike per-test retention, this cannot
+        # preserve a previous test's windows/timers into the next test.
+        for widget in app.topLevelWidgets():
+            if isValid(widget):
+                _SESSION_QT_WINDOWS[id(widget)] = widget
 
 
 @pytest.fixture

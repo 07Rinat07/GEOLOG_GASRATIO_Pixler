@@ -9,16 +9,20 @@ was discarded.
 
 The session fixture retained QApplication but only hid top-level windows,
 without retaining their Python wrappers. The unchanged fixture demonstrably
-lost a hidden root on `del window; gc.collect()`. The fixture now retains valid
-root wrappers as well as hiding them, until the existing isolated-process exit.
+lost a hidden root on `del window; gc.collect()`. The session-finish hook now retains valid remaining root wrappers only after
+the last test, until the existing isolated-process exit. Per-test cleanup remains
+hide-only: no root is retained across tests by this change.
 This keeps Python cyclic GC from dismantling a still-live Qt root graph during
 pytest unconfigure. No production lifecycle change, GC disabling, skipped tests,
 weakened assertions or native exit-code suppression is introduced. Memory
 retention is bounded by the existing subprocess shards.
 
-The new regression checks that a hidden QWidget remains valid after dropping
+The new regression checks that per-test cleanup does not retain roots, then
+that session-finish retention keeps a hidden QWidget valid after dropping
 the caller reference and explicit GC. The originally failing selector passed
-12 fresh stress processes (48 cases) after the fix. Full Windows gates on the
+12 fresh stress processes (48 cases) with session-finish-only retention. The local generic-report UTF-8 read checks require the same `PYTHONUTF8=1`
+that the Windows workflow sets; all 22 passed after matching that environment.
+Full Windows gates on the
 new HEAD remain required; these results do not close every native Qt issue #544.
 
 PR #620 CI38570984430: native 0xC0000005 at pyqtgraph PlotItem QWidgetAction creation during dataset-merge Undo. This selector already uses a fresh subprocess; production disposal calls PlotWidget.close before parent deletion. Standalone selector passed in 12.52s, then three faulthandler-enabled fresh-process diagnostics passed with exits [0,0,0], 27.31s total. Native cause remains unproven. The prior dialog work-area assertion is fixed and its nine related tests pass. A single new exact-head gate run follows these diagnostics; recurrence requires investigation rather than repeated retries. No assertions/skips/thresholds changed.

@@ -9,7 +9,8 @@ import pytest
 import conftest
 
 
-def test_hidden_window_wrapper_survives_final_python_gc(qapp):
+def test_hidden_window_wrapper_survives_final_python_gc(qapp, monkeypatch):
+    monkeypatch.setattr(conftest, "_SESSION_QT_WINDOWS", {})
     window = QWidget()
     window.setObjectName("retained-test-root")
     window.show()
@@ -19,6 +20,8 @@ def test_hidden_window_wrapper_survives_final_python_gc(qapp):
     with pytest.raises(StopIteration):
         next(cleanup)
     assert not window.isVisible()
+    assert conftest._SESSION_QT_WINDOWS == {}
+    conftest.pytest_sessionfinish(None, 0)
     del window
     gc.collect()
     retained = reference()
