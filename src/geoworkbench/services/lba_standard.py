@@ -96,7 +96,7 @@ LBA_STANDARD_GROUPS: tuple[LbaStandardGroup, ...] = (
         "маслянистый битумоид",
         "майлы битумоид",
         "oily bitumen",
-        "Нефть и битумоиды с низким содержанием смол; асфальтенов мало или нет",
+        "Нефть и битумоиды с низким содержанием смол; асфальтенов незначительно или нет",
         "шайыры аз мұнай мен битумоидтар; асфальтендер аз немесе жоқ",
         "oil and bitumen with low resin content; little or no asphaltenes",
         (
@@ -119,9 +119,7 @@ LBA_STANDARD_GROUPS: tuple[LbaStandardGroup, ...] = (
         "oil and bitumen with more than 60% oils and 1–2% asphaltenes",
         (
             _color("Ж", "жёлтый", "yellow"),
-            _color("О", "оранжевый", "orange"),
             _color("ОЖ", "оранжево-жёлтый", "orange-yellow"),
-            _color("ЖК", "желтовато-коричневый", "yellow-brown"),
             _color("СК", "светло-коричневый", "light brown"),
         ),
         "#fb923c",
@@ -170,6 +168,7 @@ LBA_STANDARD_GROUPS: tuple[LbaStandardGroup, ...] = (
 # Legacy fluorescence codes remain valid colours without implying a bitumen group.
 LBA_ADDITIONAL_COLORS: tuple[LbaFluorescenceColor, ...] = (
     LbaFluorescenceColor("СЖ", "светло-жёлтый", "ашық сары", "light yellow"),
+    LbaFluorescenceColor("О", "оранжевый", "қызғылт сары", "orange"),
 )
 
 _GROUP_BY_NUMBER = {item.group: item for item in LBA_STANDARD_GROUPS}
