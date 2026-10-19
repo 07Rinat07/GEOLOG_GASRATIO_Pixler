@@ -5,6 +5,7 @@ from geoworkbench.services.lba_standard import (
     assess_lba_standard,
     lba_groups_for_color,
     lba_intensity_name,
+    describe_lba_assessment,
 )
 from geoworkbench.services.localization import AppLanguage
 
@@ -92,7 +93,7 @@ def test_additional_colour_alone_does_not_invent_florovskaya_group(code: str) ->
     ("score", "form"),
     (
         (1, "единичные точки"),
-        (2, "фрагментарное кольцо"),
+        (2, "прерывистое кольцо"),
         (3, "тонкое сплошное кольцо"),
         (4, "толстое кольцо"),
         (5, "сплошное пятно"),
@@ -132,3 +133,38 @@ def test_known_color_conflicting_with_operator_group_is_reported() -> None:
     assert assessment.standard.group == 3
     assert not assessment.consistent
     assert any("группа 1" in conflict for conflict in assessment.conflicts)
+
+@pytest.mark.parametrize(
+    ("language", "label"),
+    (
+        (AppLanguage.RU, "оценка остаточного кольца/пятна 2: прерывистое кольцо"),
+        (AppLanguage.KK, "қалдық сақина/дақ бағасы 2: үзік сақина"),
+        (AppLanguage.EN, "residual ring/spot score 2: fragmentary ring"),
+    ),
+)
+def test_two_is_residual_ring_pattern_not_fluorescence_brightness(
+    language: AppLanguage, label: str,
+) -> None:
+    assessment = assess_lba_standard(
+        group=1, type_id="ЛБ", color="БГ", intensity=2,
+    )
+    assert assessment is not None
+    description = describe_lba_assessment(assessment, language)
+    assert label in description
+    assert assessment.standard.group == 1
+
+
+@pytest.mark.parametrize(
+    ("language", "expected"),
+    (
+        (AppLanguage.RU, "Остаточное кольцо/пятно"),
+        (AppLanguage.KK, "Қалдық сақина/дақ"),
+        (AppLanguage.EN, "Residual ring/spot"),
+    ),
+)
+def test_tablet_translation_calls_the_legacy_intensity_field_a_residue_score(
+    language: AppLanguage, expected: str,
+) -> None:
+    from geoworkbench.services.localization import Localizer
+
+    assert expected in Localizer.create(language).text("tablet.lba_intensity")
