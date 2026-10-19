@@ -12,6 +12,8 @@ and DLIS/LIS79/SEG-Y binary previews are not yet claimed. `quick_pp` is an evalu
 candidate, not an installed dependency. See the [canonical project plan](../PROJECT_PLAN.md)
 for status and acceptance criteria.
 
+In gas/geology comparison, saved LBA, cuttings, calcimetry and stratigraphy field names follow the selected report language in HTML, PDF, Word, Excel and printing. Measured composition is labelled in percent; source values, IDs and user descriptions remain unchanged.
+
 ## Installation and startup
 
 Python 3.11 or newer is required. Run every command from the project root.

@@ -98,12 +98,14 @@ def test_row_limit_preserves_destination(tmp_path, monkeypatch):
 @pytest.mark.parametrize("exporter", (export_hydrocarbon_interpretation_xlsx, readable.export_readable_hydrocarbon_interpretation_xlsx))
 @pytest.mark.parametrize("field", ("description", "protected_id"))
 @pytest.mark.parametrize("length", (32767, 32768))
-def test_cell_text_limit_checked_before_target_preparation(tmp_path, exporter, field, length):
+@pytest.mark.parametrize("language", tuple(AppLanguage))
+def test_cell_text_limit_checked_before_target_preparation(tmp_path, exporter, field, length, language):
     session, report, evidence = _actual_source()
     observation = evidence.intersections[0]
     if field == "description":
-        value = "description: " + "x" * (length - len("description: "))
-        observation = replace(observation, attributes=(("description", value[len("description: "):]),))
+        label = {AppLanguage.RU: "Описание", AppLanguage.KK: "Сипаттама", AppLanguage.EN: "Description"}[language] + ": "
+        value = label + "x" * (length - len(label))
+        observation = replace(observation, attributes=(("description", value[len(label):]),))
     else:
         # The stored apostrophe counts toward the limit as well.
         value = "'=" + "x" * (length - 2)
@@ -112,18 +114,18 @@ def test_cell_text_limit_checked_before_target_preparation(tmp_path, exporter, f
     target = tmp_path / "new-parent" / "observed.xlsx"
     if length > 32767:
         with pytest.raises(HydrocarbonInterpretationExportError, match="cell text limit"):
-            exporter(report, session.current_dataset, target, language=AppLanguage.EN, geology_evidence=(evidence,))
+            exporter(report, session.current_dataset, target, language=language, geology_evidence=(evidence,))
         assert not target.parent.exists()
         target = tmp_path / "existing.xlsx"
         target.write_bytes(b"existing workbook")
         with pytest.raises(HydrocarbonInterpretationExportError, match="cell text limit"):
-            exporter(report, session.current_dataset, target, overwrite=True, language=AppLanguage.EN, geology_evidence=(evidence,))
+            exporter(report, session.current_dataset, target, overwrite=True, language=language, geology_evidence=(evidence,))
         assert target.read_bytes() == b"existing workbook"
     else:
-        exporter(report, session.current_dataset, target, language=AppLanguage.EN, geology_evidence=(evidence,))
+        exporter(report, session.current_dataset, target, language=language, geology_evidence=(evidence,))
         workbook = load_workbook(target)
         try:
-            assert value in [cell.value for row in workbook["Gas and geology MD"] for cell in row]
+            assert value in [cell.value for row in workbook[readable._GEOLOGY_EVIDENCE_SHEET_NAMES[language]] for cell in row]
         finally:
             workbook.close()
 
