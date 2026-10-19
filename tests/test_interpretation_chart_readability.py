@@ -107,7 +107,7 @@ def test_repeat_legend_decodes_all_screenshot_codes(qapp, tmp_path, compact):
         text = _normalized(document[0].get_text())
     for item in legend.items:
         assert _normalized(f"{item.code} — {item.label}") in text
-    for title in ("Литология", "ЛБА: тип битумоида", "ЛБА: интенсивность",
+    for title in ("Литология", "ЛБА: тип битумоида", "ЛБА: остаточное кольцо/пятно",
                   "ЛБА: цвет флуоресценции"):
         assert _normalized(title) in text
 
