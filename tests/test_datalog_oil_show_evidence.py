@@ -1,7 +1,6 @@
 """Evidence-level audit of the uploaded DataLog / MOL oil-show worksheets."""
 
 from dataclasses import FrozenInstanceError
-from types import SimpleNamespace
 
 import pytest
 
