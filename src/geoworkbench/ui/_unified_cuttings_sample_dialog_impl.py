@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.catalogs.description_templates import load_rock_description_templates
 from geoworkbench.domain.models import CuttingsSample, DescriptionTemplateBlock, new_id
+from geoworkbench.ui.oil_show_observation_editor import OilShowObservationEditor
 from geoworkbench.domain.localized_content import SUPPORTED_CONTENT_LANGUAGES
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.services.lba_standard import (
@@ -811,6 +812,12 @@ class UnifiedCuttingsSampleDialog(QDialog):
         details.addRow(self._text["lba_color"], self.lba_color_input)
         details.addRow(self._text["lba_details"], self.lba_description_tabs)
         lba_layout.addLayout(details)
+        self.oil_show_editor = OilShowObservationEditor(
+            self._language,
+            sample.show_observations if sample is not None else None,
+            lba_group,
+        )
+        lba_layout.addWidget(self.oil_show_editor)
         layout.addWidget(lba_group)
         layout.addStretch(1)
 
@@ -947,6 +954,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
             "lba_intensity": normalized_intensity,
             "lba_group": type_id if type_id > 0 else None,
             "lba_color": self.lba_color_input.currentText().strip() or None,
+            "show_observations": self.oil_show_editor.observations(),
             "lba_description": self.lba_details_input.text().strip() or None,
             "lba_description_i18n": lba_descriptions,
             "analysis_interpretation": self.interpretation_input.toPlainText().strip() or None,
