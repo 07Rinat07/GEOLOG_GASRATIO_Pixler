@@ -8,7 +8,8 @@ The uploaded `Нефтепроявления_оценки.xls` describes distinc
 2. **Direct natural fluorescence (DIF, UV+), before reagent:** fraction of target lithology, distribution, brightness and colour.
 3. **Solvent cut:** separately record reaction speed/character, daylight UV− colour, and UV+ colour/brightness.
 4. **Post-cut residue:** describe type and colour separately under daylight UV− and ultraviolet UV+.
-5. **Florovskaya capillary-extract LBA:** bitumoid group, fluorescence colour and 1–5 semi-quantitative imprint score on filter paper. It is **not** the post-cut residue on a porcelain spot plate.
+5. **Capillary-extract workflow:** separately document appearance in visible light (type/colour) and **UV fluorescence** (type/colour) according to the embedded process chart. These are not identical to solvent-cut residue.
+6. **Florovskaya capillary-extract LBA:** bitumoid group, fluorescence colour and 1–5 semi-quantitative imprint score on filter paper. It is **not** the post-cut residue on a porcelain spot plate.
 
 Current `lba_cut_*` and `lba_residue_*` fields do not store complete UV−/UV+ independent measurements, coverage percentages and each test's brightness. Leave missing measurements unknown. A free-text note can preserve context pending a versioned schema extension, but it is not equivalent to a structured measurement.
 
