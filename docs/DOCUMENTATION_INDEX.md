@@ -18,6 +18,11 @@ artifacts workflow `.github/workflows/release-gate.yml`.
   [Қазақша](kk/APPLICATION_DIAGNOSTICS.md) · [English](en/APPLICATION_DIAGNOSTICS.md)
 - Запуск вкладки «Файлы» после обновления: [FILE_WORKSPACE_STARTUP.md](FILE_WORKSPACE_STARTUP.md)
 
+- Независимые наблюдения DataLog v38 (PR #689):
+  [RU](ru/DATALOG_SHOW_EDITOR_V38.md) ·
+  [KK](kk/DATALOG_SHOW_EDITOR_V38.md) ·
+  [EN](en/DATALOG_SHOW_EDITOR_V38.md).
+
 ## Управление проектом
 
 - [PROJECT_PLAN.md](PROJECT_PLAN.md) — единственный актуальный план и открытые задачи.

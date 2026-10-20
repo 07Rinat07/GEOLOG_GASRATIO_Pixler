@@ -1,5 +1,26 @@
-<!-- runtime-contract: package=0.7.96; project=v37; form=v18; layout=v25 -->
+<!-- runtime-contract: package=0.7.96; project=v38; form=v18; layout=v25 -->
 # Архитектура
+
+## DATALOG-SHOW-02: независимые UV+/UV− записи и v38
+
+- Domain: `OilShowObservation` с фиксированными `OilShowMethod`,
+  `OilShowQuality`, nullable area_percent, colour, brightness,
+  distribution, reaction_speed, notes. DTO immutable; исходные
+  `lba_group/type/intensity/color` в `CuttingsSample` остаются неизменными.
+- UI: единый `OilShowObservationEditor` для `SampleAnalysisDialog`
+  и `UnifiedCuttingsSampleDialog` с локализацией RU/KK/EN.
+- Application: `CuttingsController` валидирует новый список, сохраняет
+  его в той же транзакции с пробой; обновление без нового списка
+  не стирает уже сохранённые наблюдения.
+- Storage: `PROJECT_FORMAT_VERSION=38`, JSON `asdict`, строгий
+  v38 decoder перед freeze legacy v29; старые проекты v37
+  открываются с пустым списком (не догадка о выполненных опытах).
+  Возможны 9 уникальных методов на пробу, повторные измерения — позже.
+- Для GIS/GTI fusion потребуется отдельная валидация лагов,
+  глубин, литологии и ФЕС; автоматическая классификация флюида,
+  GIS/газы, LAS экспорт новых полей **не входят** в этот PR.
+
+
 
 Внешние fixture-файлы для DATA-PETRO находятся только в
 `tests/fixtures/external_formats`, зафиксированы по upstream blob SHA-1,
