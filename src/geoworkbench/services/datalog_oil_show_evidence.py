@@ -94,6 +94,29 @@ DATALOG_METHODS: tuple[ShowMethodContract, ...] = (
 
 
 @dataclass(frozen=True, slots=True)
+class AdditionalShowTest:
+    """Historical optional tests, recorded as references, not automatic recipes."""
+
+    method_id: str
+    source_sheet: str
+    observation: str
+    approved_procedure_required: bool = True
+    may_classify_fluid_automatically: bool = False
+
+
+# The workbook's "Others" sheet describes additional/manual tests. Neither
+# those recipes nor QFT numeric calibrations are licensed or verified here.
+DATALOG_ADDITIONAL_METHODS: tuple[AdditionalShowTest, ...] = (
+    AdditionalShowTest("acid_flotation", "Others", "observed_bubble_or_flotation"),
+    AdditionalShowTest("warm_water_film", "Others", "observed_surface_film"),
+    AdditionalShowTest("acetone_extract_turbidity", "Others", "observed_turbidity"),
+    AdditionalShowTest("water_wettability", "Others", "observed_wetting"),
+    AdditionalShowTest("emulsion_pop", "Others", "observed_surface_droplets"),
+    AdditionalShowTest("instrumental_qft2", "Others", "calibrated_instrument_result"),
+)
+
+
+@dataclass(frozen=True, slots=True)
 class ShowQualityControls:
     """None is unobserved, not a passed QC check."""
 
@@ -288,6 +311,8 @@ def _depth(value: object, field: str) -> float:
 
 
 __all__ = [
+    "DATALOG_ADDITIONAL_METHODS",
+    "AdditionalShowTest",
     "DATALOG_METHODS",
     "DatalogShowEvidenceAudit",
     "LegacyShowGroup",
