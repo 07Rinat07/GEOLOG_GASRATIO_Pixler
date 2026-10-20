@@ -137,9 +137,9 @@ def test_known_color_conflicting_with_operator_group_is_reported() -> None:
 @pytest.mark.parametrize(
     ("language", "label"),
     (
-        (AppLanguage.RU, "оценка остаточного кольца/пятна 2: прерывистое кольцо"),
-        (AppLanguage.KK, "қалдық сақина/дақ бағасы 2: үзік сақина"),
-        (AppLanguage.EN, "residual ring/spot score 2: fragmentary ring"),
+        (AppLanguage.RU, "балл ЛБА по люминесцирующему пятну 2: прерывистое кольцо"),
+        (AppLanguage.KK, "капиллярлық дақтың ЛБА балы 2: үзік сақина"),
+        (AppLanguage.EN, "LBA capillary-spot score 2: fragmentary ring"),
     ),
 )
 def test_two_is_residual_ring_pattern_not_fluorescence_brightness(
@@ -157,9 +157,9 @@ def test_two_is_residual_ring_pattern_not_fluorescence_brightness(
 @pytest.mark.parametrize(
     ("language", "expected"),
     (
-        (AppLanguage.RU, "Остаточное кольцо/пятно"),
-        (AppLanguage.KK, "Қалдық сақина/дақ"),
-        (AppLanguage.EN, "Residual ring/spot"),
+        (AppLanguage.RU, "ЛБА: люминесцирующее пятно"),
+        (AppLanguage.KK, "ЛБА: люминесценттік дақ"),
+        (AppLanguage.EN, "LBA fluorescence-spot"),
     ),
 )
 def test_tablet_translation_calls_the_legacy_intensity_field_a_residue_score(

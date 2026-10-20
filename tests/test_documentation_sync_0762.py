@@ -293,9 +293,9 @@ def test_florovskaya_residual_ring_guides_remain_in_sync_in_three_languages() ->
     """Operator instructions and UI must describe the same 1–5 LBA quantity scale."""
 
     required: dict[str, tuple[str, str, str]] = {
-        "ru": ("Прерывистое кольцо", "2", "Остаточное кольцо/пятно"),
-        "kk": ("Үзік сақина", "2", "Қалдық сақина/дақ"),
-        "en": ("Broken (discontinuous) ring", "2", "Residual ring/spot"),
+        "ru": ("Прерывистое кольцо", "2", "ЛБА: люминесцирующее пятно"),
+        "kk": ("Үзік сақина", "2", "ЛБА: люминесценттік дақ"),
+        "en": ("Broken (discontinuous) ring", "2", "LBA fluorescence-spot"),
     }
     for language, (ring, score, label) in required.items():
         late = (ROOT / "docs" / language / "LATE_ANALYSIS_UPDATE.md").read_text(
