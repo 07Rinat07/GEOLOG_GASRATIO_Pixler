@@ -12,6 +12,29 @@
 Архитектурные решения обновлены 9 сентября 2026 года. Целевые контракты отмечены отдельно
 от действующих механизмов; runtime marker отражает текущие версии схем.
 
+## DATALOG-SHOW-01: раздельные методы нефтепроявлений
+
+В `services/datalog_oil_show_evidence.py` определены immutable
+`ShowMethodContract` и `DatalogShowEvidenceAudit`.
+Методы DataLog/MOL разделены на видимое нефтяное окрашивание,
+DIF UV+, reagent/cut UV−/UV+, post-cut residue UV−/UV+
+и отдельную капиллярную ЛБА Флоровской.
+Read-only адаптер `audit_legacy_datalog_show` принимает существующий
+`CuttingsSample` и **не делает** необоснованных предположений:
+`lba_cut_*` и `lba_residue_*` не определяют подсвечивалось ли
+наблюдение УФ; `lba_color` не равно автоматически DataLog DIF.
+На выходе сохраняются source ID/интервал, реально присутствующие
+поля, недостающие измерения и QC-предупреждения.
+Подтверждённые помехи блокируют использование признака для
+автоматического поиска УВ-пластов, но не удаляют исходное наблюдение.
+
+Этот модуль **data-only**, не подключён к UI, GAS/GIS fusion
+или export; полное расширение модели проб потребует schema version,
+migration, тестов source-preservation и проверяемой печати на RU/KK/EN.
+Бинарный пользовательский XLS не включён в репозиторий.
+Матрица полей, неверные лабораторные утверждения/правила H₂S
+и ссылки: [DATALOG_OIL_SHOW_METHODS.md](DATALOG_OIL_SHOW_METHODS.md).
+
 ## Архитектурный стиль
 
 DIGITAL GEOLOG GASRATIO&PIXLER — desktop-модульный монолит на Python 3.11, PySide6, PyQtGraph и NumPy.

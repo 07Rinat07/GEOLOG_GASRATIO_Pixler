@@ -45,6 +45,10 @@ artifacts workflow `.github/workflows/release-gate.yml`.
   [KK](kk/SESSION_SAVING.md) · [EN](en/SESSION_SAVING.md)
 - Import Review: [RU](ru/IMPORT_REVIEW.md) · [KK](kk/IMPORT_REVIEW.md) ·
   [EN](en/IMPORT_REVIEW.md)
+- Методики DataLog/MOL: [техническая матрица](DATALOG_OIL_SHOW_METHODS.md),
+  [RU](ru/DATALOG_OIL_SHOW_METHODS.md) ·
+  [KK](kk/DATALOG_OIL_SHOW_METHODS.md) ·
+  [EN](en/DATALOG_OIL_SHOW_METHODS.md).
 - Поздние анализы шлама: [RU](ru/LATE_ANALYSIS_UPDATE.md) ·
   [KK](kk/LATE_ANALYSIS_UPDATE.md) · [EN](en/LATE_ANALYSIS_UPDATE.md)
 - LAS Editor: [RU](ru/LAS_EDITOR.md) · [KK](kk/LAS_EDITOR.md) · [EN](en/LAS_EDITOR.md)
