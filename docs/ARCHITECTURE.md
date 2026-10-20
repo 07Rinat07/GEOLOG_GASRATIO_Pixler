@@ -12,6 +12,19 @@
 Архитектурные решения обновлены 9 сентября 2026 года. Целевые контракты отмечены отдельно
 от действующих механизмов; runtime marker отражает текущие версии схем.
 
+## INTERP-PETRO-01: изолированные reference-модели (PR #686, на проверке)
+
+`services/petrophysical_reference_models.py` — Qt-независимые чистые функции `gamma_ray_index`,
+`density_porosity`, `archie_water_saturation`. Они принимают только явные скалярные
+параметры, проверяют конечность/физические ограничения и возвращают immutable
+`PetrophysicalEstimate` с `method_id`, raw `value`, `unit`, `quality` и полным набором входов.
+Нет неявного выбора мнемоник, перевода UOM, выравнивания MD/TVD, записи LAS/проекта,
+автоматического Vsh, нефтегазовой классификации или UI-команды. Подключение к
+проверенному GIS adapter и экспертная калибровка остаются отдельными задачами.
+Пока PR не слит, это контракт **ветки PR**, а не доступная функция `main`.
+Операторские пояснения: [RU](ru/PETROPHYSICAL_REFERENCE_MODELS.md),
+[KK](kk/PETROPHYSICAL_REFERENCE_MODELS.md), [EN](en/PETROPHYSICAL_REFERENCE_MODELS.md).
+
 ## Архитектурный стиль
 
 DIGITAL GEOLOG GASRATIO&PIXLER — desktop-модульный монолит на Python 3.11, PySide6, PyQtGraph и NumPy.
