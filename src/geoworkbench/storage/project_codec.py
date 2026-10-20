@@ -19,6 +19,10 @@ from geoworkbench.domain.gas_context_events import (
     InterpretationImpact,
 )
 from geoworkbench.domain.models import DepthDomain, DescriptionTemplateBlock, Project
+from geoworkbench.domain.oil_show_observations import (
+    OilShowObservation,
+    oil_show_observations_from_list,
+)
 from geoworkbench.domain.translation_status import TranslationState, TranslationStatus
 from geoworkbench.domain.report_annotations import (
     ReportAnnotationRecord,
@@ -47,7 +51,7 @@ from geoworkbench.storage.project_codec_v29 import (
 )
 
 
-PROJECT_FORMAT_VERSION = 37
+PROJECT_FORMAT_VERSION = 38
 _MAX_TEMPLATE_BLOCKS_PER_SAMPLE = 10_000
 _BLOCK_KEYS = {"block_id", "template_id", "template_version", "text_i18n"}
 _GAS_CONTEXT_EVENT_KEYS_V35_LEGACY = {
@@ -432,6 +436,7 @@ def _legacy_payload_and_blocks(
     dict[str, dict[str, int]],
     dict[str, dict[str, str]],
     dict[str, list[GasContextEvent]],
+    dict[tuple[str, str], list[OilShowObservation]],
 ]:
     legacy = deepcopy(data)
     found: dict[tuple[str, str], list[DescriptionTemplateBlock]] = {}
@@ -441,6 +446,7 @@ def _legacy_payload_and_blocks(
     authored_field_revisions: dict[str, dict[str, int]] = {}
     authored_field_source_languages: dict[str, dict[str, str]] = {}
     gas_context_events: dict[str, list[GasContextEvent]] = {}
+    show_observations: dict[tuple[str, str], list[OilShowObservation]] = {}
     root = legacy.get("project", legacy)
     wells = root.get("wells", {}) if isinstance(root, dict) else {}
     if not isinstance(wells, dict):
@@ -497,6 +503,14 @@ def _legacy_payload_and_blocks(
         for sample in cuttings:
             if not isinstance(sample, dict):
                 continue
+            # The frozen v29 decoder has no knowledge of the independent show schema.
+            if version >= 38:
+                raw_shows = sample.pop("show_observations", [])
+                try:
+                    parsed_shows = oil_show_observations_from_list(raw_shows)
+                except (TypeError, ValueError) as error:
+                    raise ProjectFormatError("Некорректные независимые наблюдения нефтепроявлений") from error
+                show_observations[(str(well_id), str(sample.get("sample_id", "")))] = parsed_shows
             raw = sample.pop("description_template_blocks", [])
             if version < 30:
                 continue
@@ -549,6 +563,7 @@ def _legacy_payload_and_blocks(
         authored_field_revisions,
         authored_field_source_languages,
         gas_context_events,
+        show_observations,
     )
 
 
@@ -561,6 +576,7 @@ def _attach_blocks(
     authored_field_revisions: dict[str, dict[str, int]],
     authored_field_source_languages: dict[str, dict[str, str]],
     gas_context_events: dict[str, list[GasContextEvent]],
+    show_observations: dict[tuple[str, str], list[OilShowObservation]],
 ) -> None:
     for well_id, well in project.wells.items():
         well.translation_statuses = translation_statuses.get(well_id, {})
@@ -569,6 +585,7 @@ def _attach_blocks(
         well.gas_context_events = gas_context_events.get(well_id, [])
         for sample in well.cuttings:
             sample.description_template_blocks = blocks.get((well_id, sample.sample_id), [])
+            sample.show_observations = show_observations.get((well_id, sample.sample_id), [])
         for interpretation_id, interpretation in well.interpretations.items():
             interpretation.name_i18n, interpretation.description_i18n = interpretation_texts.get(
                 (well_id, interpretation_id), ({}, {})
@@ -592,6 +609,7 @@ def project_from_dict(data: dict[str, Any]) -> Project:
         revisions,
         source_languages,
         gas_context_events,
+        show_observations,
     ) = _legacy_payload_and_blocks(data, version)
     project = _v29.project_from_dict(legacy)
     _attach_blocks(
@@ -603,6 +621,7 @@ def project_from_dict(data: dict[str, Any]) -> Project:
         revisions,
         source_languages,
         gas_context_events,
+        show_observations,
     )
     return project
 
@@ -625,6 +644,7 @@ def project_document_from_dict(data: dict[str, Any]) -> ProjectDocument:
         revisions,
         source_languages,
         gas_context_events,
+        show_observations,
     ) = _legacy_payload_and_blocks(payload, version)
     legacy_document = _v29.project_document_from_dict(legacy)
     document = ProjectDocument(
@@ -647,6 +667,7 @@ def project_document_from_dict(data: dict[str, Any]) -> ProjectDocument:
         revisions,
         source_languages,
         gas_context_events,
+        show_observations,
     )
     _validate_report_composition_bindings(document)
     return document

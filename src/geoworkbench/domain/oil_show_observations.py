@@ -10,7 +10,6 @@ from __future__ import annotations
 from dataclasses import dataclass, fields
 from enum import StrEnum
 from math import isfinite
-from typing import Any, Mapping
 
 
 class OilShowMethod(StrEnum):
