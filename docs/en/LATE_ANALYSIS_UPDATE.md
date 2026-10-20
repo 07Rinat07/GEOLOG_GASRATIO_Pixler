@@ -42,9 +42,8 @@ If project persistence fails, the operation is treated as unsuccessful: cuttings
 
 Open LBA analysis in the cuttings-sample editor and check **three independent
 observations**: bitumoid group/type (I–V: ЛБ, МБ, МСБ, СБ, САБ),
-fluorescence colour (for example, БГ), and the **1–5 residual ring/spot
-pattern score** after examining the capillary extract.
-This score is not ultraviolet fluorescence brightness.
+fluorescence colour (for example, БГ), and the **1–5 semi-quantitative score for the UV-fluorescent capillary-extract imprint** after solvent evaporation.
+Its morphology and observed fluorescence are considered, but it is not an absolute photometric brightness measurement.
 
 | Score | Residual capillary-extract pattern |
 |---|---|
@@ -54,12 +53,12 @@ This score is not ultraviolet fluorescence brightness.
 | 4 | Thick continuous ring |
 | 5 | Completely filled spot |
 
-Example `2-БГ-ЛБ`: **2** is a broken residual ring, **БГ** is whitish blue,
+Example `2-БГ-ЛБ`: **2** is a thin, broken fluorescent ring, **БГ** is whitish blue,
 and **ЛБ** is group I light bitumoid. This does not mean 2% oil saturation or
-a brightness level. Do not confuse the capillary-extract residual ring with
+an absolute light-intensity reading. Do not confuse the fluorescent capillary-extract pattern with
 the separate **solvent-cut residue** type and colour fields.
 
 The existing project/LAS field name `lba_intensity` remains for compatibility;
-its UI meaning is specifically the residual ring/spot pattern score.
+its UI meaning is specifically the semi-quantitative fluorescence-pattern score.
 Leave unmeasured fields blank; missing data is not zero or a negative
 hydrocarbon indication.

@@ -117,10 +117,10 @@ The local formula passport cites US20150060054A1 and is stored with a control ex
 ## Comparing the LBA residual-ring score with mud gas
 
 Record the bitumoid group/type, fluorescence colour and the **1–5
-capillary-extract residual ring/spot pattern score** separately.
-**Score 2 means a broken/discontinuous ring**, not UV fluorescence brightness.
+UV-fluorescent capillary-extract spot score** separately.
+**Score 2 means a thin, broken UV-fluorescent ring**; the observed fluorescence is also relevant.
 The historical LAS field name `lba_intensity` does not change that meaning;
-the residual ring is also distinct from a solvent-cut residue observation.
+the UV-fluorescent imprint is distinct from a solvent-cut residue observation.
 
 Correlation with gas anomalies, Haworth and Pixler requires verified
 sample depth and gas lag. The LBA group or ring score cannot calculate
