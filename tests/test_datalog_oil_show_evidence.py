@@ -7,6 +7,7 @@ import pytest
 from geoworkbench.domain.models import CuttingsSample
 from geoworkbench.services.datalog_oil_show_evidence import (
     DATALOG_METHODS,
+    DATALOG_ADDITIONAL_METHODS,
     LegacyShowGroup,
     ShowMethod,
     ShowQualityControls,
@@ -160,3 +161,14 @@ def test_result_is_frozen_and_does_not_classify_oil_gas_or_water() -> None:
     assert not result.proves_fluid_phase
     with pytest.raises(FrozenInstanceError):
         result.candidate_for_human_review = False  # type: ignore[misc]
+
+
+def test_other_historical_methods_are_documented_but_not_auto_diagnostic() -> None:
+    expected = {
+        "acid_flotation", "warm_water_film", "acetone_extract_turbidity",
+        "water_wettability", "emulsion_pop", "instrumental_qft2",
+    }
+    assert {entry.method_id for entry in DATALOG_ADDITIONAL_METHODS} == expected
+    assert all(entry.source_sheet == "Others" for entry in DATALOG_ADDITIONAL_METHODS)
+    assert all(entry.approved_procedure_required for entry in DATALOG_ADDITIONAL_METHODS)
+    assert all(not entry.may_classify_fluid_automatically for entry in DATALOG_ADDITIONAL_METHODS)
