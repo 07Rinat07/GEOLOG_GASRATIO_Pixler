@@ -25,6 +25,8 @@ class ShowMethod(StrEnum):
     SOLVENT_CUT_UV = "solvent_cut_uv_plus"
     RESIDUE_DAYLIGHT = "solvent_residue_uv_minus"
     RESIDUE_UV = "solvent_residue_uv_plus"
+    CAPILLARY_EXTRACT_DAYLIGHT = "capillary_extract_daylight"
+    CAPILLARY_EXTRACT_UV = "capillary_extract_uv_plus"
     FLOROVSKAYA_CAPILLARY = "florovskaya_capillary"
 
 
@@ -74,6 +76,14 @@ DATALOG_METHODS: tuple[ShowMethodContract, ...] = (
     ShowMethodContract(
         ShowMethod.RESIDUE_UV,
         ("strength", "colour"), "uv_plus", "Residue",
+    ),
+    ShowMethodContract(
+        ShowMethod.CAPILLARY_EXTRACT_DAYLIGHT,
+        ("type", "colour"), "uv_minus", "Workflow diagram: step 6",
+    ),
+    ShowMethodContract(
+        ShowMethod.CAPILLARY_EXTRACT_UV,
+        ("type", "colour"), "uv_plus", "Workflow diagram: step 7",
     ),
     ShowMethodContract(
         ShowMethod.FLOROVSKAYA_CAPILLARY,
@@ -211,6 +221,7 @@ def audit_legacy_datalog_show(
         "solvent_cut_uv_minus_and_uv_plus_not_separated",
         "solvent_cut_uv_plus_brightness_not_separated",
         "residue_uv_minus_and_uv_plus_not_separated",
+        "capillary_extract_uv_minus_and_uv_plus_not_separated",
         "quantitative_fluorimetry_requires_external_calibration",
     ]
     if LegacyShowGroup.ODOUR not in kinds:
