@@ -31,6 +31,8 @@ def test_method_inventory_keeps_uv_plus_and_daylight_separate() -> None:
     assert modes[ShowMethod.SOLVENT_CUT_UV] == "uv_plus"
     assert modes[ShowMethod.RESIDUE_DAYLIGHT] == "uv_minus"
     assert modes[ShowMethod.RESIDUE_UV] == "uv_plus"
+    assert modes[ShowMethod.CAPILLARY_EXTRACT_DAYLIGHT] == "uv_minus"
+    assert modes[ShowMethod.CAPILLARY_EXTRACT_UV] == "uv_plus"
 
 
 def test_empty_legacy_sample_is_unknown_not_negative_show() -> None:
