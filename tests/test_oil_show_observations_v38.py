@@ -149,8 +149,7 @@ def test_sample_dialog_returns_separate_shows_in_each_locale(qapp, language: App
 
 
 def test_controller_preserves_old_lba_and_independent_shows_on_update() -> None:
-    session = ProjectSession()
-    session.load_project(_project(), well_id="well-1")
+    session = ProjectSession(project=_project(), current_well_id="well-1")
     controller = CuttingsController(session)
     sample = controller.get("sample-1")
     assert sample.show_observations == _observations()
