@@ -184,10 +184,10 @@ for _group in LBA_STANDARD_GROUPS:
 
 @dataclass(frozen=True, slots=True)
 class LbaStandardAssessment:
-    """Bitumoid group and residual ring/spot score are independent scales.
+    """Bitumoid group and semi-quantitative UV capillary-spot score are independent scales.
 
-    Historical `intensity` is the 1–5 visual residue-pattern score for
-    capillary extract, NOT brightness of fluorescence or reservoir saturation.
+    Historical `intensity` is the 1–5 morphology/fluorescence score for
+    the capillary-extract imprint under UV, NOT an absolute brightness or reservoir saturation.
     It is retained for source LAS and project schema compatibility.
     """
 
@@ -264,7 +264,7 @@ def assess_lba_standard(
 
 
 def lba_intensity_name(intensity: int, language: AppLanguage) -> str:
-    """Name the residual capillary ring/spot class, not fluorescence brightness."""
+    """Name the UV-luminescent capillary-imprint pattern class."""
 
     names = {
         AppLanguage.RU: {
@@ -307,7 +307,7 @@ def describe_lba_assessment(
             parts.append(f"түс {assessment.color_code}")
         if assessment.intensity is not None:
             parts.append(
-                f"қалдық сақина/дақ бағасы {assessment.intensity}: "
+                f"капиллярлық дақтың ЛБА балы {assessment.intensity}: "
                 f"{lba_intensity_name(assessment.intensity, language)}"
             )
         if assessment.conflicts:
@@ -323,7 +323,7 @@ def describe_lba_assessment(
             parts.append(f"colour {assessment.color_code}")
         if assessment.intensity is not None:
             parts.append(
-                f"residual ring/spot score {assessment.intensity}: "
+                f"LBA capillary-spot score {assessment.intensity}: "
                 f"{lba_intensity_name(assessment.intensity, language)}"
             )
         if assessment.conflicts:
@@ -338,7 +338,7 @@ def describe_lba_assessment(
         parts.append(f"цвет {assessment.color_code}")
     if assessment.intensity is not None:
         parts.append(
-            f"оценка остаточного кольца/пятна {assessment.intensity}: "
+            f"балл ЛБА по люминесцирующему пятну {assessment.intensity}: "
             f"{lba_intensity_name(assessment.intensity, language)}"
         )
     if assessment.conflicts:

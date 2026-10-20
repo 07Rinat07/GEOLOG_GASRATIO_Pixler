@@ -1957,7 +1957,7 @@
   "tablet.lba_empty": "ЛБА деректері жоқ. Сынама аралығына ЛБА қосыңыз.",
   "tablet.lba_group": "Топ",
   "tablet.lba_header": "ЛБА: ЛБ · МБ · МСБ · СБ · САБ\\nҚарқындылығы: 1–5 балл",
-  "tablet.lba_intensity": "Қалдық сақина/дақ (балл)",
+  "tablet.lba_intensity": "ЛБА: люминесценттік дақ (балл)",
   "tablet.lba_odour": "Иісі",
   "tablet.lba_residue_color": "Қалдық түсі",
   "tablet.lba_residue_type": "Қалдық",
