@@ -92,13 +92,15 @@ class OilShowObservationEditor(QWidget):
             tuple[QDoubleSpinBox, tuple[QLineEdit, ...], QComboBox],
         ] = {}
         previous = {item.method: item for item in validate_oil_show_observations(observations or [])}
+        # Editing must retain the original measurement provenance.
+        self._original_sources = {method: item.source for method, item in previous.items()}
         for row, method in enumerate(OilShowMethod):
             title = QTableWidgetItem(_METHOD_LABELS[method][locale_index])
             self.table.setItem(row, 0, title)
             area = QDoubleSpinBox()
             area.setObjectName(f"show-{method.value}-area")
             area.setRange(-1.0, 100.0)
-            area.setDecimals(1)
+            area.setDecimals(12)
             area.setSpecialValueText("—")
             area.setValue(-1)
             self.table.setCellWidget(row, 1, area)
@@ -109,7 +111,9 @@ class OilShowObservationEditor(QWidget):
             ):
                 entry = QLineEdit()
                 entry.setObjectName(f"show-{method.value}-{field_name}")
-                entry.setMaxLength(2_000 if field_name == "notes" else 100)
+                entry.setMaxLength(
+                    2_000 if field_name == "notes" else 120 if field_name == "distribution" else 100
+                )
                 self.table.setCellWidget(row, column, entry)
                 fields.append(entry)
             quality = QComboBox()
@@ -146,6 +150,7 @@ class OilShowObservationEditor(QWidget):
                 reaction_speed=values[3],
                 notes=values[4],
                 quality=quality.currentData(),
+                source=self._original_sources.get(method, "operator"),
             ))
         return validate_oil_show_observations(result)
 
