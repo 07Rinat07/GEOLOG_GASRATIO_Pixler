@@ -1,5 +1,19 @@
 # Using the application securely
 
+## Pillow 13.0.0 image-security update (2026-10-21)
+
+The dependency scanner identified eight vulnerabilities in Pillow 12.3.0.
+An upgrade to the fixed 13.0.0 release is under review in a separate PR.
+The Windows CPython 3.11 x64 release lock uses the SHA-256 published by PyPI.
+Do not treat the update as released until the full Windows
+quality, GUI/HiDPI/PDF and security gates pass on the actual PR HEAD.
+No LAS values or geological methods are changed by this dependency fix.
+TIFF, PNG, GIF, JPEG and image/PDF output need regression testing because
+the library introduces changes. Do not disable dependency-audit or
+attachment-security controls.
+Source: [Pillow 13.0.0](https://pypi.org/project/pillow/13.0.0/).
+
+
 This guide is for DIGITAL DIGITAL GEOLOG GASRATIO&PIXLER users and administrators. The application is a
 decision-support tool, not a well-control or emergency-shutdown system. Apply your organization's
 access, backup, and geological-data handling policies in addition to the guidance below.
