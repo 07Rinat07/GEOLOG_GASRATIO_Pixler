@@ -2,7 +2,7 @@
 
 ## Purpose and availability
 
-This guide describes isolated calculation code in PR #686 (INTERP-PETRO-01), **not a UI command**. The functions are absent from `main` until the PR is merged. `geoworkbench.services.petrophysical_reference_models` accepts previously verified scalar inputs and returns an immutable result with `method_id`, `value`, `unit`, `quality`, and `parameters`. It does not discover LAS mnemonics, convert units, align MD/TVD, or modify the project.
+This guide describes isolated calculation code in PR #686 (INTERP-PETRO-01), **not a UI command**. The reference functions were integrated through PR #686; the operator dialog is described below. `geoworkbench.services.petrophysical_reference_models` accepts previously verified scalar inputs and returns an immutable result with `method_id`, `value`, `unit`, `quality`, and `parameters`. It does not discover LAS mnemonics, convert units, align MD/TVD, or modify the project.
 
 ## Explicit source input review
 
@@ -27,7 +27,18 @@ session-local and are not saved. Evidence records an expert attestation, not
 automatic tool applicability certification. NaN, invalid indices and samples
 outside the MD scope are rejected. Controllers must increment curve.version
 for in-place value edits. This is not a batch-loop API: every sample rechecks
-inventory and MD. UI and Archie are not connected.
+inventory and MD. Archie is not connected.
+
+**Operator dialog:** Calculations → GIS: review one sample…
+(`GisReferenceDialog`, `petro_reference.action`). Select the active GIS dataset,
+method and curve; enter calibration/tool IDs, reviewer, evidence, MD bounds
+and parameters. Choose the source row (from 1), then click Evaluate sample.
+Use a decimal dot or comma without thousands separators. The dialog displays
+source MD/value/unit, result, QC and calibration ID. Editing a field clears the
+result; changing the method clears parameters. Close leaves the project unchanged.
+There is no profile saving, derived curve, export or fluid identification.
+Invalid fields, NaN, stale sources and incompatible units block calculation.
+Synthetic numerical checks do not replace tool/regional field acceptance.
 
 ## Gamma ray: IGR
 

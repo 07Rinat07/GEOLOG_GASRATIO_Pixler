@@ -291,8 +291,8 @@ def test_i18n_audit_rejects_invalid_values_and_placeholders(tmp_path) -> None:
 
 
 
-def test_petrophysical_reference_guides_are_equivalent_and_not_advertised_as_ui() -> None:
-    """Three guides must describe the same data-only methods and control examples."""
+def test_petrophysical_reference_guides_keep_methods_and_operator_scope_in_sync() -> None:
+    """Three guides describe the same methods, examples and bounded operator workflow."""
 
     names = (
         "gamma_ray_index",
@@ -316,6 +316,8 @@ def test_petrophysical_reference_guides_are_equivalent_and_not_advertised_as_ui(
         "review_gis_reference_input",
         "ready_for_calibration",
         "create_gis_reference_calibration",
+        "GisReferenceDialog",
+        "petro_reference.action",
         "evaluate_gis_reference_sample",
         "applicability_reference",
         "curve.version",
