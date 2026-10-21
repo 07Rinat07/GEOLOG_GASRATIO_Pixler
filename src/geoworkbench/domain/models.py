@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from geoworkbench.domain.oil_show_observations import OilShowObservation
 from geoworkbench.domain.analysis_update import AnalysisUpdateRecord
 from geoworkbench.domain.numerical_update import NumericalUpdateRecord
 from geoworkbench.domain.geology_update import GeologyUpdateRecord
@@ -477,6 +478,8 @@ class CuttingsSample:
     # Additive compatibility field kept at the end so historical positional
     # CuttingsSample constructors retain their argument meaning.
     total_carbonate_percent: float | None = None
+    # Independent DataLog observations. Historical lba_* fields remain unchanged.
+    show_observations: list[OilShowObservation] = field(default_factory=list)
 
     @property
     def insoluble_residue_percent(self) -> float | None:

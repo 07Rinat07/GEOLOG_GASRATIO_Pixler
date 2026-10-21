@@ -289,6 +289,42 @@ def test_i18n_audit_rejects_invalid_values_and_placeholders(tmp_path) -> None:
     assert sum(issue.category == "i18n-values" for issue in issues) == 2
     assert sum(issue.category == "i18n-format" for issue in issues) == 2
 
+
+
+def test_petrophysical_reference_guides_are_equivalent_and_not_advertised_as_ui() -> None:
+    """Three guides must describe the same data-only methods and control examples."""
+
+    names = (
+        "gamma_ray_index",
+        "density_porosity",
+        "archie_water_saturation",
+        "igr-linear-1",
+        "density-porosity-1",
+        "archie-water-saturation-1",
+        "outside_reference_range",
+        "outside_physical_range",
+        "GR=65",
+        "IGR=0.4",
+        "rho_bulk=2.42",
+        "phiD≈0.16959",
+        "phi=0.2",
+        "Sw=0.5",
+        "ValueError",
+        "LAS",
+        "MD/TVD",
+        "PR #686",
+    )
+    for language in ("ru", "kk", "en"):
+        guide = (
+            ROOT / "docs" / language / "PETROPHYSICAL_REFERENCE_MODELS.md"
+        ).read_text(encoding="utf-8")
+        assert all(name in guide for name in names)
+        assert guide.count("\n## ") == 5
+
+    index = (ROOT / "docs" / "DOCUMENTATION_INDEX.md").read_text(encoding="utf-8")
+    for language in ("ru", "kk", "en"):
+        assert f"{language}/PETROPHYSICAL_REFERENCE_MODELS.md" in index
+
 def test_florovskaya_residual_ring_guides_remain_in_sync_in_three_languages() -> None:
     """Operator instructions and UI must describe the same 1–5 LBA quantity scale."""
 

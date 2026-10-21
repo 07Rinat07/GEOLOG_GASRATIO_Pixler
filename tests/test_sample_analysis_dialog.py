@@ -64,6 +64,7 @@ def test_sample_analysis_dialog_loads_existing_interval(qapp) -> None:
         "lba_residue_color": "Amber",
         "lba_odour": "Moderate",
         "lba_stain": "Spotty",
+        "show_observations": [],
         "lba_description": "bright fluorescence",
         "lba_description_i18n": {},
         "analysis_interpretation": "Manual geologist conclusion",

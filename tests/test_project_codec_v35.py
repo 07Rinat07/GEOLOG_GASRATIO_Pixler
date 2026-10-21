@@ -147,7 +147,7 @@ def test_project_v35_round_trip_preserves_repeating_gas_context_events(
     payload = json.loads(target.read_text(encoding="utf-8"))
     restored = load_project(target).wells["well-1"]
 
-    assert PROJECT_FORMAT_VERSION == 37
+    assert PROJECT_FORMAT_VERSION == 38
     assert payload["format_version"] == PROJECT_FORMAT_VERSION
     assert len(payload["project"]["wells"]["well-1"]["gas_context_events"]) == 3
     assert [event.event_id for event in restored.gas_context_events] == [

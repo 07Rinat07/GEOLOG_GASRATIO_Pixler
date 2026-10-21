@@ -21,6 +21,7 @@ from geoworkbench.domain.localized_content import (
     set_localized_text,
     validate_localized_texts,
 )
+from geoworkbench.domain.oil_show_observations import validate_oil_show_observations
 from geoworkbench.domain.models import (
     CuttingsComponent,
     CuttingsSample,
@@ -189,6 +190,10 @@ class CuttingsController:
         sample.lba_residue_color = self._normalize_text(values.get("lba_residue_color"), 100)
         sample.lba_odour = self._normalize_text(values.get("lba_odour"), 100)
         sample.lba_stain = self._normalize_text(values.get("lba_stain"), 100)
+        if "show_observations" in values:
+            sample.show_observations = validate_oil_show_observations(
+                values["show_observations"]
+            )
         lba_description = self._normalize_text(values.get("lba_description"), 2000)
         interpretation = self._normalize_text(
             values.get("analysis_interpretation"), 20_000, "Текст интерпретации"
@@ -415,6 +420,7 @@ class CuttingsController:
             sample.lba_residue_color,
             sample.lba_odour,
             sample.lba_stain,
+            sample.show_observations,
             sample.lba_description,
             sample.calcite_percent,
             sample.dolomite_percent,
@@ -450,6 +456,7 @@ class CuttingsController:
                 sample.lba_residue_color,
                 sample.lba_odour,
                 sample.lba_stain,
+                sample.show_observations,
                 sample.lba_description,
                 sample.analysis_interpretation,
                 sample.lba_description_i18n,
@@ -619,6 +626,7 @@ class CuttingsController:
         lba_residue_color: str | None = None,
         lba_odour: str | None = None,
         lba_stain: str | None = None,
+        show_observations: object | None = None,
         lba_description: str | None = None,
         analysis_interpretation: str | None = None,
         content_language: object | None = None,
@@ -650,6 +658,7 @@ class CuttingsController:
             lba_residue_color=lba_residue_color,
             lba_odour=lba_odour,
             lba_stain=lba_stain,
+            show_observations=show_observations,
             lba_description=lba_description,
             analysis_interpretation=analysis_interpretation,
             content_language=content_language,
@@ -681,6 +690,7 @@ class CuttingsController:
         lba_residue_color: str | None = None,
         lba_odour: str | None = None,
         lba_stain: str | None = None,
+        show_observations: object | None = None,
         lba_description: str | None = None,
         analysis_interpretation: str | None = None,
         content_language: object | None = None,
@@ -723,6 +733,7 @@ class CuttingsController:
             lba_residue_color=lba_residue_color,
             lba_odour=lba_odour,
             lba_stain=lba_stain,
+            show_observations=show_observations,
             lba_description=lba_description,
             analysis_interpretation=analysis_interpretation,
             content_language=content_language,
@@ -755,6 +766,7 @@ class CuttingsController:
         lba_residue_color: str | None,
         lba_odour: str | None,
         lba_stain: str | None,
+        show_observations: object | None,
         lba_description: str | None,
         analysis_interpretation: str | None,
         content_language: object | None,
@@ -771,6 +783,11 @@ class CuttingsController:
         )
         staged.top_depth = top_depth
         staged.bottom_depth = bottom_depth
+        normalized_shows = (
+            validate_oil_show_observations(show_observations)
+            if show_observations is not None
+            else None
+        )
 
         calcite, dolomite = self._validate_calcimetry(
             calcite_percent, dolomite_percent
@@ -807,6 +824,7 @@ class CuttingsController:
             and dolomite is None
             and group is None
             and intensity is None
+            and not normalized_shows
             and not any(strings.values())
             and not localized_lba
             and not localized_interpretation
@@ -827,6 +845,8 @@ class CuttingsController:
         staged.lba_residue_color = strings["residue_color"]
         staged.lba_odour = strings["odour"]
         staged.lba_stain = strings["stain"]
+        if normalized_shows is not None:
+            staged.show_observations = normalized_shows
 
         coordinator = CuttingsAnalysisTrackingCoordinator(self.session)
         sources = coordinator.resolve_sources(
