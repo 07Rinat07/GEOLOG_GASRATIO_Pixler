@@ -3346,7 +3346,7 @@ placeholder names между RU/KK/EN. Руководство Print Center на 
 строк или физической приёмки. #604: три Windows gates SUCCESS на d6a97ef5,
 интегрирован в main 41c4ac9d.
 
-<!-- runtime-contract: package=0.7.96; project=v37; form=v18; layout=v25 -->
+<!-- runtime-contract: package=0.7.96; project=v38; form=v18; layout=v25 -->
 
 #### Windows CI — lifecycle regression в свежем процессе (на проверке)
 
