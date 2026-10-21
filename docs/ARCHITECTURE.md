@@ -1,6 +1,18 @@
 <!-- runtime-contract: package=0.7.96; project=v38; form=v18; layout=v25 -->
 # Архитектура
 
+## INTERP-PETRO-01: операторский read-only диалог
+
+`ui/gis_reference_dialog.py` вызывается локализованным QAction главного окна
+для активного DatasetKind.GIS. Диалог передаёт явные поля в существующие
+`create_gis_reference_calibration` / `evaluate_gis_reference_sample`, не создаёт
+project commands, derived-кривые или persisted profiles. Каждый click создаёт
+новую session-local калибровку из текущего review; результат — исторический
+snapshot конкретного вычисления. Смена любого ввода сбрасывает результат,
+смена метода также очищает параметры. Ошибки показываются через RU/KK/EN
+каталог без технических исключений; результат принудительно PlainText.
+Форма прокручивается на малых экранах; тяжёлый batch этим API не реализуется.
+
 ## INTERP-PETRO-01: session-local calibration и scalar evaluation
 
 `services/gis_reference_calibration.py` связывает явные параметры и экспертное

@@ -83,7 +83,7 @@ from geoworkbench.importers.gs2.multipart import read_gs2_multipart
 from geoworkbench.importers.gs2.metadata import channel_dictionary_for_table
 from geoworkbench.importers.legacy_geosight_forms import import_legacy_geosight_file
 from geoworkbench.importers.skf_importer import import_skf_file
-from geoworkbench.domain.models import CurveData, Dataset, IndexRole, IndexType
+from geoworkbench.domain.models import CurveData, Dataset, DatasetKind, IndexRole, IndexType
 from geoworkbench.domain.localized_content import localized_text
 from geoworkbench.data.las_adapter import LasExportError, LasImportResult, import_las_with_report
 from geoworkbench.data.las_import_policy import LasImportMode
@@ -296,6 +296,7 @@ from geoworkbench.ui.form_manager_dialog import FormManagerDialog
 from geoworkbench.ui.form_create_dialog import FormCreateDialog
 from geoworkbench.ui.constructor_dialog import UniversalConstructorDialog
 from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
+from geoworkbench.ui.gis_reference_dialog import GisReferenceDialog
 from geoworkbench.ui.custom_formula_dialog import CustomFormulaDialog
 from geoworkbench.ui.depth_annotations_dialog import DepthAnnotationsDialog
 from geoworkbench.ui.symbol_insertion_dialog import SymbolInsertionDialog
@@ -1962,6 +1963,10 @@ class MainWindow(QMainWindow):
         self.formula_action = self._localized_action("formula.action")
         self.formula_action.triggered.connect(self.show_formula_profiles)
         calc_menu.addAction(self.formula_action)
+
+        self.gis_reference_action = self._localized_action("petro_reference.action")
+        self.gis_reference_action.triggered.connect(self.show_gis_reference_dialog)
+        calc_menu.addAction(self.gis_reference_action)
 
         self.custom_formula_action = self._localized_action("shell.custom_formulas")
         self.custom_formula_action.triggered.connect(self.show_custom_formulas)
@@ -7598,6 +7603,15 @@ class MainWindow(QMainWindow):
         changed = ", ".join(result.changed) or "—"
         self._log(f"Интерпретационные кривые рассчитаны: {changed}")
         self.statusBar().showMessage(f"Интерпретационные кривые созданы/обновлены: {changed}")
+
+    def show_gis_reference_dialog(self) -> None:
+        dataset = self.session.current_dataset
+        if dataset is None or dataset.kind is not DatasetKind.GIS:
+            QMessageBox.information(
+                self, self._t("petro_reference.action"), self._t("petro_reference.select_gis"),
+            )
+            return
+        GisReferenceDialog(dataset, self, language=self.language).exec()
 
     def show_formula_profiles(self) -> None:
         dataset = self.session.current_dataset

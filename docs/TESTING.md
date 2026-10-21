@@ -1,3 +1,16 @@
+## INTERP-PETRO-01 operator dialog
+
+`tests/test_gis_reference_dialog.py` exercises RU/KK/EN × IGR/density actual
+controls, mandatory selections/evidence, NaN/scope/stale/unit/scalar-axis guards,
+parameter/result invalidation, Close and the real MainWindow menu/language
+action. Source arrays and clean project state are retained. Visual review uses
+synthetic data; it is not field calibration acceptance.
+
+```powershell
+$env:PYTHONUTF8 = '1'
+.\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_gis_reference_dialog.py tests/test_gis_reference_calibration.py tests/test_gis_reference_input_review.py tests/test_gis_input_inventory.py tests/test_petrophysical_reference_models.py tests/test_documentation_sync_0762.py -q
+```
+
 ## INTERP-PETRO-01 calibrated scalar sample
 
 `tests/test_gis_reference_calibration.py` verifies explicit parameters/evidence,
