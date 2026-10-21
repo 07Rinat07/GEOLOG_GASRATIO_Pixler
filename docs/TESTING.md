@@ -1,3 +1,16 @@
+## INTERP-GIS-01 reference source review
+
+`tests/test_gis_reference_input_review.py` checks explicit channel selection,
+equivalent unit spellings versus incompatible scales, inherited MD/source/QC
+blockers, revision snapshots, unsupported methods, and unchanged real LAS
+1.2/2.0 bytes and arrays. A positive result only permits calibration review;
+it does not authorize physical interpretation or a later calculation.
+
+```powershell
+$env:PYTHONUTF8 = '1'
+.\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_gis_reference_input_review.py tests/test_gis_input_inventory.py tests/test_petrophysical_reference_models.py -q
+```
+
 ## PR #682 CI39321437752: tabular-language MainWindow isolation
 
 The Windows gate aborted with `0xC0000005` in pyqtgraph

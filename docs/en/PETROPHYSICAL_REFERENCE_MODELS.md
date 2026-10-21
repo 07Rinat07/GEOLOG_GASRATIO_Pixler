@@ -4,6 +4,19 @@
 
 This guide describes isolated calculation code in PR #686 (INTERP-PETRO-01), **not a UI command**. The functions are absent from `main` until the PR is merged. `geoworkbench.services.petrophysical_reference_models` accepts previously verified scalar inputs and returns an immutable result with `method_id`, `value`, `unit`, `quality`, and `parameters`. It does not discover LAS mnemonics, convert units, align MD/TVD, or modify the project.
 
+## Explicit source input review
+
+`review_gis_reference_input(dataset, method_id=..., curve_key=...)` is a separate
+data-only API before calibration. `igr-linear-1` requires gamma_ray/API;
+`density-porosity-1` requires bulk_density/g/cm3. A fresh inventory checks metre
+MD, semantics, provenance, current state and actual paired samples. Equivalent
+unit spellings are accepted; other scales (kg/m3 or uR/h) are rejected without
+conversion. No channel is selected automatically. `ready_for_calibration`
+does not establish tool/model applicability or calibration and does not authorize
+a future calculation using a stale review. Archie is excluded: generic
+resistivity/neutron does not establish Rt/effective porosity. UI, source LAS,
+arrays and project persistence are unchanged.
+
 ## Gamma ray: IGR
 
 `gamma_ray_index` (`igr-linear-1`): `IGR = (GR - GRclean) / (GRshale - GRclean)`. All three inputs must use the same verified API scale; `GRshale > GRclean`. **Synthetic**, not field, reference example: `GR=65`, `GRclean=25`, `GRshale=125` API → `IGR=0.4` v/v. IGR is **not automatically Vsh**: mineralogy, facies and local reference endpoints need verification. Values outside [0,1] are retained with `outside_reference_range` rather than clipped.
