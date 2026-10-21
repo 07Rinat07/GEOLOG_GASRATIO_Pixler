@@ -1,3 +1,11 @@
+## SEC-PILLOW-13 — устранение уязвимостей Pillow (21.10.2026, на проверке)
+
+В обязательном post-merge `main` security gate #39552423129 обнаружены **8 подтверждённых уязвимостей Pillow 12.3.0**. Аудитор указывает исправление в версии 13.0.0. Отдельная security-ветка обновляет `pyproject.toml` и хешированный `requirements/release.lock`: Windows CPython 3.11 x64 wheel имеет официальный SHA-256 `d7710eb676e9bb68965cb045be0d333b4c0d7f9dfbaa7fbf121385b1588683d3`, сверенный по PyPI. Шифрованный lock/встроенные тесты и аудит **не отключаются**.
+
+Pillow 13 удаляет поддержку Python 3.10 (приложение требует Python >=3.11); выпуск содержит несовместимые изменения обработки отдельных форматов, поэтому обязательны full Windows quality, GUI/HiDPI/PDF и security gate на точном HEAD. До этих проверок безопасность main **не восстановлена**. Ссылки:
+[PyPI Pillow 13.0.0](https://pypi.org/project/pillow/13.0.0/),
+[Pillow 13.0.0 release notes](https://pillow.readthedocs.io/en/latest/releasenotes/13.0.0.html).
+
 ## Уточнение полуколичественного балла ЛБА (PR #685, на проверке, 20.10.2026)
 
 - При сверке с табл. 4.2 пособия ТПУ исправлена избыточная трактовка
