@@ -1,6 +1,20 @@
 <!-- runtime-contract: package=0.7.96; project=v38; form=v18; layout=v25 -->
 # Архитектура
 
+## INTERP-FUSION-01: MD partition перед screening
+
+`review_gis_gti_intervals` в `services/gis_gti_lithology_screening.py` добавляет
+data-only sweep по clipped boundaries. Полный вход валидируется существующим
+контрактом до построения результата; aggregate review не возвращается как
+результат ячейки. End events применяются до start events, сохраняя полуоткрытое
+владение границами; пустые ячейки остаются явными. Active observations
+передаются существующему `review_gis_gti_interval` в исходном порядке.
+Результат — tuple frozen review, без source mutations и новых физических правил.
+Sparse-вход не сканируется целиком на каждой границе; при плотном overlap
+объём работы зависит от числа active observations и размера evidence-выхода.
+Одна rock_family относится ко всему окну; смену пород caller должен задавать
+отдельными проверенными окнами. Это не автоматическая корреляция рейсов.
+
 ## INTERP-PETRO-01: операторский read-only диалог
 
 `ui/gis_reference_dialog.py` вызывается локализованным QAction главного окна

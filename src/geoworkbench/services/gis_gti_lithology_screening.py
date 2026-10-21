@@ -283,6 +283,58 @@ def review_gis_gti_interval(
     )
 
 
+def review_gis_gti_intervals(
+    *,
+    top_md_m: float,
+    bottom_md_m: float,
+    depth_axis_id: str,
+    rock_family: RockFamily,
+    observations: tuple[IntervalObservation, ...],
+) -> tuple[GisGtiIntervalReview, ...]:
+    """Partition a homogeneous-rock MD window before applying existing screening.
+
+    Unlike the single-window overlap review, every returned cell has a constant
+    set of covering observations. Touching intervals do not overlap; uncovered
+    cells remain explicit. Inputs must already have verified MD/lag and physical
+    applicability. No raw curves, alignment, interpolation or rock mapping occur.
+    """
+    # Reuse the complete input contract, including out-of-window observations.
+    # The aggregate review itself is deliberately not returned as a cell result.
+    review_gis_gti_interval(
+        top_md_m=top_md_m, bottom_md_m=bottom_md_m, depth_axis_id=depth_axis_id,
+        rock_family=rock_family, observations=observations,
+    )
+    _validate_bounds(float(top_md_m), float(bottom_md_m))
+    starts: dict[float, list[int]] = {}
+    ends: dict[float, list[int]] = {}
+    boundaries = {float(top_md_m), float(bottom_md_m)}
+    for index, item in enumerate(observations):
+        _validate_bounds(float(item.top_md_m), float(item.bottom_md_m))
+        top = max(float(top_md_m), float(item.top_md_m))
+        bottom = min(float(bottom_md_m), float(item.bottom_md_m))
+        if top >= bottom:
+            continue
+        starts.setdefault(top, []).append(index)
+        ends.setdefault(bottom, []).append(index)
+        boundaries.update((top, bottom))
+
+    ordered = sorted(boundaries)
+    active: dict[int, IntervalObservation] = {}
+    result: list[GisGtiIntervalReview] = []
+    for top, bottom in zip(ordered, ordered[1:]):
+        # End before start at a shared boundary: [top, bottom) ownership.
+        for index in ends.get(top, ()):
+            active.pop(index)
+        for index in starts.get(top, ()):
+            active[index] = observations[index]
+        result.append(review_gis_gti_interval(
+            top_md_m=top, bottom_md_m=bottom, depth_axis_id=depth_axis_id,
+            rock_family=rock_family,
+            observations=tuple(active[index] for index in sorted(active)),
+        ))
+    return tuple(result)
+
+
 def _validate_bounds(top: float, bottom: float) -> None:
     for value in (top, bottom):
         if isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -315,5 +367,5 @@ def _validate_observation(item: IntervalObservation, expected_axis: str) -> None
 __all__ = [
     "EvidenceOrigin", "FluidAssessment", "GisGtiIntervalReview",
     "IntervalObservation", "ObservationKind", "ObservationQuality",
-    "ReservoirAssessment", "RockFamily", "review_gis_gti_interval",
+    "ReservoirAssessment", "RockFamily", "review_gis_gti_interval", "review_gis_gti_intervals",
 ]

@@ -215,6 +215,19 @@ depth/value pairs do not establish continuous coverage.
 Source LAS bytes and arrays remain unchanged. This is not calibration,
 a Vsh/Sw calculation, fluid identification or confirmation of tool applicability.
 
+## Actual GIS/GTI MD cells
+
+`review_gis_gti_intervals` is a separate data-only MD-cell review in
+INTERP-FUSION-01. For one explicitly stated rock family, the window is split
+at validated interpretation-observation boundaries; it does not read raw LAS.
+Existing `review_gis_gti_interval` screening applies per cell; uncovered cells
+remain unknown. Touching is not overlap: separated GIS/GTI indicators do not
+form a joint candidate, and different tests conflict only on their actual
+intersection. Source IDs and suspect/rejected QC are retained. Verified MD/lag
+and method applicability are prerequisites. No UI, automatic cell merging,
+productive-bed count/thickness or new fluid model is added; changing rock
+families require separate verified windows.
+
 ## Comparison freshness during Excel export
 
 A changed source curve revision or replaced curve/axis array requires a new
