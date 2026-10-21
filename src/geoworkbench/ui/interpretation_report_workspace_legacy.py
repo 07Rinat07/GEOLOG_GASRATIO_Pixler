@@ -617,6 +617,13 @@ class InterpretationReportWorkspace(QWidget):
             dataset.dataset_id,
             dataset.active_index_id,
             id(dataset.active_index),
+            # Controllers can revise data without replacing the Dataset/axis.
+            # Track versioned edits and replaced arrays without hashing large LAS data.
+            id(dataset.active_index.values),
+            tuple(
+                (key, id(curve), id(curve.values), curve.version, curve.state)
+                for key, curve in sorted(dataset.curves.items())
+            ),
             id(report),
             self._report_mode(),
             self.threshold.value(),

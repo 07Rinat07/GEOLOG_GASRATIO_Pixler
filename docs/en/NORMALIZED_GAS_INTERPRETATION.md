@@ -214,3 +214,10 @@ unknown units remain explicit limitations. Counts and bounds of finite
 depth/value pairs do not establish continuous coverage.
 Source LAS bytes and arrays remain unchanged. This is not calibration,
 a Vsh/Sw calculation, fluid identification or confirmation of tool applicability.
+
+## Comparison freshness during Excel export
+
+A changed source curve revision or replaced curve/axis array requires a new
+standard/OPUS comparison. Stale comparisons are omitted from a new export;
+if the source changes after XLSX generation starts, export stops before
+replacing an existing file. Source LAS data remains unchanged.

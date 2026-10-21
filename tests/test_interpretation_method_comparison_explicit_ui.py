@@ -177,7 +177,7 @@ def test_mixture_mode_disables_comparison_action(qapp) -> None:
     workspace.close()
 
 
-def test_comparison_service_rejects_unrelated_depth_axis() -> None:
+def test_comparison_service_rejects_unrelated_depth_axis(qapp) -> None:
     workspace = _workspace()
     assert workspace.report is not None
     standard = workspace.report
