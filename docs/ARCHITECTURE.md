@@ -1,6 +1,19 @@
 <!-- runtime-contract: package=0.7.96; project=v38; form=v18; layout=v25 -->
 # Архитектура
 
+## INTERP-FUSION-01: общий coverage sweep для литологии и evidence
+
+`LithologyObservation` хранит source/MD-axis ID, границы, явную RockFamily и
+ObservationQuality. Новый `review_gis_gti_lithology_intervals` проверяет весь
+вход, затем общий `_md_cells` строит ячейки по обеим группам границ. Один и тот
+же sweep обслуживает прежний homogeneous-rock API, сохраняя его output/guards.
+`GisGtiLithologyCell` содержит существующий frozen review и отдельные accepted/
+discarded lithology IDs и QC. Пустое либо противоречивое покрытие даёт
+UNKNOWN_OR_MIXED; явно записанное UNKNOWN отличается от отсутствующей записи.
+Реальные formation tests сохраняют существующий приоритет. QC литологии
+требует самостоятельного рассмотрения, даже если shortlist review положителен.
+Raw rock-name mapping, Well/project serialization и UI не подключаются.
+
 ## INTERP-FUSION-01: MD partition перед screening
 
 `review_gis_gti_intervals` в `services/gis_gti_lithology_screening.py` добавляет

@@ -1,3 +1,16 @@
+## INTERP-FUSION-01 lithology coverage
+
+`tests/test_gis_gti_lithology_coverage.py` checks actual changing rock coverage,
+missing versus recorded unknown, matching/competing overlaps, local suspect/
+rejected QC, touching boundaries, source order, frozen output, off-window
+validation and preserved independent formation-test authority. Existing single
+and homogeneous-window suites cover the extracted shared sweep.
+
+```powershell
+$env:PYTHONUTF8 = '1'
+.\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_gis_gti_lithology_coverage.py tests/test_gis_gti_md_partitions.py tests/test_gis_gti_lithology_screening.py tests/test_documentation_sync_0762.py -q
+```
+
 ## INTERP-FUSION-01 MD partitions
 
 `tests/test_gis_gti_md_partitions.py` checks separated/shared evidence, touching
