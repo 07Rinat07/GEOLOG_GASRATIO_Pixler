@@ -44,10 +44,21 @@ class DailyLasGrowthPlan:
     target_state_sha256: str
     source_state_sha256: str
     duplicate_source: bool = False
+    # Source LAS can contain a verified subset of the existing native channels.
+    # The omitted channels must be null-filled on newly appended depth rows.
+    missing_curve_mnemonics: tuple[str, ...] = ()
+    historical_policy: str = "strict"
+    historical_conflict_rows: int = 0
+    historical_conflict_cells: int = 0
+    duplicate_historical_rows: int = 0
+    matched_curve_mnemonics: tuple[tuple[str, str], ...] = ()
+    fill_missing_existing: bool = False
+    cells_filled: int = 0
+    incompatible_curve_units: tuple[tuple[str, str, str], ...] = ()
 
     @property
     def changes_data(self) -> bool:
-        return self.rows_added > 0
+        return self.rows_added > 0 or self.cells_filled > 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,15 +154,22 @@ def analyze_daily_las_growth(
     *,
     source_name: str,
     source_sha256: str,
+    historical_policy: str = "strict",
+    fill_missing_existing: bool = False,
 ) -> DailyLasGrowthPlan:
     """Build a non-mutating append plan for one explicitly selected dataset.
 
     The contract is intentionally strict. DEPTH and TIME never cross, curve
-    schemas must match, an already imported source is a no-op, equal overlap is
-    skipped and conflicting overlap is rejected. New rows must form a suffix in
-    the same monotonic direction as the target dataset.
+    incoming source curves must belong to the existing native schema, an
+    already imported source is a no-op, equal overlap is skipped and conflicting
+    overlap is rejected. Missing original channels are null-filled only on new
+    rows; new rows must form a suffix in the same monotonic direction.
     """
 
+    if type(fill_missing_existing) is not bool:
+        raise DailyLasGrowthError("Режим дополнения пропусков должен быть логическим")
+    if historical_policy not in {"strict", "keep_existing"}:
+        raise DailyLasGrowthError("Неизвестная политика сверки пересекающихся глубин")
     if target.dataset_id == source.dataset_id:
         raise DailyLasGrowthError("Источник и приёмник не должны быть одним dataset")
     if not source_name.strip():
@@ -181,32 +199,51 @@ def analyze_daily_las_growth(
             dataset_append_state_sha256(target),
             dataset_append_state_sha256(source),
             True,
+            historical_policy=historical_policy,
         )
 
     target_native_curves, source_curves, target_values, source_values, direction = (
-        _validate_numerical_update_inputs(target, source)
+        _validate_numerical_update_inputs(
+            target, source, allow_partial_source=True,
+            allow_historical_duplicates=historical_policy == "keep_existing",
+            skip_incompatible_units=fill_missing_existing,
+        )
     )
     source_index = source.active_index
 
     existing_lookup = {_index_key(value): pos for pos, value in enumerate(target_values)}
     new_rows: list[int] = []
     skipped = 0
+    conflict_rows = 0
+    conflict_cells = 0
+    overlapping_target_rows: list[int] = []
+    overlapping_source_rows: list[int] = []
+    duplicate_historical_rows = 0
     new_phase = False
+    previous_index_key: tuple[str, int | float] | None = None
     terminal = target_values[-1]
     for source_row, value in enumerate(source_values):
-        existing_row = existing_lookup.get(_index_key(value))
+        current_index_key = _index_key(value)
+        existing_row = existing_lookup.get(current_index_key)
+        if current_index_key == previous_index_key:
+            if existing_row is None or new_phase:
+                raise DailyLasGrowthError("Новый суффикс LAS содержит повторяющуюся глубину")
+            duplicate_historical_rows += 1
+        previous_index_key = current_index_key
         if existing_row is not None:
             if new_phase:
                 raise DailyLasGrowthError(
                     "Пересекающиеся строки должны находиться перед новым append-only суффиксом"
                 )
-            _validate_overlapping_row(
-                target_native_curves,
-                source_curves,
-                existing_row=existing_row,
-                source_row=source_row,
-                index_text=_format_index_value(source_index.values[source_row]),
-            )
+            if historical_policy == "strict":
+                _validate_overlapping_row(
+                    target_native_curves, source_curves,
+                    existing_row=existing_row, source_row=source_row,
+                    index_text=_format_index_value(source_index.values[source_row]),
+                )
+            else:
+                overlapping_target_rows.append(existing_row)
+                overlapping_source_rows.append(source_row)
             skipped += 1
             continue
         new_phase = True
@@ -216,6 +253,26 @@ def analyze_daily_las_growth(
             raise DailyLasGrowthError("Новая строка находится внутри уже сохранённого диапазона")
         new_rows.append(source_row)
 
+    if overlapping_source_rows:
+        # Compare columns with NumPy rather than calling scalar isclose
+        # hundreds of thousands of times on large cumulative well logs.
+        conflict_rows, conflict_cells = _overlap_conflict_counts(
+            target_native_curves, source_curves,
+            target_rows=np.asarray(overlapping_target_rows, dtype=np.intp),
+            source_rows=np.asarray(overlapping_source_rows, dtype=np.intp),
+        )
+
+    fill_columns = (
+        _gap_fill_columns(target_native_curves, source_curves, target_values, source_values)
+        if fill_missing_existing else {}
+    )
+    incompatible = tuple(
+        (curve.metadata.original_mnemonic, target_native_curves[key].metadata.unit or "",
+         curve.metadata.unit or "")
+        for key, curve in sorted(_matched_source_curves(target_native_curves, source).items())
+        if key in target_native_curves
+        and _unit(target_native_curves[key].metadata.unit) != _unit(curve.metadata.unit)
+    ) if fill_missing_existing else ()
     start = _format_index_value(source_index.values[0]) if len(source_index.values) else ""
     stop = _format_index_value(source_index.values[-1]) if len(source_index.values) else ""
     return DailyLasGrowthPlan(
@@ -230,16 +287,35 @@ def analyze_daily_las_growth(
         rows_skipped=skipped,
         new_row_indices=tuple(new_rows),
         curve_mnemonics=tuple(
-            target_native_curves[key].metadata.original_mnemonic
-            for key in sorted(target_native_curves)
+            source_curves[key].metadata.original_mnemonic
+            for key in sorted(source_curves)
         ),
         target_state_sha256=dataset_append_state_sha256(target),
         source_state_sha256=dataset_append_state_sha256(source),
+        missing_curve_mnemonics=tuple(
+            target_native_curves[key].metadata.original_mnemonic
+            for key in sorted(set(target_native_curves) - set(source_curves))
+        ),
+        historical_policy=historical_policy,
+        historical_conflict_rows=conflict_rows,
+        historical_conflict_cells=conflict_cells,
+        duplicate_historical_rows=duplicate_historical_rows,
+        fill_missing_existing=fill_missing_existing,
+        cells_filled=sum(len(rows) for rows, _values in fill_columns.values()),
+        incompatible_curve_units=incompatible,
+        matched_curve_mnemonics=tuple(
+            (source_curves[key].metadata.original_mnemonic,
+             target_native_curves[key].metadata.original_mnemonic)
+            for key in sorted(source_curves)
+            if source_curves[key].metadata.original_mnemonic.strip().casefold() != key
+        ),
     )
 
 
 def _validate_numerical_update_inputs(
-    target: Dataset, source: Dataset,
+    target: Dataset, source: Dataset, *, allow_partial_source: bool = False,
+    allow_historical_duplicates: bool = False,
+    skip_incompatible_units: bool = False,
 ) -> tuple[dict[str, CurveData], dict[str, CurveData], np.ndarray, np.ndarray, int]:
     """Shared strict schema/axis contract for append and read-only update review."""
     target_index = target.active_index
@@ -253,22 +329,30 @@ def _validate_numerical_update_inputs(
         for key, curve in target_curves.items()
         if not _is_local_project_curve(curve)
     }
-    source_curves = _curve_map(source)
+    source_curves = _matched_source_curves(target_native_curves, source)
     _validate_curve_lengths(target, target_curves, label="целевого dataset")
     _validate_curve_lengths(source, source_curves, label="исходного LAS")
-    if set(target_native_curves) != set(source_curves):
-        missing = sorted(set(target_native_curves) - set(source_curves))
-        extra = sorted(set(source_curves) - set(target_native_curves))
+    missing = sorted(set(target_native_curves) - set(source_curves))
+    extra = sorted(set(source_curves) - set(target_native_curves))
+    # Append-only permits only verified original channels. A reduced daily
+    # exporter must not force deletion or replacement of the other curves.
+    # Numerical corrections retain the stricter exact-schema contract.
+    if extra or (missing and not allow_partial_source) or (allow_partial_source and not source_curves):
         parts: list[str] = []
         if missing:
             parts.append("нет обязательных кривых: " + ", ".join(missing))
         if extra:
             parts.append("лишние кривые: " + ", ".join(extra))
+        if not source_curves:
+            parts.append("исходный LAS не содержит сопоставимых кривых")
         raise DailyLasGrowthError("Схема LAS не совпадает с dataset (" + "; ".join(parts) + ")")
-    for key in sorted(target_native_curves):
+    for key in sorted(source_curves):
         left = _unit(target_native_curves[key].metadata.unit)
         right = _unit(source_curves[key].metadata.unit)
         if left != right:
+            if skip_incompatible_units:
+                del source_curves[key]
+                continue
             raise DailyLasGrowthError(
                 f"Единица кривой {target_native_curves[key].metadata.original_mnemonic} "
                 f"не совпадает: {left or '—'} / {right or '—'}"
@@ -277,7 +361,18 @@ def _validate_numerical_update_inputs(
     target_values = _comparable_index(target_index)
     source_values = _comparable_index(source_index)
     direction = _strict_direction(target_values, "целевого dataset")
-    source_direction = _strict_direction(source_values, "исходного LAS")
+    if allow_historical_duplicates:
+        # A cumulative vendor LAS may repeat an old sample. The main append
+        # loop permits this ONLY at a pre-existing target index, never at a new
+        # depth. Reject reversal even for the historical part.
+        differences = np.diff(source_values)
+        if (direction > 0 and np.any(differences < 0)) or (
+            direction < 0 and np.any(differences > 0)
+        ):
+            raise DailyLasGrowthError("Направление индекса исходного LAS не совпадает с dataset")
+        source_direction = direction
+    else:
+        source_direction = _strict_direction(source_values, "исходного LAS")
     if direction != source_direction:
         raise DailyLasGrowthError("Направление индекса исходного LAS не совпадает с dataset")
 
@@ -307,10 +402,12 @@ def apply_daily_las_growth(
         source,
         source_name=plan.source_name,
         source_sha256=plan.source_sha256,
+        historical_policy=plan.historical_policy,
+        fill_missing_existing=plan.fill_missing_existing,
     )
     if current != plan:
         raise DailyLasGrowthError("Dataset или источник изменились после предварительного анализа")
-    if plan.duplicate_source or not plan.new_row_indices:
+    if plan.duplicate_source or not plan.changes_data:
         return DailyLasGrowthOutcome(plan, None)
 
     if len(target.indexes) != 1 or len(source.indexes) != 1:
@@ -321,8 +418,20 @@ def apply_daily_las_growth(
 
     rows = np.asarray(plan.new_row_indices, dtype=np.int64)
     target_curves = _curve_map(target)
-    source_curves = _curve_map(source)
+    source_curves = _matched_source_curves(
+        {key: curve for key, curve in target_curves.items() if not _is_local_project_curve(curve)},
+        source,
+    )
 
+    if plan.fill_missing_existing:
+        incompatible_names = {item[0] for item in plan.incompatible_curve_units}
+        source_curves = {key: curve for key, curve in source_curves.items()
+                         if curve.metadata.original_mnemonic not in incompatible_names}
+    fill_columns = (
+        _gap_fill_columns(target_curves, source_curves,
+                          _comparable_index(target.active_index), _comparable_index(source.active_index))
+        if plan.fill_missing_existing else {}
+    )
     # Prepare every resulting array before touching the target. This keeps the
     # operation transactional even if allocation or conversion fails.
     new_index_values = np.concatenate((target.active_index.values, source.active_index.values[rows]))
@@ -330,9 +439,19 @@ def apply_daily_las_growth(
     for key, curve in target_curves.items():
         if _is_local_project_curve(curve):
             appended_values = np.full(len(rows), np.nan, dtype=np.float64)
+        elif key not in source_curves:
+            # Preserve every original channel and its historical samples.
+            # Absence in today's LAS is not evidence of a measured zero.
+            appended_values = np.full(len(rows), np.nan, dtype=np.float64)
         else:
             appended_values = source_curves[key].values[rows]
-        prepared_curves[key] = np.concatenate((curve.values, appended_values))
+        values = np.concatenate((curve.values, appended_values)) if len(rows) else curve.values
+        if key in fill_columns:
+            if not len(rows):
+                values = values.copy()
+            fill_rows, fill_values = fill_columns[key]
+            values[fill_rows] = fill_values
+        prepared_curves[key] = values
     before_digest = dataset_content_sha256(target)
     moment = (imported_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
     import_id = str(uuid4())
@@ -452,6 +571,73 @@ def _curve_map(dataset: Dataset) -> dict[str, CurveData]:
     return result
 
 
+def _gap_fill_columns(
+    target_curves: dict[str, CurveData], source_curves: dict[str, CurveData],
+    target_axis: np.ndarray, source_axis: np.ndarray,
+) -> dict[str, tuple[np.ndarray, np.ndarray]]:
+    lookup = {_index_key(value): row for row, value in enumerate(target_axis)}
+    target_rows = np.asarray([lookup.get(_index_key(value), -1) for value in source_axis])
+    source_rows = np.flatnonzero(target_rows >= 0)
+    matched_rows = target_rows[source_rows]
+    result: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+    for key, source_curve in source_curves.items():
+        target_curve = target_curves[key]
+        if _is_local_project_curve(target_curve):
+            continue
+        incoming = np.asarray(source_curve.values)[source_rows]
+        wanted = np.isnan(target_curve.values[matched_rows]) & np.isfinite(incoming)
+        rows, values = matched_rows[wanted], incoming[wanted]
+        if not len(rows):
+            continue
+        order = np.argsort(rows, kind="stable")
+        rows, values = rows[order], values[order]
+        repeated = rows[1:] == rows[:-1]
+        if np.any(repeated & ~np.isclose(values[1:], values[:-1], rtol=1e-9, atol=1e-9)):
+            raise DailyLasGrowthError(
+                f"Повтор глубины содержит разные значения для пустого параметра: "
+                f"{source_curve.metadata.original_mnemonic}"
+            )
+        keep = np.concatenate(([True], ~repeated))
+        result[key] = (rows[keep], values[keep])
+    return result
+
+
+def _matched_source_curves(
+    target_curves: dict[str, CurveData], source: Dataset,
+) -> dict[str, CurveData]:
+    """Prefer exact source names; accept a canonical alias only with one target.
+
+    Canonical identities are populated by the import parameter dictionary.
+    Do not guess from similar captions, values or gas-family membership here.
+    Unit compatibility is checked by the caller before preview or application.
+    """
+    source_curves = _curve_map(source)
+    canonical_targets: dict[str, list[str]] = {}
+    for key, curve in target_curves.items():
+        canonical = (curve.metadata.canonical_mnemonic or "").strip().casefold()
+        if canonical:
+            canonical_targets.setdefault(canonical, []).append(key)
+    matched = {key: curve for key, curve in source_curves.items() if key in target_curves}
+    for key, curve in source_curves.items():
+        if key in target_curves:
+            continue
+        canonical = (curve.metadata.canonical_mnemonic or "").strip().casefold()
+        candidates = canonical_targets.get(canonical, []) if canonical else []
+        if len(candidates) > 1:
+            names = ", ".join(target_curves[item].metadata.original_mnemonic for item in candidates)
+            raise DailyLasGrowthError(
+                f"Неоднозначное сопоставление {curve.metadata.original_mnemonic}: {names}"
+            )
+        target_key = candidates[0] if candidates else key
+        if target_key in matched:
+            raise DailyLasGrowthError(
+                f"Несколько каналов нового LAS соответствуют одному параметру: "
+                f"{target_curves[target_key].metadata.original_mnemonic}"
+            )
+        matched[target_key] = curve
+    return matched
+
+
 def _unit(value: str | None) -> str:
     return (value or "").strip().casefold().replace(" ", "")
 
@@ -495,6 +681,28 @@ def _same_value(left: float, right: float) -> bool:
     return bool(np.isclose(left, right, rtol=1e-9, atol=1e-9, equal_nan=True))
 
 
+def _overlap_conflict_counts(
+    target_curves: dict[str, CurveData],
+    source_curves: dict[str, CurveData],
+    *,
+    target_rows: np.ndarray,
+    source_rows: np.ndarray,
+) -> tuple[int, int]:
+    """Bounded-memory vectorized historical audit; changes NO old values."""
+    differing_rows = np.zeros(len(source_rows), dtype=np.bool_)
+    differing_cells = 0
+    for key, curve in source_curves.items():
+        saved_values = target_curves[key].values[target_rows]
+        new_values = curve.values[source_rows]
+        differences = ~np.isclose(
+            saved_values, new_values, rtol=1e-9, atol=1e-9,
+            equal_nan=True,
+        )
+        differing_cells += int(np.count_nonzero(differences))
+        differing_rows |= differences
+    return int(np.count_nonzero(differing_rows)), differing_cells
+
+
 def _validate_overlapping_row(
     target_curves,
     source_curves,
@@ -504,7 +712,9 @@ def _validate_overlapping_row(
     index_text: str,
 ) -> None:
     conflicts = []
-    for key in target_curves:
+    # Only compare channels actually supplied by the incoming file.
+    # Missing channels have no new measurements and must not be inferred.
+    for key in source_curves:
         left = float(target_curves[key].values[existing_row])
         right = float(source_curves[key].values[source_row])
         if not _same_value(left, right):

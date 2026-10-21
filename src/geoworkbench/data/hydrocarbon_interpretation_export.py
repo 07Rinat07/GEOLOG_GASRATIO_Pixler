@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from functools import partial
 from collections.abc import Callable
 import tempfile
 import zipfile
@@ -30,6 +31,15 @@ from geoworkbench.services.interval_gas_statistics import (
 )
 from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.interpretation_geology_interval_evidence import GasGeologyIntervalEvidence
+from geoworkbench.services.interpretation_geology_evidence_export import verified_report_geology_evidence
+from geoworkbench.services.interpretation_geology_interval_evidence_html import geology_interval_evidence_table
+from geoworkbench.services.interpretation_method_comparison import MethodComparisonInterval
+from geoworkbench.services.interpretation_method_comparison_html import method_comparison_table
+from geoworkbench.services.hydrocarbon_interpretation_report_locale import (
+    localize_method_calculation,
+    localize_method_name,
+)
 from geoworkbench.services.interpretation_classification_audit import (
     CLASSIFICATION_AUDIT_DOCX_PART,
     interpretation_classification_audit_json,
@@ -119,6 +129,8 @@ def export_hydrocarbon_interpretation_xlsx(
     language: AppLanguage = AppLanguage.RU,
     overwrite: bool = False,
     progress: Callable[[str, int, int], None] | None = None,
+    method_comparisons: tuple[MethodComparisonInterval, ...] = (),
+    geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
 ) -> Path:
     """Export the single readable workbook used by every interpretation workflow."""
 
@@ -126,7 +138,13 @@ def export_hydrocarbon_interpretation_xlsx(
         export_readable_hydrocarbon_interpretation_xlsx,
     )
 
-    return export_readable_hydrocarbon_interpretation_xlsx(
+    exporter: Callable[..., Path] = (
+        partial(export_readable_hydrocarbon_interpretation_xlsx, method_comparisons=method_comparisons)
+        if method_comparisons else export_readable_hydrocarbon_interpretation_xlsx
+    )
+    if geology_evidence:
+        exporter = partial(exporter, geology_evidence=geology_evidence)
+    return exporter(
         report,
         dataset,
         target,
@@ -144,7 +162,10 @@ def export_hydrocarbon_interpretation_docx(
     language: AppLanguage = AppLanguage.RU,
     overwrite: bool = False,
     progress: Callable[[str, int, int], None] | None = None,
+    method_comparisons: tuple[MethodComparisonInterval, ...] = (),
+    geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
 ) -> Path:
+    verified_report_geology_evidence(report, geology_evidence)
     progress_prepare, progress_statistics, progress_save, progress_ready, error_export = (
         _DOCX_PROGRESS[language]
     )
@@ -156,7 +177,13 @@ def export_hydrocarbon_interpretation_docx(
     destination = _prepare_target(target, ".docx", overwrite=overwrite)
     temporary = _temporary_path(destination)
     try:
-        _write_docx(temporary, report, dataset, language)
+        writer = (
+            partial(_write_docx, method_comparisons=method_comparisons)
+            if method_comparisons else _write_docx
+        )
+        if geology_evidence:
+            writer = partial(writer, geology_evidence=geology_evidence)
+        writer(temporary, report, dataset, language)
         _notify_export_progress(progress, progress_save, 90, 100)
         os.replace(temporary, destination)
         _notify_export_progress(progress, progress_ready, 100, 100)
@@ -185,6 +212,9 @@ def _write_docx(
     report: HydrocarbonInterpretationReport,
     dataset: Dataset | None,
     language: AppLanguage = AppLanguage.RU,
+    *,
+    method_comparisons: tuple[MethodComparisonInterval, ...] = (),
+    geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
 ) -> None:
     interval = getattr(report, "analysis_depth_interval", None)
     labels = hydrocarbon_report_labels(language)
@@ -219,13 +249,13 @@ def _write_docx(
             ),
             tuple(
                 (
-                    method.method,
+                    localize_method_name(method.method, language),
                     labels.available if method.available else labels.no_data,
                     ", ".join(
                         localized_curve_reference(name, language=language)
                         for name in method.available_mnemonics
                     ) or labels.no_data,
-                    method.calculation or "—",
+                    localize_method_calculation(method.calculation, language) or "—",
                     method.source,
                 )
                 for method in report.methods
@@ -237,6 +267,18 @@ def _write_docx(
         body.extend(_opus_gasomer_docx(report, language))
     if getattr(report, "gas_context_events", ()):
         body.extend(_gas_context_docx(report, language))
+    if method_comparisons:
+        body.extend(_method_comparisons_docx(method_comparisons, language, report.depth_unit))
+    for evidence in geology_evidence:
+        presentation = geology_interval_evidence_table(evidence, language)
+        body.extend((
+            _paragraph(presentation.title, style="Heading1"),
+            _paragraph(presentation.intro),
+            _paragraph(presentation.interval),
+            _paragraph(presentation.coverage_title),
+            _table(presentation.coverage_headings, presentation.coverage_rows, widths=(4000, 3500, 6500)),
+            _table(presentation.headings, presentation.rows, widths=(1800, 2200, 2500, 2500, 5000)),
+        ))
     body.append(_paragraph(labels.prospective_heading, style="Heading1"))
     if report.candidates:
         body.append(
@@ -556,7 +598,7 @@ def _opus_gasomer_docx(
             (labels.input_label, labels.curve, labels.source_unit),
             tuple(
                 (
-                    name,
+                    localized_curve_reference(name, language=language),
                     localized_curve_reference(
                         curve_names.get(name, "—"),
                         language=language,
@@ -569,7 +611,10 @@ def _opus_gasomer_docx(
         ),
         _table(
             (labels.indicator, labels.exact_formula),
-            tuple(section.formulas),
+            tuple(
+                (localized_curve_reference(name, language=language), formula)
+                for name, formula in section.formulas
+            ),
             widths=(3_000, 12_100),
         ),
     ]
@@ -619,7 +664,8 @@ def _opus_gasomer_docx(
                         )
                         + "; "
                         + ", ".join(
-                            f"{name}:{count}" for name, count in item.state_counts
+                            f"{opus_report_label(name, language)}:{count}"
+                            for name, count in item.state_counts
                         ),
                     )
                     for item in interval.indicators
@@ -631,6 +677,27 @@ def _opus_gasomer_docx(
     body.extend(_paragraph(f"• {item}") for item in section.provenance)
     body.append(_paragraph(f"• {labels.workbook_sha}: {section.source_workbook_sha256}"))
     return body
+
+
+def _method_comparisons_docx(
+    comparisons: tuple[MethodComparisonInterval, ...],
+    language: AppLanguage,
+    depth_unit: str,
+) -> list[str]:
+    """Show only supplied, source-backed evidence in the same terms as HTML/XLSX."""
+
+    presentation = method_comparison_table(
+        comparisons, language, depth_unit=depth_unit,
+    )
+    return [
+        _paragraph(presentation.title, style="Heading1"),
+        _paragraph(presentation.intro),
+        _table(
+            presentation.headings,
+            tuple(row.cells for row in presentation.rows),
+            widths=(1_750, 1_750, 1_900, 4_200, 4_400),
+        ),
+    ]
 
 
 def _paragraph(text: str, *, style: str | None = None) -> str:

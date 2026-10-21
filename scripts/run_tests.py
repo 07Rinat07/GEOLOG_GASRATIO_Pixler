@@ -53,6 +53,14 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         # Release gate 38324037518 aborted while constructing MainWindow's
         # ViewBoxMenu before this lifecycle assertion ran in the shared shard.
         "tests/test_tablet_plot_close_order.py",
+        # Main run 38964585485 aborted in PlotItem menu construction when
+        # track resize followed unrelated Qt cases in a shared shard. Keep
+        # both resize tests mandatory with a fresh native heap per function.
+        "tests/test_track_resize.py",
+        # PR #682 / run 39321437752 aborted in ViewBoxMenu construction on
+        # MainWindow reopen after unrelated tablet tests in a shared shard.
+        # Retain the real six-format/language assertions with a fresh Qt heap.
+        "tests/test_tabular_export_output_language.py",
         "tests/test_las3_pilot_entrypoint.py",
         "tests/test_las3_modal_reopen_acceptance.py",
         # Depth reset also hit PlotItem.__init__ access violation after earlier
@@ -68,6 +76,28 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         # cases shared a process with earlier GUI tests. Give these cases a
         # clean subprocess without changing or skipping any assertions.
         "tests/test_report_document_control_docx_footer.py",
+        # 39081611121: UI→Word acceptance stopped in a shared Qt shard even
+        # with a bounded faulthandler. Retain every RU/KK/EN and stale-source
+        # assertion, with a fresh QApplication/native heap per test function.
+        "tests/test_interpretation_method_comparison_ui_docx_handoff.py",
+        "tests/test_interpretation_method_comparison_ui_xlsx_handoff.py",
+        # Real Qt report/export dialogs retain native lifetime after each PDF
+        # variant; run every scenario with a fresh native heap (#544).
+        "tests/test_interpretation_method_comparison_ui_pdf_handoff.py",
+        # Native Qt spooler/driver-dialog lifetimes must be isolated (#544).
+        "tests/test_interpretation_method_comparison_ui_print_handoff.py",
+        # Qt modeless geology-evidence dialogs are isolated by test function (#544).
+        "tests/test_interpretation_geology_evidence_operator_ui.py",
+        # Signed PySide6 QPdfWriter source-evidence tests isolate native PDF handles.
+        "tests/test_interpretation_geology_evidence_signed_pdf.py",
+        # Production Qt dialog + signed PDF output are native-heavy (#544).
+        "tests/test_interpretation_geology_evidence_ui_pdf_handoff.py",
+        "tests/test_interpretation_geology_evidence_ui_word_handoff.py",
+        "tests/test_interpretation_geology_excel_workflow.py",
+        "tests/test_interpretation_geology_print_workflow.py",
+        # Real HTML/PDF/DOCX/XLSX acceptance owns Qt and Office native objects;
+        # isolate each case due to the known Windows native lifecycle issue #544.
+        "tests/test_interpretation_method_comparison_cross_format_acceptance.py",
         # Release gate 38384970034 hit native heap corruption while enumerating
         # top-level Qt roots after shared report/editor cases. Retain all tests
         # in fresh processes, following the existing native report isolation.

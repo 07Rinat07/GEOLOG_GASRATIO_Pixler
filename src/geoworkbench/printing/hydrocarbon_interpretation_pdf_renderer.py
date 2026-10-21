@@ -4,6 +4,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import cha
 
 from geoworkbench.printing.gas_ratio_reference import (
     has_ratio_reference_summary, paint_ratio_reference_summary,
+    RATIO_REFERENCE_WIDTH, RATIO_REFERENCE_HEIGHT,
 )
 from geoworkbench.printing.ratio_phase_summary import ratio_phase_summary_html
 
@@ -65,6 +66,10 @@ from geoworkbench.services.hydrocarbon_interpretation_gas_html import (
     inject_interval_gas_statistics_html,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.interpretation_method_comparison import MethodComparisonInterval
+from geoworkbench.services.interpretation_geology_interval_evidence import (
+    GasGeologyIntervalEvidence,
+)
 
 
 def _ratio_reference_chart_rect(content: QRectF, phase_key_height: float) -> QRectF:
@@ -98,12 +103,27 @@ def render_hydrocarbon_interpretation_report(
     annotations: tuple[ReportAnnotationRecord, ...] = (),
     chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
     target_depth_per_page: float = 100.0,
+    method_comparisons: tuple[MethodComparisonInterval, ...] = (),
+    geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
 ) -> None:
     """Render one controlled multi-page report to QPdfWriter or QPrinter."""
 
-    html = hydrocarbon_interpretation_html(
-        report_with_presentation_identity(report, identity), language,
-    )
+    presentation_report = report_with_presentation_identity(report, identity)
+    if method_comparisons and geology_evidence:
+        html = hydrocarbon_interpretation_html(
+            presentation_report, language,
+            method_comparisons=method_comparisons, geology_evidence=geology_evidence,
+        )
+    elif method_comparisons:
+        html = hydrocarbon_interpretation_html(
+            presentation_report, language, method_comparisons=method_comparisons,
+        )
+    elif geology_evidence:
+        html = hydrocarbon_interpretation_html(
+            presentation_report, language, geology_evidence=geology_evidence,
+        )
+    else:
+        html = hydrocarbon_interpretation_html(presentation_report, language)
     if dataset is not None:
         html = inject_interval_gas_statistics_html(html, report, dataset, language)
     html = inject_report_optional_sections_html(html, identity, language)
@@ -180,9 +200,11 @@ def render_hydrocarbon_interpretation_report(
                     phase_html, canvas.content_rect.width(), visual=canvas.visual,
                 )
                 chart_rect = _ratio_reference_chart_rect(canvas.content_rect, phase_height)
-                paint_ratio_reference_summary(painter, chart_rect, reference_dataset, language)
-                scale = min(chart_rect.width() / 1000.0, chart_rect.height() / 650.0)
-                canvas.y = chart_rect.top() + 650.0 * scale + 10.0
+                paint_ratio_reference_summary(
+                    painter, chart_rect, reference_dataset, language, candidates=report.candidates,
+                )
+                scale = min(chart_rect.width() / RATIO_REFERENCE_WIDTH, chart_rect.height() / RATIO_REFERENCE_HEIGHT)
+                canvas.y = chart_rect.top() + RATIO_REFERENCE_HEIGHT * scale + 10.0
                 render_report_html(
                     canvas,
                     phase_html,

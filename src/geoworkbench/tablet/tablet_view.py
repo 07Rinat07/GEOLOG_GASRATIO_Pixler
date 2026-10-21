@@ -2601,10 +2601,53 @@ class TabletView(QWidget):
             self._span_combo.blockSignals(False)
         self._span_combo.setToolTip(self._localizer.text("tablet.depth_span_tooltip"))
 
-        cursor_depth = self._cursor_depth
-        self.refresh_view()
-        if cursor_depth is not None and self._dataset is not None:
-            self.set_cursor_depth(cursor_depth)
+        # Language changes must not destroy and immediately rebuild the native
+        # pyqtgraph scene. On Windows that can race deferred graphics teardown
+        # and crash in PlotItem.__init__ (0xC0000005). Only captions, tooltips
+        # and localized overlays change; data/curve geometry stays untouched.
+        self._retranslate_rendered_view()
+
+    def _retranslate_rendered_view(self) -> None:
+        """Relabel existing plots in place while retaining Qt plot ownership."""
+        self._refresh_axis_selector()
+        descriptor = self._axis_descriptor()
+        for entry in self._rendered.values():
+            definition = entry.definition
+            title = self._localized_track_title(definition)
+            if definition.kind is TrackKind.DEPTH:
+                axis_label = (
+                    self._localizer.text("tablet.track.time")
+                    if descriptor is not None and descriptor.is_time
+                    else self._localizer.text("tablet.track.depth")
+                )
+                unit = (
+                    descriptor.unit if descriptor is not None
+                    else self._localizer.text("tablet.depth_span_unit")
+                )
+                title = f"{axis_label}, {unit}" if unit else axis_label
+            entry.widget.title.setText(title)
+            if definition.kind is TrackKind.LITHOLOGY:
+                hint = self._localizer.text("lithology.drag_hint")
+            elif definition.kind in {
+                TrackKind.CUTTINGS, TrackKind.CALCIMETRY, TrackKind.LBA,
+            }:
+                hint = self._localizer.text("cuttings.drag_hint")
+            elif definition.kind in {TrackKind.TEXT, TrackKind.INTERPRETATION}:
+                hint = self._localizer.text("description.drag_hint")
+            elif definition.kind in {
+                TrackKind.DEPTH, TrackKind.CURVE, TrackKind.GAS, TrackKind.DEXP,
+            }:
+                hint = (
+                    f"{self._navigation_hint}\\n"
+                    f"{self._localizer.text('statistics.drag_hint')}"
+                )
+            else:
+                hint = self._navigation_hint
+            entry.widget.title.setToolTip(hint)
+            if entry.plot is not None:
+                entry.plot.setToolTip(hint)
+        self._refresh_curve_pencil_targets()
+        self._refresh_annotation_overlay()
         self._update_navigation_controls()
 
     @property
@@ -6364,6 +6407,12 @@ class TabletView(QWidget):
                 # before the parent QWidget destroys its native graphics scene.
                 if plot.plotItem is not None:
                     plot.close()
+                # PlotWidget.close() detaches itself with setParent(None).
+                # Restore ownership before settling the track's DeferredDelete:
+                # otherwise its native viewport/scene outlives the track and is
+                # collected unpredictably while the next plot is constructed.
+                if _qt_object_is_alive(plot) and _qt_object_is_alive(widget):
+                    plot.setParent(widget)
             except RuntimeError as exc:
                 log_exception("tablet.track.dispose.plot_failed", exc, track_id=track_id)
         try:

@@ -1,3 +1,98 @@
+## INTERP-PETRO-01 operator dialog
+
+`tests/test_gis_reference_dialog.py` exercises RU/KK/EN × IGR/density actual
+controls, mandatory selections/evidence, NaN/scope/stale/unit/scalar-axis guards,
+parameter/result invalidation, Close and the real MainWindow menu/language
+action. Source arrays and clean project state are retained. Visual review uses
+synthetic data; it is not field calibration acceptance.
+
+```powershell
+$env:PYTHONUTF8 = '1'
+.\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_gis_reference_dialog.py tests/test_gis_reference_calibration.py tests/test_gis_reference_input_review.py tests/test_gis_input_inventory.py tests/test_petrophysical_reference_models.py tests/test_documentation_sync_0762.py -q
+```
+
+## INTERP-PETRO-01 calibrated scalar sample
+
+`tests/test_gis_reference_calibration.py` verifies explicit parameters/evidence,
+actual row and immutable context, raw out-of-range quality, source revisions,
+array replacement/reopen, in-place MD changes, NaN, strict indices, MD scope,
+descending source order and unchanged source arrays. Evidence is a caller
+attestation, not automatic tool applicability certification.
+
+```powershell
+$env:PYTHONUTF8 = '1'
+.\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_gis_reference_calibration.py tests/test_gis_reference_input_review.py tests/test_gis_input_inventory.py tests/test_petrophysical_reference_models.py tests/test_documentation_sync_0762.py -q
+```
+
+## INTERP-GIS-01 reference source review
+
+`tests/test_gis_reference_input_review.py` checks explicit channel selection,
+equivalent unit spellings versus incompatible scales, inherited MD/source/QC
+blockers, revision snapshots, unsupported methods, and unchanged real LAS
+1.2/2.0 bytes and arrays. A positive result only permits calibration review;
+it does not authorize physical interpretation or a later calculation.
+
+```powershell
+$env:PYTHONUTF8 = '1'
+.\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_gis_reference_input_review.py tests/test_gis_input_inventory.py tests/test_petrophysical_reference_models.py -q
+```
+
+## PR #682 CI39321437752: tabular-language MainWindow isolation
+
+The Windows gate aborted with `0xC0000005` in pyqtgraph
+`ViewBoxMenu.__init__` while reopening MainWindow in
+`test_all_six_outputs_share_language_without_relocalizing_operator_ui[en-ru]`.
+The preceding RU/KK case passed in a shared 58-file tablet/dialog shard.
+No assertion failure preceded the native abort. The whole tabular-language
+module passed all eight cases when run in a fresh process. The exact 58-file
+CI shard was replayed locally and reproduced `0xC0000005` at the same EN/RU
+selector. Six fresh-process runs of the end-to-end function then passed all
+18 language cases with native statuses checked.
+
+The runner now schedules `test_tabular_export_output_language.py` through the
+existing single-function native batches. The end-to-end function still tests
+all three UI/output-language pairs and both initial open and reopen; all six
+real output checks and persistence assertions remain unchanged. The runner
+contract verifies complete scheduling and exclusion from regular shards.
+Native nonzero statuses remain failures; no retries, skips, GC disabling or
+production lifecycle changes are introduced. This bounds shared test context,
+but does not establish or close the general production-native root cause #544.
+
+Reproduce the original selector with UTF-8 and the project runner:
+
+```powershell
+$env:PYTHONUTF8 = '1'
+.\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_tabular_export_output_language.py -q
+.\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_test_runner_contract_0790.py -q
+```
+
+## Main CI39180284242: Qt root ownership during pytest final GC
+
+At main `64c8fcbd` the Word stale-input selector completed all four cases,
+then its process exited `0xC0000005`. A bounded local stress reproduced
+`0xC0000374` on attempt 5; faulthandler located it in
+`pytest_unconfigure -> unraisableexception.gc_collect_harder`. Replacing
+geology signal closures with weak references did not fix it; that experiment
+was discarded.
+
+The session fixture retained QApplication but only hid top-level windows,
+without retaining their Python wrappers. The unchanged fixture demonstrably
+lost a hidden root on `del window; gc.collect()`. The session-finish hook now retains valid remaining root wrappers only after
+the last test, until the existing isolated-process exit. Per-test cleanup remains
+hide-only: no root is retained across tests by this change.
+This keeps Python cyclic GC from dismantling a still-live Qt root graph during
+pytest unconfigure. No production lifecycle change, GC disabling, skipped tests,
+weakened assertions or native exit-code suppression is introduced. Memory
+retention is bounded by the existing subprocess shards.
+
+The new regression checks that per-test cleanup does not retain roots, then
+that session-finish retention keeps a hidden QWidget valid after dropping
+the caller reference and explicit GC. The originally failing selector passed
+12 fresh stress processes (48 cases) with session-finish-only retention. The local generic-report UTF-8 read checks require the same `PYTHONUTF8=1`
+that the Windows workflow sets; all 22 passed after matching that environment.
+Full Windows gates on the
+new HEAD remain required; these results do not close every native Qt issue #544.
+
 PR #620 CI38570984430: native 0xC0000005 at pyqtgraph PlotItem QWidgetAction creation during dataset-merge Undo. This selector already uses a fresh subprocess; production disposal calls PlotWidget.close before parent deletion. Standalone selector passed in 12.52s, then three faulthandler-enabled fresh-process diagnostics passed with exits [0,0,0], 27.31s total. Native cause remains unproven. The prior dialog work-area assertion is fixed and its nine related tests pass. A single new exact-head gate run follows these diagnostics; recurrence requires investigation rather than repeated retries. No assertions/skips/thresholds changed.
 
 PR #619 CI38529184973: native 0xC0000005 in pyqtgraph PlotItem QWidgetAction construction during LAS3 entrypoint language refresh. The failing function already runs in a fresh process. PlotWidget.close precedes parent deletion; no proven production defect yet. Standalone acceptance passed (15.72s), then three fresh faulthandler-enabled diagnostic processes passed with exit codes [0,0,0] (31.39s total). One controlled failed-job rerun follows this diagnostic; recurrence requires further lifecycle investigation. No skips, weakened assertions or speculative runtime changes.

@@ -58,3 +58,11 @@ def test_tablet_keeps_readable_lba_text_outside_compact_colour_cell() -> None:
     assert "self._localizer.text('tablet.lba_color')" in source
     assert "self._localizer.text('tablet.lba_cut_color')" in source
     assert "self._localizer.text('tablet.lba_residue_color')" in source
+
+def test_editor_uses_operator_reference_palette_without_inventing_codes() -> None:
+    labels = all_lba_color_labels(AppLanguage.RU)
+    assert "ОЖ — оранжево-жёлтый" in labels
+    assert "СК — светло-коричневый" in labels
+    assert "О — оранжевый" not in labels
+    assert "ЖК — желтовато-коричневый" not in labels
+    assert len([label for label in labels if label.startswith("СК — ")]) == 1

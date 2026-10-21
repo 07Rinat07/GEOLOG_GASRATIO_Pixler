@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from geoworkbench.ui.manual_backup_dialog import ManualBackupDialog
+
 from copy import deepcopy
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
@@ -81,7 +83,7 @@ from geoworkbench.importers.gs2.multipart import read_gs2_multipart
 from geoworkbench.importers.gs2.metadata import channel_dictionary_for_table
 from geoworkbench.importers.legacy_geosight_forms import import_legacy_geosight_file
 from geoworkbench.importers.skf_importer import import_skf_file
-from geoworkbench.domain.models import CurveData, Dataset, IndexRole, IndexType
+from geoworkbench.domain.models import CurveData, Dataset, DatasetKind, IndexRole, IndexType
 from geoworkbench.domain.localized_content import localized_text
 from geoworkbench.data.las_adapter import LasExportError, LasImportResult, import_las_with_report
 from geoworkbench.data.las_import_policy import LasImportMode
@@ -120,6 +122,7 @@ from geoworkbench.project.curve_metadata_controller import CurveMetadataControll
 from geoworkbench.project.curve_transfer_controller import CurveTransferController
 from geoworkbench.project.external_las_insert_controller import ExternalLasInsertController
 from geoworkbench.project.gas_ratio_controller import GasRatioProjectController
+from geoworkbench.ui.gas_ratio_result import gas_ratio_result_text
 from geoworkbench.project.gs2_import_coordinator import Gs2ImportCoordinator
 from geoworkbench.project.custom_formula_controller import CustomFormulaController
 from geoworkbench.project.header_editing_controller import HeaderEditingController
@@ -293,6 +296,7 @@ from geoworkbench.ui.form_manager_dialog import FormManagerDialog
 from geoworkbench.ui.form_create_dialog import FormCreateDialog
 from geoworkbench.ui.constructor_dialog import UniversalConstructorDialog
 from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
+from geoworkbench.ui.gis_reference_dialog import GisReferenceDialog
 from geoworkbench.ui.custom_formula_dialog import CustomFormulaDialog
 from geoworkbench.ui.depth_annotations_dialog import DepthAnnotationsDialog
 from geoworkbench.ui.symbol_insertion_dialog import SymbolInsertionDialog
@@ -326,6 +330,7 @@ from geoworkbench.ui.tablet_track_editor_dialog import TabletTrackEditorDialog
 from geoworkbench.ui.nct_dialog import NctCalculationDialog
 from geoworkbench.ui.new_las_dialog import NewLasDialog
 from geoworkbench.ui.daily_las_growth_dialog import DailyLasGrowthDialog
+from geoworkbench.ui.daily_las_growth_result import daily_las_growth_result_text
 from geoworkbench.ui.las_table_editor import LasTableEditor
 from geoworkbench.ui.las_export_dialog import LasExportPlanDialog
 from geoworkbench.ui.las_editor_dialog import LasEditorDialog, LasEditorOperation
@@ -1568,6 +1573,10 @@ class MainWindow(QMainWindow):
         self.save_as_action.triggered.connect(self.save_project_as)
         file_menu.addAction(self.save_as_action)
 
+        self.create_manual_backup_action = self._localized_action("backup.manual.title")
+        self.create_manual_backup_action.triggered.connect(self.create_manual_backup)
+        file_menu.addAction(self.create_manual_backup_action)
+
         self.restore_project_backup_action = self._localized_action(
             "shell.restore_project_backup"
         )
@@ -1954,6 +1963,10 @@ class MainWindow(QMainWindow):
         self.formula_action = self._localized_action("formula.action")
         self.formula_action.triggered.connect(self.show_formula_profiles)
         calc_menu.addAction(self.formula_action)
+
+        self.gis_reference_action = self._localized_action("petro_reference.action")
+        self.gis_reference_action.triggered.connect(self.show_gis_reference_dialog)
+        calc_menu.addAction(self.gis_reference_action)
 
         self.custom_formula_action = self._localized_action("shell.custom_formulas")
         self.custom_formula_action.triggered.connect(self.show_custom_formulas)
@@ -4195,6 +4208,12 @@ class MainWindow(QMainWindow):
             else:
                 outcome = self.daily_las_growth_controller.apply(dialog.plan)
         except (OSError, RuntimeError, ValueError) as exc:
+            log_exception(
+                "daily_las_growth.apply_failed",
+                exc,
+                target_dataset_id=dialog.plan.target_dataset_id,
+                numerical_mode=isinstance(dialog.plan, WellNumericalUpdatePlan),
+            )
             QMessageBox.warning(self, self._t("daily_las_growth.action"), str(exc))
             return
         self.project_controller.select_existing_dataset(dialog.plan.target_dataset_id)
@@ -4249,6 +4268,15 @@ class MainWindow(QMainWindow):
             )
         self.statusBar().showMessage(message)
         self._log(message)
+        updated_dataset = self.session.current_dataset
+        if updated_dataset is not None:
+            QMessageBox.information(
+                self, self._t("daily_las_growth.action"),
+                daily_las_growth_result_text(
+                    updated_dataset, saved_path, self.language,
+                    cells_filled=getattr(outcome.plan, "cells_filled", 0),
+                ),
+            )
 
         warnings = tuple(getattr(save_result, "warnings", ()))
         if warnings:
@@ -4268,27 +4296,13 @@ class MainWindow(QMainWindow):
         if current is not None and current.suffix.casefold() == ".geologpkg":
             return True
 
-        QMessageBox.information(
-            self,
-            self._t("daily_las_growth.project_target_title"),
-            self._t("daily_las_growth.project_target_required"),
-        )
-        initial = self._daily_las_project_target_hint(current)
-        filename, _ = QFileDialog.getSaveFileName(
-            self,
-            self._t("daily_las_growth.project_target_title"),
-            str(initial),
-            "GeoLog Package (*.geologpkg)",
-        )
-        if not filename:
-            return False
-
-        target = self._daily_las_package_path(Path(filename))
+        target = self._automatic_project_target()
         try:
+            target.parent.mkdir(parents=True, exist_ok=True)
             self.project_controller.save_project(
                 target,
                 mode=SaveMode.EXPLICIT,
-                allow_existing_target=True,
+                allow_existing_target=False,
             )
         except ProjectChangedExternallyError as exc:
             log_exception(
@@ -4330,6 +4344,18 @@ class MainWindow(QMainWindow):
         if current is not None:
             return self._daily_las_package_path(current)
         return Path.cwd() / "project.geologpkg"
+
+    def _automatic_project_target(self) -> Path:
+        """Choose a stable private target without overwriting another project."""
+        import hashlib
+        import re
+
+        project = self.session.project
+        name = re.sub(r'[^\w .-]', '_', project.name).strip(' .')[:80] or "Project"
+        identity = hashlib.sha256(str(project.project_id).encode("utf-8")).hexdigest()[:16]
+        location = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation)
+        root = Path(location) if location else Path.home() / ".digital_geolog"
+        return root / "Projects" / f"{name}-{identity}.geologpkg"
 
     def _handle_daily_las_persist_failure(
         self,
@@ -7500,6 +7526,9 @@ class MainWindow(QMainWindow):
         self._refresh_tree()
         self._update_title()
         self.statusBar().showMessage(self._t("ratio.completed"))
+        summary = gas_ratio_result_text(outcome.dataset, self.language)
+        self._log(summary)
+        QMessageBox.information(self, self._t("ratio.title"), summary)
 
     def _after_interpretation_calculation(
         self,
@@ -7574,6 +7603,15 @@ class MainWindow(QMainWindow):
         changed = ", ".join(result.changed) or "—"
         self._log(f"Интерпретационные кривые рассчитаны: {changed}")
         self.statusBar().showMessage(f"Интерпретационные кривые созданы/обновлены: {changed}")
+
+    def show_gis_reference_dialog(self) -> None:
+        dataset = self.session.current_dataset
+        if dataset is None or dataset.kind is not DatasetKind.GIS:
+            QMessageBox.information(
+                self, self._t("petro_reference.action"), self._t("petro_reference.select_gis"),
+            )
+            return
+        GisReferenceDialog(dataset, self, language=self.language).exec()
 
     def show_formula_profiles(self) -> None:
         dataset = self.session.current_dataset
@@ -9476,10 +9514,11 @@ class MainWindow(QMainWindow):
         LithologyLegendDialog(entries, self, language=self.language).exec()
 
     def save_project(self) -> Path | None:
-        if self.project_path is None:
-            return self.save_project_as()
         try:
-            saved_path = self.project_controller.save_project()
+            target = self._automatic_project_target() if self.project_path is None else None
+            if target is not None:
+                target.parent.mkdir(parents=True, exist_ok=True)
+            saved_path = self.project_controller.save_project(target)
         except ProjectChangedExternallyError as exc:
             log_exception("project.save.external_change", exc, project_path=self.project_path)
             QMessageBox.critical(
@@ -9555,6 +9594,9 @@ class MainWindow(QMainWindow):
             self._t("shell.save_project"),
             self._t("project.recovery_warning"),
         )
+
+    def create_manual_backup(self) -> None:
+        ManualBackupDialog(self.project_path, self, language=self.language).exec()
 
     def restore_project_backup(self) -> None:
         source = self.project_path

@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from math import isfinite
 from typing import TYPE_CHECKING
 
 from geoworkbench.domain.report_composition import InterpretationReportComposition
+from geoworkbench.services.lba_observations import has_recorded_lba
 
 if TYPE_CHECKING:
     from geoworkbench.printing.geology_track_rendering import FrozenCuttingsSample
@@ -43,21 +45,9 @@ def resolve_geology_track_kinds(
     bottom_depth: float,
     settings: InterpretationGeologyTrackSettings,
 ) -> tuple[str, ...]:
-    visible = _visible_samples(geology, top_depth, bottom_depth)
+    visible = visible_geology_samples(geology, top_depth, bottom_depth)
     has_cuttings = any(sample.components for sample in visible)
-    has_lba = any(
-        value not in (None, "")
-        for sample in visible
-        for value in (
-            sample.lba_group,
-            sample.lba_type_id,
-            sample.lba_intensity,
-            sample.lba_color,
-            sample.lba_distribution,
-            sample.lba_cut,
-            sample.lba_description,
-        )
-    )
+    has_lba = any(has_recorded_lba(sample) for sample in visible)
     tracks: list[str] = []
     if settings.cuttings is GeologyTrackVisibility.SHOW or (
         settings.cuttings is GeologyTrackVisibility.AUTO and has_cuttings
@@ -76,21 +66,9 @@ def forced_empty_geology_tracks(
     bottom_depth: float,
     settings: InterpretationGeologyTrackSettings,
 ) -> tuple[str, ...]:
-    visible = _visible_samples(geology, top_depth, bottom_depth)
+    visible = visible_geology_samples(geology, top_depth, bottom_depth)
     has_cuttings = any(sample.components for sample in visible)
-    has_lba = any(
-        value not in (None, "")
-        for sample in visible
-        for value in (
-            sample.lba_group,
-            sample.lba_type_id,
-            sample.lba_intensity,
-            sample.lba_color,
-            sample.lba_distribution,
-            sample.lba_cut,
-            sample.lba_description,
-        )
-    )
+    has_lba = any(has_recorded_lba(sample) for sample in visible)
     empty: list[str] = []
     if settings.cuttings is GeologyTrackVisibility.SHOW and not has_cuttings:
         empty.append("cuttings")
@@ -99,17 +77,26 @@ def forced_empty_geology_tracks(
     return tuple(empty)
 
 
-def _visible_samples(
+def visible_geology_samples(
     geology: "InterpretationGeologySnapshot | None",
     top_depth: float,
     bottom_depth: float,
 ) -> tuple["FrozenCuttingsSample", ...]:
-    if geology is None:
+    """Select only finite samples with positive overlap, preserving source order.
+
+    A sample merely touching a page edge has no drawable interval and must
+    not enable Auto tracks or add symbols to that page's legend.
+    """
+    if geology is None or not (
+        isfinite(top_depth) and isfinite(bottom_depth) and top_depth < bottom_depth
+    ):
         return ()
     return tuple(
         sample
         for sample in geology.samples
-        if sample.bottom_depth >= top_depth and sample.top_depth <= bottom_depth
+        if isfinite(sample.top_depth) and isfinite(sample.bottom_depth)
+        and sample.top_depth < sample.bottom_depth
+        and sample.bottom_depth > top_depth and sample.top_depth < bottom_depth
     )
 
 
@@ -120,4 +107,5 @@ __all__ = [
     "forced_empty_geology_tracks",
     "geology_track_settings_from_composition",
     "resolve_geology_track_kinds",
+    "visible_geology_samples",
 ]

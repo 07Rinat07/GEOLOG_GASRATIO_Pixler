@@ -113,3 +113,111 @@ Server total normalized gas is not compared with local `C1_NORM`, because they a
 ## Formula source
 
 The local formula passport cites US20150060054A1 and is stored with a control example in the project formula registry.
+
+
+## Preliminary GIS + mud gas + LBA + lithology review (INTERP-FUSION-01)
+
+**Current implementation:** a testable **data-only** method in
+`services/gis_gti_lithology_screening.py`. It is **not connected**
+to raw LAS ingestion, the production UI or reports. Existing
+Haworth/Pixler/OPUS and LBA interpretation remain separate.
+This is a contract for later integration, not an available menu action.
+
+For a single verified MD axis (metres and a matching axis ID),
+the method accepts independently validated observations: effective
+porosity, fractures, NMR mobility, tight matrix, calibrated high/low
+water saturation `Sw`, GIS gas effect, mud gas, LBA and actual
+gas/oil/water formation-test results. Each observation requires its
+source ID, depth interval and QC; a derived GIS observation also
+requires a method/calibration reference. This does **not** interpret
+raw `GR`, `RT`, `RHOB`, `NPHI` curves: semantic resolution,
+quality control and numerical models are separate INTERP-GIS/PETRO work.
+
+### Lithology and exceptions
+
+- **Clastics/carbonates:** evaluate porosity, resistivity and
+  saturation with matrix composition, Rw, invasion and borehole QC.
+- **Argillite/clay/coaly rocks:** a mud-gas show or LBA does **not**
+  turn tight rock into a proven reservoir; investigate fractures,
+  secondary storage, thin interbeds and unconventional reservoirs.
+- **Salt, gypsum, anhydrite:** high resistivity alone **does not**
+  identify oil; review contacts, inclusions, fractures and formation tests.
+- **Tuff/volcanic rocks:** do not apply uncalibrated clastic/carbonate
+  parameters; secondary porosity or fractures can make real reservoirs.
+
+Actual fluid sampling has more diagnostic authority than an LBA or gas
+hypothesis; however, tests grouped into one broad interval may represent
+different beds. Multiple tested phases therefore trigger a conflict
+review, not an automatic claim of uniform gas and water. `Sw`
+does not distinguish oil from gas; high `Rt` in tight rock does not
+prove hydrocarbons. Suspect curves are excluded and uncovered depths
+remain unknown. A shortlist flag means **geologist review**, not
+commercial pay or proven recoverable reserves.
+
+Later GIS processing must recognize tools, units and vendor mnemonics
+via Energistics PWLS, including gamma/spectral gamma/SP, RHOB/NPHI/DT/CALI,
+deep/shallow RT, NMR, image logs, pressure and fluid sampling.
+Well/facies-specific calibration, separate log passes, MD/TVD, mud-gas
+lag and measurement QC must be checked independently. Do not impose
+universal lithology cutoffs.
+
+Sources:
+[SLB Basic Well Log Interpretation](https://www.slb.com/resource-library/oilfield-review/defining-series/defining-log-interpretation),
+[SLB Measuring Porosity](https://www.slb.com/resource-library/oilfield-review/defining-series/defining-porosity),
+[AAPG Reservoir](https://wiki.aapg.org/Reservoir),
+[Energistics PWLS](https://energistics.org/practical-well-log-standard).
+
+## Comparing the LBA residual-ring score with mud gas
+
+Record the bitumoid group/type, fluorescence colour and the **1–5
+UV-fluorescent capillary-extract spot score** separately.
+**Score 2 means a thin, broken UV-fluorescent ring**; the observed fluorescence is also relevant.
+The historical LAS field name `lba_intensity` does not change that meaning;
+the UV-fluorescent imprint is distinct from a solvent-cut residue observation.
+
+Correlation with gas anomalies, Haworth and Pixler requires verified
+sample depth and gas lag. The LBA group or ring score cannot calculate
+oil/water saturation or prove commercial productivity.
+
+### Operator LBA patterns: field hypotheses, not fluid identification
+
+`lba_operator_screening.py` contains **selected field observations
+provided by an experienced mud logger**. They are not international
+cutoffs and have not been calibrated as a general reservoir model.
+
+| LBA | Possible context before independent gas/GIS correlation |
+|---|---|
+| `1-БГ-ЛБ` | Trace light bitumoid. Sometimes accompanies gas shows, but organic material or drilling additives may explain it. |
+| `2-БГ-ЛБ` | Gas/gas-condensate context, occasionally light oil; no established fluid phase. |
+| `2-БЖ-МБ`, `3-БЖ-МБ`, `3-ГЖ-МБ` | Light oil or condensate/gas-condensate is possible; review C2–C5, solvent cut, gas background and GIS. |
+| `3-ОЖ-МСБ` | Oily-resinous show; could be formation oil or residual organic bitumen, not proven movable oil. |
+
+**Mandatory QC:** sample lag and provenance, a control extract from
+mud/solvent, coal and coaly layers, natural organic material, and
+timing of lubricating/organic mud additives (the operator mentioned
+“Петролюб” and “Суперборетрол”; their chemical composition is not assumed).
+When contamination is suspected, the helper suppresses phase hypotheses.
+Missing checks or unlisted patterns remain uncertain. Methane alone
+cannot explain the fluorescence of an extracted bitumoid; examine
+co-occurring extractable organics.
+
+This feature is **data-only API**, not yet connected to the report,
+Haworth/Pixler/OPUS or the UI. Coupled gas/GIS interpretation requires
+a separately verified integration. The 1–5 score is **not** pore-fluid
+hydrocarbon saturation.
+
+## GIS input inventory — a separate INTERP-GIS-01 stage
+
+`inventory_gis_inputs` is currently a data-only API without a UI command.
+It checks saved semantics/UOM and a metre MD axis; TVD/ft/unverified lag and
+unknown units remain explicit limitations. Counts and bounds of finite
+depth/value pairs do not establish continuous coverage.
+Source LAS bytes and arrays remain unchanged. This is not calibration,
+a Vsh/Sw calculation, fluid identification or confirmation of tool applicability.
+
+## Comparison freshness during Excel export
+
+A changed source curve revision or replaced curve/axis array requires a new
+standard/OPUS comparison. Stale comparisons are omitted from a new export;
+if the source changes after XLSX generation starts, export stops before
+replacing an existing file. Source LAS data remains unchanged.

@@ -117,7 +117,7 @@ def test_project_v37_json_round_trip_preserves_report_composition(tmp_path) -> N
     )
     loaded = load_project_document(target)
 
-    assert PROJECT_FORMAT_VERSION == 37
+    assert PROJECT_FORMAT_VERSION == 38
     assert loaded.report_compositions == {
         "dataset-report-composition": _composition()
     }
@@ -625,9 +625,15 @@ def test_workspace_propagates_persisted_legend_mode_to_preview_pdf_and_print() -
 
 
 def test_html_preview_legend_mode_hides_key_and_reaches_chart_renderer(monkeypatch) -> None:
-    report = SimpleNamespace(analysis_depth_interval=None)
+    report = SimpleNamespace(analysis_depth_interval=None, candidates=())
     dataset = object()
-    monkeypatch.setattr(chart_front, "ratio_reference_summary_uri", lambda *_args: "")
+    phase_calls = []
+
+    def capture_reference(source, language, *, candidates):
+        phase_calls.append((source, language, candidates))
+        return ""
+
+    monkeypatch.setattr(chart_front, "ratio_reference_summary_uri", capture_reference)
     seen: list[ReportLegendMode] = []
 
     monkeypatch.setattr(
@@ -672,6 +678,7 @@ def test_html_preview_legend_mode_hides_key_and_reaches_chart_renderer(monkeypat
     assert "<h2>KEY</h2>" not in hidden
     assert "<h2>KEY</h2>" in compact
     assert seen == [ReportLegendMode.HIDE, ReportLegendMode.COMPACT]
+    assert phase_calls == [(dataset, AppLanguage.EN, report.candidates)] * 2
 
 
 def test_preview_chart_emits_stable_layout_profile_hook() -> None:

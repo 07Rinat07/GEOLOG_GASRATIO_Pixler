@@ -5,6 +5,8 @@ import json
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+import numpy as np
+
 from geoworkbench.storage.project_codec import ProjectFormatError
 
 
@@ -51,16 +53,22 @@ class ChunkedProjectDocumentCodec:
         project_file = Path(project_path)
         root = Path(package_root)
         document = self._read_document(project_file)
+        encoded, descriptor = self.encode_document(document, root)
+        self._write_json(project_file, encoded, indent=2)
+        return descriptor
+
+    def encode_document(
+        self, document: dict[str, Any], package_root: Path,
+    ) -> tuple[dict[str, Any], ChunkedStorageDescriptor]:
+        """Externalize an in-memory payload before materializing its full JSON."""
+        root = Path(package_root)
         chunk_directory = root / CHUNK_DIRECTORY
         chunk_directory.mkdir(parents=True, exist_ok=True)
-
         state = _EncodingState()
         encoded = self._externalize(document, root=root, state=state)
-        self._write_json(project_file, encoded, indent=2)
-
         if state.chunk_count == 0:
             chunk_directory.rmdir()
-        return ChunkedStorageDescriptor(
+        return encoded, ChunkedStorageDescriptor(
             chunk_count=state.chunk_count,
             chunked_list_count=state.chunked_list_count,
             value_count=state.value_count,
@@ -80,6 +88,11 @@ class ChunkedProjectDocumentCodec:
         )
 
     def _externalize(self, value: Any, *, root: Path, state: _EncodingState) -> Any:
+        if isinstance(value, np.ndarray):
+            if (value.ndim == 1 and value.size >= self.chunk_threshold
+                    and value.dtype.kind in "biufUS"):
+                return self._write_chunks(value, root=root, state=state)
+            return self._externalize(value.tolist(), root=root, state=state)
         if isinstance(value, dict):
             return {
                 key: self._externalize(item, root=root, state=state)
@@ -93,7 +106,7 @@ class ChunkedProjectDocumentCodec:
 
     def _write_chunks(
         self,
-        values: list[object],
+        values: list[object] | np.ndarray,
         *,
         root: Path,
         state: _EncodingState,
@@ -101,6 +114,8 @@ class ChunkedProjectDocumentCodec:
         descriptors: list[dict[str, object]] = []
         for start in range(0, len(values), self.chunk_size):
             chunk_values = values[start : start + self.chunk_size]
+            if isinstance(chunk_values, np.ndarray):
+                chunk_values = chunk_values.tolist()
             state.chunk_count += 1
             relative = f"{CHUNK_DIRECTORY}/{state.chunk_count:08d}.json"
             chunk_path = root.joinpath(*PurePosixPath(relative).parts)

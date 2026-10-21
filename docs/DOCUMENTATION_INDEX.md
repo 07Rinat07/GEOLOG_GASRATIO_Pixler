@@ -18,6 +18,11 @@ artifacts workflow `.github/workflows/release-gate.yml`.
   [Қазақша](kk/APPLICATION_DIAGNOSTICS.md) · [English](en/APPLICATION_DIAGNOSTICS.md)
 - Запуск вкладки «Файлы» после обновления: [FILE_WORKSPACE_STARTUP.md](FILE_WORKSPACE_STARTUP.md)
 
+- Независимые наблюдения DataLog v38 (PR #689):
+  [RU](ru/DATALOG_SHOW_EDITOR_V38.md) ·
+  [KK](kk/DATALOG_SHOW_EDITOR_V38.md) ·
+  [EN](en/DATALOG_SHOW_EDITOR_V38.md).
+
 ## Управление проектом
 
 - [PROJECT_PLAN.md](PROJECT_PLAN.md) — единственный актуальный план и открытые задачи.
@@ -45,9 +50,14 @@ artifacts workflow `.github/workflows/release-gate.yml`.
   [KK](kk/SESSION_SAVING.md) · [EN](en/SESSION_SAVING.md)
 - Import Review: [RU](ru/IMPORT_REVIEW.md) · [KK](kk/IMPORT_REVIEW.md) ·
   [EN](en/IMPORT_REVIEW.md)
+- Методики DataLog/MOL: [техническая матрица](DATALOG_OIL_SHOW_METHODS.md),
+  [RU](ru/DATALOG_OIL_SHOW_METHODS.md) ·
+  [KK](kk/DATALOG_OIL_SHOW_METHODS.md) ·
+  [EN](en/DATALOG_OIL_SHOW_METHODS.md).
 - Поздние анализы шлама: [RU](ru/LATE_ANALYSIS_UPDATE.md) ·
   [KK](kk/LATE_ANALYSIS_UPDATE.md) · [EN](en/LATE_ANALYSIS_UPDATE.md)
 - LAS Editor: [RU](ru/LAS_EDITOR.md) · [KK](kk/LAS_EDITOR.md) · [EN](en/LAS_EDITOR.md)
+- Покрытие газовых каналов после наращивания LAS: [LAS_GAS_COVERAGE.md](LAS_GAS_COVERAGE.md).
 - Планшет: [RU](ru/UI_WORKSPACE.md) · [KK](kk/UI_WORKSPACE.md) · [EN](en/UI_WORKSPACE.md)
 - Конструктор: [RU](ru/CONSTRUCTOR.md) · [KK](kk/CONSTRUCTOR.md) ·
   [EN](en/CONSTRUCTOR.md)
@@ -63,6 +73,10 @@ artifacts workflow `.github/workflows/release-gate.yml`.
 - Газовый контекст интерпретационных отчётов:
   [RU](ru/GAS_CONTEXT_EVENTS.md) · [KK](kk/GAS_CONTEXT_EVENTS.md) ·
   [EN](en/GAS_CONTEXT_EVENTS.md)
+- Reference-петрофизика IGR / плотностная пористость / Archie (только data-only PR #686):
+  [RU](ru/PETROPHYSICAL_REFERENCE_MODELS.md) ·
+  [KK](kk/PETROPHYSICAL_REFERENCE_MODELS.md) ·
+  [EN](en/PETROPHYSICAL_REFERENCE_MODELS.md)
 - Режимы нормализованного газа и сопоставление с ЛБА:
   [RU](ru/NORMALIZED_GAS_INTERPRETATION.md) ·
   [KK](kk/NORMALIZED_GAS_INTERPRETATION.md) ·
@@ -106,6 +120,9 @@ artifacts workflow `.github/workflows/release-gate.yml`.
   [LAS_EDITOR_ARCHITECTURE.md](LAS_EDITOR_ARCHITECTURE.md),
   [TIME_DEPTH_LAS_ARCHITECTURE.md](TIME_DEPTH_LAS_ARCHITECTURE.md),
   [LAG_DEPTH_CORRECTION.md](LAG_DEPTH_CORRECTION.md).
+- Методики комплексной интерпретации ГИС + ГТИ + ЛБА Флоровской:
+  [INTERPRETATION_ALGORITHM_CATALOG.md](INTERPRETATION_ALGORITHM_CATALOG.md) —
+  источники, региональные границы, контроль исходных параметров и очередь реализации.
 - Расчёты и события: [DEXP_FORMULAS.md](DEXP_FORMULAS.md),
   [MUD_GAS_FORMULAS.md](MUD_GAS_FORMULAS.md),
   [FORMULA_METHOD_AUDIT.md](FORMULA_METHOD_AUDIT.md),

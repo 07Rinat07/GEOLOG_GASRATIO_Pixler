@@ -70,6 +70,8 @@ def test_successful_child_does_not_report_failure(monkeypatch, capsys):
 @pytest.mark.parametrize(
     "filename", ["test_session_safety.py", "test_masterlog_header_dialog.py",
                  "test_navigation_organization.py", "test_main_window_visible_depth_refresh.py",
+                 "test_track_resize.py",
+                 "test_tabular_export_output_language.py",
                  "test_geodata_depth_workspace.py", "test_gas_viewport_hotpath.py", "test_interval_statistics_overlay_widget.py", "test_tablet_plot_close_order.py", "test_report_document_control.py",
                  "test_report_author_symbol_editor.py", "test_value_flag_print_selection.py"]
 )

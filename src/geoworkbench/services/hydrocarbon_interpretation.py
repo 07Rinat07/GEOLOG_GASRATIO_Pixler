@@ -21,6 +21,15 @@ from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.gas_context_report_labels import (
     gas_context_type_text, gas_context_impact_label, gas_context_identity_label,
 )
+from geoworkbench.services.interpretation_geology_interval_evidence import (
+    GasGeologyIntervalEvidence,
+)
+from geoworkbench.services.interpretation_geology_interval_evidence_html import (
+    geology_interval_evidence_html,
+)
+from geoworkbench.services.interpretation_geology_evidence_export import (
+    verified_report_geology_evidence,
+)
 from geoworkbench.services import hydrocarbon_interpretation_legacy as _legacy
 from geoworkbench.services.gas_context_candidate_policy import apply_gas_context_to_report
 from geoworkbench.services.gas_context_interval_audit import (
@@ -41,6 +50,14 @@ from geoworkbench.services.hydrocarbon_interpretation_legacy import (
     OpusGasomerIndicatorReport,
     OpusGasomerIntervalReport,
     OpusGasomerReportSection,
+)
+from geoworkbench.services.interpretation_method_comparison import (
+    MethodComparisonInterval,
+    MethodComparisonStatus,
+    compare_standard_opus_reports,
+)
+from geoworkbench.services.interpretation_method_comparison_html import (
+    method_comparison_html,
 )
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.interpretation_classification_audit import (
@@ -193,7 +210,7 @@ def build_hydrocarbon_interpretation_report(
                 effective_events,
                 session,
             )
-        return contextual
+        return _with_lag_axis_context_warning(contextual, session)
 
     requested_mode = _coerce_mode(
         normalized_gas_mode
@@ -259,7 +276,7 @@ def build_hydrocarbon_interpretation_report(
             effective_events,
             session,
         )
-    return contextual
+    return _with_lag_axis_context_warning(contextual, session)
 
 
 def build_opus_interpretation_report(
@@ -297,14 +314,43 @@ def build_opus_interpretation_report(
             effective_events,
             session,
         )
-    return contextual
+    return _with_lag_axis_context_warning(contextual, session)
+
+
+def build_interpretation_method_comparison(
+    session: ProjectSession,
+    *,
+    threshold: float = 4.0,
+    total_gas_lod: float | None = None,
+    depth_interval: DepthInterval | None = None,
+) -> tuple[MethodComparisonInterval, ...]:
+    """Opt-in structured comparison of the two existing report snapshots.
+
+    Results are evidence/QC data, not a new fluid calculation or a client
+    warning block. A caller can render the result in a later audited slice.
+    """
+    standard = build_hydrocarbon_interpretation_report(
+        session, threshold=threshold, depth_interval=depth_interval,
+    )
+    opus = build_opus_interpretation_report(
+        session, threshold=threshold,
+        total_gas_lod=total_gas_lod, depth_interval=depth_interval,
+    )
+    return compare_standard_opus_reports(standard, opus)
 
 
 def hydrocarbon_interpretation_html(
     report: HydrocarbonInterpretationReport,
     language: AppLanguage = AppLanguage.RU,
+    *,
+    method_comparisons: tuple[MethodComparisonInterval, ...] = (),
+    geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
 ) -> str:
-    """Render a presentation-ready report while retaining QC in structured data."""
+    """Render a report; explicit evidence appends read-only analytical sections.
+
+    Legacy HTML/PDF rendering stays unchanged unless the caller supplies the
+    already verified structured comparison snapshot from both methodologies.
+    """
 
     html = _base_hydrocarbon_interpretation_html(report, language)
     if report.analysis_depth_interval is not None:
@@ -355,6 +401,20 @@ def hydrocarbon_interpretation_html(
         html = html.replace(
             "</body>",
             _gas_context_html(report, language) + "</body>",
+            1,
+        )
+    if method_comparisons:
+        html = html.replace(
+            "</body>",
+            method_comparison_html(
+                method_comparisons, language, depth_unit=report.depth_unit,
+            ) + "</body>",
+            1,
+        )
+    for evidence in verified_report_geology_evidence(report, geology_evidence):
+        html = html.replace(
+            "</body>",
+            geology_interval_evidence_html(evidence, language) + "</body>",
             1,
         )
     audit = escape(interpretation_classification_audit_json(report), quote=True)
@@ -408,12 +468,58 @@ def _merge_background_suppression_audit(
     )
 
 
+def _lag_corrected_axis_has_unbound_gas_context(session: ProjectSession) -> bool:
+    """Legacy gas events identify MD/TVD but not a lag profile axis/revision.
+
+    A corrected MD axis and its source MD axis share the same DepthDomain, but
+    the same numerical depth describes different acquisition rows. Applying
+    source-depth exclusions to corrected-depth rows silently biases screening.
+    """
+    dataset = session.current_dataset
+    well = session.current_well
+    return bool(
+        dataset is not None
+        and well is not None
+        and well.gas_context_events
+        and dataset.headers.get("LAG_PROFILE_ID")
+        and dataset.active_index.mnemonic.endswith("_LAG_CORR")
+    )
+
+
+def _with_lag_axis_context_warning(
+    report: HydrocarbonInterpretationReport,
+    session: ProjectSession,
+) -> HydrocarbonInterpretationReport:
+    if not _lag_corrected_axis_has_unbound_gas_context(session):
+        return report
+    return replace(
+        report,
+        warnings=tuple(
+            dict.fromkeys(
+                (
+                    *report.warnings,
+                    "События газового контекста не применены к скорректированной "
+                    "по лагу глубинной оси: сохранённые события имеют привязку "
+                    "MD/TVD, но не указывают ось и ревизию профиля лага. "
+                    "Нужна явная перепривязка; автоматический перенос по той "
+                    "же числовой глубине может исказить интервалы и фон.",
+                )
+            )
+        ),
+    )
+
+
 def _effective_session_gas_context_events(
     session: ProjectSession,
 ) -> tuple[GasContextEvent, ...]:
     well = session.current_well
     dataset = session.current_dataset
     if well is None or dataset is None:
+        return ()
+    if _lag_corrected_axis_has_unbound_gas_context(session):
+        # There is no persisted coordinate-axis identity on legacy events.
+        # Preserve the events on the well, but never silently project their
+        # source-depth numbers onto a different lag-corrected index.
         return ()
     events = tuple(well.gas_context_events)
     well_domains = {item.depth_domain for item in well.datasets.values()}
@@ -805,6 +911,11 @@ __all__ = [
     "OpusGasomerIndicatorReport",
     "OpusGasomerIntervalReport",
     "OpusGasomerReportSection",
+    "MethodComparisonInterval",
+    "MethodComparisonStatus",
+    "build_interpretation_method_comparison",
+    "compare_standard_opus_reports",
+    "method_comparison_html",
     "build_hydrocarbon_interpretation_report",
     "build_opus_interpretation_report",
     "candidate_evidence_summary",

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+from collections.abc import Callable
+from typing import TypeVar
 
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
@@ -21,8 +23,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from geoworkbench.services.application_logging import log_exception
 from geoworkbench.project.daily_las_growth_controller import DailyLasGrowthController
-from geoworkbench.services.daily_las_growth import DailyLasGrowthPlan
+from geoworkbench.services.daily_las_growth import DailyLasGrowthError, DailyLasGrowthPlan
 from geoworkbench.services.persisted_rock_code_profile_assignment import (
     RockCodeProfileReassignmentRequired,
 )
@@ -36,7 +39,11 @@ from geoworkbench.services.local_las_folder import (
     LocalLasFolderProvider,
 )
 from geoworkbench.ui.navigation_organization import open_help_for_widget
+from geoworkbench.ui.las_growth_analysis_task import run_las_growth_analysis
 from geoworkbench.ui.window_geometry import fit_window_to_screen
+
+
+_AnalysisResult = TypeVar("_AnalysisResult")
 
 
 class DailyLasGrowthDialog(QDialog):
@@ -176,7 +183,38 @@ class DailyLasGrowthDialog(QDialog):
             "Сандық жаңарту: жаңа жолдар, бос мәндер және түзетулер",
             "Numerical update: new rows, gaps and corrections",
         ))
+        self.numerical_mode.setToolTip(self._text(
+            "Для добавления глубин из LAS с неполным набором каналов оставьте этот "
+            "режим выключенным. Старые данные сохранятся, отсутствующие параметры "
+            "на новых глубинах останутся пустыми.",
+            "Каналдары толық емес LAS тереңдіктерін қосу үшін бұл режимді өшіріңіз. "
+            "Ескі деректер сақталады, жаңа тереңдіктердегі жоқ параметрлер бос қалады.",
+            "Leave this mode off to append depths from a LAS with fewer channels. "
+            "Existing data are preserved and omitted parameters at new depths stay empty.",
+        ))
         body_layout.addWidget(self.numerical_mode)
+        self.preserve_overlap = QCheckBox(self._text(
+            "Накопительный LAS: сохранять старые измерения, только добавлять новые глубины",
+            "Жинақталған LAS: ескі өлшемдерді сақтау, тек жаңа тереңдіктерді қосу",
+            "Cumulative LAS: preserve old measurements and append new depths only",
+        ))
+        self.preserve_overlap.setChecked(True)
+        self.preserve_overlap.setToolTip(self._text(
+            "Расхождения и дубликаты на старых глубинах показать в проверке, но "
+            "не переносить из нового LAS. Новые повторяющиеся глубины запрещены.",
+            "Ескі тереңдіктердегі айырмашылықтар мен қайталанулар көрсетіледі, "
+            "бірақ деректер ауыстырылмайды. Жаңа тереңдіктер қайталанбауы тиіс.",
+            "Report conflicting and repeated old depth samples without overwriting "
+            "them; duplicated new depth samples are rejected.",
+        ))
+        body_layout.addWidget(self.preserve_overlap)
+        self.fill_missing_existing = QCheckBox(self._text(
+            "Дополнить пустые параметры на существующих глубинах; несовместимые единицы пропустить",
+            "Бар тереңдіктердегі бос параметрлерді толтыру; үйлеспейтін бірліктерді өткізу",
+            "Fill empty parameters at existing depths; skip incompatible units",
+        ))
+        body_layout.addWidget(self.fill_missing_existing)
+
         self.geology_enabled = QCheckBox(self._text(
             "Дополнить все свободные геологические интервалы по профилю",
             "Профиль бойынша барлық бос геологиялық аралықтарды толықтыру",
@@ -265,6 +303,8 @@ class DailyLasGrowthDialog(QDialog):
         self.file_input.textChanged.connect(self._source_changed)
         self.target_combo.currentIndexChanged.connect(self._invalidate)
         self.numerical_mode.toggled.connect(self._switch_mode)
+        self.fill_missing_existing.toggled.connect(self._invalidate)
+        self.preserve_overlap.toggled.connect(self._invalidate)
         self.geology_enabled.toggled.connect(self._invalidate)
         self.profile_input.textChanged.connect(self._invalidate)
         fit_window_to_screen(
@@ -342,6 +382,15 @@ class DailyLasGrowthDialog(QDialog):
         self.controller.reset_state()
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
 
+    def _run_analysis(
+        self, operation: Callable[[], _AnalysisResult],
+    ) -> _AnalysisResult:
+        return run_las_growth_analysis(self, self._text(
+            "Чтение LAS и проверка новых глубин. Дождитесь завершения…",
+            "LAS оқу және жаңа тереңдіктерді тексеру. Аяқталуын күтіңіз…",
+            "Reading LAS and checking new depths. Please wait…",
+        ), operation)
+
     def _analyze(self) -> None:
         self._invalidate()
         dataset_id = self.target_combo.currentData()
@@ -377,13 +426,13 @@ class DailyLasGrowthDialog(QDialog):
                     else None
                 )
                 try:
-                    plan = self.controller.analyze_numerical(
+                    plan = self._run_analysis(lambda: self.controller.analyze_numerical(
                         source,
                         dataset_id,
                         provider_kind=provider_kind,
                         provider_location=provider_location,
                         geology_profile_path=geology_profile_path,
-                    )
+                    ))
                 except RockCodeProfileReassignmentRequired as conflict:
                     if not self._confirm_profile_reassignment(conflict):
                         self.controller.reset_state()
@@ -395,23 +444,64 @@ class DailyLasGrowthDialog(QDialog):
                             )
                         )
                         return
-                    plan = self.controller.analyze_numerical(
+                    plan = self._run_analysis(lambda: self.controller.analyze_numerical(
                         source,
                         dataset_id,
                         provider_kind=provider_kind,
                         provider_location=provider_location,
                         geology_profile_path=geology_profile_path,
                         allow_profile_reassignment=True,
-                    )
+                    ))
             else:
-                plan = self.controller.analyze(
+                fill_missing = self.fill_missing_existing.isChecked()
+                historical_policy = (
+                    "keep_existing" if self.preserve_overlap.isChecked() or fill_missing else "strict"
+                )
+                plan = self._run_analysis(lambda: self.controller.analyze(
                     source,
                     dataset_id,
                     provider_kind=provider_kind,
                     provider_location=provider_location,
-                )
+                    historical_policy=historical_policy,
+                    fill_missing_existing=fill_missing,
+                ))
         except (OSError, RuntimeError, ValueError) as exc:
+            log_exception(
+                "daily_las_growth.preview_failed",
+                exc,
+                source_name=source.name,
+                target_dataset_id=dataset_id,
+                numerical_mode=self.numerical_mode.isChecked(),
+            )
             self.preview.setPlainText(str(exc))
+            if isinstance(exc, DailyLasGrowthError) and self.numerical_mode.isChecked():
+                answer = QMessageBox.question(
+                    self,
+                    self.windowTitle(),
+                    str(exc) + "\n\n" + self._text(
+                        "Проверить безопасное наращивание только новых глубин? "
+                        "Старые значения не изменятся. Каналы, которых нет в новом LAS, "
+                        "останутся пустыми на новых глубинах. Это только проверка: "
+                        "применение потребует подтверждения предварительного анализа.",
+                        "Тек жаңа тереңдіктерді қауіпсіз қосуды тексеру керек пе? "
+                        "Ескі мәндер өзгермейді. Жаңа LAS-та жоқ арналар жаңа "
+                        "тереңдіктерде бос қалады. Бұл тек тексеру; қолдану үшін "
+                        "алдын ала талдауды растау қажет.",
+                        "Analyze safe growth using new depths only? Existing values "
+                        "will remain unchanged. Channels missing from the new LAS stay "
+                        "empty at new depths. This only builds a preview; applying it "
+                        "requires confirmation of that preview.",
+                    ),
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
+                )
+                if answer == QMessageBox.StandardButton.Yes:
+                    self.numerical_mode.setChecked(False)
+                    self.preserve_overlap.setChecked(True)
+                    self._analyze()
+                else:
+                    self.controller.reset_state()
+                return
             QMessageBox.warning(self, self.windowTitle(), str(exc))
             return
         self.plan = plan
@@ -434,8 +524,55 @@ class DailyLasGrowthDialog(QDialog):
                 "If the range and rows are correct, press Append. The .geologpkg is saved automatically with a recovery copy; then rerun the required calculations.",
             )
         )
+        omitted = len(plan.missing_curve_mnemonics)
+        policy_summary = self._text(
+            f"Исторических расхождений: {plan.historical_conflict_rows} строк / "
+            f"{plan.historical_conflict_cells} значений. "
+            f"Повторов старой глубины: {plan.duplicate_historical_rows}. "
+            "Ни одно прежнее значение не будет переписано.",
+            f"Ескі айырмашылықтар: {plan.historical_conflict_rows} жол / "
+            f"{plan.historical_conflict_cells} мән. "
+            f"Бұрынғы тереңдік қайталанулары: {plan.duplicate_historical_rows}. "
+            "Бұрынғы өлшемдер ауыстырылмайды.",
+            f"Historical differences: {plan.historical_conflict_rows} rows / "
+            f"{plan.historical_conflict_cells} cells. "
+            f"Repeated old depths: {plan.duplicate_historical_rows}. "
+            "No previously saved measurement will be overwritten.",
+        )
+        channel_summary = self._text(
+            f"Кривых из нового LAS: {len(plan.curve_mnemonics)}. Не предоставлены: {omitted}. "
+            "На новых глубинах отсутствующие каналы будут NaN (не ноль).",
+            f"Жаңа LAS қисықтары: {len(plan.curve_mnemonics)}. Жоқ қисықтар: {omitted}. "
+            "Жаңа тереңдіктерде жоқ арналар NaN (нөл емес) болады.",
+            f"Incoming LAS curves: {len(plan.curve_mnemonics)}. Missing: {omitted}. "
+            "Omitted channels become NaN (not zero) at new depths.",
+        )
+        missing_names = ", ".join(plan.missing_curve_mnemonics) or "—"
+        alias_names = "; ".join(
+            f"{source} → {target}" for source, target in plan.matched_curve_mnemonics
+        ) or "—"
+        channel_details = self._text(
+            f"Не предоставлены источником: {missing_names}\n"
+            f"Сопоставлены по каноническому параметру: {alias_names}",
+            f"Дереккөзде жоқ: {missing_names}\n"
+            f"Канондық параметр бойынша сәйкестендірілді: {alias_names}",
+            f"Not supplied by source: {missing_names}\n"
+            f"Matched by canonical parameter: {alias_names}",
+        )
+        if plan.fill_missing_existing:
+            skipped_units = "; ".join(
+                f"{name}: {old} → {new}" for name, old, new in plan.incompatible_curve_units
+            ) or "—"
+            channel_details += "\n" + self._text(
+                f"Будет заполнено пустых ячеек: {plan.cells_filled}. "
+                f"Пропущены несовместимые единицы: {skipped_units}. Старые значения сохраняются.",
+                f"Толтырылатын бос ұяшықтар: {plan.cells_filled}. "
+                f"Өткізілген үйлеспейтін бірліктер: {skipped_units}. Ескі мәндер сақталады.",
+                f"Empty cells to fill: {plan.cells_filled}. "
+                f"Skipped incompatible units: {skipped_units}. Existing values are preserved.",
+            )
         self.preview.setPlainText(
-            self._text(
+            channel_summary + "\n" + channel_details + "\n" + policy_summary + "\n\n" + self._text(
                 f"Ось: {role} ({plan.index_mnemonic})\nДиапазон файла: {plan.start_value} … {plan.stop_value}\nНовых строк: {plan.rows_added}\nСовпадающих строк: {plan.rows_skipped}\nФайл уже импортирован: {duplicate}\n\nБудет изменён только выбранный dataset.\n\n{next_step}",
                 f"Ось: {role} ({plan.index_mnemonic})\nФайл ауқымы: {plan.start_value} … {plan.stop_value}\nЖаңа жолдар: {plan.rows_added}\nСәйкес жолдар: {plan.rows_skipped}\nФайл бұрын импортталған: {duplicate}\n\nТек таңдалған dataset өзгереді.\n\n{next_step}",
                 f"Axis: {role} ({plan.index_mnemonic})\nFile range: {plan.start_value} … {plan.stop_value}\nNew rows: {plan.rows_added}\nMatching rows: {plan.rows_skipped}\nAlready imported: {duplicate}\n\nOnly the selected dataset will change.\n\n{next_step}",
@@ -489,6 +626,8 @@ class DailyLasGrowthDialog(QDialog):
                 minimum=QSize(560, 360),
             )
         self.append_rows.setVisible(enabled)
+        self.preserve_overlap.setVisible(not enabled)
+        self.fill_missing_existing.setVisible(not enabled)
         self.geology_enabled.setVisible(enabled)
         self.profile_input.setVisible(enabled)
         self.profile_browse.setVisible(enabled)

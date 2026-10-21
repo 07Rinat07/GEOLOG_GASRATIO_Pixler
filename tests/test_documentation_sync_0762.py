@@ -288,3 +288,89 @@ def test_i18n_audit_rejects_invalid_values_and_placeholders(tmp_path) -> None:
     assert len(issues) == 4
     assert sum(issue.category == "i18n-values" for issue in issues) == 2
     assert sum(issue.category == "i18n-format" for issue in issues) == 2
+
+
+
+def test_petrophysical_reference_guides_keep_methods_and_operator_scope_in_sync() -> None:
+    """Three guides describe the same methods, examples and bounded operator workflow."""
+
+    names = (
+        "gamma_ray_index",
+        "density_porosity",
+        "archie_water_saturation",
+        "igr-linear-1",
+        "density-porosity-1",
+        "archie-water-saturation-1",
+        "outside_reference_range",
+        "outside_physical_range",
+        "GR=65",
+        "IGR=0.4",
+        "rho_bulk=2.42",
+        "phiD≈0.16959",
+        "phi=0.2",
+        "Sw=0.5",
+        "ValueError",
+        "LAS",
+        "MD/TVD",
+        "PR #686",
+        "review_gis_reference_input",
+        "ready_for_calibration",
+        "create_gis_reference_calibration",
+        "GisReferenceDialog",
+        "petro_reference.action",
+        "evaluate_gis_reference_sample",
+        "applicability_reference",
+        "curve.version",
+        "curve_key",
+        "kg/m3",
+        "uR/h",
+    )
+    for language in ("ru", "kk", "en"):
+        guide = (
+            ROOT / "docs" / language / "PETROPHYSICAL_REFERENCE_MODELS.md"
+        ).read_text(encoding="utf-8")
+        assert all(name in guide for name in names)
+        assert guide.count("\n## ") == 6
+
+    index = (ROOT / "docs" / "DOCUMENTATION_INDEX.md").read_text(encoding="utf-8")
+    for language in ("ru", "kk", "en"):
+        assert f"{language}/PETROPHYSICAL_REFERENCE_MODELS.md" in index
+
+def test_florovskaya_residual_ring_guides_remain_in_sync_in_three_languages() -> None:
+    """Operator instructions and UI must describe the same 1–5 LBA quantity scale."""
+
+    required: dict[str, tuple[str, str, str]] = {
+        "ru": ("Прерывистое кольцо", "2", "ЛБА: люминесцирующее пятно"),
+        "kk": ("Үзік сақина", "2", "ЛБА: люминесценттік дақ"),
+        "en": ("Broken (discontinuous) ring", "2", "LBA fluorescence-spot"),
+    }
+    for language, (ring, score, label) in required.items():
+        late = (ROOT / "docs" / language / "LATE_ANALYSIS_UPDATE.md").read_text(
+            encoding="utf-8"
+        )
+        gas = (
+            ROOT / "docs" / language / "NORMALIZED_GAS_INTERPRETATION.md"
+        ).read_text(encoding="utf-8")
+        for document in (late, gas):
+            assert "lba_intensity" in document
+            assert score in document
+        assert ring in late
+        assert label in (
+            ROOT / "src" / "geoworkbench" / "resources" / "i18n"
+            / f"{language}.json"
+        ).read_text(encoding="utf-8")
+
+
+def test_florovskaya_status_and_instructions_use_single_canonical_plan() -> None:
+    """Require one source of truth, with multilingual operator guidance."""
+
+    policy = (ROOT / "docs" / "DOCUMENTATION_POLICY.md").read_text(
+        encoding="utf-8"
+    )
+    plan = (ROOT / "docs" / "PROJECT_PLAN.md").read_text(encoding="utf-8")
+    assert "docs/PROJECT_PLAN.md" in policy
+    assert "docs/ru" in policy
+    assert "docs/kk" in policy
+    assert "docs/en" in policy
+    assert "DOCUMENTATION_POLICY.md" in plan
+    assert "docs/{ru,kk,en}" in plan

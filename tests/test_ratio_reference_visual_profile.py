@@ -35,7 +35,7 @@ def test_ratio_reference_png_uses_shared_neutral_palette_and_keeps_depth_colours
     before = {name: curve.values.copy() for name, curve in dataset.curves.items()}
     uri = reference.ratio_reference_summary_uri(dataset, language)
     pixels = np.asarray(Image.open(BytesIO(b64decode(uri.split(",", 1)[1]))).convert("RGB"))
-    assert pixels.shape == (1040, 1600, 3)
+    assert pixels.shape == (1344, 1600, 3)
     for colour in (visual.palette.page, visual.palette.text, visual.palette.border_strong, *reference._DEPTH_COLORS):
         assert np.count_nonzero(np.all(pixels == _rgb(colour), axis=2)) > 10
     for name, curve in dataset.curves.items():
@@ -51,7 +51,12 @@ def test_ratio_reference_pdf_uses_shared_text_background_and_grid(qapp, tmp_path
     destination = tmp_path / "reference.pdf"
     spans = _export(destination, _dataset(), language, dpi, False)
     text_colour = int(visual.palette.text[1:], 16)
-    assert all(span["color"] == text_colour for span in spans)
+    # Semantic callouts deliberately use their depth/guide colour; neutral text
+    # continues to use the shared report palette.
+    allowed = {text_colour, *(int(color[1:], 16) for color in reference._DEPTH_COLORS),
+               0xc62828, 0x1d4ed8, 0x15803d}
+    assert all(span["color"] in allowed for span in spans)
+    assert any(span["color"] == text_colour for span in spans)
     with fitz.open(destination) as pdf:
         drawings = pdf[0].get_drawings()
     def contains_colour(values, colour):

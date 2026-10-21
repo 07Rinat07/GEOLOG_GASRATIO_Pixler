@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.domain.models import CuttingsSample
+from geoworkbench.ui.oil_show_observation_editor import OilShowObservationEditor
 from geoworkbench.services.lba_standard import (
     LBA_STANDARD_GROUPS,
     all_lba_color_labels,
@@ -38,14 +39,14 @@ _TEXT = {
         "Доломит CaMg(CO₃)₂, %",
         "Группа битумоида 1–5",
         "Тип битумоида",
-        "Интенсивность 1–5",
+        "Балл ЛБА по люминесцирующему пятну (1–5)",
         "Цвет флуоресценции",
         "Форма / распредение",
         "Cut: тип",
         "Cut: скорость",
         "Cut: цвет",
-        "Остаток: тип",
-        "Остаток: цвет",
+        "Cut: остаток — тип",
+        "Cut: остаток — цвет",
         "Запах",
         "Масляное окрашивание",
         "Описание",
@@ -61,14 +62,14 @@ _TEXT = {
         "Доломит CaMg(CO₃)₂, %",
         "Битумоид тобы 1–5",
         "Битумоид түрі",
-        "Қарқындылық 1–5",
+        "ЛБА люминесценттік дағының балы (1–5)",
         "Флуоресценция түсі",
         "Пішіні / таралуы",
         "Cut: түрі",
         "Cut: жылдамдығы",
         "Cut: түсі",
-        "Қалдық: түрі",
-        "Қалдық: түсі",
+        "Cut қалдығы: түрі",
+        "Cut қалдығы: түсі",
         "Иіс",
         "Майлы боялу",
         "Сипаттама",
@@ -84,14 +85,14 @@ _TEXT = {
         "Dolomite CaMg(CO₃)₂, %",
         "Bitumoid group 1–5",
         "Bitumoid type",
-        "Intensity 1–5",
+        "LBA fluorescence-spot score (1–5)",
         "Fluorescence color",
         "Form / distribution",
         "Cut type",
         "Cut speed",
         "Cut color",
-        "Residue type",
-        "Residue color",
+        "Solvent-cut residue type",
+        "Solvent-cut residue color",
         "Odour",
         "Stain",
         "Description",
@@ -219,6 +220,17 @@ class SampleAnalysisDialog(QDialog):
         lba_scroll.setWidgetResizable(True)
         lba_scroll.setWidget(lba)
         tabs.addTab(lba_scroll, text[2])
+        self.oil_show_editor = OilShowObservationEditor(
+            language, sample.show_observations if sample is not None else None,
+        )
+        show_scroll = QScrollArea()
+        show_scroll.setWidgetResizable(True)
+        show_scroll.setWidget(self.oil_show_editor)
+        tabs.addTab(show_scroll, {
+            AppLanguage.RU: "Нефтепроявления DataLog",
+            AppLanguage.KK: "DataLog мұнай белгілері",
+            AppLanguage.EN: "DataLog oil shows",
+        }[language])
         interpretation = QWidget()
         interpretation_layout = QVBoxLayout(interpretation)
         interpretation_source_form = QFormLayout()
@@ -383,6 +395,7 @@ class SampleAnalysisDialog(QDialog):
             "lba_residue_color": self.lba_residue_color_input.currentText(),
             "lba_odour": self.lba_odour_input.currentText(),
             "lba_stain": self.lba_stain_input.currentText(),
+            "show_observations": self.oil_show_editor.observations(),
             "lba_description": self.lba_description_input.text(),
             "lba_description_i18n": self._localized_values(
                 self._initial_lba_description_i18n,

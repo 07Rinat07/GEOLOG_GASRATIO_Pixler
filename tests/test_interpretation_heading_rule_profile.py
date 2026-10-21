@@ -6,7 +6,7 @@ from typing import Any
 import fitz
 import numpy as np
 import pytest
-from PySide6.QtCore import QRectF
+from PySide6.QtCore import QMarginsF, QRectF
 from PySide6.QtGui import QImage, QPageLayout, QPageSize, QPainter, QPdfWriter
 
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart as standard
@@ -53,15 +53,15 @@ def test_real_wrapped_heading_preserves_physical_font_and_full_text(
     output = tmp_path / "heading.pdf"
     writer = QPdfWriter(str(output))
     writer.setResolution(dpi)
-    height = headings.track_heading_height(title, 90, 9.0, writer, point_coordinates=True)
+    height = headings.track_heading_height(title, 120, 9.0, writer, point_coordinates=True)
     reference = QPdfWriter(str(tmp_path / "reference.pdf"))
     reference.setResolution(72)
     assert height == pytest.approx(headings.track_heading_height(
-        title, 90, 9.0, reference, point_coordinates=True), abs=1.0)
+        title, 120, 9.0, reference, point_coordinates=True), abs=1.0)
     painter = QPainter(writer)
     try:
         painter.scale(dpi / 72, dpi / 72)
-        headings.paint_track_heading(painter, QRectF(0, 0, 90, height), title, 9.0,
+        headings.paint_track_heading(painter, QRectF(0, 0, 120, height), title, 9.0,
                                      point_coordinates=True)
     finally:
         painter.end()
@@ -131,3 +131,39 @@ def test_real_chart_heading_geometry_and_structural_rules_follow_profile(
                            draw["width"] == pytest.approx(width, abs=0.03) for draw in drawings)
     for identifier, values in before.items():
         assert np.array_equal(dataset.curves[identifier].values, values)
+
+
+@pytest.mark.parametrize("dpi", [72, 300, 600])
+@pytest.mark.parametrize("title,width", [
+    ("Шламограмма", 40.0),
+    ("Общий и нормализованный газ", 75.0),
+    ("Буровой контекст и DEXP", 87.0),
+    ("Жалпы және нормаланған газ", 70.0),
+    ("Total and normalized gas", 65.0),
+])
+def test_narrow_track_headings_preserve_whole_words_and_fit(qapp, tmp_path, dpi, title, width):
+    target = tmp_path / "whole-words.pdf"
+    writer = QPdfWriter(str(target))
+    writer.setResolution(dpi)
+    writer.setPageMargins(QMarginsF(0, 0, 0, 0), QPageLayout.Unit.Millimeter)
+    height = headings.track_heading_height(title, width, 9.0, writer, point_coordinates=True)
+    painter = QPainter(writer)
+    painter.scale(dpi / 72, dpi / 72)
+    try:
+        state = (painter.font(), painter.pen(), painter.transform())
+        headings.paint_track_heading(painter, QRectF(20, 20, width, height), title, 9.0,
+                                     point_coordinates=True)
+        assert (painter.font(), painter.pen(), painter.transform()) == state
+    finally:
+        painter.end()
+    with fitz.open(target) as pdf:
+        page = pdf[0]
+        assert page.get_text().split() == title.split()
+        spans = [span for block in page.get_text("dict")["blocks"] if "lines" in block
+                 for line in block["lines"] for span in line["spans"]]
+        assert spans
+        for span in spans:
+            assert span["bbox"][0] >= 21.7
+            assert span["bbox"][2] <= 20 + width - 1.7
+            assert span["bbox"][1] >= 19.7
+            assert span["bbox"][3] <= 20 + height + 0.3

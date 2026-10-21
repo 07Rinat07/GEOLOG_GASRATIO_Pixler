@@ -131,6 +131,9 @@ def test_invalid_or_cancelled_preview_cannot_reuse_previous_confirmation(
         source.unlink()
         dialog._analyze()
     elif action == "failed_analysis":
+        # Explicit strict mode must still reject conflicting historical cells.
+        # The default cumulative mode intentionally retains old values.
+        dialog.preserve_overlap.setChecked(False)
         source.write_bytes((FIXTURES / "03_conflict.las").read_bytes())
         dialog._analyze()
     elif action == "file_edit":
@@ -166,3 +169,99 @@ def test_daily_las_dialog_fits_work_area_with_sticky_actions(qapp) -> None:
         assert not dialog.change_table.isHidden()
     finally:
         dialog.close()
+
+
+def test_cumulative_preview_reports_conflicts_and_strict_toggle_revokes_plan(
+    qapp, monkeypatch,
+) -> None:
+    from PySide6.QtWidgets import QMessageBox
+
+    monkeypatch.setattr(
+        QMessageBox, "warning",
+        lambda *args: QMessageBox.StandardButton.Ok,
+    )
+    controller = _controller()
+    target = controller.session.current_dataset
+    assert target is not None
+    old = target.depth.copy()
+    dialog = DailyLasGrowthDialog(controller, language=AppLanguage.RU)
+    try:
+        assert dialog.preserve_overlap.isChecked()
+        dialog.file_input.setText(str(FIXTURES / "03_conflict.las"))
+        dialog._analyze()
+        reviewed = dialog.plan
+        assert reviewed is not None
+        assert reviewed.historical_policy == "keep_existing"
+        assert reviewed.historical_conflict_rows > 0
+        assert "Ни одно прежнее значение" in dialog.preview.toPlainText()
+        dialog.preserve_overlap.setChecked(False)
+        assert dialog.plan is None
+        assert not dialog.buttons.button(QDialogButtonBox.StandardButton.Ok).isEnabled()
+        with pytest.raises(RuntimeError, match="повторно проанализируйте"):
+            controller.apply(reviewed)
+        dialog._analyze()
+        assert dialog.plan is None
+        assert (target.depth == old).all()
+    finally:
+        dialog.close()
+
+
+@pytest.mark.parametrize("accept_safe_growth", [False, True])
+def test_failed_numeric_review_offers_safe_partial_append_without_applying(
+    qapp, monkeypatch, tmp_path: Path, accept_safe_growth: bool,
+) -> None:
+    import numpy as np
+    from PySide6.QtWidgets import QMessageBox
+    from geoworkbench.services.daily_las_growth import DailyLasGrowthPlan
+
+    controller = _controller()
+    target = controller.session.current_dataset
+    assert target is not None
+    before_depth = target.depth.copy()
+    before_values = {key: curve.values.copy() for key, curve in target.curves.items()}
+    # A cumulative daily export omits ROP and corrects an old C1 measurement.
+    lines = (FIXTURES / "02_daily_append.las").read_text().splitlines()
+    output = []
+    in_data = False
+    for line in lines:
+        if line.startswith(" ROP."):
+            continue
+        if line.startswith("~Ascii"):
+            in_data = True
+        elif in_data:
+            depth, _rop, methane = line.split()
+            line = f"{depth} {9.0 if depth == '1002.0' else methane}"
+        output.append(line)
+    source = tmp_path / "partial.las"
+    source.write_text("\n".join(output) + "\n")
+    questions = []
+
+    def choose(*args):
+        questions.append(args[2])
+        return QMessageBox.StandardButton.Yes if accept_safe_growth else QMessageBox.StandardButton.No
+
+    monkeypatch.setattr(QMessageBox, "question", choose)
+    monkeypatch.setattr(QMessageBox, "warning", lambda *args: pytest.fail(str(args)))
+    dialog = DailyLasGrowthDialog(controller, language=AppLanguage.RU)
+    dialog.numerical_mode.setChecked(True)
+    dialog.file_input.setText(str(source))
+    dialog._analyze()
+    assert len(questions) == 1
+    assert "Старые значения не изменятся" in questions[0]
+    np.testing.assert_array_equal(target.depth, before_depth)
+    for key, curve in target.curves.items():
+        np.testing.assert_array_equal(curve.values, before_values[key])
+    if not accept_safe_growth:
+        assert dialog.plan is None
+        assert not dialog.buttons.button(QDialogButtonBox.StandardButton.Ok).isEnabled()
+        return
+    assert not dialog.numerical_mode.isChecked()
+    assert isinstance(dialog.plan, DailyLasGrowthPlan)
+    assert dialog.plan.historical_conflict_cells > 0
+    assert dialog.buttons.button(QDialogButtonBox.StandardButton.Ok).isEnabled()
+    controller.apply(dialog.plan)
+    assert target.depth[-1] == 1004.0
+    for key, curve in target.curves.items():
+        np.testing.assert_array_equal(curve.values[:len(before_depth)], before_values[key])
+        if curve.metadata.original_mnemonic == "ROP":
+            assert np.isnan(curve.values[len(before_depth):]).all()

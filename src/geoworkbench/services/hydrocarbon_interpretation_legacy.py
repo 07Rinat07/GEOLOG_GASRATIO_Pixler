@@ -21,6 +21,7 @@ from geoworkbench.services.las_parameter_resolver import (
     DatasetParameterResolution,
     LasParameterResolver,
     ParameterResolutionError,
+    concentration_scale_to_percent,
     resolve_gas_ratio_inputs,
 )
 from geoworkbench.services.lba_standard import (
@@ -30,6 +31,12 @@ from geoworkbench.services.lba_standard import (
 )
 from geoworkbench.services.fluid_phase_contract import fluid_hypothesis_phase_label
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.hydrocarbon_interpretation_report_locale import (
+    localize_detector_metric,
+    localize_method_calculation,
+    localize_method_name,
+    localize_system_warning,
+)
 from geoworkbench.services.parameter_labels import (
     localized_curve_name,
     localized_curve_reference,
@@ -175,6 +182,8 @@ class HydrocarbonInterpretationReport:
     gas_context_audit: tuple[GasContextIntervalAudit, ...] = ()
     suppressed_candidates: tuple[HydrocarbonCandidateInterval, ...] = ()
     analysis_depth_interval: DepthInterval | None = None
+    # Prevent comparing two reports from distinct source/lag-corrected depth axes.
+    depth_axis_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -399,6 +408,7 @@ def build_hydrocarbon_interpretation_report(
         candidates,
         manual,
         tuple(warnings),
+        depth_axis_id=dataset.active_index_id,
     )
 
 
@@ -470,8 +480,19 @@ def _detect_candidates(
             None,
             "Для устойчивого фонового уровня требуется не менее 20 корректных газовых отсчётов.",
         )
+    # Robust-z after log1p must use a consistent physical concentration scale.
+    # The same mud gas recorded in ppm and %vol otherwise produces different
+    # threshold decisions even though the LAS measurements are equivalent.
+    # Normalize recognized units in the *working detector only*; original
+    # values, units and max_primary_value remain untouched for audit/reporting.
+    # Unknown vendor/normalized units retain their established behavior rather
+    # than being silently interpreted as a physical concentration.
+    physical_scale = concentration_scale_to_percent(primary_curve.metadata.unit)
+    detection_values = values[valid]
+    if physical_scale is not None:
+        detection_values = detection_values * physical_scale
     transformed = np.full(values.shape, np.nan, dtype=np.float64)
-    transformed[valid] = np.log1p(values[valid])
+    transformed[valid] = np.log1p(detection_values)
     finite_values = transformed[background_valid]
     median, scale = _robust_center_scale(finite_values)
     if scale is None:
@@ -495,6 +516,11 @@ def _detect_candidates(
     max_gap = max(step * 2.5, np.finfo(np.float64).eps)
     flagged_indices = np.flatnonzero(flagged)
     flagged_indices = flagged_indices[np.argsort(depth[flagged_indices], kind="stable")]
+    # A missing/invalid physical sample is not evidence of continuous gas.
+    # Keep valid low-gas dips eligible for existing small-gap grouping, but
+    # never merge flagged depths across an actual null/NaN/Inf/negative row.
+    # Sort once to support ascending/descending indexes without an O(N*K) scan.
+    missing_depths = np.sort(depth[np.isfinite(depth) & ~valid])
     fluid_context = _build_fluid_interpretation_context(
         dataset,
         background_valid & ~flagged,
@@ -506,10 +532,17 @@ def _detect_candidates(
             and max(top, bottom) >= depth[groups[-1][-1]]
             for top, bottom in candidate_exclusion_intervals
         )
+        crosses_missing = bool(groups) and (
+            np.searchsorted(missing_depths, depth[row_index], side="left")
+            > np.searchsorted(
+                missing_depths, depth[groups[-1][-1]], side="right"
+            )
+        )
         if (
             not groups
             or depth[row_index] - depth[groups[-1][-1]] > max_gap
             or crosses_exclusion
+            or crosses_missing
         ):
             groups.append([int(row_index)])
         else:
@@ -1389,9 +1422,9 @@ def hydrocarbon_interpretation_html(
     labels = _HTML_LABELS[language]
     method_rows = "".join(
         "<tr>"
-        f"<td>{escape(method.method)}</td>"
+        f"<td>{escape(localize_method_name(method.method, language))}</td>"
         f"<td>{escape(', '.join(localized_curve_reference(name, language=language) for name in method.available_mnemonics) or labels['no'])}</td>"
-        f"<td>{escape(method.calculation or '—')}</td>"
+        f"<td>{escape(localize_method_calculation(method.calculation, language) or '—')}</td>"
         f"<td>{escape(method.source)}</td>"
         "</tr>"
         for method in report.methods
@@ -1444,7 +1477,10 @@ def hydrocarbon_interpretation_html(
     )
     if not manual_rows:
         manual_rows = f"<tr><td colspan='5'>{escape(labels['no_manual'])}</td></tr>"
-    warnings = "".join(f"<li>{escape(item)}</li>" for item in report.warnings)
+    warnings = "".join(
+        f"<li>{escape(localize_system_warning(item, language))}</li>"
+        for item in report.warnings
+    )
     return f"""<!doctype html>
 <html><head><meta charset="utf-8"><style>
 html, body {{ background: #ffffff; color: #172033; }}
@@ -1498,6 +1534,23 @@ small {{ color: #44566c; }}
 <div class="notice"><h2>{escape(labels["warnings"])}</h2><ul>{warnings}</ul></div>
 </body></html>"""
 
+
+
+def pixler_assessment_labels(
+    assessment: PixlerAssessment,
+    language: AppLanguage = AppLanguage.RU,
+) -> tuple[str, str]:
+    """Readable Pixler class/shape for Office tables, consistent with PDF HTML.
+
+    Source class codes and the numerical Pixler assessment are left unchanged.
+    """
+    labels = _HTML_LABELS[language]
+    phase = labels.get(f"pixler_{assessment.code}", assessment.code)
+    shape = labels.get(
+        f"shape_{assessment.profile_shape or 'insufficient'}",
+        assessment.profile_shape or "insufficient",
+    )
+    return phase, shape
 
 def fluid_hypothesis_label(
     candidate: HydrocarbonCandidateInterval,
@@ -1655,7 +1708,7 @@ def _readable_evidence_item(item: str, language: AppLanguage) -> str:
     ):
         return (
             f"{_readable_evidence_mnemonic(prefix, language)}"
-            f"{separator}{suffix}"
+            f"{separator}{localize_detector_metric(suffix, language)}"
         )
     return item
 

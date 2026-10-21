@@ -35,6 +35,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_curve_labels import (
 )
 from geoworkbench.printing.hydrocarbon_interpretation_geology import (
     InterpretationGeologySnapshot,
+    geology_for_dataset,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_geology_legend import (
     build_interpretation_geology_legend,
@@ -74,6 +75,7 @@ from geoworkbench.services.hydrocarbon_interpretation import (
     hydrocarbon_interpretation_html,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.interpretation_method_comparison import MethodComparisonInterval
 from geoworkbench.services.gas_curve_presentation import (
     GAS_PREVIEW_POINT_RADIUS_PX,
     gas_ratio_position,
@@ -168,10 +170,16 @@ def hydrocarbon_interpretation_html_with_chart(
     *,
     annotations: tuple[ReportAnnotationRecord, ...] = (),
     chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
+    method_comparisons: tuple[MethodComparisonInterval, ...] = (),
 ) -> str:
     """Return the standard report HTML with a whole-well curve chart appended."""
 
-    base = hydrocarbon_interpretation_html(report, language)
+    if method_comparisons:
+        base = hydrocarbon_interpretation_html(
+            report, language, method_comparisons=method_comparisons,
+        )
+    else:
+        base = hydrocarbon_interpretation_html(report, language)
     from geoworkbench.services.hydrocarbon_interpretation_gas_html import (
         inject_interval_gas_statistics_html,
     )
@@ -221,6 +229,7 @@ def hydrocarbon_interpretation_chart_data_uri(
     interval = getattr(report, "analysis_depth_interval", None)
     depth_range = interval or depth_range
     dataset = scope_dataset(dataset, interval)
+    geology = geology_for_dataset(geology, dataset)
     depth = np.asarray(dataset.depth, dtype=np.float64)
     finite_depth = np.isfinite(depth)
     if depth.ndim != 1 or np.count_nonzero(finite_depth) < 2:
