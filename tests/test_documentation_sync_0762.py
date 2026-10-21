@@ -291,6 +291,16 @@ def test_i18n_audit_rejects_invalid_values_and_placeholders(tmp_path) -> None:
 
 
 
+def test_fusion_lithology_guides_describe_explicit_sources_and_unknown_state() -> None:
+    for language in ("ru", "kk", "en"):
+        guide = (ROOT / "docs" / language / "NORMALIZED_GAS_INTERPRETATION.md").read_text(
+            encoding="utf-8",
+        )
+        for name in ("`review_gis_gti_lithology_intervals`", "`LithologyObservation`",
+                     "UNKNOWN_OR_MIXED", "ObservationQuality", "VALIDATED", "shortlist"):
+            assert name in guide
+
+
 def test_fusion_md_partition_guides_describe_both_review_contracts() -> None:
     for language in ("ru", "kk", "en"):
         guide = (ROOT / "docs" / language / "NORMALIZED_GAS_INTERPRETATION.md").read_text(

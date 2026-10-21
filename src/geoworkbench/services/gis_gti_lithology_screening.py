@@ -7,6 +7,7 @@ resampling, fluid percentages, reservoir probabilities or pay designation.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import StrEnum
 from math import isfinite
@@ -122,6 +123,24 @@ class GisGtiIntervalReview:
     disregarded_evidence_ids: tuple[str, ...]
     reason_codes: tuple[str, ...]
     method_id: str = "interp-fusion-lithology-qc-1"
+
+
+@dataclass(frozen=True, slots=True)
+class LithologyObservation:
+    source_id: str
+    depth_axis_id: str
+    top_md_m: float
+    bottom_md_m: float
+    rock_family: RockFamily
+    quality: ObservationQuality
+
+
+@dataclass(frozen=True, slots=True)
+class GisGtiLithologyCell:
+    review: GisGtiIntervalReview
+    lithology_source_ids: tuple[str, ...]
+    disregarded_lithology_ids: tuple[str, ...]
+    lithology_issues: tuple[str, ...]
 
 
 def review_gis_gti_interval(
@@ -304,14 +323,86 @@ def review_gis_gti_intervals(
         top_md_m=top_md_m, bottom_md_m=bottom_md_m, depth_axis_id=depth_axis_id,
         rock_family=rock_family, observations=observations,
     )
-    _validate_bounds(float(top_md_m), float(bottom_md_m))
+    return tuple(review_gis_gti_interval(
+        top_md_m=top, bottom_md_m=bottom, depth_axis_id=depth_axis_id,
+        rock_family=rock_family,
+        observations=tuple(observations[index] for index in active),
+    ) for top, bottom, active in _md_cells(
+        top_md_m, bottom_md_m,
+        tuple((item.top_md_m, item.bottom_md_m) for item in observations),
+    ))
+
+
+def review_gis_gti_lithology_intervals(
+    *, top_md_m: float, bottom_md_m: float, depth_axis_id: str,
+    observations: tuple[IntervalObservation, ...],
+    lithology: tuple[LithologyObservation, ...],
+) -> tuple[GisGtiLithologyCell, ...]:
+    """Screen exact common MD coverage with explicit, quality-controlled rock data.
+
+    Missing or competing validated rock families remain UNKNOWN_OR_MIXED.
+    Lithology issues accompany the existing screening; independent formation
+    test evidence keeps its authority. No raw-name mapping or lag correction.
+    """
+    review_gis_gti_interval(
+        top_md_m=top_md_m, bottom_md_m=bottom_md_m, depth_axis_id=depth_axis_id,
+        rock_family=RockFamily.UNKNOWN_OR_MIXED, observations=observations,
+    )
+    if not isinstance(lithology, tuple):
+        raise TypeError("Lithology observations must be an immutable tuple")
+    for item in lithology:
+        if not isinstance(item, LithologyObservation):
+            raise TypeError("Every lithology record must be LithologyObservation")
+        if not isinstance(item.source_id, str) or not item.source_id.strip():
+            raise ValueError("Every lithology observation requires a source ID")
+        if item.depth_axis_id != depth_axis_id:
+            raise ValueError("Cannot correlate lithology from different MD axes")
+        if not isinstance(item.rock_family, RockFamily):
+            raise TypeError("Lithology rock family must be explicit")
+        if not isinstance(item.quality, ObservationQuality):
+            raise TypeError("Lithology quality must be explicit")
+        _validate_bounds(item.top_md_m, item.bottom_md_m)
+
+    offset = len(observations)
+    bounds = tuple((item.top_md_m, item.bottom_md_m) for item in observations)
+    bounds += tuple((item.top_md_m, item.bottom_md_m) for item in lithology)
+    result: list[GisGtiLithologyCell] = []
+    for top, bottom, active in _md_cells(top_md_m, bottom_md_m, bounds):
+        rocks = tuple(lithology[index-offset] for index in active if index >= offset)
+        accepted = tuple(item for item in rocks if item.quality is ObservationQuality.VALIDATED)
+        discarded = tuple(item for item in rocks if item.quality is not ObservationQuality.VALIDATED)
+        families = {item.rock_family for item in accepted}
+        issues: list[str] = []
+        if not families:
+            issues.append("no_validated_lithology")
+        elif len(families) > 1:
+            issues.append("conflicting_lithology_requires_review")
+        if discarded:
+            issues.append("suspect_or_rejected_lithology_not_used")
+        family = next(iter(families)) if len(families) == 1 else RockFamily.UNKNOWN_OR_MIXED
+        review = review_gis_gti_interval(
+            top_md_m=top, bottom_md_m=bottom, depth_axis_id=depth_axis_id,
+            rock_family=family,
+            observations=tuple(observations[index] for index in active if index < offset),
+        )
+        result.append(GisGtiLithologyCell(
+            review, tuple(dict.fromkeys(item.source_id for item in accepted)),
+            tuple(dict.fromkeys(item.source_id for item in discarded)), tuple(issues),
+        ))
+    return tuple(result)
+
+
+def _md_cells(
+    window_top: float, window_bottom: float, bounds: tuple[tuple[float, float], ...],
+) -> Iterator[tuple[float, float, tuple[int, ...]]]:
+    _validate_bounds(float(window_top), float(window_bottom))
     starts: dict[float, list[int]] = {}
     ends: dict[float, list[int]] = {}
-    boundaries = {float(top_md_m), float(bottom_md_m)}
-    for index, item in enumerate(observations):
-        _validate_bounds(float(item.top_md_m), float(item.bottom_md_m))
-        top = max(float(top_md_m), float(item.top_md_m))
-        bottom = min(float(bottom_md_m), float(item.bottom_md_m))
+    boundaries = {float(window_top), float(window_bottom)}
+    for index, (source_top, source_bottom) in enumerate(bounds):
+        _validate_bounds(float(source_top), float(source_bottom))
+        top = max(float(window_top), float(source_top))
+        bottom = min(float(window_bottom), float(source_bottom))
         if top >= bottom:
             continue
         starts.setdefault(top, []).append(index)
@@ -319,20 +410,14 @@ def review_gis_gti_intervals(
         boundaries.update((top, bottom))
 
     ordered = sorted(boundaries)
-    active: dict[int, IntervalObservation] = {}
-    result: list[GisGtiIntervalReview] = []
+    active: set[int] = set()
     for top, bottom in zip(ordered, ordered[1:]):
         # End before start at a shared boundary: [top, bottom) ownership.
         for index in ends.get(top, ()):
-            active.pop(index)
+            active.remove(index)
         for index in starts.get(top, ()):
-            active[index] = observations[index]
-        result.append(review_gis_gti_interval(
-            top_md_m=top, bottom_md_m=bottom, depth_axis_id=depth_axis_id,
-            rock_family=rock_family,
-            observations=tuple(active[index] for index in sorted(active)),
-        ))
-    return tuple(result)
+            active.add(index)
+        yield top, bottom, tuple(sorted(active))
 
 
 def _validate_bounds(top: float, bottom: float) -> None:
@@ -368,4 +453,5 @@ __all__ = [
     "EvidenceOrigin", "FluidAssessment", "GisGtiIntervalReview",
     "IntervalObservation", "ObservationKind", "ObservationQuality",
     "ReservoirAssessment", "RockFamily", "review_gis_gti_interval", "review_gis_gti_intervals",
+    "GisGtiLithologyCell", "LithologyObservation", "review_gis_gti_lithology_intervals",
 ]

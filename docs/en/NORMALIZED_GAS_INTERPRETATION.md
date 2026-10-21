@@ -228,6 +228,19 @@ and method applicability are prerequisites. No UI, automatic cell merging,
 productive-bed count/thickness or new fluid model is added; changing rock
 families require separate verified windows.
 
+## Lithology on the common MD evidence partition
+
+`review_gis_gti_lithology_intervals` is a separate data-only API for explicit
+`LithologyObservation` records: source ID, MD-axis ID, bounds, RockFamily and
+ObservationQuality. Evidence and lithology share a common boundary partition.
+Only an agreed VALIDATED family is used per cell; missing or competing families
+give UNKNOWN_OR_MIXED with separate QC reasons. Suspect/rejected records do
+not select a rock family, but their IDs are retained. Recorded UNKNOWN differs
+from missing lithology. Independent formation tests retain their authority;
+a positive shortlist does not resolve lithology QC or approve a geologist's
+conclusion. Raw rock-name mapping, MD/lag, UI and persistence remain separate;
+source LAS and project data are unchanged.
+
 ## Comparison freshness during Excel export
 
 A changed source curve revision or replaced curve/axis array requires a new
