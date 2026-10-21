@@ -1,6 +1,18 @@
 <!-- runtime-contract: package=0.7.96; project=v38; form=v18; layout=v25 -->
 # Архитектура
 
+## INTERP-PETRO-01: session-local calibration и scalar evaluation
+
+`services/gis_reference_calibration.py` связывает явные параметры и экспертное
+основание с frozen source review, MD-областью и слабыми ссылками на массивы.
+Повторный review и curve.version защищают от изменённого источника; SHA-256
+MD-оси обнаруживает in-place правки, поскольку DatasetIndex не имеет версии.
+Для contiguous оси digest не создаёт копию данных. Слабые ссылки не удерживают
+большие LAS и обнаруживают замену/reopen без проблемы повторного использования id.
+Один sample_index даёт фактические MD/value и существующий immutable estimate
+с полным calibration context. Не включать этот scalar API в цикл batch-расчёта:
+каждый вызов повторно сканирует inventory/MD. UI/schema/source arrays не меняются.
+
 ## INTERP-GIS-01: source review перед калибровкой
 
 `services/gis_reference_input_review.py` связывает явный ключ кривой с

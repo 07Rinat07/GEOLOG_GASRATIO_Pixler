@@ -17,6 +17,18 @@ a future calculation using a stale review. Archie is excluded: generic
 resistivity/neutron does not establish Rt/effective porosity. UI, source LAS,
 arrays and project persistence are unchanged.
 
+`create_gis_reference_calibration` requires calibration_id, tool_id, reviewer,
+applicability_reference (expert review evidence), MD bounds and all method
+parameters. `evaluate_gis_reference_sample` evaluates one actual sample_index
+with source MD/value and full calibration context. There are no default
+parameters, interpolation or clipping. Curve revision/metadata, replaced
+arrays, in-place MD edits or reopen require a new profile. Profiles are
+session-local and are not saved. Evidence records an expert attestation, not
+automatic tool applicability certification. NaN, invalid indices and samples
+outside the MD scope are rejected. Controllers must increment curve.version
+for in-place value edits. This is not a batch-loop API: every sample rechecks
+inventory and MD. UI and Archie are not connected.
+
 ## Gamma ray: IGR
 
 `gamma_ray_index` (`igr-linear-1`): `IGR = (GR - GRclean) / (GRshale - GRclean)`. All three inputs must use the same verified API scale; `GRshale > GRclean`. **Synthetic**, not field, reference example: `GR=65`, `GRclean=25`, `GRshale=125` API → `IGR=0.4` v/v. IGR is **not automatically Vsh**: mineralogy, facies and local reference endpoints need verification. Values outside [0,1] are retained with `outside_reference_range` rather than clipped.

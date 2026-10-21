@@ -1,3 +1,16 @@
+## INTERP-PETRO-01 calibrated scalar sample
+
+`tests/test_gis_reference_calibration.py` verifies explicit parameters/evidence,
+actual row and immutable context, raw out-of-range quality, source revisions,
+array replacement/reopen, in-place MD changes, NaN, strict indices, MD scope,
+descending source order and unchanged source arrays. Evidence is a caller
+attestation, not automatic tool applicability certification.
+
+```powershell
+$env:PYTHONUTF8 = '1'
+.\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_gis_reference_calibration.py tests/test_gis_reference_input_review.py tests/test_gis_input_inventory.py tests/test_petrophysical_reference_models.py tests/test_documentation_sync_0762.py -q
+```
+
 ## INTERP-GIS-01 reference source review
 
 `tests/test_gis_reference_input_review.py` checks explicit channel selection,
