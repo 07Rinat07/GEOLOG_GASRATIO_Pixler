@@ -1,3 +1,17 @@
+## INTERP-FUSION-01 MD partitions
+
+`tests/test_gis_gti_md_partitions.py` checks separated/shared evidence, touching
+and overlapping formation tests, local suspect QC, unknown gaps, clipping,
+source order, immutable output, all-input validation including off-window
+records, representable positive widths, sparse coverage and length conservation.
+This is geometric/software acceptance using existing screening rules, not field
+validation or a new fluid/pay model.
+
+```powershell
+$env:PYTHONUTF8 = '1'
+.\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_gis_gti_md_partitions.py tests/test_gis_gti_lithology_screening.py tests/test_documentation_sync_0762.py -q
+```
+
 ## INTERP-PETRO-01 operator dialog
 
 `tests/test_gis_reference_dialog.py` exercises RU/KK/EN × IGR/density actual
