@@ -113,7 +113,7 @@ def test_project_v37_round_trip_preserves_report_annotations(tmp_path) -> None:
     )
     loaded = load_project_document(target)
 
-    assert PROJECT_FORMAT_VERSION == 37
+    assert PROJECT_FORMAT_VERSION == 38
     assert loaded.report_compositions[DATASET_ID] == composition
 
 
