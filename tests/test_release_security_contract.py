@@ -107,6 +107,13 @@ def test_workflow_syncs_the_lock_and_uploads_three_artifact_groups() -> None:
     # must all consume the same fully hashed runtime lock.
     assert text.count("uv pip sync requirements/release.lock") == 4
     assert text.count("--require-hashes") == 4
+    # Runtime packages come from the audited lock, never a later dev-tool override.
+    locked_names = {
+        _normalized_name(name)
+        for name in re.findall(r"^([A-Za-z0-9_.-]+)==", _read(LOCK), re.MULTILINE)
+    }
+    workflow_pins = re.findall(r"\b([A-Za-z0-9_.-]+)==[0-9]", text)
+    assert not locked_names.intersection(_normalized_name(name) for name in workflow_pins)
     assert "pip-audit==2.10.1" in text
     assert "detect-secrets==1.5.0" in text
     gate = _read(ROOT / "tools" / "release_security_gate.py")
