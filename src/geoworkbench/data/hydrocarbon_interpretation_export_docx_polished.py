@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import partial
+from typing import Callable
 import os
 from pathlib import Path
 import tempfile
@@ -25,6 +26,8 @@ from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.interpretation_geology_interval_evidence import GasGeologyIntervalEvidence
+from geoworkbench.services.interpretation_geology_evidence_export import verified_report_geology_evidence
 from geoworkbench.services.interpretation_method_comparison import MethodComparisonInterval
 
 
@@ -42,9 +45,11 @@ def export_polished_hydrocarbon_interpretation_docx(
     language: AppLanguage = AppLanguage.RU,
     overwrite: bool = False,
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
+    geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
 ) -> Path:
     """Export Word with its existing cover and optional preverified comparison."""
 
+    verified_report_geology_evidence(report, geology_evidence)
     destination = Path(target)
     if destination.suffix.casefold() != ".docx":
         destination = destination.with_suffix(".docx")
@@ -56,10 +61,12 @@ def export_polished_hydrocarbon_interpretation_docx(
     source = _temporary_docx(destination, "source")
     rewritten = _temporary_docx(destination, "rewritten")
     try:
-        export_writer = (
+        export_writer: Callable[..., Path] = (
             partial(export_hydrocarbon_interpretation_docx, method_comparisons=method_comparisons)
             if method_comparisons else export_hydrocarbon_interpretation_docx
         )
+        if geology_evidence:
+            export_writer = partial(export_writer, geology_evidence=geology_evidence)
         export_writer(
             report,
             source,

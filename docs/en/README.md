@@ -12,6 +12,18 @@ and DLIS/LIS79/SEG-Y binary previews are not yet claimed. `quick_pp` is an evalu
 candidate, not an installed dependency. See the [canonical project plan](../PROJECT_PLAN.md)
 for status and acceptance criteria.
 
+In gas/geology comparison, saved LBA, cuttings, calcimetry and stratigraphy field names follow the selected report language in HTML, PDF, Word, Excel and printing. Measured composition is labelled in percent; source values, IDs and user descriptions remain unchanged.
+
+Comparison also includes separately recorded LBA cut speed/color, residue type/color, odour and stain. Empty fields are not measurements; changing these observations requires renewed approval for report output.
+
+The coverage table lists MD intervals without observations for each geological data type. With no records, the entire gas interval is listed; full coverage is marked separately. A gap means no observation, not a negative assay result.
+
+Auto tracks and geological legends include only samples with positive depth overlap with the selected range. Touching an edge does not create an empty track; Show retains the column with its no-data indication. Actual intervals crossing page boundaries remain visible.
+
+A sample recorded only through additional LBA details (cut, residue, odour or stain) is retained in the graphical track. Missing type or intensity uses the existing neutral unknown symbol; empty text does not create an observation.
+
+Saved MD samples are overlaid and compared with gas only on a verified metre MD axis. TVD/TVDSS, time, feet and unconfirmed corrected lag coordinates do not inherit that alignment automatically. A lag profile’s explicitly preserved source MD axis remains available; depths are not converted.
+
 ## Installation and startup
 
 Python 3.11 or newer is required. Run every command from the project root.
@@ -735,3 +747,10 @@ The **Files** tab is visible in the main workspace and can also be opened throug
 or `Ctrl+Alt+F`. After `git pull`, update the active environment with
 `python -m pip install -e ".[dev]"`. PyMuPDF is imported as `fitz`; when it is missing, the
 application now starts in a safe fallback mode and displays recovery instructions in the tab.
+
+
+In Compare gas with geology, select an interval and click Include selected observations in Word, then export Word. PDF approval is separate. Confirm again after changing the interval or settings; source or sample changes during preparation cancel the export.
+
+For Excel, separately click Include selected observations in Excel in the same dialog, then export Excel. PDF, Word and Excel approvals are independent. Source, sample or setting changes during preparation cancel export and preserve the existing file. Descriptions exceeding the Excel cell limit are rejected without truncation; use Word/PDF for the complete text.
+
+For system printing, separately click Include selected observations in printing, then print the report. The job uses the confirmed observation snapshot; changes before its first page cancel submission. Source or setting changes during printing stop remaining pages, but pages already submitted to Windows may remain queued. Cancelling the printer dialog removes the temporary PDF.

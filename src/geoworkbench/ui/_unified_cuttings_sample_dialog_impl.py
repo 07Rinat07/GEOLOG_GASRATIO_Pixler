@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.catalogs.description_templates import load_rock_description_templates
 from geoworkbench.domain.models import CuttingsSample, DescriptionTemplateBlock, new_id
+from geoworkbench.ui.oil_show_observation_editor import OilShowObservationEditor
 from geoworkbench.domain.localized_content import SUPPORTED_CONTENT_LANGUAGES
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.services.lba_standard import (
@@ -70,9 +71,9 @@ _TEXT = {
         "calc_error": "Сумма кальцита и доломита не должна превышать 100%.",
         "no_value": "Нет результата",
         "lba": "Люминесцентно-битуминологический анализ",
-        "lba_hint": "Выберите один тип битумоида и один балл интенсивности. Если показаний нет, оставьте «Нет результата».",
+        "lba_hint": "Выберите тип битумоида и балл 1–5 по форме люминесцирующего пятна капиллярной вытяжки под УФ после испарения растворителя. Если результата нет, оставьте «Нет результата».",
         "lba_type": "Тип битумоида",
-        "intensity": "Интенсивность / остаточное кольцо",
+        "intensity": "Балл ЛБА по люминесцирующему пятну (1–5)",
         "lba_color": "Цвет свечения",
         "lba_details": "Дополнительное описание ЛБА",
         "description": "Описание шлама",
@@ -91,7 +92,7 @@ _TEXT = {
         "delete": "Удалить пробу",
         "interval_error": "Начальная глубина должна быть меньше конечной.",
         "intensity_1": "1 — единичные точки",
-        "intensity_2": "2 — фрагментарное кольцо",
+        "intensity_2": "2 — прерывистое кольцо",
         "intensity_3": "3 — тонкое сплошное кольцо",
         "intensity_4": "4 — толстое кольцо",
         "intensity_5": "5 — сплошное пятно",
@@ -128,9 +129,9 @@ _TEXT = {
         "calc_error": "Кальцит пен доломит қосындысы 100%-дан аспауы керек.",
         "no_value": "Нәтиже жоқ",
         "lba": "Люминесцентті-битуминологиялық талдау",
-        "lba_hint": "Битумоидтың бір түрін және қарқындылықтың бір балын таңдаңыз. Көрсеткіш жоқ болса, «Нәтиже жоқ» күйінде қалдырыңыз.",
+        "lba_hint": "Битумоид түрін және еріткіш буланғаннан кейін УФ сәулесінде байқалатын капиллярлық сығынды дағының пішіні мен жарқырауына қарай 1–5 балын таңдаңыз. Нәтиже болмаса, «Нәтиже жоқ» күйінде қалдырыңыз.",
         "lba_type": "Битумоид түрі",
-        "intensity": "Қарқындылық / қалдық сақина",
+        "intensity": "ЛБА люминесценттік дағының балы (1–5)",
         "lba_color": "Жарқырау түсі",
         "lba_details": "ЛБА қосымша сипаттамасы",
         "description": "Шлам сипаттамасы",
@@ -186,9 +187,9 @@ _TEXT = {
         "calc_error": "Calcite plus dolomite must not exceed 100%.",
         "no_value": "No result",
         "lba": "Luminescent-bituminological analysis",
-        "lba_hint": "Select one bitumoid type and one intensity score. Leave “No result” selected when there is no indication.",
+        "lba_hint": "Select a bitumoid type and score the UV-fluorescent capillary-extract imprint after solvent evaporation on a 1–5 scale. Pattern and intensity are considered. Leave “No result” if absent.",
         "lba_type": "Bitumoid type",
-        "intensity": "Intensity / residual ring",
+        "intensity": "LBA fluorescence-spot score (1–5)",
         "lba_color": "Fluorescence color",
         "lba_details": "Additional LBA description",
         "description": "Cuttings description",
@@ -811,6 +812,12 @@ class UnifiedCuttingsSampleDialog(QDialog):
         details.addRow(self._text["lba_color"], self.lba_color_input)
         details.addRow(self._text["lba_details"], self.lba_description_tabs)
         lba_layout.addLayout(details)
+        self.oil_show_editor = OilShowObservationEditor(
+            self._language,
+            sample.show_observations if sample is not None else None,
+            lba_group,
+        )
+        lba_layout.addWidget(self.oil_show_editor)
         layout.addWidget(lba_group)
         layout.addStretch(1)
 
@@ -947,6 +954,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
             "lba_intensity": normalized_intensity,
             "lba_group": type_id if type_id > 0 else None,
             "lba_color": self.lba_color_input.currentText().strip() or None,
+            "show_observations": self.oil_show_editor.observations(),
             "lba_description": self.lba_details_input.text().strip() or None,
             "lba_description_i18n": lba_descriptions,
             "analysis_interpretation": self.interpretation_input.toPlainText().strip() or None,

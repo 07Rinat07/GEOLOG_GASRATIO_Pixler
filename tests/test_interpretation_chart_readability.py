@@ -107,9 +107,12 @@ def test_repeat_legend_decodes_all_screenshot_codes(qapp, tmp_path, compact):
         text = _normalized(document[0].get_text())
     for item in legend.items:
         assert _normalized(f"{item.code} — {item.label}") in text
-    for title in ("Литология", "ЛБА: тип битумоида", "ЛБА: интенсивность",
+    for title in ("Литология", "ЛБА: тип битумоида",
+                  "ЛБА: люминесцирующее пятно (балл)",
                   "ЛБА: цвет флуоресценции"):
         assert _normalized(title) in text
+    # Do not regress to the superseded label of the LBA UV-imprint score.
+    assert _normalized("ЛБА: остаточное кольцо/пятно") not in text
 
 
 @pytest.mark.parametrize("language", list(AppLanguage))

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+from dataclasses import replace
 from types import SimpleNamespace
 
 import numpy as np
@@ -14,6 +15,8 @@ from geoworkbench.domain.models import (
     Dataset,
     DatasetKind,
     DepthDomain,
+    IndexRole,
+    IndexType,
 )
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart_enhanced as pdf_chart
 from geoworkbench.printing import hydrocarbon_interpretation_chart as preview_chart
@@ -233,7 +236,7 @@ def test_landscape_pdf_exports_extreme_labels_and_catalogs(qapp, tmp_path, count
     assert geology.lithotypes == lithotypes
 
 
-def test_multi_page_partial_geology_keeps_page_gaps_empty(monkeypatch) -> None:
+def test_multi_page_partial_geology_keeps_page_gaps_empty(qapp, monkeypatch) -> None:
     dataset = _dataset(depth_span=2500.0, samples=501)
     report = _report()
     geology = _geology()
@@ -288,7 +291,111 @@ def test_multi_page_partial_geology_keeps_page_gaps_empty(monkeypatch) -> None:
     assert any(top > 1006.0 for top, _bottom, _tracks, _empty in observed)
 
 
-def test_multi_page_forced_empty_tracks_keep_one_report_level_empty_state(monkeypatch) -> None:
+@pytest.mark.parametrize("source", ("md", "tvd", "tvdss", "time", "feet", "unknown", "foreign", "axis", "lag"))
+@pytest.mark.parametrize("language", tuple(AppLanguage))
+def test_real_preview_and_pdf_reject_unaligned_geology(qapp, monkeypatch, tmp_path, source, language):
+    import fitz
+
+    dataset = _dataset()
+    geology = replace(_geology(), dataset_id=dataset.dataset_id, depth_axis_id=dataset.active_index_id)
+    if source in {"tvd", "tvdss"}:
+        dataset.active_index.index_type = IndexType.TVD if source == "tvd" else IndexType.TVDSS
+    elif source == "time":
+        dataset.active_index.index_type = IndexType.RELATIVE_TIME
+        dataset.active_index.role = IndexRole.TIME
+        dataset.active_index.unit = "s"
+    elif source in {"feet", "unknown"}:
+        dataset.active_index.unit = "ft" if source == "feet" else None
+    elif source == "foreign":
+        dataset.dataset_id = "foreign-dataset"
+    elif source == "axis":
+        dataset.add_index(replace(dataset.active_index, index_id="other-md"), make_active=True)
+    elif source == "lag":
+        dataset.headers["LAG_PROFILE_ID"] = "derived"
+        dataset.parameters["LAG_FORMULA_ID"] = "lag-correction"
+    depth = dataset.depth.copy()
+    before = repr(geology)
+    auto = hydrocarbon_interpretation_chart_data_uri(_report(), dataset, language, geology=geology)
+    without = hydrocarbon_interpretation_chart_data_uri(_report(), dataset, language)
+    assert bool(auto)
+    assert (auto == without) is (source != "md")
+    captures = []
+    original = pdf_chart._draw_geology_tracks
+    def capture(painter, geometry, page, observed, tracks, empty, lang):
+        captures.append((observed, tracks))
+        return original(painter, geometry, page, observed, tracks, empty, lang)
+    monkeypatch.setattr(pdf_chart, "_draw_geology_tracks", capture)
+    output = tmp_path / "axis-proof.pdf"
+    writer = QPdfWriter(str(output))
+    writer.setResolution(72)
+    writer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+    writer.setPageOrientation(QPageLayout.Orientation.Landscape)
+    painter = QPainter(writer)
+    try:
+        pdf_chart.render_chart_pages(PageCanvas(writer, painter, language), _report(), dataset, language, geology=geology)
+    finally:
+        painter.end()
+    assert bool(captures) is (source == "md")
+    for observed, tracks in captures:
+        assert observed == (geology if source == "md" else None)
+        assert tracks == (("cuttings", "lba") if source == "md" else ())
+    with fitz.open(output) as document:
+        text = " ".join(page.get_text() for page in document)
+        assert (("LBA" if language is AppLanguage.EN else "ЛБА") in text) is (source == "md")
+    np.testing.assert_array_equal(dataset.depth, depth)
+    assert repr(geology) == before
+
+
+@pytest.mark.parametrize("language", tuple(AppLanguage))
+def test_partial_lba_details_render_in_real_preview_and_pdf_without_inferred_intensity(qapp, monkeypatch, tmp_path, language):
+    import fitz
+    from geoworkbench.printing import geology_track_rendering as renderer
+    from geoworkbench.printing.lba_visuals import UNKNOWN_LBA_STYLE
+
+    fields = ("lba_cut_speed", "lba_cut_color", "lba_residue_type", "lba_residue_color", "lba_odour", "lba_stain")
+    geology = InterpretationGeologySnapshot(tuple(
+        FrozenCuttingsSample(str(index), 1000.0 + index * 2, 1001.0 + index * 2, (), **{field: "Recorded detail"})
+        for index, field in enumerate(fields)
+    ), ())
+    before = repr(geology)
+    dataset = _dataset()
+    depth = dataset.depth.copy()
+    symbols = []
+    original = renderer.paint_lba_intensity_symbol
+    def capture(*args):
+        symbols.append((args[-2].name(), args[-1]))
+        return original(*args)
+    monkeypatch.setattr(renderer, "paint_lba_intensity_symbol", capture)
+    auto = hydrocarbon_interpretation_chart_data_uri(_report(), dataset, language, geology=geology)
+    hidden = hydrocarbon_interpretation_chart_data_uri(
+        _report(), dataset, language, geology=geology,
+        geology_track_settings=InterpretationGeologyTrackSettings(lba=GeologyTrackVisibility.HIDE),
+    )
+    assert auto != hidden
+    assert len(symbols) >= len(fields)
+    assert set(symbols) == {(UNKNOWN_LBA_STYLE.color, None)}
+    symbols.clear()
+    output = tmp_path / "partial-lba.pdf"
+    writer = QPdfWriter(str(output))
+    writer.setResolution(72)
+    writer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+    writer.setPageOrientation(QPageLayout.Orientation.Landscape)
+    painter = QPainter(writer)
+    try:
+        pdf_chart.render_chart_pages(PageCanvas(writer, painter, language), _report(), dataset, language, geology=geology)
+    finally:
+        painter.end()
+    assert len(symbols) >= len(fields)
+    assert set(symbols) == {(UNKNOWN_LBA_STYLE.color, None)}
+    with fitz.open(output) as document:
+        text = " ".join(page.get_text() for page in document)
+        assert ("LBA" if language is AppLanguage.EN else "ЛБА") in text
+        assert "?" in text
+    np.testing.assert_array_equal(dataset.depth, depth)
+    assert repr(geology) == before
+
+
+def test_multi_page_forced_empty_tracks_keep_one_report_level_empty_state(qapp, monkeypatch) -> None:
     dataset = _dataset(depth_span=2500.0, samples=501)
     report = _report()
     settings = InterpretationGeologyTrackSettings(
@@ -334,15 +441,17 @@ def test_multi_page_forced_empty_tracks_keep_one_report_level_empty_state(monkey
 
 
 
-def test_screen_preview_auto_ignores_geology_outside_selected_interval(qapp) -> None:
+@pytest.mark.parametrize(("top", "bottom"), ((1015.0, 1018.0), (995.0, 1000.0), (1010.0, 1015.0)))
+@pytest.mark.parametrize("language", tuple(AppLanguage))
+def test_screen_preview_auto_ignores_geology_outside_selected_interval(qapp, top, bottom, language) -> None:
     dataset = _dataset()
     report = _report()
     geology = InterpretationGeologySnapshot(
         samples=(
             FrozenCuttingsSample(
                 sample_id="outside",
-                top_depth=1015.0,
-                bottom_depth=1018.0,
+                top_depth=top,
+                bottom_depth=bottom,
                 components=(FrozenCuttingsComponent("sandstone", 100.0),),
                 lba_group=2,
             ),
@@ -354,7 +463,7 @@ def test_screen_preview_auto_ignores_geology_outside_selected_interval(qapp) -> 
     auto_uri = hydrocarbon_interpretation_chart_data_uri(
         report,
         dataset,
-        AppLanguage.RU,
+        language,
         geology=geology,
         geology_track_settings=InterpretationGeologyTrackSettings(),
         depth_range=depth_range,
@@ -362,7 +471,7 @@ def test_screen_preview_auto_ignores_geology_outside_selected_interval(qapp) -> 
     hidden_uri = hydrocarbon_interpretation_chart_data_uri(
         report,
         dataset,
-        AppLanguage.RU,
+        language,
         geology=geology,
         geology_track_settings=InterpretationGeologyTrackSettings(
             cuttings=GeologyTrackVisibility.HIDE,

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from functools import partial
+from pathlib import Path
+from typing import Callable
 
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
@@ -19,6 +21,7 @@ from geoworkbench.project.interpretation_calculation_controller import (
 )
 from geoworkbench.services.drilling_input_plan import InputSourceMode
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.interpretation_geology_interval_evidence import GasGeologyIntervalEvidence
 from geoworkbench.ui.drilling_calculation_dialog import DrillingCalculationDialog
 from geoworkbench.ui.interpretation_report_workspace_final import (
     InterpretationReportWorkspace as _FinalInterpretationReportWorkspace,
@@ -113,6 +116,8 @@ class InterpretationReportWorkspace(_FinalInterpretationReportWorkspace):
         dataset = self.controller.session.current_dataset
         if dataset is None:
             return
+        original_well_id = self.controller.session.current_well_id
+        confirmed_geology = self._geology_word_evidence
         identity = self._select_report_identity(report)
         if identity is None:
             return
@@ -126,11 +131,6 @@ class InterpretationReportWorkspace(_FinalInterpretationReportWorkspace):
         target = self._choose_target(".docx", "Word (*.docx)")
         if target is None:
             return
-        comparisons = self._method_comparisons_for_export(report)
-        word_exporter = (
-            partial(export_polished_hydrocarbon_interpretation_docx, method_comparisons=comparisons)
-            if comparisons else export_polished_hydrocarbon_interpretation_docx
-        )
         try:
             with self._report_export_progress(
                 self._text(
@@ -139,6 +139,34 @@ class InterpretationReportWorkspace(_FinalInterpretationReportWorkspace):
                     "Building Word report with a separate cover page…",
                 )
             ):
+                if (
+                    self.report is not report
+                    or self.controller.session.current_dataset is not dataset
+                    or self.controller.session.current_well_id != original_well_id
+                ):
+                    self._clear_geology_evidence()
+                    self._clear_method_comparison()
+                    raise HydrocarbonInterpretationExportError(
+                        "Word report source changed during export preparation"
+                    )
+                comparisons = self._method_comparisons_for_export(report)
+                selected_geology: tuple[GasGeologyIntervalEvidence, ...] = ()
+                if confirmed_geology:
+                    try:
+                        selected_geology = self._geology_evidence_for_export(report, output="word")
+                    except ValueError as exc:
+                        raise HydrocarbonInterpretationExportError(
+                            "Confirmed geology changed during Word preparation"
+                        ) from exc
+                    if selected_geology != confirmed_geology:
+                        raise HydrocarbonInterpretationExportError(
+                            "Confirmed geology was revoked during Word preparation"
+                        )
+                word_exporter: Callable[..., Path] = export_polished_hydrocarbon_interpretation_docx
+                if comparisons:
+                    word_exporter = partial(word_exporter, method_comparisons=comparisons)
+                if selected_geology:
+                    word_exporter = partial(word_exporter, geology_evidence=selected_geology)
                 exported = word_exporter(
                     report,
                     target,

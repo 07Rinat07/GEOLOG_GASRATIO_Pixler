@@ -7,6 +7,7 @@ from functools import partial
 import logging
 from pathlib import Path
 import tempfile
+from typing import Callable
 
 import fitz
 import numpy as np
@@ -31,6 +32,12 @@ from geoworkbench.domain.models import IndexRole
 from geoworkbench.project.report_annotation_controller import ReportAnnotationController
 from geoworkbench.ui.interpretation_gas_value_flag_dialog import ReportGasValueFlagDialog
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.interpretation_geology_interval_evidence import (
+    GasGeologyIntervalEvidence,
+)
+from geoworkbench.services.report_output_transaction import (
+    ReportOutputTransactionResult,
+)
 from geoworkbench.services.report_preview_marks import PreviewMark
 from geoworkbench.services.edit_history import CommandHistory
 from geoworkbench.project.interpretation_calculation_controller import (
@@ -615,6 +622,10 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         dataset = self.controller.session.current_dataset
         if dataset is None:
             return
+        original_well_id = self.controller.session.current_well_id
+        original_active_report = self.report
+        # Capture operator consent before any dialogs can dispatch Qt events.
+        confirmed_geology = self._geology_pdf_evidence
         geology = interpretation_geology_snapshot(self.controller.session)
 
         identity = self._select_report_identity(report)
@@ -657,7 +668,52 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     "Building PDF report with charts…",
                 )
             ):
-                export_result = export_hydrocarbon_interpretation_pdf_with_passport(
+                # File/identity/layout dialogs and progress startup can dispatch
+                # queued Qt changes. Never render an old report for a new well.
+                if (
+                    self.controller.session.current_dataset is not dataset
+                    or self.controller.session.current_well_id != original_well_id
+                    or self.report is not original_active_report
+                ):
+                    self._clear_method_comparison()
+                    raise HydrocarbonInterpretationPdfError(
+                        "PDF report source changed during export preparation"
+                    )
+                comparisons = self._method_comparisons_for_export(report)
+                selected_geology: tuple[GasGeologyIntervalEvidence, ...] = ()
+                if confirmed_geology:
+                    try:
+                        selected_geology = self._geology_evidence_for_export(report)
+                    except ValueError as exc:
+                        raise HydrocarbonInterpretationPdfError(
+                            "Operator-confirmed geology changed during PDF preparation"
+                        ) from exc
+                    if selected_geology != confirmed_geology:
+                        raise HydrocarbonInterpretationPdfError(
+                            "Operator-confirmed geology was revoked during PDF preparation"
+                        )
+                # The default path passes no new kwargs; selected geology only
+                # travels after the operator explicitly pressed Include in PDF.
+                pdf_exporter: Callable[..., ReportOutputTransactionResult]
+                if comparisons and selected_geology:
+                    pdf_exporter = partial(
+                        export_hydrocarbon_interpretation_pdf_with_passport,
+                        method_comparisons=comparisons,
+                        geology_evidence=selected_geology,
+                    )
+                elif comparisons:
+                    pdf_exporter = partial(
+                        export_hydrocarbon_interpretation_pdf_with_passport,
+                        method_comparisons=comparisons,
+                    )
+                elif selected_geology:
+                    pdf_exporter = partial(
+                        export_hydrocarbon_interpretation_pdf_with_passport,
+                        geology_evidence=selected_geology,
+                    )
+                else:
+                    pdf_exporter = export_hydrocarbon_interpretation_pdf_with_passport
+                export_result = pdf_exporter(
                     self.controller.session,
                     report,
                     target,
@@ -693,7 +749,15 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if dataset is None:
             return
         original_well_id = self.controller.session.current_well_id
+        original_active_report = self.report
+        confirmed_geology = self._geology_print_evidence
         geology = interpretation_geology_snapshot(self.controller.session)
+
+        def verify_print_geology() -> None:
+            if confirmed_geology:
+                selected = self._geology_evidence_for_export(report, output="print")
+                if selected != confirmed_geology:
+                    raise ValueError("Confirmed geology was revoked during print preparation")
 
         identity = self._select_report_identity(report)
         if identity is None:
@@ -709,8 +773,10 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if (
             self.controller.session.current_dataset is not dataset
             or self.controller.session.current_well_id != original_well_id
+            or self.report is not original_active_report
             or report.dataset_id != dataset.dataset_id
         ):
+            self._clear_geology_evidence()
             self._show_export_error(
                 RuntimeError("Report source changed during system print preparation"),
             )
@@ -740,12 +806,28 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 if (
                     session.current_dataset is not dataset
                     or session.current_well_id != original_well_id
+                    or self.report is not original_active_report
                     or report.dataset_id != dataset.dataset_id
                 ):
+                    self._clear_geology_evidence()
                     raise RuntimeError(
                         "Report source changed during system print preparation"
                     )
-                export_hydrocarbon_interpretation_pdf(
+                # Only the verified operator-selected comparison can enter the
+                # temporary document that is subsequently sent to the printer.
+                # Keep the legacy renderer invocation unchanged otherwise.
+                comparisons = self._method_comparisons_for_export(report)
+                verify_print_geology()
+                print_pdf_exporter: Callable[..., Path] = (
+                    partial(
+                        export_hydrocarbon_interpretation_pdf,
+                        method_comparisons=comparisons,
+                    )
+                    if comparisons else export_hydrocarbon_interpretation_pdf
+                )
+                if confirmed_geology:
+                    print_pdf_exporter = partial(print_pdf_exporter, geology_evidence=confirmed_geology)
+                print_pdf_exporter(
                     report,
                     prepared_pdf,
                     language=self._report_output_language(),
@@ -806,6 +888,28 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             dialog.setFromTo(1, total_pages)
             dialog.setPrintRange(QAbstractPrintDialog.PrintRange.AllPages)
             if dialog.exec() != QDialog.DialogCode.Accepted:
+                return
+
+            # A native driver dialog may pump events after the temporary PDF
+            # was rendered. Never spool another well's or an invalidated
+            # comparison snapshot, even if the file was internally valid.
+            if (
+                self.controller.session.current_dataset is not dataset
+                or self.controller.session.current_well_id != original_well_id
+                or self.report is not original_active_report
+                or (comparisons and self._method_comparisons_for_export(report) != comparisons)
+            ):
+                self._clear_method_comparison()
+                self._clear_geology_evidence()
+                self._show_export_error(
+                    RuntimeError("Report source changed before system print spooling"),
+                )
+                return
+
+            try:
+                verify_print_geology()
+            except ValueError as exc:
+                self._show_export_error(exc)
                 return
 
             range_selected = (
@@ -869,8 +973,29 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             progress.setMinimumDuration(0)
             progress.setValue(0)
 
+            print_source_key = self._method_comparison_source_key(report)
+            # Freeze one verified immutable observation set for the print job.
+            # Full geology validation is bounded per job, not repeated per page.
+            first_page_pending = True
+
             def cancel_requested() -> bool:
+                nonlocal first_page_pending
                 QApplication.processEvents()
+                if confirmed_geology or comparisons:
+                    if (
+                        self._method_comparison_source_key(report) != print_source_key
+                        or (confirmed_geology and self._geology_print_evidence != confirmed_geology)
+                        or (comparisons and self._method_comparisons_for_export(report) != comparisons)
+                    ):
+                        self._clear_geology_evidence()
+                        self._clear_method_comparison()
+                        return True
+                    if confirmed_geology and first_page_pending:
+                        try:
+                            verify_print_geology()
+                        except ValueError:
+                            return True
+                        first_page_pending = False
                 return progress.wasCanceled()
 
             def update_progress(current: int, total: int, page_number: int) -> None:
@@ -885,6 +1010,17 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 QApplication.processEvents()
 
             try:
+                QApplication.processEvents()
+                if (
+                    self.controller.session.current_dataset is not dataset
+                    or self.controller.session.current_well_id != original_well_id
+                    or self.report is not original_active_report
+                    or (comparisons and self._method_comparisons_for_export(report) != comparisons)
+                ):
+                    self._clear_geology_evidence()
+                    self._clear_method_comparison()
+                    raise ValueError("Report source changed before the first printed page")
+                verify_print_geology()
                 completed = print_pdf_page_selection(
                     prepared_pdf,
                     printer,
@@ -991,19 +1127,9 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         dataset = self.controller.session.current_dataset
         if dataset is None:
             return
-        composition = self._report_composition()
-        header = report_header_fields(composition, self._report_output_language().value, report.report_profile)
-        saved_identity = (
-            self._identity_with_narrative_visibility(
-                identity_with_report_header_fields(
-                    default_interpretation_report_identity(
-                        report, self._report_output_language(), interval=self._report_interval(report),
-                    ),
-                    header,
-                ),
-                composition,
-            )
-        )
+        original_well_id = self.controller.session.current_well_id
+        original_active_report = self.report
+        confirmed_geology = self._geology_excel_evidence
         target = self._choose_target(".xlsx", "Excel (*.xlsx)")
         if target is None:
             return
@@ -1012,14 +1138,6 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 export_readable_hydrocarbon_interpretation_xlsx,
             )
 
-            comparisons = self._method_comparisons_for_export(report)
-            workbook_exporter = (
-                partial(
-                    export_readable_hydrocarbon_interpretation_xlsx,
-                    method_comparisons=comparisons,
-                )
-                if comparisons else export_readable_hydrocarbon_interpretation_xlsx
-            )
             with self._report_export_progress(
                 self._text(
                     "Формируется Excel-отчёт…",
@@ -1027,13 +1145,96 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     "Building Excel report…",
                 )
             ):
+                # Target selection and progress startup can deliver queued Qt
+                # events. Never write an old report for a newly selected well.
+                if (
+                    self.report is not original_active_report
+                    or self.controller.session.current_dataset is not dataset
+                    or self.controller.session.current_well_id != original_well_id
+                ):
+                    self._clear_method_comparison()
+                    self._clear_geology_evidence()
+                    raise HydrocarbonInterpretationExportError(
+                        "Excel report source changed during export preparation"
+                    )
+                # Capture one output language and matching passport only after
+                # draining queued events. Never combine stale RU identity with
+                # newly selected KK/EN report labels.
+                output_language = self._report_output_language()
+                composition = self._report_composition()
+                header = report_header_fields(
+                    composition, output_language.value, report.report_profile,
+                )
+                saved_identity = self._identity_with_narrative_visibility(
+                    identity_with_report_header_fields(
+                        default_interpretation_report_identity(
+                            report, output_language, interval=self._report_interval(report),
+                        ),
+                        header,
+                    ),
+                    composition,
+                )
+                comparisons = self._method_comparisons_for_export(report)
+                selected_geology: tuple[GasGeologyIntervalEvidence, ...] = ()
+
+                def verify_geology() -> tuple[GasGeologyIntervalEvidence, ...]:
+                    try:
+                        selected = self._geology_evidence_for_export(report, output="excel")
+                    except ValueError as exc:
+                        raise HydrocarbonInterpretationExportError(
+                            "Confirmed geology changed during Excel export"
+                        ) from exc
+                    if selected != confirmed_geology:
+                        raise HydrocarbonInterpretationExportError(
+                            "Confirmed geology was revoked during Excel export"
+                        )
+                    return selected
+
+                if confirmed_geology:
+                    selected_geology = verify_geology()
+                progress_callback = self._update_report_export_progress
+                if comparisons or selected_geology:
+                    # A large XLSX export also pumps Qt events between stages.
+                    # Fail before the atomic file replacement when the operator
+                    # changes the verified source mid-export.
+                    def checked_progress(stage: str, current: int, total: int) -> None:
+                        self._update_report_export_progress(stage, current, total)
+                        if current >= total:
+                            # The final 100% notification occurs after os.replace;
+                            # the workbook was already consistent at commit time.
+                            return
+                        if (
+                            self.report is not report
+                            or self.controller.session.current_dataset is not dataset
+                            or self.controller.session.current_well_id != original_well_id
+                            or self._method_comparisons_for_export(report) != comparisons
+                        ):
+                            self._clear_method_comparison()
+                            self._clear_geology_evidence()
+                            raise HydrocarbonInterpretationExportError(
+                                "Verified method comparison changed during Excel export"
+                            )
+
+                        if selected_geology:
+                            verify_geology()
+
+                    progress_callback = checked_progress
+                workbook_exporter: Callable[..., Path] = (
+                    partial(
+                        export_readable_hydrocarbon_interpretation_xlsx,
+                        method_comparisons=comparisons,
+                    )
+                    if comparisons else export_readable_hydrocarbon_interpretation_xlsx
+                )
+                if selected_geology:
+                    workbook_exporter = partial(workbook_exporter, geology_evidence=selected_geology)
                 exported = workbook_exporter(
                     report,
                     dataset,
                     target,
-                    language=self._report_output_language(),
+                    language=output_language,
                     overwrite=target.exists(),
-                    progress=self._update_report_export_progress,
+                    progress=progress_callback,
                     identity=saved_identity,
                 )
         except (OSError, FileExistsError, HydrocarbonInterpretationExportError) as exc:

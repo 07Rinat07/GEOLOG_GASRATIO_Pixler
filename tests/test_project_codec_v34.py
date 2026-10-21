@@ -35,7 +35,7 @@ def test_current_round_trip_preserves_authored_field_source_languages(tmp_path: 
     payload = json.loads(target.read_text(encoding="utf-8"))
     loaded = load_project(target)
 
-    assert PROJECT_FORMAT_VERSION == 37
+    assert PROJECT_FORMAT_VERSION == 38
     assert payload["format_version"] == PROJECT_FORMAT_VERSION
     assert payload["project"]["wells"]["well-1"]["authored_field_source_languages"] == {
         FIELD_ID: "ru",

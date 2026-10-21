@@ -117,7 +117,7 @@ def test_project_v37_json_round_trip_preserves_report_composition(tmp_path) -> N
     )
     loaded = load_project_document(target)
 
-    assert PROJECT_FORMAT_VERSION == 37
+    assert PROJECT_FORMAT_VERSION == 38
     assert loaded.report_compositions == {
         "dataset-report-composition": _composition()
     }

@@ -53,8 +53,7 @@ jobs:
             ruff==0.15.22 `
             mypy==1.19.1 `
             types-defusedxml==0.7.0.20260504 `
-            build==1.5.0 `
-            Pillow==12.3.0
+            build==1.5.0
           uv pip install --python .venv --no-deps --no-build-isolation --editable .
 
       - name: Run quality checks and retain logs
