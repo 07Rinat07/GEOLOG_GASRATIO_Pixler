@@ -313,13 +313,18 @@ def test_petrophysical_reference_guides_are_equivalent_and_not_advertised_as_ui(
         "LAS",
         "MD/TVD",
         "PR #686",
+        "review_gis_reference_input",
+        "ready_for_calibration",
+        "curve_key",
+        "kg/m3",
+        "uR/h",
     )
     for language in ("ru", "kk", "en"):
         guide = (
             ROOT / "docs" / language / "PETROPHYSICAL_REFERENCE_MODELS.md"
         ).read_text(encoding="utf-8")
         assert all(name in guide for name in names)
-        assert guide.count("\n## ") == 5
+        assert guide.count("\n## ") == 6
 
     index = (ROOT / "docs" / "DOCUMENTATION_INDEX.md").read_text(encoding="utf-8")
     for language in ("ru", "kk", "en"):

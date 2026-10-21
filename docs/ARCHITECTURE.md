@@ -1,6 +1,17 @@
 <!-- runtime-contract: package=0.7.96; project=v38; form=v18; layout=v25 -->
 # Архитектура
 
+## INTERP-GIS-01: source review перед калибровкой
+
+`services/gis_reference_input_review.py` связывает явный ключ кривой с
+входными контрактами существующих IGR/density reference-методов. Каждый вызов
+строит свежий `inventory_gis_inputs`; frozen результат содержит metadata,
+версию и причины отказа, без массивов и автоматического выбора каналов.
+Словарь UOM нормализует только эквивалентные обозначения: другая шкала
+отклоняется без преобразования. Положительный review не подтверждает
+калибровку, применимость прибора, непрерывность покрытия или актуальность
+для будущего расчёта. Archie, UI и persistence остаются отдельными этапами.
+
 ## INTERP-GIS-01: immutable inventory входных кривых
 
 `services/gis_input_inventory.py` читает выбранный `Dataset` и возвращает frozen
