@@ -162,3 +162,28 @@ def test_controller_preserves_old_lba_and_independent_shows_on_update() -> None:
             show_observations=_observations()[:1] * 2,
         )
     assert sample.show_observations == _observations()
+
+
+
+def test_editor_keeps_external_source_and_high_precision_on_reopen(qapp) -> None:
+    original = OilShowObservation(
+        OilShowMethod.DIRECT_FLUORESCENCE_UV,
+        area_percent=12.345678901,
+        distribution="s" * 120,
+        notes="external field record",
+        source="third-party-datalog-survey-2026",
+        quality=OilShowQuality.VERIFIED,
+    )
+    editor = OilShowObservationEditor(AppLanguage.EN, [original])
+    assert editor.observations() == [original]
+    from PySide6.QtWidgets import QLineEdit
+
+    notes = editor.findChild(QLineEdit, "show-direct_fluorescence_uv-notes")
+    assert notes is not None
+    notes.setText("reviewed by geologist")
+    updated = editor.observations()
+    assert updated[0].source == original.source
+    assert updated[0].area_percent == pytest.approx(original.area_percent)
+    assert updated[0].distribution == original.distribution
+    assert updated[0].notes == "reviewed by geologist"
+    editor.close()
