@@ -1,6 +1,16 @@
 <!-- runtime-contract: package=0.7.96; project=v38; form=v18; layout=v25 -->
 # Архитектура
 
+## INTERP-GIS-01: immutable inventory входных кривых
+
+`services/gis_input_inventory.py` читает выбранный `Dataset` и возвращает frozen
+`GisInputInventory`/`GisCurveInput` без ссылок на изменяемые массивы. Повторное
+распознавание мнемоник не выполняется: сохранённый `SemanticChannelBinding`
+сверяется с метаданными и существующим `UomDictionary`. MD eligibility использует
+общий `supports_saved_md_geology`; TVD/ft/неподтверждённый lag не преобразуются.
+Количество и границы конечных пар отсчётов не означают непрерывного покрытия,
+петрофизической применимости или готовности к fusion. UI и сериализация не меняются.
+
 ## INTERP-FUSION-01: проверенная ГИС-ГТИ-литологическая evidence-модель
 
 `services/gis_gti_lithology_screening.py` — data-only слой,

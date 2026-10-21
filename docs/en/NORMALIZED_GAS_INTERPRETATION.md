@@ -205,3 +205,12 @@ This feature is **data-only API**, not yet connected to the report,
 Haworth/Pixler/OPUS or the UI. Coupled gas/GIS interpretation requires
 a separately verified integration. The 1–5 score is **not** pore-fluid
 hydrocarbon saturation.
+
+## GIS input inventory — a separate INTERP-GIS-01 stage
+
+`inventory_gis_inputs` is currently a data-only API without a UI command.
+It checks saved semantics/UOM and a metre MD axis; TVD/ft/unverified lag and
+unknown units remain explicit limitations. Counts and bounds of finite
+depth/value pairs do not establish continuous coverage.
+Source LAS bytes and arrays remain unchanged. This is not calibration,
+a Vsh/Sw calculation, fluid identification or confirmation of tool applicability.
