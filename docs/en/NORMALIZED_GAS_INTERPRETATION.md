@@ -114,6 +114,59 @@ Server total normalized gas is not compared with local `C1_NORM`, because they a
 
 The local formula passport cites US20150060054A1 and is stored with a control example in the project formula registry.
 
+
+## Preliminary GIS + mud gas + LBA + lithology review (INTERP-FUSION-01)
+
+**Current implementation:** a testable **data-only** method in
+`services/gis_gti_lithology_screening.py`. It is **not connected**
+to raw LAS ingestion, the production UI or reports. Existing
+Haworth/Pixler/OPUS and LBA interpretation remain separate.
+This is a contract for later integration, not an available menu action.
+
+For a single verified MD axis (metres and a matching axis ID),
+the method accepts independently validated observations: effective
+porosity, fractures, NMR mobility, tight matrix, calibrated high/low
+water saturation `Sw`, GIS gas effect, mud gas, LBA and actual
+gas/oil/water formation-test results. Each observation requires its
+source ID, depth interval and QC; a derived GIS observation also
+requires a method/calibration reference. This does **not** interpret
+raw `GR`, `RT`, `RHOB`, `NPHI` curves: semantic resolution,
+quality control and numerical models are separate INTERP-GIS/PETRO work.
+
+### Lithology and exceptions
+
+- **Clastics/carbonates:** evaluate porosity, resistivity and
+  saturation with matrix composition, Rw, invasion and borehole QC.
+- **Argillite/clay/coaly rocks:** a mud-gas show or LBA does **not**
+  turn tight rock into a proven reservoir; investigate fractures,
+  secondary storage, thin interbeds and unconventional reservoirs.
+- **Salt, gypsum, anhydrite:** high resistivity alone **does not**
+  identify oil; review contacts, inclusions, fractures and formation tests.
+- **Tuff/volcanic rocks:** do not apply uncalibrated clastic/carbonate
+  parameters; secondary porosity or fractures can make real reservoirs.
+
+Actual fluid sampling has more diagnostic authority than an LBA or gas
+hypothesis; however, tests grouped into one broad interval may represent
+different beds. Multiple tested phases therefore trigger a conflict
+review, not an automatic claim of uniform gas and water. `Sw`
+does not distinguish oil from gas; high `Rt` in tight rock does not
+prove hydrocarbons. Suspect curves are excluded and uncovered depths
+remain unknown. A shortlist flag means **geologist review**, not
+commercial pay or proven recoverable reserves.
+
+Later GIS processing must recognize tools, units and vendor mnemonics
+via Energistics PWLS, including gamma/spectral gamma/SP, RHOB/NPHI/DT/CALI,
+deep/shallow RT, NMR, image logs, pressure and fluid sampling.
+Well/facies-specific calibration, separate log passes, MD/TVD, mud-gas
+lag and measurement QC must be checked independently. Do not impose
+universal lithology cutoffs.
+
+Sources:
+[SLB Basic Well Log Interpretation](https://www.slb.com/resource-library/oilfield-review/defining-series/defining-log-interpretation),
+[SLB Measuring Porosity](https://www.slb.com/resource-library/oilfield-review/defining-series/defining-porosity),
+[AAPG Reservoir](https://wiki.aapg.org/Reservoir),
+[Energistics PWLS](https://energistics.org/practical-well-log-standard).
+
 ## Comparing the LBA residual-ring score with mud gas
 
 Record the bitumoid group/type, fluorescence colour and the **1–5
