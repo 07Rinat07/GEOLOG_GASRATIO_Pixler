@@ -94,15 +94,15 @@ def test_measured_zero_remains_measurement_not_missing() -> None:
 
 
 @pytest.mark.parametrize(
-    ("language", "calcite", "description", "intensity", "composition"),
+    ("language", "calcite", "description", "intensity", "legacy_intensity", "composition"),
     (
-        (AppLanguage.RU, "Кальцит, %", "Описание", "Интенсивность ЛБА", "ID литотипа sandstone, %"),
-        (AppLanguage.KK, "Кальцит, %", "Сипаттама", "ЛБА қарқындылығы", "Литотип ID sandstone, %"),
-        (AppLanguage.EN, "Calcite, %", "Description", "LBA intensity", "Lithotype ID sandstone, %"),
+        (AppLanguage.RU, "Кальцит, %", "Описание", "ЛБА: балл люминесцирующего пятна", "Остаточное кольцо/пятно, балл", "ID литотипа sandstone, %"),
+        (AppLanguage.KK, "Кальцит, %", "Сипаттама", "ЛБА: люминесценттік дақ балы", "Қалдық сақина/дақ, балл", "Литотип ID sandstone, %"),
+        (AppLanguage.EN, "Calcite, %", "Description", "LBA fluorescence-spot score", "Residual ring/spot score", "Lithotype ID sandstone, %"),
     ),
 )
 def test_measurement_names_and_units_follow_language_without_translating_values(
-    language, calcite, description, intensity, composition,
+    language, calcite, description, intensity, legacy_intensity, composition,
 ) -> None:
     session = _session()
     sample = session.current_well.cuttings[0]
@@ -116,6 +116,8 @@ def test_measurement_names_and_units_follow_language_without_translating_values(
     rendered = geology_interval_evidence_html(evidence, language)
     assert f"{calcite}: 0.0" in rendered
     assert f"{intensity}: 2" in rendered
+    # Fluorescence intensity is not the solvent-extraction residual-ring score.
+    assert f"{legacy_intensity}: 2" not in rendered
     assert f"{composition}: 70.0" in rendered
     assert f"{description}: {escape(sample.description)}" in rendered
     assert "calcite_percent" not in rendered

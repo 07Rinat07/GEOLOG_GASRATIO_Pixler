@@ -128,7 +128,7 @@ def test_click_on_calcimetry_and_lba_returns_sample_interval() -> None:
     )
     assert lba is not None and lba.interval == (400.0, 600.0)
     assert lba.description == (
-        "Oil show; Intensity: 4; yellow; Streaming; "
+        "Oil show; LBA fluorescence-spot score: 4; yellow; Streaming; "
         "Geologist interpretation: Manual show interpretation"
     )
 

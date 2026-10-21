@@ -96,9 +96,9 @@ LBA_STANDARD_GROUPS: tuple[LbaStandardGroup, ...] = (
         "маслянистый битумоид",
         "майлы битумоид",
         "oily bitumen",
-        "Нефть и битумоиды с низким содержанием смол; асфальтены отсутствуют",
-        "шайыры аз мұнай мен битумоидтар; асфальтендер жоқ",
-        "oil and bitumen with low resin content and no asphaltenes",
+        "Нефть и битумоиды с низким содержанием смол; асфальтенов незначительно или нет",
+        "шайыры аз мұнай мен битумоидтар; асфальтендер аз немесе жоқ",
+        "oil and bitumen with low resin content; little or no asphaltenes",
         (
             _color("Б", "белый", "white"),
             _color("ГЖ", "голубовато-жёлтый", "bluish yellow"),
@@ -184,6 +184,13 @@ for _group in LBA_STANDARD_GROUPS:
 
 @dataclass(frozen=True, slots=True)
 class LbaStandardAssessment:
+    """Bitumoid group and semi-quantitative UV capillary-spot score are independent scales.
+
+    Historical `intensity` is the 1–5 morphology/fluorescence score for
+    the capillary-extract imprint under UV, NOT an absolute brightness or reservoir saturation.
+    It is retained for source LAS and project schema compatibility.
+    """
+
     standard: LbaStandardGroup
     intensity: int | None
     color_code: str | None
@@ -257,10 +264,12 @@ def assess_lba_standard(
 
 
 def lba_intensity_name(intensity: int, language: AppLanguage) -> str:
+    """Name the UV-luminescent capillary-imprint pattern class."""
+
     names = {
         AppLanguage.RU: {
             1: "единичные точки",
-            2: "фрагментарное кольцо",
+            2: "прерывистое кольцо",
             3: "тонкое сплошное кольцо",
             4: "толстое кольцо",
             5: "сплошное пятно",
@@ -298,7 +307,7 @@ def describe_lba_assessment(
             parts.append(f"түс {assessment.color_code}")
         if assessment.intensity is not None:
             parts.append(
-                f"қарқындылық {assessment.intensity}: "
+                f"капиллярлық дақтың ЛБА балы {assessment.intensity}: "
                 f"{lba_intensity_name(assessment.intensity, language)}"
             )
         if assessment.conflicts:
@@ -314,7 +323,7 @@ def describe_lba_assessment(
             parts.append(f"colour {assessment.color_code}")
         if assessment.intensity is not None:
             parts.append(
-                f"intensity {assessment.intensity}: "
+                f"LBA capillary-spot score {assessment.intensity}: "
                 f"{lba_intensity_name(assessment.intensity, language)}"
             )
         if assessment.conflicts:
@@ -329,7 +338,7 @@ def describe_lba_assessment(
         parts.append(f"цвет {assessment.color_code}")
     if assessment.intensity is not None:
         parts.append(
-            f"интенсивность {assessment.intensity}: "
+            f"балл ЛБА по люминесцирующему пятну {assessment.intensity}: "
             f"{lba_intensity_name(assessment.intensity, language)}"
         )
     if assessment.conflicts:
