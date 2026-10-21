@@ -187,3 +187,34 @@ def test_editor_keeps_external_source_and_high_precision_on_reopen(qapp) -> None
     assert updated[0].distribution == original.distribution
     assert updated[0].notes == "reviewed by geologist"
     editor.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+@pytest.mark.parametrize("quality", list(OilShowQuality))
+def test_editor_restores_selected_qc_domain_type(qapp, language, quality) -> None:
+    from PySide6.QtWidgets import QComboBox, QLineEdit
+
+    editor = OilShowObservationEditor(language)
+    colour = editor.findChild(QLineEdit, "show-visible_stain-colour")
+    selector = editor.findChild(QComboBox, "show-visible_stain-quality")
+    assert colour is not None and selector is not None
+    colour.setText("brown")
+    selector.setCurrentIndex(selector.findData(quality.value))
+    recorded = editor.observations()
+    assert len(recorded) == 1
+    assert recorded[0].quality is quality
+    editor.close()
+
+
+def test_editor_rejects_unknown_qc_item_data(qapp) -> None:
+    from PySide6.QtWidgets import QComboBox, QLineEdit
+
+    editor = OilShowObservationEditor(AppLanguage.EN)
+    colour = editor.findChild(QLineEdit, "show-visible_stain-colour")
+    selector = editor.findChild(QComboBox, "show-visible_stain-quality")
+    assert colour is not None and selector is not None
+    colour.setText("brown")
+    selector.setItemData(selector.currentIndex(), "unknown-qc")
+    with pytest.raises(ValueError):
+        editor.observations()
+    editor.close()

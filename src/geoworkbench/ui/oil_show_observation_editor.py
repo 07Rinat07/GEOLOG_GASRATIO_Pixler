@@ -119,7 +119,7 @@ class OilShowObservationEditor(QWidget):
             quality = QComboBox()
             quality.setObjectName(f"show-{method.value}-quality")
             for kind in OilShowQuality:
-                quality.addItem(_QUALITY_LABELS[kind][locale_index], kind)
+                quality.addItem(_QUALITY_LABELS[kind][locale_index], kind.value)
             self.table.setCellWidget(row, 7, quality)
             self._editors[method] = (area, tuple(fields), quality)
             stored = previous.get(method)
@@ -131,7 +131,7 @@ class OilShowObservationEditor(QWidget):
                     strict=True,
                 ):
                     widget.setText(getattr(stored, name) or "")
-                quality.setCurrentIndex(quality.findData(stored.quality))
+                quality.setCurrentIndex(quality.findData(stored.quality.value))
         layout.addWidget(self.table)
 
     def observations(self) -> list[OilShowObservation]:
@@ -149,7 +149,8 @@ class OilShowObservationEditor(QWidget):
                 distribution=values[2],
                 reaction_speed=values[3],
                 notes=values[4],
-                quality=quality.currentData(),
+                # Qt transports StrEnum item data as strings; restore the domain type.
+                quality=OilShowQuality(quality.currentData()),
                 source=self._original_sources.get(method, "operator"),
             ))
         return validate_oil_show_observations(result)
