@@ -111,6 +111,9 @@ artifacts workflow `.github/workflows/release-gate.yml`.
   [LAS_EDITOR_ARCHITECTURE.md](LAS_EDITOR_ARCHITECTURE.md),
   [TIME_DEPTH_LAS_ARCHITECTURE.md](TIME_DEPTH_LAS_ARCHITECTURE.md),
   [LAG_DEPTH_CORRECTION.md](LAG_DEPTH_CORRECTION.md).
+- Методики комплексной интерпретации ГИС + ГТИ + ЛБА Флоровской:
+  [INTERPRETATION_ALGORITHM_CATALOG.md](INTERPRETATION_ALGORITHM_CATALOG.md) —
+  источники, региональные границы, контроль исходных параметров и очередь реализации.
 - Расчёты и события: [DEXP_FORMULAS.md](DEXP_FORMULAS.md),
   [MUD_GAS_FORMULAS.md](MUD_GAS_FORMULAS.md),
   [FORMULA_METHOD_AUDIT.md](FORMULA_METHOD_AUDIT.md),

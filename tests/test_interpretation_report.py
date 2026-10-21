@@ -406,7 +406,9 @@ def test_interpretation_report_html_is_localized_and_escapes_project_data() -> N
     assert "Lower Cretaceous" in html
     assert "Fine-grained sandstone &amp; clay." in html
     assert "Нерастворимый остаток: 20%" in html
-    assert "Интенсивность:</b> 4" in html
+    # LBA 1–5 is the UV fluorescent capillary-imprint morphology/brightness score.
+    assert "ЛБА: балл люминесцирующего пятна:</b> 4" in html
+    assert "Интенсивность:</b> 4" not in html
     assert "Field &lt;Alpha&gt;" in html
     assert "bright &lt;direct&gt; fluorescence" in html
     assert "Скорость cut:</b> Slow" in html
@@ -422,11 +424,15 @@ def test_interpretation_report_html_is_localized_and_escapes_project_data() -> N
     assert "This report is not an automatic" in english
     assert "Total Gas [ppm]" in english
     assert "Methane [ppm]" in english
+    assert "LBA fluorescence-spot score:</b> 4" in english
+    assert "Intensity:</b> 4" not in english
     assert "TG [ppm]" not in english
     kazakh = interpretation_report_html(report, AppLanguage.KK)
     assert "автоматты қорытынды болып табылмайды" in kazakh
     assert "Жалпы газ [ppm]" in kazakh
     assert "Метан [ppm]" in kazakh
+    assert "ЛБА: люминесценттік дақ балы:</b> 4" in kazakh
+    assert "Қарқындылық:</b> 4" not in kazakh
 
 
 def test_total_gas_source_alias_is_not_exposed_in_visible_report() -> None:

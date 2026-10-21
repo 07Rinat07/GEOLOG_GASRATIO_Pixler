@@ -290,6 +290,7 @@ def test_i18n_audit_rejects_invalid_values_and_placeholders(tmp_path) -> None:
     assert sum(issue.category == "i18n-format" for issue in issues) == 2
 
 
+
 def test_petrophysical_reference_guides_are_equivalent_and_not_advertised_as_ui() -> None:
     """Three guides must describe the same data-only methods and control examples."""
 
@@ -323,3 +324,42 @@ def test_petrophysical_reference_guides_are_equivalent_and_not_advertised_as_ui(
     index = (ROOT / "docs" / "DOCUMENTATION_INDEX.md").read_text(encoding="utf-8")
     for language in ("ru", "kk", "en"):
         assert f"{language}/PETROPHYSICAL_REFERENCE_MODELS.md" in index
+
+def test_florovskaya_residual_ring_guides_remain_in_sync_in_three_languages() -> None:
+    """Operator instructions and UI must describe the same 1–5 LBA quantity scale."""
+
+    required: dict[str, tuple[str, str, str]] = {
+        "ru": ("Прерывистое кольцо", "2", "ЛБА: люминесцирующее пятно"),
+        "kk": ("Үзік сақина", "2", "ЛБА: люминесценттік дақ"),
+        "en": ("Broken (discontinuous) ring", "2", "LBA fluorescence-spot"),
+    }
+    for language, (ring, score, label) in required.items():
+        late = (ROOT / "docs" / language / "LATE_ANALYSIS_UPDATE.md").read_text(
+            encoding="utf-8"
+        )
+        gas = (
+            ROOT / "docs" / language / "NORMALIZED_GAS_INTERPRETATION.md"
+        ).read_text(encoding="utf-8")
+        for document in (late, gas):
+            assert "lba_intensity" in document
+            assert score in document
+        assert ring in late
+        assert label in (
+            ROOT / "src" / "geoworkbench" / "resources" / "i18n"
+            / f"{language}.json"
+        ).read_text(encoding="utf-8")
+
+
+def test_florovskaya_status_and_instructions_use_single_canonical_plan() -> None:
+    """Require one source of truth, with multilingual operator guidance."""
+
+    policy = (ROOT / "docs" / "DOCUMENTATION_POLICY.md").read_text(
+        encoding="utf-8"
+    )
+    plan = (ROOT / "docs" / "PROJECT_PLAN.md").read_text(encoding="utf-8")
+    assert "docs/PROJECT_PLAN.md" in policy
+    assert "docs/ru" in policy
+    assert "docs/kk" in policy
+    assert "docs/en" in policy
+    assert "DOCUMENTATION_POLICY.md" in plan
+    assert "docs/{ru,kk,en}" in plan
