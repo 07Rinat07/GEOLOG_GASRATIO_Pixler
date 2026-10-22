@@ -23,6 +23,9 @@ from geoworkbench.services.lithology_review_reader import (
 from geoworkbench.services.lithology_review_history import (
     LithologyHistoryEntry, load_lithology_review_history,
 )
+from geoworkbench.services.lithology_review_comparison import (
+    LithologyReviewComparison, compare_lithology_review_records,
+)
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
@@ -319,7 +322,7 @@ class LithologyReviewHistoryDialog(QDialog):
         ])
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         for column, width in enumerate((205, 110, 110, 125, 135, 150)):
             self.table.setColumnWidth(column, width)
@@ -337,12 +340,14 @@ class LithologyReviewHistoryDialog(QDialog):
         root.addWidget(self.table)
         self.details = QPushButton(self._text("history_details"), self)
         self.details.setEnabled(False)
-        self.table.itemSelectionChanged.connect(
-            lambda: self.details.setEnabled(bool(self.table.selectionModel().selectedRows())),
-        )
+        self.compare = QPushButton(self._text("history_compare"), self)
+        self.compare.setEnabled(False)
+        self.table.itemSelectionChanged.connect(self._selection_changed)
         self.details.clicked.connect(self._open_selected)
         self.table.cellDoubleClicked.connect(self._open_selected)
+        self.compare.clicked.connect(self._compare_selected)
         root.addWidget(self.details)
+        root.addWidget(self.compare)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(localizer.text("common.close"))
         buttons.rejected.connect(self.reject)
@@ -356,3 +361,86 @@ class LithologyReviewHistoryDialog(QDialog):
         record = self.entries[selected[0].row()].record
         status = compare_review_source(self.session, record)
         SavedLithologyReviewDialog(record, status, self, language=self.language).exec()
+
+
+    def _selection_changed(self) -> None:
+        count = len(self.table.selectionModel().selectedRows())
+        self.details.setEnabled(count == 1)
+        self.compare.setEnabled(count == 2)
+
+    def _compare_selected(self) -> None:
+        rows = sorted(index.row() for index in self.table.selectionModel().selectedRows())
+        if len(rows) != 2:
+            return
+        comparison = compare_lithology_review_records(
+            self.entries[rows[0]].record, self.entries[rows[1]].record,
+        )
+        LithologyReviewComparisonDialog(
+            comparison, self, language=self.language,
+        ).exec()
+
+
+class LithologyReviewComparisonDialog(QDialog):
+    """Show only field differences between two explicitly selected archival records."""
+
+    def __init__(
+        self, comparison: LithologyReviewComparison, parent: QWidget | None = None,
+        *, language: AppLanguage = AppLanguage.RU,
+    ) -> None:
+        super().__init__(parent)
+        self.comparison = comparison
+        localizer = Localizer.create(language)
+
+        def translate(key: str, **values: object) -> str:
+            return localizer.text(f"lithology_mapping.{key}", **values)
+
+        self.setWindowTitle(translate("history_compare"))
+        root = QVBoxLayout(self)
+        intro = QLabel(translate("comparison_intro"), self)
+        intro.setWordWrap(True)
+        root.addWidget(intro)
+        first = QLabel(translate(
+            "comparison_record", time=comparison.first.recorded_at_utc,
+            mapping=comparison.first.mapping_id,
+        ), self)
+        second = QLabel(translate(
+            "comparison_record", time=comparison.second.recorded_at_utc,
+            mapping=comparison.second.mapping_id,
+        ), self)
+        for label in (first, second):
+            label.setTextFormat(Qt.TextFormat.PlainText)
+            label.setWordWrap(True)
+            root.addWidget(label)
+        if comparison.differences:
+            self.table = QTableWidget(len(comparison.differences), 3, self)
+            self.table.setHorizontalHeaderLabels([
+                translate("comparison_field"),
+                translate("comparison_first"),
+                translate("comparison_second"),
+            ])
+            self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+            self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+            self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+            for column, width in enumerate((170, 300, 300)):
+                self.table.setColumnWidth(column, width)
+            for row, difference in enumerate(comparison.differences):
+                values = (
+                    translate(f"comparison_field.{difference.field_name}"),
+                    difference.first_value, difference.second_value,
+                )
+                for column, value in enumerate(values):
+                    self.table.setItem(row, column, QTableWidgetItem(value))
+            root.addWidget(self.table)
+        else:
+            self.table = None
+            message = QLabel(translate("comparison_no_differences"), self)
+            message.setTextFormat(Qt.TextFormat.PlainText)
+            message.setWordWrap(True)
+            root.addWidget(message)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
+        buttons.button(QDialogButtonBox.StandardButton.Close).setText(
+            localizer.text("common.close"),
+        )
+        buttons.rejected.connect(self.reject)
+        root.addWidget(buttons)
+        fit_window_to_screen(self, preferred=QSize(900, 560), minimum=QSize(380, 360))
