@@ -71,6 +71,11 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         # in the autouse cleanup fixture. Retain all cases but give each one a
         # fresh process, so unrelated native Qt lifetimes cannot accumulate.
         "tests/test_lithology_drag_editor.py",
+        # Main 39734481784 aborted in ViewBoxMenu while localization followed
+        # lithology/dialog cases in a shared shard. Keep both the new review
+        # scenarios and shell localization assertions in fresh Qt processes.
+        "tests/test_lithology_mapping_dialog.py",
+        "tests/test_localization.py",
         # Previous Windows Quality gate crashed with native heap corruption
         # (0xC0000374) in the Qt cleanup fixture after report DOCX footer
         # cases shared a process with earlier GUI tests. Give these cases a
