@@ -348,3 +348,97 @@ def test_history_cancel_or_invalid_selection_preserves_active_review(qapp, tmp_p
     assert dialog.mapping is active and dialog.export.isEnabled()
     assert dialog.export_status.text() == ("" if choice == "cancel" else dialog._t("history_invalid"))
     dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_history_compare_two_explicit_rows_without_approval_or_project_writes(
+    qapp, tmp_path, monkeypatch, language,
+):
+    import json
+    from PySide6.QtCore import QItemSelectionModel
+    from PySide6.QtWidgets import QAbstractItemView
+    from geoworkbench.ui.lithology_mapping_dialog import (
+        LithologyReviewComparisonDialog, LithologyReviewHistoryDialog,
+    )
+    from test_lithology_review_history import _history_files
+
+    session, first, second = _history_files(tmp_path)
+    payload = json.loads(second.read_text(encoding="utf-8"))
+    payload["mapping"]["reviewer"] = "<b>Unverified reviewer</b>"
+    second.write_text(json.dumps(payload), encoding="utf-8")
+    session.dirty = False
+    before = repr(session.project)
+    dialog = LithologyMappingDialog(session, language=language)
+    monkeypatch.setattr(QFileDialog, "getOpenFileNames",
+                        lambda *args: ([str(second), str(first)], "JSON"))
+    comparisons = []
+
+    def inspect_comparison(viewer):
+        assert viewer.comparison.first.mapping_id == "review-1"
+        assert viewer.comparison.second.mapping_id == "review-2"
+        assert viewer.table is not None
+        assert viewer.table.editTriggers() == QAbstractItemView.EditTrigger.NoEditTriggers
+        fields = {viewer.table.item(row, 0).text(): row
+                  for row in range(viewer.table.rowCount())}
+        assert len(fields) == 2
+        assert any(viewer.table.item(row, 2).text() == "<b>Unverified reviewer</b>"
+                   for row in fields.values())
+        assert viewer.table.item(0, 0).text() != "lithology_mapping.comparison_field.mapping_id"
+        comparisons.append(viewer.comparison)
+        return QDialog.DialogCode.Rejected
+
+    def inspect_history(viewer):
+        assert not viewer.compare.isEnabled() and not viewer.details.isEnabled()
+        viewer.table.selectRow(0)
+        assert viewer.details.isEnabled() and not viewer.compare.isEnabled()
+        viewer.table.selectionModel().select(
+            viewer.table.model().index(1, 0),
+            QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows,
+        )
+        assert viewer.compare.isEnabled() and not viewer.details.isEnabled()
+        viewer.compare.click()
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(LithologyReviewComparisonDialog, "exec", inspect_comparison)
+    monkeypatch.setattr(LithologyReviewHistoryDialog, "exec", inspect_history)
+    dialog.open_history.click()
+    assert len(comparisons) == 1
+    assert repr(session.project) == before and not session.dirty
+    dialog.close()
+
+
+def test_history_identical_assertions_are_not_auto_approved(qapp, tmp_path, monkeypatch):
+    import json
+    from PySide6.QtCore import QItemSelectionModel
+    from geoworkbench.ui.lithology_mapping_dialog import (
+        LithologyReviewComparisonDialog, LithologyReviewHistoryDialog,
+    )
+    from test_lithology_review_history import _history_files
+
+    session, first, second = _history_files(tmp_path)
+    payload = json.loads(first.read_text(encoding="utf-8"))
+    payload["recorded_at_utc"] = "2026-10-22T11:00:00Z"
+    second.write_text(json.dumps(payload), encoding="utf-8")
+    dialog = LithologyMappingDialog(session)
+    monkeypatch.setattr(QFileDialog, "getOpenFileNames",
+                        lambda *args: ([str(first), str(second)], "JSON"))
+
+    def inspect_comparison(viewer):
+        assert not viewer.comparison.differences
+        assert viewer.table is None
+        return QDialog.DialogCode.Rejected
+
+    def inspect_history(viewer):
+        viewer.table.selectRow(0)
+        viewer.table.selectionModel().select(
+            viewer.table.model().index(1, 0),
+            QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows,
+        )
+        assert viewer.compare.isEnabled()
+        viewer.compare.click()
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(LithologyReviewComparisonDialog, "exec", inspect_comparison)
+    monkeypatch.setattr(LithologyReviewHistoryDialog, "exec", inspect_history)
+    dialog.open_history.click()
+    dialog.close()
