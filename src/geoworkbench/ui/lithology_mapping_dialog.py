@@ -411,6 +411,7 @@ class LithologyReviewComparisonDialog(QDialog):
             label.setTextFormat(Qt.TextFormat.PlainText)
             label.setWordWrap(True)
             root.addWidget(label)
+        self.table: QTableWidget | None
         if comparison.differences:
             self.table = QTableWidget(len(comparison.differences), 3, self)
             self.table.setHorizontalHeaderLabels([
