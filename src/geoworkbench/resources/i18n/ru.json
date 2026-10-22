@@ -2519,5 +2519,8 @@
   "lithology_mapping.family.unknown_or_mixed": "Неизвестные / смешанные",
   "lithology_mapping.quality.validated": "Подтверждено",
   "lithology_mapping.quality.suspect": "Сомнительно",
-  "lithology_mapping.quality.rejected": "Отклонено"
+  "lithology_mapping.quality.rejected": "Отклонено",
+  "lithology_mapping.export": "Сохранить проверку в JSON…",
+  "lithology_mapping.exported": "Проверка сохранена в отдельный JSON-файл. Это запись проверки, не геологическое утверждение; проект не изменён.",
+  "lithology_mapping.export_failed": "Не удалось сохранить проверку. Проверьте доступность папки и повторите сохранение."
 }

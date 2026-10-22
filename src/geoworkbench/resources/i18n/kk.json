@@ -2519,5 +2519,8 @@
   "lithology_mapping.family.unknown_or_mixed": "Белгісіз / аралас",
   "lithology_mapping.quality.validated": "Расталған",
   "lithology_mapping.quality.suspect": "Күмәнді",
-  "lithology_mapping.quality.rejected": "Қабылданбаған"
+  "lithology_mapping.quality.rejected": "Қабылданбаған",
+  "lithology_mapping.export": "Тексеруді JSON файлына сақтау…",
+  "lithology_mapping.exported": "Тексеру бөлек JSON файлына сақталды. Бұл тексеру жазбасы, геологиялық бекіту емес; жоба өзгермеді.",
+  "lithology_mapping.export_failed": "Тексеруді сақтау мүмкін болмады. Қалтаның қолжетімділігін тексеріп, қайта сақтаңыз."
 }

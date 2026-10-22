@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
-    QComboBox, QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit,
+    QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QLabel, QLineEdit,
     QPushButton, QScrollArea, QVBoxLayout, QWidget,
 )
 
@@ -15,6 +15,7 @@ from geoworkbench.services.lithology_source_mapping import (
     evaluate_lithology_mapping, review_lithology_source,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.lithology_review_export import export_lithology_review
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
@@ -72,6 +73,13 @@ class LithologyMappingDialog(QDialog):
         self.result_label.setWordWrap(True)
         self.result_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         root.addWidget(self.result_label)
+        self.export = QPushButton(self._t("export"), self)
+        self.export.setEnabled(False)
+        root.addWidget(self.export)
+        self.export_status = QLabel(self)
+        self.export_status.setTextFormat(Qt.TextFormat.PlainText)
+        self.export_status.setWordWrap(True)
+        root.addWidget(self.export_status)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(
             self.localizer.text("common.close"),
@@ -83,6 +91,7 @@ class LithologyMappingDialog(QDialog):
         self.quality.currentIndexChanged.connect(self._invalidate)
         self.reload.clicked.connect(self._reload_sources)
         self.review.clicked.connect(self._review)
+        self.export.clicked.connect(self._export)
         self._reload_sources()
         fit_window_to_screen(self, preferred=QSize(660, 620), minimum=QSize(380, 360))
 
@@ -103,6 +112,8 @@ class LithologyMappingDialog(QDialog):
     def _invalidate(self) -> None:
         self._mapping = None
         self.result_label.clear()
+        self.export.setEnabled(False)
+        self.export_status.clear()
 
     def _reload_sources(self) -> None:
         self.source.clear()
@@ -158,7 +169,31 @@ class LithologyMappingDialog(QDialog):
             self.result_label.setText(self._t("invalid"))
             return
         self._mapping = mapping
+        self.export.setEnabled(True)
         self.result_label.setText(self._t(
             "result", mapping=mapping.mapping_id, source=mapping.source.interval_id,
             family=self._t(f"family.{family.value}"), quality=self._t(f"quality.{quality.value}"),
         ))
+
+    def _export(self) -> None:
+        if self.mapping is None:
+            return
+        filename, _ = QFileDialog.getSaveFileName(
+            self, self._t("export"), "lithology-review.json", "JSON (*.json)",
+        )
+        if not filename:
+            return
+        mapping = self.mapping
+        if mapping is None:
+            return
+        if not filename.casefold().endswith(".json"):
+            filename += ".json"
+        try:
+            export_lithology_review(self.session, mapping, filename, overwrite=True)
+        except (ValueError, TypeError, OverflowError):
+            self._invalidate()
+            self.result_label.setText(self._t("invalid"))
+        except OSError:
+            self.export_status.setText(self._t("export_failed"))
+        else:
+            self.export_status.setText(self._t("exported"))

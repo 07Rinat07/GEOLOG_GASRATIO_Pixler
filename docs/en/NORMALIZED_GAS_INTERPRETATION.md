@@ -1,5 +1,9 @@
 # Normalized gas and LBA correlation
 
+## Save a detached review record as JSON
+
+After successful review, choose Save review as JSON. The file contains schema_version=1, reviewer, evidence, family/quality, MD bounds, source/axis fingerprints and UTC recording time. The status operator_review_not_geological_approval identifies a review record, not geological approval. Source freshness is checked before and after file selection and before publication; stale reviews cannot be saved. Cancel and errors leave the project unchanged. An existing file is replaced only after confirmation in the save dialog. This is detached JSON with no import/reactivation or project format change.
+
 ## Operator lithology mapping dialog
 
 Open Calculations → Lithology: review mapping…. Select a saved interval on a verified metre MD axis, explicitly choose family and quality, and enter the mapping ID, reviewer and evidence. Review creates a temporary result; the project is unchanged. Editing a field clears the result. Switching sources clears family and quality; after source edits, reload and select the interval again. This LithologyMappingDialog has no persistence or productivity approval; regional review by a geologist is required.
