@@ -2544,5 +2544,22 @@
   "lithology_mapping.history_id": "Тексеру ID",
   "lithology_mapping.history_reviewer": "Автор",
   "lithology_mapping.history_family": "Тұқымдас",
-  "lithology_mapping.history_quality": "Сапа"
+  "lithology_mapping.history_quality": "Сапа",
+  "lithology_mapping.history_compare": "Екі жазбаны салыстыру…",
+  "lithology_mapping.comparison_intro": "Бір дереккөзге қатысты нақты таңдалған екі мұрағаттық жазбаның айырмашылықтары ғана көрсетіледі. Бұл авторлықты, редакциялар тізбегін немесе геологиялық бекітуді растамайды. Жоба өзгермейді.",
+  "lithology_mapping.comparison_record": "Мұрағаттық жазба: UTC {time}; тексеру ID {mapping}",
+  "lithology_mapping.comparison_field": "Өріс",
+  "lithology_mapping.comparison_first": "Бірінші таңдалған жазба",
+  "lithology_mapping.comparison_second": "Екінші таңдалған жазба",
+  "lithology_mapping.comparison_no_differences": "Жазылған өрістер арасында айырмашылық жоқ. Бұл геологиялық қорытындылардың сәйкестігін не бекітілуін дәлелдемейді.",
+  "lithology_mapping.comparison_field.mapping_id": "Тексеру ID",
+  "lithology_mapping.comparison_field.reviewer": "Автор",
+  "lithology_mapping.comparison_field.applicability_reference": "Қолдану негіздемесі",
+  "lithology_mapping.comparison_field.rock_family": "Жыныс тобы",
+  "lithology_mapping.comparison_field.quality": "Сапа",
+  "lithology_mapping.comparison_field.lithotype_id": "Дереккөз литотипі",
+  "lithology_mapping.comparison_field.top_md_m": "MD төбесі, м",
+  "lithology_mapping.comparison_field.bottom_md_m": "MD табаны, м",
+  "lithology_mapping.comparison_field.source_sha256": "Литология SHA-256",
+  "lithology_mapping.comparison_field.axis_sha256": "MD осінің SHA-256"
 }
