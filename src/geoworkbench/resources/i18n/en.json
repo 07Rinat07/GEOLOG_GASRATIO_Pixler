@@ -2522,5 +2522,12 @@
   "lithology_mapping.quality.rejected": "Rejected",
   "lithology_mapping.export": "Save review as JSON…",
   "lithology_mapping.exported": "Review saved as a separate JSON record. This is not geological approval; the project is unchanged.",
-  "lithology_mapping.export_failed": "Could not save the review. Check folder access and try saving again."
+  "lithology_mapping.export_failed": "Could not save the review. Check folder access and try saving again.",
+  "lithology_mapping.open_record": "View JSON record…",
+  "lithology_mapping.record_invalid": "Could not read the review record. Check the file and supported format.",
+  "lithology_mapping.record_status.matching": "Source matches at reading time; authorship and applicability are unverified",
+  "lithology_mapping.record_status.different": "Source differs from the current selection",
+  "lithology_mapping.record_status.unavailable": "Source unavailable or MD axis unverified",
+  "lithology_mapping.record_status.other_project": "Record belongs to another project",
+  "lithology_mapping.record_details": "Archival record — view only. Mapping fields are unchanged and the review is not activated. This is not a signature or geological approval.\n\nStatus at reading time: {status}\nProject: {project}\nWell: {well}; dataset: {dataset}\nRecorded UTC: {recorded}\nID: {mapping}\nRecorded reviewer: {reviewer}\nRecorded evidence: {evidence}\nSource: {source}; lithotype: {lithotype}\nMD: {top}–{bottom} m; axis: {axis}\nRecorded family: {family}\nRecorded quality: {quality}\nSource SHA-256: {source_hash}\nAxis SHA-256: {axis_hash}"
 }

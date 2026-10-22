@@ -1,4 +1,16 @@
 
+## Archival lithology JSON reader
+
+Run `.\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_lithology_review_reader.py tests/test_lithology_mapping_dialog.py -q`.
+Acceptance covers export/read round trip, immutable archive, all source states,
+strict root/mapping/source contracts, duplicate keys, NaN/Infinity, invalid UTF-8,
+deep JSON and the 1 MiB bound. UI checks RU/KK/EN, plain-text untrusted content,
+no activation/field changes, cancellation and localized read errors. Tests that
+create real exports need ordinary filesystem permissions for atomic publication.
+Manual: choose View JSON record in the mapping dialog; inspect recorded reviewer,
+evidence and source status, then close. Active fields and project remain unchanged.
+
+
 ## Detached lithology review JSON
 
 Run `.\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_lithology_review_export.py tests/test_lithology_mapping_dialog.py -q`.

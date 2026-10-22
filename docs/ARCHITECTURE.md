@@ -1,4 +1,17 @@
 
+## Archival lithology review reader
+
+`services/lithology_review_reader.py` reads at most 1 MiB plus one sentinel byte,
+rejects non-UTF-8, duplicate/unknown/missing keys, nonfinite JSON constants,
+unsupported schema/status, non-UTC timestamps and invalid source/MD contracts.
+It returns frozen SavedLithologyReview, not ReviewedLithologyMapping. Source
+comparison only rereads the selected current source; matching never authenticates
+an author or an interpretation. UI shows the record in a separate plain-text
+scrollable dialog, with status explicitly scoped to reading time. No automatic
+field population, mapping activation, project mutations, signature or history
+store is introduced. Existing v1 exports remain unchanged.
+
+
 ## Detached lithology review export
 
 `services/lithology_review_export.py` publishes a schema_version=1 UTF-8 JSON

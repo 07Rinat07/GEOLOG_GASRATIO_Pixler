@@ -229,3 +229,57 @@ def test_export_io_error_is_localized_and_review_can_be_retried(qapp, tmp_path, 
     assert dialog.export_status.text() == dialog._t("export_failed")
     assert "secret" not in dialog.export_status.text()
     dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_saved_record_view_does_not_activate_or_replace_current_mapping(qapp, tmp_path, monkeypatch, language):
+    import json
+    from geoworkbench.services.lithology_review_export import export_lithology_review
+    from geoworkbench.ui.lithology_mapping_dialog import SavedLithologyReviewDialog
+
+    session = _session()
+    session.dirty = False
+    dialog = LithologyMappingDialog(session, language=language)
+    _fill(dialog)
+    dialog.review.click()
+    active = dialog.mapping
+    target = tmp_path / "record.json"
+    export_lithology_review(session, active, target)
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["mapping"]["reviewer"] = "<b>Unverified archived author</b>"
+    payload["mapping"]["rock_family"] = "carbonate"
+    target.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args: (str(target), "JSON"))
+    seen = []
+
+    def show(viewer):
+        assert viewer.details.textFormat() is Qt.TextFormat.PlainText
+        assert "<b>Unverified archived author</b>" in viewer.details.text()
+        assert viewer.record.rock_family is RockFamily.CARBONATE
+        assert viewer.record.source.source_sha256 in viewer.details.text()
+        seen.append(viewer.record)
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(SavedLithologyReviewDialog, "exec", show)
+    dialog.open_record.click()
+    assert len(seen) == 1
+    assert dialog.mapping is active and dialog.fields["reviewer"].text() == "Expert"
+    assert dialog.family.currentData() == "halite" and not session.dirty
+    dialog.close()
+
+
+@pytest.mark.parametrize("choice", ["cancel", "malformed", "missing"])
+def test_record_open_cancel_and_errors_leave_active_mapping_unchanged(qapp, tmp_path, monkeypatch, choice):
+    dialog = LithologyMappingDialog(_session())
+    _fill(dialog)
+    dialog.review.click()
+    active = dialog.mapping
+    target = tmp_path / "record.json"
+    if choice == "malformed":
+        target.write_text('{"schema_version":999}', encoding="utf-8")
+    monkeypatch.setattr(QFileDialog, "getOpenFileName",
+                        lambda *args: ("" if choice == "cancel" else str(target), "JSON"))
+    dialog.open_record.click()
+    assert dialog.mapping is active and dialog.export.isEnabled()
+    assert dialog.export_status.text() == ("" if choice == "cancel" else dialog._t("record_invalid"))
+    dialog.close()
