@@ -1,4 +1,17 @@
 
+## Bounded archival lithology history selection
+
+`services/lithology_review_history.py` loads 1–16 paths with the existing strict
+1 MiB v1 reader. It rejects duplicate resolved paths/normalized record contents
+and mixed project/well/dataset/axis/interval scopes. A failure returns no partial
+selection. Frozen entries are stably ordered by parsed UTC recording time, with
+current-source comparison performed after loading. Unverified recording times
+do not establish a signed revision chain or select an approved/latest record.
+The UI uses a read-only row table with no default selected row; details reuse
+the archival viewer and recompute source state. No file/project/history-store
+writes, active-field population or geological approval are introduced.
+
+
 ## Archival lithology review reader
 
 `services/lithology_review_reader.py` reads at most 1 MiB plus one sentinel byte,

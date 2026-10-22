@@ -1,4 +1,17 @@
 
+## Archival history selection
+
+Run `.\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_lithology_review_history.py tests/test_lithology_mapping_dialog.py -q`.
+Acceptance covers bounded selection, UTC ordering/ties, duplicate paths/content
+including equivalent UTC forms, mixed scopes, changed snapshots, atomic rejection
+of malformed/missing files, immutable output and no project mutations. UI tests
+cover RU/KK/EN, no edit/default selection, error/cancel and fresh source status
+when opening details. Real export fixtures require ordinary filesystem rights.
+Manual: choose View record history, select files for one source, inspect the
+chronological table, select a row and open details. This does not activate or
+approve a record and does not create a signed revision history.
+
+
 ## Archival lithology JSON reader
 
 Run `.\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_lithology_review_reader.py tests/test_lithology_mapping_dialog.py -q`.

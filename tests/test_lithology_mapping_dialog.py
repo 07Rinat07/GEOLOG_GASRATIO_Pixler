@@ -283,3 +283,68 @@ def test_record_open_cancel_and_errors_leave_active_mapping_unchanged(qapp, tmp_
     assert dialog.mapping is active and dialog.export.isEnabled()
     assert dialog.export_status.text() == ("" if choice == "cancel" else dialog._t("record_invalid"))
     dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_history_view_is_read_only_and_details_recheck_current_source(qapp, tmp_path, monkeypatch, language):
+    from geoworkbench.services.lithology_review_reader import ReviewSourceStatus
+    from geoworkbench.ui.lithology_mapping_dialog import (
+        LithologyReviewHistoryDialog, SavedLithologyReviewDialog,
+    )
+    from test_lithology_review_history import _history_files
+
+    session, first, second = _history_files(tmp_path)
+    session.dirty = False
+    dialog = LithologyMappingDialog(session, language=language)
+    _fill(dialog)
+    dialog.review.click()
+    active = dialog.mapping
+    monkeypatch.setattr(QFileDialog, "getOpenFileNames",
+                        lambda *args: ([str(second), str(first)], "JSON"))
+    observed = []
+
+    def details(viewer):
+        assert viewer.record.mapping_id == "review-1"
+        assert viewer.status is ReviewSourceStatus.DIFFERENT
+        observed.append(viewer.record)
+        return QDialog.DialogCode.Rejected
+
+    def history(viewer):
+        from PySide6.QtWidgets import QAbstractItemView
+
+        assert viewer.table.rowCount() == 2
+        assert viewer.table.item(0, 1).text() == "review-1"
+        assert viewer.table.item(1, 1).text() == "review-2"
+        assert viewer.table.editTriggers() == QAbstractItemView.EditTrigger.NoEditTriggers
+        assert not viewer.table.selectionModel().selectedRows()
+        assert not viewer.details.isEnabled()
+        assert dialog.mapping is active
+        viewer.table.selectRow(0)
+        assert viewer.details.isEnabled()
+        session.current_well.lithology[0].description = "Changed while viewing"
+        viewer.details.click()
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(SavedLithologyReviewDialog, "exec", details)
+    monkeypatch.setattr(LithologyReviewHistoryDialog, "exec", history)
+    dialog.open_history.click()
+    assert len(observed) == 1
+    assert dialog.mapping is None and dialog.fields["reviewer"].text() == "Expert"
+    assert not session.dirty
+    dialog.close()
+
+
+@pytest.mark.parametrize("choice", ["cancel", "bad_file", "too_many"])
+def test_history_cancel_or_invalid_selection_preserves_active_review(qapp, tmp_path, monkeypatch, choice):
+    dialog = LithologyMappingDialog(_session())
+    _fill(dialog)
+    dialog.review.click()
+    active = dialog.mapping
+    target = tmp_path / "bad.json"
+    target.write_text("null", encoding="utf-8")
+    paths = [] if choice == "cancel" else [str(target)] * (17 if choice == "too_many" else 1)
+    monkeypatch.setattr(QFileDialog, "getOpenFileNames", lambda *args: (paths, "JSON"))
+    dialog.open_history.click()
+    assert dialog.mapping is active and dialog.export.isEnabled()
+    assert dialog.export_status.text() == ("" if choice == "cancel" else dialog._t("history_invalid"))
+    dialog.close()

@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
-    QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QLabel, QLineEdit,
-    QPushButton, QScrollArea, QVBoxLayout, QWidget,
+    QAbstractItemView, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
+    QHeaderView, QLabel, QLineEdit, QPushButton, QScrollArea, QTableWidget,
+    QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
 from geoworkbench.project.session import ProjectSession
@@ -18,6 +19,9 @@ from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.lithology_review_export import export_lithology_review
 from geoworkbench.services.lithology_review_reader import (
     SavedLithologyReview, ReviewSourceStatus, compare_review_source, load_lithology_review,
+)
+from geoworkbench.services.lithology_review_history import (
+    LithologyHistoryEntry, load_lithology_review_history,
 )
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
@@ -85,6 +89,8 @@ class LithologyMappingDialog(QDialog):
         root.addWidget(self.export_status)
         self.open_record = QPushButton(self._t("open_record"), self)
         root.addWidget(self.open_record)
+        self.open_history = QPushButton(self._t("open_history"), self)
+        root.addWidget(self.open_history)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(
             self.localizer.text("common.close"),
@@ -98,6 +104,7 @@ class LithologyMappingDialog(QDialog):
         self.review.clicked.connect(self._review)
         self.export.clicked.connect(self._export)
         self.open_record.clicked.connect(self._open_record)
+        self.open_history.clicked.connect(self._open_history)
         self._reload_sources()
         fit_window_to_screen(self, preferred=QSize(660, 620), minimum=QSize(380, 360))
 
@@ -218,6 +225,21 @@ class LithologyMappingDialog(QDialog):
             return
         SavedLithologyReviewDialog(record, status, self, language=self.localizer.language).exec()
 
+    def _open_history(self) -> None:
+        filenames, _ = QFileDialog.getOpenFileNames(
+            self, self._t("open_history"), "", "JSON (*.json)",
+        )
+        if not filenames:
+            return
+        try:
+            entries = load_lithology_review_history(self.session, tuple(filenames))
+        except (OSError, ValueError, TypeError, OverflowError):
+            self.export_status.setText(self._t("history_invalid"))
+            return
+        LithologyReviewHistoryDialog(
+            self.session, entries, self, language=self.localizer.language,
+        ).exec()
+
 
 class SavedLithologyReviewDialog(QDialog):
     """An archival viewer with no route to the active mapping fields."""
@@ -261,3 +283,76 @@ class SavedLithologyReviewDialog(QDialog):
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
         fit_window_to_screen(self, preferred=QSize(660, 560), minimum=QSize(380, 360))
+
+
+class LithologyReviewHistoryDialog(QDialog):
+    def __init__(
+        self, session: ProjectSession, entries: tuple[LithologyHistoryEntry, ...],
+        parent: QWidget | None = None, *, language: AppLanguage = AppLanguage.RU,
+    ) -> None:
+        super().__init__(parent)
+        if not entries:
+            raise ValueError("History viewer requires at least one record")
+        self.session, self.entries, self.language = session, entries, language
+        localizer = Localizer.create(language)
+        self._text = lambda key: localizer.text(f"lithology_mapping.{key}")
+        self.setWindowTitle(self._text("open_history"))
+        root = QVBoxLayout(self)
+        intro = QLabel(self._text("history_intro"), self)
+        intro.setWordWrap(True)
+        root.addWidget(intro)
+        first = entries[0].record
+        scope = QLabel(localizer.text(
+            "lithology_mapping.history_scope", project=first.project_id,
+            well=first.source.well_id, dataset=first.source.dataset_id,
+            axis=first.source.depth_axis_id, source=first.source.interval_id,
+        ), self)
+        scope.setTextFormat(Qt.TextFormat.PlainText)
+        scope.setWordWrap(True)
+        root.addWidget(scope)
+        self.table = QTableWidget(len(entries), 6, self)
+        self.table.setHorizontalHeaderLabels([
+            self._text(key) for key in (
+                "history_time", "history_id", "history_reviewer", "history_family",
+                "history_quality", "history_source",
+            )
+        ])
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        for column, width in enumerate((205, 110, 110, 125, 135, 150)):
+            self.table.setColumnWidth(column, width)
+        for row, entry in enumerate(entries):
+            record = entry.record
+            values = (
+                record.recorded_at_utc, record.mapping_id, record.reviewer,
+                self._text(f"family.{record.rock_family.value}"),
+                self._text(f"quality.{record.quality.value}"),
+                self._text(f"history_status.{entry.source_status.value}"),
+            )
+            for column, value in enumerate(values):
+                self.table.setItem(row, column, QTableWidgetItem(value))
+        self.table.clearSelection()
+        root.addWidget(self.table)
+        self.details = QPushButton(self._text("history_details"), self)
+        self.details.setEnabled(False)
+        self.table.itemSelectionChanged.connect(
+            lambda: self.details.setEnabled(bool(self.table.selectionModel().selectedRows())),
+        )
+        self.details.clicked.connect(self._open_selected)
+        self.table.cellDoubleClicked.connect(self._open_selected)
+        root.addWidget(self.details)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
+        buttons.button(QDialogButtonBox.StandardButton.Close).setText(localizer.text("common.close"))
+        buttons.rejected.connect(self.reject)
+        root.addWidget(buttons)
+        fit_window_to_screen(self, preferred=QSize(900, 560), minimum=QSize(380, 360))
+
+    def _open_selected(self, *_args: object) -> None:
+        selected = self.table.selectionModel().selectedRows()
+        if len(selected) != 1:
+            return
+        record = self.entries[selected[0].row()].record
+        status = compare_review_source(self.session, record)
+        SavedLithologyReviewDialog(record, status, self, language=self.language).exec()

@@ -2529,5 +2529,20 @@
   "lithology_mapping.record_status.different": "Источник отличается от текущего выбора",
   "lithology_mapping.record_status.unavailable": "Источник недоступен или MD-ось не подтверждена",
   "lithology_mapping.record_status.other_project": "Запись другого проекта",
-  "lithology_mapping.record_details": "Архивная запись — только просмотр. Поля сопоставления не изменяются, проверка не активируется. Это не подпись и не геологическое утверждение.\n\nСостояние при чтении: {status}\nПроект: {project}\nСкважина: {well}; набор: {dataset}\nВремя записи UTC: {recorded}\nID: {mapping}\nЗаписанный автор: {reviewer}\nЗаписанное основание: {evidence}\nИсточник: {source}; литотип: {lithotype}\nMD: {top}–{bottom} m; ось: {axis}\nЗаписанное семейство: {family}\nЗаписанное качество: {quality}\nSHA-256 источника: {source_hash}\nSHA-256 оси: {axis_hash}"
+  "lithology_mapping.record_details": "Архивная запись — только просмотр. Поля сопоставления не изменяются, проверка не активируется. Это не подпись и не геологическое утверждение.\n\nСостояние при чтении: {status}\nПроект: {project}\nСкважина: {well}; набор: {dataset}\nВремя записи UTC: {recorded}\nID: {mapping}\nЗаписанный автор: {reviewer}\nЗаписанное основание: {evidence}\nИсточник: {source}; литотип: {lithotype}\nMD: {top}–{bottom} m; ось: {axis}\nЗаписанное семейство: {family}\nЗаписанное качество: {quality}\nSHA-256 источника: {source_hash}\nSHA-256 оси: {axis_hash}",
+  "lithology_mapping.open_history": "Просмотреть историю записей…",
+  "lithology_mapping.history_intro": "Архивные записи одного источника, упорядоченные по записанному UTC-времени. Это не подтверждённая цепочка редакций и не утверждение геолога. При равном времени сохранён порядок выбора. Никакая запись не выбирается как действующая.",
+  "lithology_mapping.history_invalid": "Не удалось открыть подборку. Выберите от 1 до 16 корректных JSON-записей одного проекта, скважины, набора, MD-оси и интервала, без дубликатов.",
+  "lithology_mapping.history_time": "Записанное время UTC",
+  "lithology_mapping.history_source": "Источник при чтении",
+  "lithology_mapping.history_details": "Открыть выбранную запись",
+  "lithology_mapping.history_scope": "Проект: {project}; скважина: {well}; набор: {dataset}; ось: {axis}; интервал: {source}",
+  "lithology_mapping.history_status.matching": "Совпадает",
+  "lithology_mapping.history_status.different": "Отличается",
+  "lithology_mapping.history_status.unavailable": "Недоступен",
+  "lithology_mapping.history_status.other_project": "Другой проект",
+  "lithology_mapping.history_id": "ID проверки",
+  "lithology_mapping.history_reviewer": "Автор",
+  "lithology_mapping.history_family": "Породы",
+  "lithology_mapping.history_quality": "Качество"
 }

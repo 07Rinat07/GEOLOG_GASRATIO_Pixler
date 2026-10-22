@@ -2529,5 +2529,20 @@
   "lithology_mapping.record_status.different": "Дереккөз ағымдағы таңдаудан өзгеше",
   "lithology_mapping.record_status.unavailable": "Дереккөз қолжетімсіз немесе MD осі расталмаған",
   "lithology_mapping.record_status.other_project": "Басқа жобаның жазбасы",
-  "lithology_mapping.record_details": "Мұрағаттық жазба — тек қарау. Сәйкестендіру өрістері өзгермейді, тексеру белсендірілмейді. Бұл қолтаңба немесе геологиялық бекіту емес.\n\nОқу кезіндегі күй: {status}\nЖоба: {project}\nҰңғыма: {well}; жиын: {dataset}\nUTC жазу уақыты: {recorded}\nID: {mapping}\nЖазылған автор: {reviewer}\nЖазылған негіз: {evidence}\nДереккөз: {source}; литотип: {lithotype}\nMD: {top}–{bottom} m; ось: {axis}\nЖазылған тұқымдас: {family}\nЖазылған сапа: {quality}\nДереккөз SHA-256: {source_hash}\nОсь SHA-256: {axis_hash}"
+  "lithology_mapping.record_details": "Мұрағаттық жазба — тек қарау. Сәйкестендіру өрістері өзгермейді, тексеру белсендірілмейді. Бұл қолтаңба немесе геологиялық бекіту емес.\n\nОқу кезіндегі күй: {status}\nЖоба: {project}\nҰңғыма: {well}; жиын: {dataset}\nUTC жазу уақыты: {recorded}\nID: {mapping}\nЖазылған автор: {reviewer}\nЖазылған негіз: {evidence}\nДереккөз: {source}; литотип: {lithotype}\nMD: {top}–{bottom} m; ось: {axis}\nЖазылған тұқымдас: {family}\nЖазылған сапа: {quality}\nДереккөз SHA-256: {source_hash}\nОсь SHA-256: {axis_hash}",
+  "lithology_mapping.open_history": "Жазбалар тарихын қарау…",
+  "lithology_mapping.history_intro": "Бір дереккөздің мұрағаттық жазбалары жазылған UTC уақыты бойынша реттелген. Бұл расталған редакциялар тізбегі немесе геолог бекітуі емес. Уақыт тең болса, таңдау реті сақталады. Ешбір жазба белсенді деп таңдалмайды.",
+  "lithology_mapping.history_invalid": "Топтаманы ашу мүмкін болмады. Бір жоба, ұңғыма, жиын, MD осі және интервал үшін қайталанбайтын 1–16 жарамды JSON жазбасын таңдаңыз.",
+  "lithology_mapping.history_time": "Жазылған UTC уақыты",
+  "lithology_mapping.history_source": "Оқу кезіндегі күй",
+  "lithology_mapping.history_details": "Таңдалған жазбаны ашу",
+  "lithology_mapping.history_scope": "Жоба: {project}; ұңғыма: {well}; жиын: {dataset}; ось: {axis}; интервал: {source}",
+  "lithology_mapping.history_status.matching": "Сәйкес",
+  "lithology_mapping.history_status.different": "Өзгеше",
+  "lithology_mapping.history_status.unavailable": "Қолжетімсіз",
+  "lithology_mapping.history_status.other_project": "Басқа жоба",
+  "lithology_mapping.history_id": "Тексеру ID",
+  "lithology_mapping.history_reviewer": "Автор",
+  "lithology_mapping.history_family": "Тұқымдас",
+  "lithology_mapping.history_quality": "Сапа"
 }
