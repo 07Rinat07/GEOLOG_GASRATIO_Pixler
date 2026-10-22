@@ -1,3 +1,18 @@
+## Archival lithology revision proposals (data-only)
+
+Run `.\\.venv\\Scripts\\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_lithology_revision_proposal.py tests/test_lithology_review_comparison.py -q`.
+The revision-proposal API requires two explicit validated archival review objects,
+one project/well/dataset/axis/interval, a changed recorded assertion, a bounded
+proposal ID, proposed-by text and justification. Tests reject timestamp-only
+changes, missing identity, invalid types and mixed source scopes. Assertions
+remain immutable; untrusted strings are retained as text. Source-fingerprint
+differences may be proposed but do not prove current source validity. Reversing
+selection is allowed and does not imply time-based lineage. The status is fixed
+to `proposal_not_geological_approval`; no project, LAS, file or UI mutation
+occurs. This API does not authenticate the proposer, establish a verified
+revision chain or confer geological approval; there is no persisted workflow.
+Windows exact-head quality, GUI/PDF and security gates remain mandatory.
+
 ## Сравнение архивных литологических записей
 
 Run `.\\.venv\\Scripts\\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_lithology_review_comparison.py tests/test_lithology_mapping_dialog.py -q`.
