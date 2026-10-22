@@ -1,4 +1,17 @@
 
+## Detached lithology review JSON
+
+Run `.\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_lithology_review_export.py tests/test_lithology_mapping_dialog.py -q`.
+Coverage includes UTF-8/provenance/schema/status, explicit overwrite, concurrent
+name creation, stale source before/during write, failed atomic publication,
+stage cleanup, cancellation, source edits during file selection and localized
+I/O errors. AppContainer may deny link/replace in its private temp directory;
+use ordinary filesystem permissions to test publication, without changing assertions.
+Manual: review a source, choose Save review as JSON, inspect the detached record;
+no project dirty flag or persisted mapping is created. JSON records are not
+geological approval and cannot be imported/reactivated by this increment.
+
+
 ## Qt isolation after lithology/localization shared-shard abort
 
 Main run 39734481784 (e08c1f8d, after #701) aborted with 0xC0000005 at

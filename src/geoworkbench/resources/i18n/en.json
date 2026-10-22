@@ -2519,5 +2519,8 @@
   "lithology_mapping.family.unknown_or_mixed": "Unknown / mixed",
   "lithology_mapping.quality.validated": "Validated",
   "lithology_mapping.quality.suspect": "Suspect",
-  "lithology_mapping.quality.rejected": "Rejected"
+  "lithology_mapping.quality.rejected": "Rejected",
+  "lithology_mapping.export": "Save review as JSON…",
+  "lithology_mapping.exported": "Review saved as a separate JSON record. This is not geological approval; the project is unchanged.",
+  "lithology_mapping.export_failed": "Could not save the review. Check folder access and try saving again."
 }

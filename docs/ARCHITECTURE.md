@@ -1,4 +1,18 @@
 
+## Detached lithology review export
+
+`services/lithology_review_export.py` publishes a schema_version=1 UTF-8 JSON
+record via a unique same-directory stage, fsync and atomic replace (explicit
+overwrite) or exclusive hard-link publication. Failures remove the stage and
+preserve the prior destination. The mapping/source is revalidated before writing
+and before publication; UI also rechecks after the file chooser. The payload
+contains project ID, UTC recording time, complete mapping/source provenance and
+operator_review_not_geological_approval. Fingerprints are not a signature.
+No project schema, approval state, importer or reactivation mechanism is added.
+The UI disables save on edits, reports localized errors without paths/exceptions,
+and keeps a valid review available for retry after an I/O failure.
+
+
 ## Operator lithology mapping review
 
 `ui/lithology_mapping_dialog.py` is a modal read-only consumer of the source

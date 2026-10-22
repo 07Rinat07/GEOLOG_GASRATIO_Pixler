@@ -1,6 +1,6 @@
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDialog, QMessageBox
+from PySide6.QtWidgets import QDialog, QFileDialog, QMessageBox
 
 from geoworkbench.services.gis_gti_lithology_screening import ObservationQuality, RockFamily
 from geoworkbench.services.localization import AppLanguage, Localizer
@@ -147,3 +147,85 @@ def test_menu_opens_read_only_dialog_and_handles_absent_dataset(qapp, monkeypatc
     window.lithology_mapping_action.trigger()
     assert messages == [window._t("lithology_mapping.select_dataset")]
     window.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_operator_exports_review_without_mutating_project(qapp, tmp_path, monkeypatch, language):
+    import json
+
+    session = _session()
+    session.dirty = False
+    before = repr(session.project)
+    dialog = LithologyMappingDialog(session, language=language)
+    assert not dialog.export.isEnabled()
+    _fill(dialog)
+    dialog.review.click()
+    assert dialog.export.isEnabled()
+    target = tmp_path / "review"
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *args: (str(target), "JSON"))
+    dialog.export.click()
+    payload = json.loads(target.with_suffix(".json").read_text(encoding="utf-8"))
+    assert payload["mapping"]["mapping_id"] == "review-1"
+    assert dialog.export_status.text() == dialog._t("exported")
+    assert dialog.export_status.textFormat() is Qt.TextFormat.PlainText
+    assert not session.dirty and repr(session.project) == before
+    dialog.fields["reviewer"].setText("Changed")
+    assert not dialog.export.isEnabled() and not dialog.export_status.text()
+    dialog.close()
+
+
+def test_export_cancel_keeps_review_without_files(qapp, tmp_path, monkeypatch):
+    dialog = LithologyMappingDialog(_session())
+    _fill(dialog)
+    dialog.review.click()
+    mapping = dialog.mapping
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *args: ("", ""))
+    dialog.export.click()
+    assert dialog.mapping is mapping and not dialog.export_status.text()
+    assert not list(tmp_path.iterdir())
+    dialog.close()
+
+
+@pytest.mark.parametrize("stage", ["before", "chooser"])
+def test_export_rechecks_source_before_and_after_file_dialog(qapp, tmp_path, monkeypatch, stage):
+    session = _session()
+    dialog = LithologyMappingDialog(session)
+    _fill(dialog)
+    dialog.review.click()
+    target = tmp_path / "review.json"
+    called = []
+
+    def choose(*args):
+        called.append(True)
+        session.current_well.lithology[0].description = "Changed"
+        return str(target), "JSON"
+
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", choose)
+    if stage == "before":
+        session.current_well.lithology[0].description = "Changed"
+    dialog.export.click()
+    assert bool(called) == (stage == "chooser")
+    assert not target.exists() and dialog.mapping is None
+    assert not dialog.export.isEnabled()
+    assert dialog.result_label.text() == dialog._t("invalid")
+    dialog.close()
+
+
+def test_export_io_error_is_localized_and_review_can_be_retried(qapp, tmp_path, monkeypatch):
+    import geoworkbench.ui.lithology_mapping_dialog as module
+
+    dialog = LithologyMappingDialog(_session())
+    _fill(dialog)
+    dialog.review.click()
+    monkeypatch.setattr(QFileDialog, "getSaveFileName",
+                        lambda *args: (str(tmp_path / "review.json"), "JSON"))
+
+    def fail(*args, **kwargs):
+        raise OSError("Internal secret path")
+
+    monkeypatch.setattr(module, "export_lithology_review", fail)
+    dialog.export.click()
+    assert dialog.mapping is not None and dialog.export.isEnabled()
+    assert dialog.export_status.text() == dialog._t("export_failed")
+    assert "secret" not in dialog.export_status.text()
+    dialog.close()
