@@ -16,6 +16,9 @@ from geoworkbench.services.lithology_source_mapping import (
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.lithology_review_export import export_lithology_review
+from geoworkbench.services.lithology_review_reader import (
+    SavedLithologyReview, ReviewSourceStatus, compare_review_source, load_lithology_review,
+)
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
@@ -80,6 +83,8 @@ class LithologyMappingDialog(QDialog):
         self.export_status.setTextFormat(Qt.TextFormat.PlainText)
         self.export_status.setWordWrap(True)
         root.addWidget(self.export_status)
+        self.open_record = QPushButton(self._t("open_record"), self)
+        root.addWidget(self.open_record)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(
             self.localizer.text("common.close"),
@@ -92,6 +97,7 @@ class LithologyMappingDialog(QDialog):
         self.reload.clicked.connect(self._reload_sources)
         self.review.clicked.connect(self._review)
         self.export.clicked.connect(self._export)
+        self.open_record.clicked.connect(self._open_record)
         self._reload_sources()
         fit_window_to_screen(self, preferred=QSize(660, 620), minimum=QSize(380, 360))
 
@@ -197,3 +203,61 @@ class LithologyMappingDialog(QDialog):
             self.export_status.setText(self._t("export_failed"))
         else:
             self.export_status.setText(self._t("exported"))
+
+    def _open_record(self) -> None:
+        filename, _ = QFileDialog.getOpenFileName(
+            self, self._t("open_record"), "", "JSON (*.json)",
+        )
+        if not filename:
+            return
+        try:
+            record = load_lithology_review(filename)
+            status = compare_review_source(self.session, record)
+        except (OSError, ValueError, TypeError, OverflowError):
+            self.export_status.setText(self._t("record_invalid"))
+            return
+        SavedLithologyReviewDialog(record, status, self, language=self.localizer.language).exec()
+
+
+class SavedLithologyReviewDialog(QDialog):
+    """An archival viewer with no route to the active mapping fields."""
+
+    def __init__(
+        self, record: SavedLithologyReview, status: ReviewSourceStatus,
+        parent: QWidget | None = None, *, language: AppLanguage = AppLanguage.RU,
+    ) -> None:
+        super().__init__(parent)
+        self.record = record
+        self.status = status
+        localizer = Localizer.create(language)
+
+        def text(key: str, **values: object) -> str:
+            return localizer.text(f"lithology_mapping.{key}", **values)
+
+        self.setWindowTitle(text("open_record"))
+        root = QVBoxLayout(self)
+        scroll = QScrollArea(self)
+        scroll.setWidgetResizable(True)
+        self.details = QLabel(text(
+            "record_details", project=record.project_id, recorded=record.recorded_at_utc,
+            mapping=record.mapping_id, reviewer=record.reviewer,
+            evidence=record.applicability_reference, source=record.source.interval_id,
+            lithotype=record.source.lithotype_id, axis=record.source.depth_axis_id,
+            well=record.source.well_id, dataset=record.source.dataset_id,
+            source_hash=record.source.source_sha256, axis_hash=record.source.axis_sha256,
+            top=f"{record.source.top_md_m:.9g}", bottom=f"{record.source.bottom_md_m:.9g}",
+            family=text(f"family.{record.rock_family.value}"),
+            quality=text(f"quality.{record.quality.value}"), status=text(f"record_status.{status.value}"),
+        ), self)
+        self.details.setTextFormat(Qt.TextFormat.PlainText)
+        self.details.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        self.details.setMargin(8)
+        self.details.setWordWrap(True)
+        self.details.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        scroll.setWidget(self.details)
+        root.addWidget(scroll)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
+        buttons.button(QDialogButtonBox.StandardButton.Close).setText(localizer.text("common.close"))
+        buttons.rejected.connect(self.reject)
+        root.addWidget(buttons)
+        fit_window_to_screen(self, preferred=QSize(660, 560), minimum=QSize(380, 360))

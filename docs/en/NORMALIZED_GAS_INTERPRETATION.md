@@ -1,5 +1,9 @@
 # Normalized gas and LBA correlation
 
+## View a saved JSON record
+
+Choose View JSON record in the mapping dialog. UTF-8 schema v1 records up to 1 MiB are supported; ambiguous or malformed files are rejected. SavedLithologyReview opens in a separate read-only window: reviewer, evidence, family/quality, MD and fingerprints are shown as recorded assertions. The source is compared with the current selection at reading time: matching, different, unavailable or another project. Matching does not authenticate authorship or applicability. The archive does not populate fields or activate a review; the project is unchanged. History, geological approval and automatic application are not introduced.
+
 ## Save a detached review record as JSON
 
 After successful review, choose Save review as JSON. The file contains schema_version=1, reviewer, evidence, family/quality, MD bounds, source/axis fingerprints and UTC recording time. The status operator_review_not_geological_approval identifies a review record, not geological approval. Source freshness is checked before and after file selection and before publication; stale reviews cannot be saved. Cancel and errors leave the project unchanged. An existing file is replaced only after confirmation in the save dialog. This is detached JSON with no import/reactivation or project format change.

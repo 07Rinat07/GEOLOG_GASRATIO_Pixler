@@ -2522,5 +2522,12 @@
   "lithology_mapping.quality.rejected": "Қабылданбаған",
   "lithology_mapping.export": "Тексеруді JSON файлына сақтау…",
   "lithology_mapping.exported": "Тексеру бөлек JSON файлына сақталды. Бұл тексеру жазбасы, геологиялық бекіту емес; жоба өзгермеді.",
-  "lithology_mapping.export_failed": "Тексеруді сақтау мүмкін болмады. Қалтаның қолжетімділігін тексеріп, қайта сақтаңыз."
+  "lithology_mapping.export_failed": "Тексеруді сақтау мүмкін болмады. Қалтаның қолжетімділігін тексеріп, қайта сақтаңыз.",
+  "lithology_mapping.open_record": "JSON жазбасын қарау…",
+  "lithology_mapping.record_invalid": "Тексеру жазбасын оқу мүмкін болмады. Файл мен қолдау көрсетілетін пішімді тексеріңіз.",
+  "lithology_mapping.record_status.matching": "Дереккөз оқу кезінде сәйкес; авторлық пен қолданылу расталмаған",
+  "lithology_mapping.record_status.different": "Дереккөз ағымдағы таңдаудан өзгеше",
+  "lithology_mapping.record_status.unavailable": "Дереккөз қолжетімсіз немесе MD осі расталмаған",
+  "lithology_mapping.record_status.other_project": "Басқа жобаның жазбасы",
+  "lithology_mapping.record_details": "Мұрағаттық жазба — тек қарау. Сәйкестендіру өрістері өзгермейді, тексеру белсендірілмейді. Бұл қолтаңба немесе геологиялық бекіту емес.\n\nОқу кезіндегі күй: {status}\nЖоба: {project}\nҰңғыма: {well}; жиын: {dataset}\nUTC жазу уақыты: {recorded}\nID: {mapping}\nЖазылған автор: {reviewer}\nЖазылған негіз: {evidence}\nДереккөз: {source}; литотип: {lithotype}\nMD: {top}–{bottom} m; ось: {axis}\nЖазылған тұқымдас: {family}\nЖазылған сапа: {quality}\nДереккөз SHA-256: {source_hash}\nОсь SHA-256: {axis_hash}"
 }

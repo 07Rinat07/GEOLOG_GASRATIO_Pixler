@@ -2522,5 +2522,12 @@
   "lithology_mapping.quality.rejected": "Отклонено",
   "lithology_mapping.export": "Сохранить проверку в JSON…",
   "lithology_mapping.exported": "Проверка сохранена в отдельный JSON-файл. Это запись проверки, не геологическое утверждение; проект не изменён.",
-  "lithology_mapping.export_failed": "Не удалось сохранить проверку. Проверьте доступность папки и повторите сохранение."
+  "lithology_mapping.export_failed": "Не удалось сохранить проверку. Проверьте доступность папки и повторите сохранение.",
+  "lithology_mapping.open_record": "Просмотреть JSON-запись…",
+  "lithology_mapping.record_invalid": "Не удалось прочитать запись проверки. Проверьте файл и поддерживаемый формат.",
+  "lithology_mapping.record_status.matching": "Источник совпадает на момент чтения; авторство и применимость не подтверждены",
+  "lithology_mapping.record_status.different": "Источник отличается от текущего выбора",
+  "lithology_mapping.record_status.unavailable": "Источник недоступен или MD-ось не подтверждена",
+  "lithology_mapping.record_status.other_project": "Запись другого проекта",
+  "lithology_mapping.record_details": "Архивная запись — только просмотр. Поля сопоставления не изменяются, проверка не активируется. Это не подпись и не геологическое утверждение.\n\nСостояние при чтении: {status}\nПроект: {project}\nСкважина: {well}; набор: {dataset}\nВремя записи UTC: {recorded}\nID: {mapping}\nЗаписанный автор: {reviewer}\nЗаписанное основание: {evidence}\nИсточник: {source}; литотип: {lithotype}\nMD: {top}–{bottom} m; ось: {axis}\nЗаписанное семейство: {family}\nЗаписанное качество: {quality}\nSHA-256 источника: {source_hash}\nSHA-256 оси: {axis_hash}"
 }
