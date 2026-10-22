@@ -381,6 +381,19 @@ def test_florovskaya_residual_ring_guides_remain_in_sync_in_three_languages() ->
         ).read_text(encoding="utf-8")
 
 
+def test_lithology_source_mapping_contract_in_three_languages() -> None:
+    for language in ("ru", "kk", "en"):
+        guide = (ROOT / "docs" / language / "NORMALIZED_GAS_INTERPRETATION.md").read_text(
+            encoding="utf-8",
+        )
+        for token in (
+            "review_lithology_source", "create_lithology_mapping",
+            "evaluate_lithology_mapping", "mapping_id", "reviewer",
+            "applicability_reference", "session-local data-only",
+        ):
+            assert token in guide
+
+
 def test_florovskaya_status_and_instructions_use_single_canonical_plan() -> None:
     """Require one source of truth, with multilingual operator guidance."""
 

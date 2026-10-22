@@ -1,5 +1,18 @@
 # Единый план проекта
 
+## INTERP-FUSION-01 — явное сопоставление сохранённого источника (22.10.2026, на проверке)
+
+`review_lithology_source` проверяет выбранный уникальный interval_id, известный
+литотип и фактическую возрастающую MD-ось в метрах. `create_lithology_mapping`
+требует mapping_id, reviewer, applicability_reference, RockFamily и качество.
+`evaluate_lithology_mapping` повторно проверяет источник перед выдачей
+LithologyObservation. Изменения интервала, описаний, каталога, оси и выбранного
+набора блокируют прежний review. Это session-local data-only API: нет UI,
+сериализации, угадывания семейства по названию, lag-коррекции и полевой
+сертификации. Следом — операторское окно и региональные эталоны, предоставленные
+геологом. Перед merge обязательны три exact-head gates и зелёная main.
+
+
 ## INTERP-FUSION-01 — покрытие явно заданной литологией (22.10.2026, на проверке)
 
 `review_gis_gti_lithology_intervals` совмещает границы evidence и отдельных

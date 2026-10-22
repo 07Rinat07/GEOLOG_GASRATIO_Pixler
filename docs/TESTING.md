@@ -1,3 +1,11 @@
+
+## Explicit lithology source review
+
+Run `.\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_lithology_source_mapping.py tests/test_gis_gti_lithology_coverage.py -q`.
+Synthetic acceptance covers explicit family selection independent of rock names,
+source/catalog/axis freshness, ambiguous IDs, invalid bounds, suspect/rejected
+quality, and no project mutation. It does not validate regional geology.
+
 ## INTERP-FUSION-01 lithology coverage
 
 `tests/test_gis_gti_lithology_coverage.py` checks actual changing rock coverage,
