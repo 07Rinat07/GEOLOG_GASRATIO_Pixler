@@ -1,3 +1,16 @@
+## Сравнение архивных литологических записей
+
+Run `.\\.venv\\Scripts\\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_lithology_review_comparison.py tests/test_lithology_mapping_dialog.py -q`.
+Contract: explicitly selected two records, same source scope, immutable differences
+for reviewer/evidence/rock family/quality/lithotype/MD bounds/source fingerprints;
+recording timestamps are displayed separately and do not certify revision order.
+RU/KK/EN GUI shows exact untrusted text as table items (no HTML interpretation),
+enables comparison for exactly two rows, keeps single-record details for one row,
+and selects no active/default record. Identical recorded assertions do not confer
+approval. No project mutations or new LAS writes. Manual: in View record history
+Ctrl-select two rows and choose Compare two records. Windows exact-head quality,
+GUI/PDF and security gates are mandatory before merge.
+
 
 ## Archival history selection
 

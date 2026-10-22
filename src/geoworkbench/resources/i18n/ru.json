@@ -2544,5 +2544,22 @@
   "lithology_mapping.history_id": "ID проверки",
   "lithology_mapping.history_reviewer": "Автор",
   "lithology_mapping.history_family": "Породы",
-  "lithology_mapping.history_quality": "Качество"
+  "lithology_mapping.history_quality": "Качество",
+  "lithology_mapping.history_compare": "Сравнить две записи…",
+  "lithology_mapping.comparison_intro": "Сравниваются только два явно выбранных архивных описания одного источника. Различия не подтверждают авторство, последовательность редакций или геологическое утверждение. Проект не изменяется.",
+  "lithology_mapping.comparison_record": "Архивная запись: UTC {time}; ID проверки {mapping}",
+  "lithology_mapping.comparison_field": "Поле",
+  "lithology_mapping.comparison_first": "Первая выбранная запись",
+  "lithology_mapping.comparison_second": "Вторая выбранная запись",
+  "lithology_mapping.comparison_no_differences": "Различий в записанных полях нет. Это не подтверждает идентичность геологических результатов или утверждение.",
+  "lithology_mapping.comparison_field.mapping_id": "ID проверки",
+  "lithology_mapping.comparison_field.reviewer": "Автор",
+  "lithology_mapping.comparison_field.applicability_reference": "Основание применимости",
+  "lithology_mapping.comparison_field.rock_family": "Семейство пород",
+  "lithology_mapping.comparison_field.quality": "Качество",
+  "lithology_mapping.comparison_field.lithotype_id": "Литотип источника",
+  "lithology_mapping.comparison_field.top_md_m": "Кровля MD, м",
+  "lithology_mapping.comparison_field.bottom_md_m": "Подошва MD, м",
+  "lithology_mapping.comparison_field.source_sha256": "SHA-256 литологии",
+  "lithology_mapping.comparison_field.axis_sha256": "SHA-256 оси MD"
 }
