@@ -2544,5 +2544,22 @@
   "lithology_mapping.history_id": "Review ID",
   "lithology_mapping.history_reviewer": "Reviewer",
   "lithology_mapping.history_family": "Family",
-  "lithology_mapping.history_quality": "Quality"
+  "lithology_mapping.history_quality": "Quality",
+  "lithology_mapping.history_compare": "Compare two records…",
+  "lithology_mapping.comparison_intro": "Only recorded differences between two explicitly selected archived reviews of one source are shown. They do not authenticate authorship, a revision sequence, or geological approval. The project is not modified.",
+  "lithology_mapping.comparison_record": "Archived record: UTC {time}; review ID {mapping}",
+  "lithology_mapping.comparison_field": "Field",
+  "lithology_mapping.comparison_first": "First selected record",
+  "lithology_mapping.comparison_second": "Second selected record",
+  "lithology_mapping.comparison_no_differences": "No recorded field differences. This does not establish identical geological conclusions or approval.",
+  "lithology_mapping.comparison_field.mapping_id": "Review ID",
+  "lithology_mapping.comparison_field.reviewer": "Reviewer",
+  "lithology_mapping.comparison_field.applicability_reference": "Applicability evidence",
+  "lithology_mapping.comparison_field.rock_family": "Rock family",
+  "lithology_mapping.comparison_field.quality": "Quality",
+  "lithology_mapping.comparison_field.lithotype_id": "Source lithotype",
+  "lithology_mapping.comparison_field.top_md_m": "Top MD, m",
+  "lithology_mapping.comparison_field.bottom_md_m": "Bottom MD, m",
+  "lithology_mapping.comparison_field.source_sha256": "Lithology SHA-256",
+  "lithology_mapping.comparison_field.axis_sha256": "MD axis SHA-256"
 }
