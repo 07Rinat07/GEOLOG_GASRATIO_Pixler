@@ -1,4 +1,14 @@
 
+## Operator lithology mapping dialog
+
+Run `.\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_lithology_mapping_dialog.py tests/test_lithology_source_mapping.py -q`.
+Check RU/KK/EN, explicit enum choices, source snapshot freshness, reset/reload,
+quality preservation, menu wiring, Close and no source/project mutations.
+Manual check: select an in-range saved lithology interval on a verified metre
+MD axis, explicitly choose family/quality, enter mapping ID/reviewer/evidence,
+then review. The result is temporary and is not saved or a productivity claim.
+
+
 ## Explicit lithology source review
 
 Run `.\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_lithology_source_mapping.py tests/test_gis_gti_lithology_coverage.py -q`.

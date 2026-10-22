@@ -1,5 +1,9 @@
 # Normalized gas and LBA correlation
 
+## Operator lithology mapping dialog
+
+Open Calculations → Lithology: review mapping…. Select a saved interval on a verified metre MD axis, explicitly choose family and quality, and enter the mapping ID, reviewer and evidence. Review creates a temporary result; the project is unchanged. Editing a field clears the result. Switching sources clears family and quality; after source edits, reload and select the interval again. This LithologyMappingDialog has no persistence or productivity approval; regional review by a geologist is required.
+
 ## Explicit mapping of saved lithology
 
 For developers: review_lithology_source reads a selected interval_id on a verified metre MD axis. create_lithology_mapping requires explicit mapping_id, reviewer, applicability_reference, RockFamily and quality; evaluate_lithology_mapping rechecks the source before emitting LithologyObservation. Interval, description, catalog or axis changes invalidate prior review. Names never select a family automatically. This is a session-local data-only API without UI or persistence; a geologist supplies applicability confirmation and regional reference data.
