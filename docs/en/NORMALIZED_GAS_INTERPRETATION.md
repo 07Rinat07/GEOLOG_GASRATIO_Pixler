@@ -1,5 +1,9 @@
 # Normalized gas and LBA correlation
 
+## Archival review history selection
+
+Choose View record history and select 1–16 JSON files for one project, well, dataset, MD axis and interval. load_lithology_review_history reuses the existing strict reader with a 1 MiB per-file limit; any file error rejects the entire selection. Duplicate paths/records and mixed sources are rejected. The table is ordered by recorded UTC, retaining selection order for equal times. Recorded time does not prove revision lineage or select an active record. Select a row and open details: source state is rechecked. No editing, activation, project writes or geological approval occurs.
+
 ## View a saved JSON record
 
 Choose View JSON record in the mapping dialog. UTF-8 schema v1 records up to 1 MiB are supported; ambiguous or malformed files are rejected. SavedLithologyReview opens in a separate read-only window: reviewer, evidence, family/quality, MD and fingerprints are shown as recorded assertions. The source is compared with the current selection at reading time: matching, different, unavailable or another project. Matching does not authenticate authorship or applicability. The archive does not populate fields or activate a review; the project is unchanged. History, geological approval and automatic application are not introduced.

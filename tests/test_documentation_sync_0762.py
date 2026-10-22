@@ -381,6 +381,15 @@ def test_florovskaya_residual_ring_guides_remain_in_sync_in_three_languages() ->
         ).read_text(encoding="utf-8")
 
 
+def test_lithology_history_selection_is_documented_in_three_languages() -> None:
+    for language in ("ru", "kk", "en"):
+        guide = (ROOT / "docs" / language / "NORMALIZED_GAS_INTERPRETATION.md").read_text(
+            encoding="utf-8",
+        )
+        assert "load_lithology_review_history" in guide
+        assert "1–16" in guide
+
+
 def test_lithology_archival_reader_is_documented_in_three_languages() -> None:
     for language in ("ru", "kk", "en"):
         guide = (ROOT / "docs" / language / "NORMALIZED_GAS_INTERPRETATION.md").read_text(

@@ -2529,5 +2529,20 @@
   "lithology_mapping.record_status.different": "Source differs from the current selection",
   "lithology_mapping.record_status.unavailable": "Source unavailable or MD axis unverified",
   "lithology_mapping.record_status.other_project": "Record belongs to another project",
-  "lithology_mapping.record_details": "Archival record — view only. Mapping fields are unchanged and the review is not activated. This is not a signature or geological approval.\n\nStatus at reading time: {status}\nProject: {project}\nWell: {well}; dataset: {dataset}\nRecorded UTC: {recorded}\nID: {mapping}\nRecorded reviewer: {reviewer}\nRecorded evidence: {evidence}\nSource: {source}; lithotype: {lithotype}\nMD: {top}–{bottom} m; axis: {axis}\nRecorded family: {family}\nRecorded quality: {quality}\nSource SHA-256: {source_hash}\nAxis SHA-256: {axis_hash}"
+  "lithology_mapping.record_details": "Archival record — view only. Mapping fields are unchanged and the review is not activated. This is not a signature or geological approval.\n\nStatus at reading time: {status}\nProject: {project}\nWell: {well}; dataset: {dataset}\nRecorded UTC: {recorded}\nID: {mapping}\nRecorded reviewer: {reviewer}\nRecorded evidence: {evidence}\nSource: {source}; lithotype: {lithotype}\nMD: {top}–{bottom} m; axis: {axis}\nRecorded family: {family}\nRecorded quality: {quality}\nSource SHA-256: {source_hash}\nAxis SHA-256: {axis_hash}",
+  "lithology_mapping.open_history": "View record history…",
+  "lithology_mapping.history_intro": "Archival records for one source, ordered by recorded UTC time. This is not a verified revision chain or geological approval. Equal times keep selection order. No record is selected as active.",
+  "lithology_mapping.history_invalid": "Could not open the selection. Choose 1–16 valid JSON records for one project, well, dataset, MD axis and interval, without duplicates.",
+  "lithology_mapping.history_time": "Recorded UTC time",
+  "lithology_mapping.history_source": "Source at reading",
+  "lithology_mapping.history_details": "Open selected record",
+  "lithology_mapping.history_scope": "Project: {project}; well: {well}; dataset: {dataset}; axis: {axis}; interval: {source}",
+  "lithology_mapping.history_status.matching": "Matching",
+  "lithology_mapping.history_status.different": "Different",
+  "lithology_mapping.history_status.unavailable": "Unavailable",
+  "lithology_mapping.history_status.other_project": "Other project",
+  "lithology_mapping.history_id": "Review ID",
+  "lithology_mapping.history_reviewer": "Reviewer",
+  "lithology_mapping.history_family": "Family",
+  "lithology_mapping.history_quality": "Quality"
 }
