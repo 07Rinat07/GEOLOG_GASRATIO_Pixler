@@ -1,0 +1,149 @@
+import pytest
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QDialog, QMessageBox
+
+from geoworkbench.services.gis_gti_lithology_screening import ObservationQuality, RockFamily
+from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.lithology_mapping_dialog import LithologyMappingDialog
+from test_report_geology_snapshot import _session
+from test_main_window import bind_session
+
+
+def _fill(dialog):
+    dialog.source.setCurrentIndex(1)
+    dialog.family.setCurrentIndex(dialog.family.findData(RockFamily.HALITE))
+    dialog.quality.setCurrentIndex(dialog.quality.findData(ObservationQuality.VALIDATED))
+    for key, value in dict(mapping_id="review-1", reviewer="Expert",
+                           evidence="Synthetic acceptance only").items():
+        dialog.fields[key].setText(value)
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_operator_reviews_explicit_family_without_mutating_source(qapp, language):
+    session = _session()
+    session.dirty = False
+    before = repr(session.project)
+    dialog = LithologyMappingDialog(session, language=language)
+    assert dialog.source.currentData() is None
+    assert dialog.family.currentData() is None and dialog.quality.currentData() is None
+    assert all(not field.text() for field in dialog.fields.values())
+    _fill(dialog)
+    dialog.review.click()
+    assert dialog.mapping.source.lithotype_id == "sandstone"
+    assert dialog.mapping.rock_family is RockFamily.HALITE
+    assert dialog.mapping.reviewer == "Expert"
+    assert "review-1" in dialog.result_label.text()
+    assert "lith-in" in dialog.source_label.text()
+    assert dialog.source_label.textFormat() is Qt.TextFormat.PlainText
+    assert dialog.result_label.textFormat() is Qt.TextFormat.PlainText
+    assert repr(session.project) == before and not session.dirty
+    dialog.reject()
+    assert dialog.result() == QDialog.DialogCode.Rejected
+    dialog.close()
+
+
+@pytest.mark.parametrize("field", ["mapping_id", "reviewer", "evidence", "family", "quality", "source"])
+def test_editing_inputs_clears_previous_result(qapp, field):
+    dialog = LithologyMappingDialog(_session())
+    _fill(dialog)
+    dialog.review.click()
+    assert dialog.mapping is not None
+    if field in dialog.fields:
+        dialog.fields[field].setText("Changed")
+    else:
+        getattr(dialog, field).setCurrentIndex(0)
+    assert dialog.mapping is None and not dialog.result_label.text()
+    dialog.close()
+
+
+@pytest.mark.parametrize("change", ["source", "axis", "deleted", "unit", "description"])
+def test_source_changes_require_reload_before_new_review(qapp, change):
+    session = _session()
+    dialog = LithologyMappingDialog(session)
+    _fill(dialog)
+    dialog.review.click()
+    assert dialog.mapping is not None
+    if change == "source":
+        session.current_well.lithology[0].top_depth += 1
+    elif change == "axis":
+        session.current_dataset.active_index.values[1] += 0.5
+    elif change == "deleted":
+        session.current_well.lithology.clear()
+    elif change == "unit":
+        session.current_dataset.active_index.unit = "ft"
+    else:
+        session.current_well.lithology[0].description = "Changed"
+    assert dialog.mapping is None
+    assert dialog.result_label.text() == dialog._t("invalid")
+    dialog.review.click()
+    assert dialog.mapping is None
+    if change in {"source", "axis", "description"}:
+        dialog.reload.click()
+        assert dialog.source.currentData() is None and dialog.mapping is None
+        assert dialog.family.currentData() is None and dialog.quality.currentData() is None
+        _fill(dialog)
+        dialog.review.click()
+        assert dialog.mapping is not None
+    dialog.close()
+
+
+@pytest.mark.parametrize("missing", ["source", "family", "quality", "evidence"])
+def test_missing_choices_are_blocked_with_localized_message(qapp, missing):
+    dialog = LithologyMappingDialog(_session())
+    _fill(dialog)
+    if missing in dialog.fields:
+        dialog.fields[missing].clear()
+    else:
+        getattr(dialog, missing).setCurrentIndex(0)
+    dialog.review.click()
+    assert dialog.mapping is None
+    assert dialog.result_label.text() == dialog._t(
+        "invalid" if missing == "evidence" else "selection_required",
+    )
+    dialog.close()
+
+
+@pytest.mark.parametrize("quality", list(ObservationQuality))
+def test_operator_quality_is_preserved_without_defaults(qapp, quality):
+    dialog = LithologyMappingDialog(_session())
+    _fill(dialog)
+    dialog.quality.setCurrentIndex(dialog.quality.findData(quality.value))
+    dialog.review.click()
+    assert dialog.mapping.quality is quality
+    dialog.source.setCurrentIndex(2)
+    assert dialog.family.currentData() is None and dialog.quality.currentData() is None
+    assert dialog.mapping is None
+    dialog.close()
+
+
+def test_menu_opens_read_only_dialog_and_handles_absent_dataset(qapp, monkeypatch):
+    from geoworkbench.ui.main_window import MainWindow
+
+    window = MainWindow()
+    session = _session()
+    bind_session(window, session)
+    session.dirty = False
+    observed = []
+
+    def run(dialog):
+        assert dialog.session is session
+        _fill(dialog)
+        dialog.review.click()
+        observed.append(dialog.mapping)
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(LithologyMappingDialog, "exec", run)
+    for language in AppLanguage:
+        window.change_language(language)
+        assert window.lithology_mapping_action.text() == Localizer.create(language).text(
+            "lithology_mapping.action",
+        )
+        window.lithology_mapping_action.trigger()
+    assert len(observed) == 3 and all(item is not None for item in observed)
+    assert not session.dirty
+    messages = []
+    monkeypatch.setattr(QMessageBox, "information", lambda *args: messages.append(args[2]))
+    session.current_dataset_id = None
+    window.lithology_mapping_action.trigger()
+    assert messages == [window._t("lithology_mapping.select_dataset")]
+    window.close()

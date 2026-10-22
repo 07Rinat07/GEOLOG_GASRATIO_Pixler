@@ -297,6 +297,7 @@ from geoworkbench.ui.form_create_dialog import FormCreateDialog
 from geoworkbench.ui.constructor_dialog import UniversalConstructorDialog
 from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
 from geoworkbench.ui.gis_reference_dialog import GisReferenceDialog
+from geoworkbench.ui.lithology_mapping_dialog import LithologyMappingDialog
 from geoworkbench.ui.custom_formula_dialog import CustomFormulaDialog
 from geoworkbench.ui.depth_annotations_dialog import DepthAnnotationsDialog
 from geoworkbench.ui.symbol_insertion_dialog import SymbolInsertionDialog
@@ -1967,6 +1968,9 @@ class MainWindow(QMainWindow):
         self.gis_reference_action = self._localized_action("petro_reference.action")
         self.gis_reference_action.triggered.connect(self.show_gis_reference_dialog)
         calc_menu.addAction(self.gis_reference_action)
+        self.lithology_mapping_action = self._localized_action("lithology_mapping.action")
+        self.lithology_mapping_action.triggered.connect(self.show_lithology_mapping_dialog)
+        calc_menu.addAction(self.lithology_mapping_action)
 
         self.custom_formula_action = self._localized_action("shell.custom_formulas")
         self.custom_formula_action.triggered.connect(self.show_custom_formulas)
@@ -7603,6 +7607,15 @@ class MainWindow(QMainWindow):
         changed = ", ".join(result.changed) or "—"
         self._log(f"Интерпретационные кривые рассчитаны: {changed}")
         self.statusBar().showMessage(f"Интерпретационные кривые созданы/обновлены: {changed}")
+
+    def show_lithology_mapping_dialog(self) -> None:
+        if self.session.current_dataset is None or self.session.current_well is None:
+            QMessageBox.information(
+                self, self._t("lithology_mapping.action"),
+                self._t("lithology_mapping.select_dataset"),
+            )
+            return
+        LithologyMappingDialog(self.session, self, language=self.language).exec()
 
     def show_gis_reference_dialog(self) -> None:
         dataset = self.session.current_dataset

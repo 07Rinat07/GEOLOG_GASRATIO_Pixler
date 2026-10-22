@@ -1,4 +1,15 @@
 
+## Operator lithology mapping review
+
+`ui/lithology_mapping_dialog.py` is a modal read-only consumer of the source
+mapping service. A source snapshot is captured on selection, not silently
+refreshed on review. Source switching clears family/quality; input edits clear
+results. Review and mapping access both revalidate current sources. The main
+window opens it from Calculations without storing mappings or marking the
+project dirty. Localized errors contain no exception details; source/result
+labels are plain text. No persistence, fluid classification or field approval.
+
+
 ## Session-local lithology source mapping
 
 `services/lithology_source_mapping.py` reads one saved interval on a verified
