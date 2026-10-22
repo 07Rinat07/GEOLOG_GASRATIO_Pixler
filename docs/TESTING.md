@@ -1,4 +1,23 @@
 
+## Qt isolation after lithology/localization shared-shard abort
+
+Main run 39734481784 (e08c1f8d, after #701) aborted with 0xC0000005 at
+pyqtgraph ViewBoxMenu.py:32 during
+`test_localization.py::test_main_window_uses_selected_language_for_shell`.
+The child shared 46 files, including lithology mapping and earlier Qt dialogs;
+there was no assertion failure. The selector passed three fresh-process
+diagnostics. An exact local shard replay timed out after 180 seconds in an
+earlier XLSX export test, so it did not reproduce or disprove the CI crash.
+
+Both `tests/test_lithology_mapping_dialog.py` and `tests/test_localization.py`
+now use the existing mandatory single-function native batches. Every parametrized
+case remains executed, and nonzero/native child exits still fail the gate.
+Contract tests assert exclusion from regular shards and complete node coverage.
+No skips, automatic retries, GC changes or production runtime changes were added.
+This contains shared-process Qt state; it does not establish/fix the general
+native root cause #544. Full exact-head PR and post-merge main gates are required.
+
+
 ## Operator lithology mapping dialog
 
 Run `.\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_lithology_mapping_dialog.py tests/test_lithology_source_mapping.py -q`.
