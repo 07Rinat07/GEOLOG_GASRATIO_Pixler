@@ -1,3 +1,13 @@
+
+## Session-local lithology source mapping
+
+`services/lithology_source_mapping.py` reads one saved interval on a verified
+metre MD axis. Frozen LithologySource and ReviewedLithologyMapping retain explicit
+review metadata. Interval/catalog SHA-256 and depth bytes detect source edits;
+well/dataset/axis IDs prevent cross-source reuse. Every evaluation rereads current
+state before producing LithologyObservation. Quality and UNKNOWN_OR_MIXED remain
+explicit. No name inference, persistence, UI, lag alignment or field certification.
+
 <!-- runtime-contract: package=0.7.96; project=v38; form=v18; layout=v25 -->
 # Архитектура
 
