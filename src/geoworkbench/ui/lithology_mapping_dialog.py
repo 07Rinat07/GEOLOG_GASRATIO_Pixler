@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
@@ -30,6 +32,9 @@ from geoworkbench.services.lithology_revision_proposal import (
     LithologyRevisionProposal, prepare_lithology_revision_proposal,
 )
 from geoworkbench.ui.window_geometry import fit_window_to_screen
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class LithologyMappingDialog(QDialog):
@@ -653,15 +658,21 @@ class LithologyRevisionProposalDialog(QDialog):
         try:
             baseline_status = compare_review_source(self.session, baseline)
             candidate_status = compare_review_source(self.session, candidate)
-        except (TypeError, ValueError, OverflowError):
-            # Never leave a previous matching status on screen after a failed
-            # refresh. Retain the detached archival difference preview only.
+            if (not isinstance(baseline_status, ReviewSourceStatus)
+                    or not isinstance(candidate_status, ReviewSourceStatus)):
+                raise TypeError("Source comparison returned an invalid status")
+            baseline_label = self._t(f"record_status.{baseline_status.value}")
+            candidate_label = self._t(f"record_status.{candidate_status.value}")
+        except Exception:
+            # The lookup is a UI trust boundary: no partial or stale success
+            # may survive an unexpected source failure or malformed result.
+            _LOGGER.exception("Archival proposal source identity recheck failed")
             self.source_warning.setText(self._t("proposal_source_check_failed"))
             return
         self.source_status.setText(self._t(
             "proposal_source_preflight",
-            baseline=self._t(f"record_status.{baseline_status.value}"),
-            candidate=self._t(f"record_status.{candidate_status.value}"),
+            baseline=baseline_label,
+            candidate=candidate_label,
         ))
         if (baseline_status is not ReviewSourceStatus.MATCHING
                 or candidate_status is not ReviewSourceStatus.MATCHING):
