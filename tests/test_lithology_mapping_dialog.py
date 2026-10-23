@@ -818,7 +818,10 @@ def test_proposal_manual_source_recheck_reflects_live_changes_without_repreparin
     assert dialog.preview.rowCount() == 1 and dialog.provenance.rowCount() == 10
     assert repr(session.project) == altered and not session.dirty
 
-    session.current_well.lithology.clear()
+    # Remove only the archived source interval; preserve unrelated lithology.
+    removed_interval = session.current_well.lithology.pop(0)
+    assert removed_interval.interval_id == original_lithology.interval_id
+    assert len(session.current_well.lithology) == 1
     missing = repr(session.project)
     dialog.recheck_sources.click()
     assert dialog.proposal is proposal
@@ -830,7 +833,7 @@ def test_proposal_manual_source_recheck_reflects_live_changes_without_repreparin
     assert dialog.source_warning.text() == dialog._t("proposal_source_warning")
     assert repr(session.project) == missing and not session.dirty
 
-    session.current_well.lithology.append(original_lithology)
+    session.current_well.lithology.insert(0, original_lithology)
     dialog.recheck_sources.click()
     assert dialog.proposal is proposal
     assert not dialog.source_warning.text()
