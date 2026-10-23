@@ -526,6 +526,9 @@ class LithologyRevisionProposalDialog(QDialog):
             Qt.TextInteractionFlag.TextSelectableByMouse,
         )
         root.addWidget(self.source_warning)
+        self.recheck_sources = QPushButton(self._t("proposal_recheck_sources"), self)
+        self.recheck_sources.setEnabled(False)
+        root.addWidget(self.recheck_sources)
         self.preview = QTableWidget(0, 3, self)
         self.preview.setHorizontalHeaderLabels([
             self._t("comparison_field"), self._t("comparison_first"),
@@ -566,6 +569,7 @@ class LithologyRevisionProposalDialog(QDialog):
         self.proposed_by.textChanged.connect(self._invalidate)
         self.justification.textChanged.connect(self._invalidate)
         self.prepare.clicked.connect(self._prepare)
+        self.recheck_sources.clicked.connect(self._recheck_source_preflight)
         fit_window_to_screen(self, preferred=QSize(880, 650), minimum=QSize(380, 360))
 
     def _t(self, key: str, **values: object) -> str:
@@ -576,6 +580,7 @@ class LithologyRevisionProposalDialog(QDialog):
         self.summary.clear()
         self.source_status.clear()
         self.source_warning.clear()
+        self.recheck_sources.setEnabled(False)
         self.preview.setRowCount(0)
         self.provenance.setRowCount(0)
         self.tabs.setCurrentIndex(0)
@@ -595,28 +600,16 @@ class LithologyRevisionProposalDialog(QDialog):
                 proposed_by=self.proposed_by.text(),
                 justification=self.justification.toPlainText(),
             )
-            # Re-evaluate both archived snapshots against the current session
-            # at preparation time; the history table may have become stale.
-            baseline_status = compare_review_source(self.session, baseline)
-            candidate_status = compare_review_source(self.session, candidate)
         except (TypeError, ValueError, OverflowError):
             self.summary.setText(self._t("proposal_invalid"))
             return
         self.proposal = proposal
+        self.recheck_sources.setEnabled(True)
         self.summary.setText(self._t(
             "proposal_result", proposal=proposal.proposal_id,
             status=self._t("proposal_unapproved"),
         ))
-        self.source_status.setText(self._t(
-            "proposal_source_preflight",
-            baseline=self._t(f"record_status.{baseline_status.value}"),
-            candidate=self._t(f"record_status.{candidate_status.value}"),
-        ))
-        # The detached proposal remains visible as an unapproved suggestion,
-        # but neither stale nor missing source data may look like clearance.
-        if (baseline_status is not ReviewSourceStatus.MATCHING
-                or candidate_status is not ReviewSourceStatus.MATCHING):
-            self.source_warning.setText(self._t("proposal_source_warning"))
+        self._recheck_source_preflight()
         differences = proposal.comparison.differences
         self.preview.setRowCount(len(differences))
         for row, difference in enumerate(differences):
@@ -648,3 +641,28 @@ class LithologyRevisionProposalDialog(QDialog):
                 self.provenance.setItem(row, col, QTableWidgetItem(value))
         self.preview.show()
         self.tabs.show()
+
+    def _recheck_source_preflight(self) -> None:
+        """Refresh the source identity snapshot without changing the proposal."""
+        self.source_status.clear()
+        self.source_warning.clear()
+        if self.proposal is None:
+            return
+        baseline = self.proposal.comparison.first
+        candidate = self.proposal.comparison.second
+        try:
+            baseline_status = compare_review_source(self.session, baseline)
+            candidate_status = compare_review_source(self.session, candidate)
+        except (TypeError, ValueError, OverflowError):
+            # Never leave a previous matching status on screen after a failed
+            # refresh. Retain the detached archival difference preview only.
+            self.source_warning.setText(self._t("proposal_source_check_failed"))
+            return
+        self.source_status.setText(self._t(
+            "proposal_source_preflight",
+            baseline=self._t(f"record_status.{baseline_status.value}"),
+            candidate=self._t(f"record_status.{candidate_status.value}"),
+        ))
+        if (baseline_status is not ReviewSourceStatus.MATCHING
+                or candidate_status is not ReviewSourceStatus.MATCHING):
+            self.source_warning.setText(self._t("proposal_source_warning"))

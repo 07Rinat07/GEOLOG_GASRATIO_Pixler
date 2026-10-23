@@ -462,6 +462,7 @@ def test_revision_proposal_preview_requires_explicit_baseline_and_never_approves
     assert dialog.baseline.currentData() is None
     assert dialog.proposal is None
     assert dialog.preview.isHidden()
+    assert not dialog.recheck_sources.isEnabled()
     assert dialog.summary.textFormat() == Qt.TextFormat.PlainText
     assert dialog._t("proposal_action") != "lithology_mapping.proposal_action"
     dialog.proposal_id.setText("proposal-42")
@@ -491,12 +492,14 @@ def test_revision_proposal_preview_requires_explicit_baseline_and_never_approves
     assert dialog.provenance.horizontalHeaderItem(2).text() == dialog._t("proposal_candidate")
     assert "proposal-42" in dialog.summary.text()
     assert dialog._t("proposal_unapproved") in dialog.summary.text()
+    assert dialog.recheck_sources.isEnabled()
     assert dialog.source_warning.textFormat() == Qt.TextFormat.PlainText
     assert not dialog.source_warning.text()  # Both archived sources still match.
     assert not dialog.preview.isHidden()
 
     dialog.justification.setPlainText("Edited explanation")
     assert dialog.proposal is None and dialog.preview.rowCount() == 0
+    assert not dialog.recheck_sources.isEnabled()
     assert dialog.provenance.rowCount() == 0 and dialog.tabs.isHidden()
     assert dialog.summary.text() == ""
     assert not session.dirty and repr(session.project) == original
@@ -763,4 +766,135 @@ def test_revision_proposal_shows_complete_unverified_provenance_even_when_equal(
     assert dialog.tabs.currentIndex() == 0 and dialog.tabs.isHidden()
     assert dialog.source_status.text() == "" and dialog.source_warning.text() == ""
     assert not session.dirty and repr(session.project) == original
+    dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_proposal_manual_source_recheck_reflects_live_changes_without_repreparing(
+    qapp, tmp_path, language,
+):
+    from copy import deepcopy
+    from geoworkbench.services.lithology_review_reader import load_lithology_review
+    from geoworkbench.ui.lithology_mapping_dialog import LithologyRevisionProposalDialog
+    from test_lithology_review_history import _history_files
+
+    session, first_path, second_path = _history_files(tmp_path)
+    first, second = load_lithology_review(first_path), load_lithology_review(second_path)
+    session.dirty = False
+    original = repr(session.project)
+    original_lithology = deepcopy(session.current_well.lithology[0])
+    dialog = LithologyRevisionProposalDialog(first, second, session=session, language=language)
+    assert not dialog.recheck_sources.isEnabled()
+    assert not dialog.source_status.text()
+    assert dialog._t("proposal_recheck_sources") != "lithology_mapping.proposal_recheck_sources"
+    dialog.baseline.setCurrentIndex(2)
+    dialog.proposal_id.setText("operator-recheck")
+    dialog.proposed_by.setText("Unverified author")
+    dialog.justification.setPlainText("Revisit current source without revising archived assertions")
+    dialog.prepare.click()
+
+    proposal = dialog.proposal
+    assert proposal is not None and proposal.review_state == "proposal_not_geological_approval"
+    assert dialog.recheck_sources.isEnabled()
+    assert dialog.preview.rowCount() == 1 and dialog.provenance.rowCount() == 10
+    assert dialog.source_status.text() == dialog._t(
+        "proposal_source_preflight",
+        baseline=dialog._t("record_status.matching"),
+        candidate=dialog._t("record_status.matching"),
+    )
+    assert not dialog.source_warning.text()
+    assert repr(session.project) == original and not session.dirty
+
+    session.current_well.lithology[0].description = "Source changed after proposal preparation"
+    altered = repr(session.project)
+    dialog.recheck_sources.click()
+    assert dialog.proposal is proposal
+    assert dialog.source_status.text() == dialog._t(
+        "proposal_source_preflight",
+        baseline=dialog._t("record_status.different"),
+        candidate=dialog._t("record_status.different"),
+    )
+    assert dialog.source_warning.text() == dialog._t("proposal_source_warning")
+    assert dialog.preview.rowCount() == 1 and dialog.provenance.rowCount() == 10
+    assert repr(session.project) == altered and not session.dirty
+
+    # Remove only the archived source interval; preserve unrelated lithology.
+    removed_interval = session.current_well.lithology.pop(0)
+    assert removed_interval.interval_id == original_lithology.interval_id
+    assert len(session.current_well.lithology) == 1
+    missing = repr(session.project)
+    dialog.recheck_sources.click()
+    assert dialog.proposal is proposal
+    assert dialog.source_status.text() == dialog._t(
+        "proposal_source_preflight",
+        baseline=dialog._t("record_status.unavailable"),
+        candidate=dialog._t("record_status.unavailable"),
+    )
+    assert dialog.source_warning.text() == dialog._t("proposal_source_warning")
+    assert repr(session.project) == missing and not session.dirty
+
+    session.current_well.lithology.insert(0, original_lithology)
+    dialog.recheck_sources.click()
+    assert dialog.proposal is proposal
+    assert not dialog.source_warning.text()
+    assert dialog.source_status.text() == dialog._t(
+        "proposal_source_preflight",
+        baseline=dialog._t("record_status.matching"),
+        candidate=dialog._t("record_status.matching"),
+    )
+    assert repr(session.project) == original and not session.dirty
+
+    dialog.baseline.setCurrentIndex(1)
+    assert dialog.proposal is None
+    assert not dialog.recheck_sources.isEnabled()
+    assert not dialog.source_status.text() and not dialog.source_warning.text()
+    assert dialog.provenance.rowCount() == 0 and dialog.preview.rowCount() == 0
+    dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_proposal_source_recheck_failure_never_leaves_stale_matching_status(
+    qapp, tmp_path, language, monkeypatch,
+):
+    from geoworkbench.services.lithology_review_reader import load_lithology_review
+    from geoworkbench.ui import lithology_mapping_dialog as proposal_ui
+    from test_lithology_review_history import _history_files
+
+    session, first_path, second_path = _history_files(tmp_path)
+    dialog = proposal_ui.LithologyRevisionProposalDialog(
+        load_lithology_review(first_path), load_lithology_review(second_path),
+        session=session, language=language,
+    )
+    session.dirty = False
+    original = repr(session.project)
+    dialog.baseline.setCurrentIndex(1)
+    dialog.proposal_id.setText("check-unavailable")
+    dialog.proposed_by.setText("Unverified")
+    dialog.justification.setPlainText("Manual recheck before external review")
+    dialog.prepare.click()
+    assert dialog.proposal is not None
+    proposal = dialog.proposal
+    assert dialog.source_status.text() == dialog._t(
+        "proposal_source_preflight",
+        baseline=dialog._t("record_status.matching"),
+        candidate=dialog._t("record_status.matching"),
+    )
+    assert not dialog.source_warning.text()
+
+    def fail_source_lookup(_session, _record):
+        raise ValueError("simulated current session lookup error")
+
+    monkeypatch.setattr(proposal_ui, "compare_review_source", fail_source_lookup)
+    dialog.recheck_sources.click()
+    assert dialog.proposal is proposal
+    assert dialog.source_status.text() == ""
+    assert dialog.source_warning.text() == dialog._t("proposal_source_check_failed")
+    assert dialog._t("proposal_source_check_failed") != (
+        "lithology_mapping.proposal_source_check_failed"
+    )
+    assert dialog.preview.rowCount() == 1 and dialog.provenance.rowCount() == 10
+    assert not session.dirty and repr(session.project) == original
+    dialog.proposal_id.setText("changed")
+    assert dialog.proposal is None and not dialog.recheck_sources.isEnabled()
+    assert not dialog.source_warning.text()
     dialog.close()

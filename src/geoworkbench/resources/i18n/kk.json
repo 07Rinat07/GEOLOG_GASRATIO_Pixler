@@ -2573,7 +2573,7 @@
   "lithology_mapping.proposal_prepare": "Бекітусіз дайындау",
   "lithology_mapping.proposal_invalid": "Ұсыныс дайындалмады. Бастапқы жазбаны, міндетті өрістерді және жазбалар арасындағы айырмашылықтарды тексеріңіз.",
   "lithology_mapping.proposal_unapproved": "Оператор ұсынысы, геолог бекітпеген",
-  "lithology_mapping.proposal_source_preflight": "Дайындау сәтіндегі дереккөз сәйкестігі (авторлықты, қолданылуды немесе геологиялық бекітуді растамайды): бастапқы жазба — {baseline}; ұсынылған жазба — {candidate}.",
+  "lithology_mapping.proposal_source_preflight": "Соңғы тексеру сәтіндегі дереккөз сәйкестігі (авторлықты, қолданылуды немесе геологиялық бекітуді растамайды): бастапқы жазба — {baseline}; ұсынылған жазба — {candidate}.",
   "lithology_mapping.proposal_result": "{proposal} ұсынысы. Күйі: {status}. Тек алдын ала қарау; жоба мен LAS өзгермеді.",
   "lithology_mapping.proposal_source_warning": "Назар аударыңыз: кемінде бір мұрағат жазбасы ағымдағы дереккөзге сәйкес келмейді, қолжетімсіз немесе басқа жобаға жатады. Геологиялық пайдаланудың алдында дереккөзді қолмен тексеріңіз. Ұсыныс бекітілмеген.",
   "lithology_mapping.proposal_candidate": "Ұсынылған жазба",
@@ -2588,5 +2588,7 @@
   "lithology_mapping.proposal_provenance_field.top_md_m": "MD төбесі, м",
   "lithology_mapping.proposal_provenance_field.bottom_md_m": "MD табаны, м",
   "lithology_mapping.proposal_provenance_field.source_sha256": "Литология SHA-256",
-  "lithology_mapping.proposal_provenance_field.axis_sha256": "MD осінің SHA-256"
+  "lithology_mapping.proposal_provenance_field.axis_sha256": "MD осінің SHA-256",
+  "lithology_mapping.proposal_recheck_sources": "Дереккөздерді қайта тексеру",
+  "lithology_mapping.proposal_source_check_failed": "Дереккөздерді қайта тексеру орындалмады. Ағымдағы күйі белгісіз. Деректерді қолмен тексеріңіз; ұсыныс бекітілмеген."
 }

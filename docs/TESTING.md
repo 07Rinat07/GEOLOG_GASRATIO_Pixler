@@ -1,3 +1,20 @@
+## Manual archival proposal source recheck — INTERP-FUSION-01
+
+The read-only archival revision-proposal UI lets an operator recheck
+both saved source identities against the current project session without
+recreating a non-authoritative proposal. RU/KK/EN GUI regressions in
+`tests/test_lithology_mapping_dialog.py` cover disabled recheck before
+preparation, matching identities, altered source fingerprint after project
+data changes, unavailable source after removal, restored source, and
+strict reset on editing proposal inputs or changing the baseline.
+A controlled lookup failure must clear any previously matching status and
+display a localized unknown-status warning. The archived proposal,
+provenance and diff remain unchanged during a successful recheck or failed
+source lookup. This does not approve a geological revision, authenticate
+the author, or modify project/LAS. Require exact-head Windows quality,
+GUI/HiDPI/PDF, security gates and post-merge main validation. Native Qt
+#544 remains unresolved.
+
 ## Archival proposal provenance tab (INTERP-FUSION-01)
 
 Run `.\\.venv\\Scripts\\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_lithology_mapping_dialog.py -q`.
