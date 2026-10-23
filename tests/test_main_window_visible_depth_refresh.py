@@ -173,7 +173,7 @@ def test_tablet_curve_picker_has_operable_scrollbars_for_large_las_catalog(
     qapp, monkeypatch, curve_count,
 ) -> None:
     from PySide6.QtCore import Qt
-    from PySide6.QtWidgets import QAbstractItemView, QDialog, QListWidget
+    from PySide6.QtWidgets import QAbstractItemView, QDialog, QInputDialog, QListWidget
 
     window, session = _window_with_session(qapp)
     dataset = session.current_dataset
@@ -189,6 +189,13 @@ def test_tablet_curve_picker_has_operable_scrollbars_for_large_las_catalog(
         )
 
     tested = []
+    rename_requests = []
+
+    def cancelled_rename(*args, **kwargs):
+        rename_requests.append(True)
+        return "", False
+
+    monkeypatch.setattr(QInputDialog, "getText", cancelled_rename)
 
     def inspect_dialog(dialog: QDialog):
         picker = dialog.findChild(QListWidget)
@@ -208,6 +215,8 @@ def test_tablet_curve_picker_has_operable_scrollbars_for_large_las_catalog(
         horizontal.setValue(horizontal.maximum())
         assert vertical.value() == vertical.maximum()
         assert horizontal.value() == horizontal.maximum()
+        picker.itemDoubleClicked.emit(picker.item(0))
+        assert rename_requests == [True]  # One-argument Qt signal must work.
         tested.append(True)
         dialog.close()
         return QDialog.DialogCode.Rejected
