@@ -40,6 +40,15 @@ There is no profile saving, derived curve, export or fluid identification.
 Invalid fields, NaN, stale sources and incompatible units block calculation.
 Synthetic numerical checks do not replace tool/regional field acceptance.
 
+**GIS source inventory:** click Source GIS inventory in the same dialog.
+The separate table shows source IDs, units, finite paired MD/value sample
+counts, **actual measured** MD bounds and QC issues. The axis header shows
+the original direction, including bottom-up decreasing MD. Duplicate and
+non-monotonic axes are flagged rather than sorted; NULLs are not
+interpolated. Each opening rechecks the current source without changing
+LAS, the project or entered calibration. This does not certify continuous
+coverage, calibration, saturation or productivity.
+
 ## Gamma ray: IGR
 
 `gamma_ray_index` (`igr-linear-1`): `IGR = (GR - GRclean) / (GRshale - GRclean)`. All three inputs must use the same verified API scale; `GRshale > GRclean`. **Synthetic**, not field, reference example: `GR=65`, `GRclean=25`, `GRshale=125` API → `IGR=0.4` v/v. IGR is **not automatically Vsh**: mineralogy, facies and local reference endpoints need verification. Values outside [0,1] are retained with `outside_reference_range` rather than clipped.
