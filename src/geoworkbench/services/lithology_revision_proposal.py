@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 from geoworkbench.services.lithology_review_comparison import (
@@ -25,10 +25,11 @@ class LithologyRevisionProposal:
     justification: str
     comparison: LithologyReviewComparison
 
-    @property
-    def review_state(self) -> Literal["proposal_not_geological_approval"]:
-        """This data-only object can never express geological approval."""
-        return "proposal_not_geological_approval"
+    # A frozen dataclass field ensures attempting to alter the review state
+    # raises FrozenInstanceError, including with slots enabled.
+    review_state: Literal["proposal_not_geological_approval"] = field(
+        default="proposal_not_geological_approval", init=False
+    )
 
 
 def prepare_lithology_revision_proposal(
