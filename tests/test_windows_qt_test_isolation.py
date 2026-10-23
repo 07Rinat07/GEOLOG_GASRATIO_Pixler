@@ -97,3 +97,27 @@ def test_docx_footer_cases_do_not_share_process_with_qt_gui_shards() -> None:
     assert len(batches) == len(nodes)
     assert all(selected == path.as_posix() and len(cases) == 1 for selected, cases in batches)
     assert tuple(case for _selected, cases in batches for case in cases) == nodes
+
+
+def test_grid_renderer_native_isolation_retains_every_test_node() -> None:
+    """All grid-geometry and PlotWidget checks remain mandatory after native crash."""
+    runner = runpy.run_path("scripts/run_tests.py")
+    path = Path("tests/test_grid_renderer.py")
+    nodes = runner["_top_level_test_nodes"](path)
+    assert nodes
+    assert len(nodes) >= 10
+    assert (
+        "tests/test_grid_renderer.py::"
+        "test_depth_overlay_aligns_horizontal_lines_to_five_metre_values"
+    ) in nodes
+    assert runner["_requires_native_batch"](path, nodes) is True
+    assert path.as_posix() in runner["_FORCED_NATIVE_BATCH_FILES"]
+    assert path.as_posix() in runner["_SINGLE_TEST_PROCESS_FILES"]
+    assert runner["_test_file_shards"](16, (path,)) == ()
+
+    batches = runner["_heavy_test_batches"]((path,))
+    assert len(batches) == len(nodes)
+    assert all(batch_path == path.as_posix() and len(selectors) == 1
+               for batch_path, selectors in batches)
+    assert tuple(selector for _batch_path, selectors in batches
+                 for selector in selectors) == nodes
