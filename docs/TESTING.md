@@ -1,3 +1,16 @@
+## Non-authoritative archival source warning — INTERP-FUSION-01
+
+Run `.\\.venv\\Scripts\\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_lithology_mapping_dialog.py -q`.
+The RU/KK/EN GUI regressions exercise explicit baseline choice, matching
+source identities (no warning), one fingerprint mismatch, both fingerprints
+mismatched after a source edit, unavailable sources, records from another
+project, and invalidation after field/baseline changes. The warning and status
+are plain text, re-evaluated at each Prepare click, and do not authenticate
+the operator, certify source validity, approve a revision, or write to project
+or LAS. Proposals remain detached even with a source mismatch. Do not bypass
+the exact-HEAD Windows quality, GUI/HiDPI/PDF, and security gates or post-merge
+main gate; Qt native #544 is not resolved by test isolation.
+
 ## Windows native WITS0 capture-dialog isolation — PR #709
 
 Quality run `39924194284` aborted on Windows with `0xC0000005` in
