@@ -553,6 +553,7 @@ class LithologyRevisionProposalDialog(QDialog):
         self.tabs.addTab(self.preview, self._t("proposal_changes_tab"))
         self.tabs.addTab(self.provenance, self._t("proposal_sources_tab"))
         self.tabs.hide()
+        self.preview.hide()  # QTabWidget may expose its initially selected page.
         root.addWidget(self.tabs)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(
