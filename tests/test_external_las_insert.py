@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from hashlib import sha256
+import json
 from pathlib import Path
 
 import numpy as np
@@ -234,91 +235,167 @@ def test_vendor_duplicate_and_cyrillic_mnemonics_get_safe_suggestions(tmp_path: 
     assert [item.suggested_mnemonic for item in analysis.candidates] == ["GK_1", "GK_2"]
 
 
-@pytest.mark.parametrize(
-    ("source_depth", "source_values", "target_depth", "expected"),
-    (
-        ([103., 102., 101.], [30., 20., 10.], [103., 102., 101.], [30., 20., 10.]),
-        ([101., 102., 103.], [10., 20., 30.], [103., 102., 101.], [30., 20., 10.]),
-        ([103., 102., 101.], [30., 20., 10.], [101., 102., 103.], [10., 20., 30.]),
-    ),
-)
-def test_gis_exact_mapping_preserves_depth_value_pairs_in_both_directions(
-    tmp_path: Path, source_depth, source_values, target_depth, expected,
+@pytest.mark.parametrize("source_descending", (False, True))
+@pytest.mark.parametrize("target_descending", (False, True))
+def test_gis_bottom_up_source_and_receiver_keep_values_at_physical_depth(
+    tmp_path: Path, source_descending: bool, target_descending: bool,
 ) -> None:
-    source = make_dataset("external", source_depth)
-    add_curve(source, "gk", "GK", source_values)
-    receiver = make_dataset("target", target_depth)
-    analysis, normalized = analyze_external_las_insert(
-        imported_result(source, tmp_path / "upward-pass.las"), receiver,
+    """Four direction combinations preserve each measured depth/value pair."""
+    from geoworkbench.services.depth_axis import DepthDirection
+
+    ascending = [100.0, 101.0, 102.0, 103.0]
+    source_depth = ascending[::-1] if source_descending else ascending
+    target_depth = ascending[::-1] if target_descending else ascending
+    source = make_dataset("source", source_depth)
+    add_curve(source, "gk", "GK", [depth * 2.0 + 7.0 for depth in source_depth])
+    target = make_dataset("target", target_depth)
+    add_curve(target, "rop", "ROP", [depth + 9.0 for depth in target_depth])
+    original_source_depth = source.depth.copy()
+    original_source_values = source.curves["gk"].values.copy()
+    original_target_depth = target.depth.copy()
+    original_target_values = target.curves["rop"].values.copy()
+
+    analysis, normalized_source = analyze_external_las_insert(
+        imported_result(source, tmp_path / "gis-bottom-up.las"), target,
     )
-    built = build_external_las_curves(
-        normalized, receiver, analysis, (ExternalLasCurveSelection("gk", "GK_GIS"),),
+    # Descending source normalization creates new curve IDs. Use the ID
+    # offered to the operator by the analysis, not a stale raw-source ID.
+    selected_curve_id = analysis.candidates[0].source_curve_id
+    assert selected_curve_id in normalized_source.curves
+    result = build_external_las_curves(
+        normalized_source, target, analysis,
+        (ExternalLasCurveSelection(selected_curve_id, "GIS_GK"),),
     )
+    expected_direction = (
+        DepthDirection.DESCENDING if target_descending else DepthDirection.ASCENDING
+    )
+    assert analysis.target_original_direction is expected_direction
+    assert analysis.source_reversed_in_memory is source_descending
     assert analysis.mapping is ExternalLasMapping.EXACT
-    assert analysis.target_descending == (target_depth[0] > target_depth[-1])
-    assert analysis.target_original_direction.value == (
-        "descending" if analysis.target_descending else "ascending"
+    np.testing.assert_allclose(result.curves[0].values, [
+        depth * 2.0 + 7.0 for depth in target_depth
+    ])
+    manifest = json.loads(result.manifest_json)
+    assert manifest["target_original_direction"] == expected_direction.value
+    assert manifest["target_descending"] is target_descending
+    assert manifest["source_reversed_in_memory"] is source_descending
+    np.testing.assert_array_equal(source.depth, original_source_depth)
+    np.testing.assert_array_equal(source.curves["gk"].values, original_source_values)
+    np.testing.assert_array_equal(target.depth, original_target_depth)
+    np.testing.assert_array_equal(target.curves["rop"].values, original_target_values)
+
+
+@pytest.mark.parametrize("source_descending", (False, True))
+@pytest.mark.parametrize("target_descending", (False, True))
+def test_bottom_up_gis_interpolation_does_not_shift_nulls_or_extrapolate(
+    tmp_path: Path, source_descending: bool, target_descending: bool,
+) -> None:
+    # Separate target sampling, no extrapolation outside GIS data coverage,
+    # and no interpolated signal through a missing GIS sample.
+    source_depth = [100.0, 101.0, 102.0, 103.0]
+    source_values = [10.0, np.nan, 30.0, 40.0]
+    target_depth = [99.0, 100.0, 100.5, 101.0, 101.5, 102.0, 102.5, 103.0, 104.0]
+    if source_descending:
+        source_depth = source_depth[::-1]
+        source_values = source_values[::-1]
+    if target_descending:
+        target_depth = target_depth[::-1]
+
+    source = make_dataset("gis", source_depth)
+    add_curve(source, "gr", "GR", source_values)
+    target = make_dataset("well", target_depth)
+    analysis, normalized = analyze_external_las_insert(
+        imported_result(source, tmp_path / "survey-uphole.las"), target,
     )
-    np.testing.assert_allclose(built.curves[0].values, expected)
-    np.testing.assert_allclose(receiver.depth, target_depth)
-    np.testing.assert_allclose(source.depth, source_depth)
-    np.testing.assert_allclose(source.curve_by_mnemonic("GK").values, source_values)
-    assert ('"target_descending": true' in built.manifest_json) == analysis.target_descending
+    selected_curve_id = analysis.candidates[0].source_curve_id
+    assert selected_curve_id in normalized.curves
+    result = build_external_las_curves(
+        normalized, target, analysis,
+        (ExternalLasCurveSelection(selected_curve_id, "GR_GIS"),),
+    )
+    expected = [np.nan, 10.0, np.nan, np.nan, np.nan, 30.0, 35.0, 40.0, np.nan]
+    if target_descending:
+        expected.reverse()
+    assert analysis.mapping is ExternalLasMapping.LINEAR_OVERLAP
+    np.testing.assert_allclose(result.curves[0].values, expected, equal_nan=True)
+    assert source.depth[0] == (103.0 if source_descending else 100.0)
+    assert target.depth[0] == (104.0 if target_descending else 99.0)
 
 
-def test_gis_upward_pass_interpolation_to_descending_receiver_keeps_nulls_and_gaps(
+@pytest.mark.parametrize("bad_depth", (
+    [103.0, 102.0, 102.0, 101.0],
+    [103.0, np.nan, 102.0, 101.0],
+    [103.0, 102.0, 102.5, 101.0],
+))
+def test_gis_receiver_with_duplicate_missing_or_mixed_depth_is_rejected(
+    tmp_path: Path, bad_depth: list[float],
+) -> None:
+    source = make_dataset("source", [101.0, 102.0, 103.0])
+    add_curve(source, "gk", "GK", [10.0, 20.0, 30.0])
+    target = make_dataset("target", bad_depth)
+    with pytest.raises(ValueError, match="монотонный.*без пропусков и дубликатов"):
+        analyze_external_las_insert(
+            imported_result(source, tmp_path / "gis.las"), target,
+        )
+
+
+def test_gis_receiver_direction_change_after_analysis_requires_reanalysis(
     tmp_path: Path,
 ) -> None:
-    source = make_dataset("gis", [110., 102., 101., 100.])
-    add_curve(source, "gk", "GK", [90., 30., np.nan, 10.])
-    receiver = make_dataset("receiver", [110., 106., 102., 101.5, 101., 100.5, 100.])
+    source = make_dataset("source", [101.0, 102.0, 103.0])
+    add_curve(source, "gk", "GK", [10.0, 20.0, 30.0])
+    target = make_dataset("target", [103.0, 102.0, 101.0])
     analysis, normalized = analyze_external_las_insert(
-        imported_result(source, tmp_path / "gis-up.las"), receiver,
+        imported_result(source, tmp_path / "gis.las"), target,
     )
-    assert analysis.target_descending
-    assert analysis.source_reversed_in_memory
-    built = build_external_las_curves(
-        normalized, receiver, analysis, (ExternalLasCurveSelection("gk", "GK_GIS"),),
+    target.depth = np.array([101.0, 102.0, 103.0], dtype=np.float64)
+    with pytest.raises(ValueError, match="Направление глубин.*повторите анализ"):
+        build_external_las_curves(
+            normalized, target, analysis, (ExternalLasCurveSelection("gk", "GK_GIS"),),
+        )
+
+
+def test_upward_gis_into_descending_receiver_does_not_bridge_unmeasured_gaps(
+    tmp_path: Path,
+) -> None:
+    source = make_dataset("gis", [110.0, 102.0, 101.0, 100.0])
+    add_curve(source, "gk", "GK", [90.0, 30.0, np.nan, 10.0])
+    target = make_dataset("receiver", [110.0, 106.0, 102.0, 101.5, 101.0, 100.5, 100.0])
+    analysis, normalized_source = analyze_external_las_insert(
+        imported_result(source, tmp_path / "upward-gis.las"), target,
     )
+    selection = ExternalLasCurveSelection(analysis.candidates[0].source_curve_id, "GK_GIS")
+    built = build_external_las_curves(normalized_source, target, analysis, (selection,))
+
     assert analysis.mapping is ExternalLasMapping.LINEAR_OVERLAP
+    assert json.loads(built.manifest_json)["target_descending"] is True
     np.testing.assert_allclose(
-        built.curves[0].values, [90., np.nan, 30., np.nan, np.nan, np.nan, 10.],
+        built.curves[0].values,
+        [90.0, np.nan, 30.0, np.nan, np.nan, np.nan, 10.0],
         equal_nan=True,
     )
-    np.testing.assert_allclose(source.depth, [110., 102., 101., 100.])
+    np.testing.assert_allclose(source.depth, [110.0, 102.0, 101.0, 100.0])
+    np.testing.assert_allclose(target.depth, [110.0, 106.0, 102.0, 101.5, 101.0, 100.5, 100.0])
 
 
-@pytest.mark.parametrize("depth", ([101., 102., 102., 100.], [100., 102., 101., 103.]))
-def test_gis_receiver_invalid_depth_is_not_silently_sorted(
-    tmp_path: Path, depth,
-) -> None:
-    source = make_dataset("gis", [100., 101., 102., 103.])
-    add_curve(source, "gk", "GK", [1., 2., 3., 4.])
-    receiver = make_dataset("receiver", depth)
-    with pytest.raises(ValueError, match="монотонный глубинный индекс"):
-        analyze_external_las_insert(
-            imported_result(source, tmp_path / "gis-up.las"), receiver,
-        )
-    np.testing.assert_allclose(receiver.depth, depth)
-
-
-@pytest.mark.parametrize(
-    "changed_depth",
-    ([103., 102., 101.], [101., 101., 103.], [101., 103., 102.]),
-)
-def test_gis_insert_rejects_receiver_axis_changed_after_analysis(
+@pytest.mark.parametrize("changed_depth", (
+    [101.0, 101.0, 103.0],
+    [101.0, 103.0, 102.0],
+    [101.0, np.nan, 103.0],
+))
+def test_receiver_axis_corruption_after_analysis_requires_reanalysis(
     tmp_path: Path, changed_depth: list[float],
 ) -> None:
-    source = make_dataset("gis", [101., 102., 103.])
-    add_curve(source, "gr", "GR", [10., 20., 30.])
-    receiver = make_dataset("receiver", [101., 102., 103.])
-    analysis, normalized = analyze_external_las_insert(
-        imported_result(source, tmp_path / "gis.las"), receiver,
+    source = make_dataset("gis", [101.0, 102.0, 103.0])
+    add_curve(source, "gk", "GK", [10.0, 20.0, 30.0])
+    target = make_dataset("receiver", [101.0, 102.0, 103.0])
+    analysis, normalized_source = analyze_external_las_insert(
+        imported_result(source, tmp_path / "gis.las"), target,
     )
-    receiver.depth[:] = changed_depth
+    target.depth = np.asarray(changed_depth, dtype=np.float64)
 
-    with pytest.raises(ValueError, match="повторите анализ"):
+    with pytest.raises(ValueError, match="монотонный.*без пропусков и дубликатов"):
         build_external_las_curves(
-            normalized, receiver, analysis, (ExternalLasCurveSelection("gr", "GR_GIS"),),
+            normalized_source, target, analysis,
+            (ExternalLasCurveSelection(analysis.candidates[0].source_curve_id, "GK_GIS"),),
         )
-    np.testing.assert_allclose(receiver.depth, changed_depth)
