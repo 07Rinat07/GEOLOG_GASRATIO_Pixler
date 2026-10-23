@@ -10,7 +10,11 @@ requires re-analysis. `tests/test_external_las_insert_controller.py`
 exports a generated combined bottom-up LAS and reimports it, verifying
 both original GTI and GIS channels at their corresponding depths.
 `tests/test_external_las_insert_dialog.py` confirms explicit descending
-receiver guidance in RU/KK/EN. No original LAS is rewritten, and
+receiver guidance in RU/KK/EN. The four-way matrix also checks that
+`target_original_direction` and boolean `target_descending` agree in the
+manifest. Additional regressions cover a large unsampled gap in a descending
+receiver and rejection of corrupted receiver depth axes after analysis.
+No original LAS is rewritten, and
 the derived LAS retains the receiver depth direction.
 
 The user-supplied diagnostic ZIP alone cannot prove the values in their

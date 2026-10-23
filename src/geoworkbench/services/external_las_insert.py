@@ -275,6 +275,7 @@ def build_external_las_curves(
         "source_original_direction": analysis.source_original_direction.value,
         "source_reversed_in_memory": analysis.source_reversed_in_memory,
         "target_original_direction": analysis.target_original_direction.value,
+        "target_descending": analysis.target_original_direction is DepthDirection.DESCENDING,
         "source_depth_unit": analysis.source_depth_unit,
         "target_depth_unit": analysis.target_depth_unit,
         "depth_conversion_factor": analysis.depth_conversion_factor,
