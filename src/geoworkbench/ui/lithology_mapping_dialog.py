@@ -5,7 +5,7 @@ from __future__ import annotations
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
-    QHeaderView, QLabel, QLineEdit, QPushButton, QScrollArea, QTableWidget,
+    QHeaderView, QLabel, QLineEdit, QPlainTextEdit, QPushButton, QScrollArea, QTableWidget,
     QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
@@ -25,6 +25,9 @@ from geoworkbench.services.lithology_review_history import (
 )
 from geoworkbench.services.lithology_review_comparison import (
     LithologyReviewComparison, compare_lithology_review_records,
+)
+from geoworkbench.services.lithology_revision_proposal import (
+    LithologyRevisionProposal, prepare_lithology_revision_proposal,
 )
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
@@ -342,12 +345,16 @@ class LithologyReviewHistoryDialog(QDialog):
         self.details.setEnabled(False)
         self.compare = QPushButton(self._text("history_compare"), self)
         self.compare.setEnabled(False)
+        self.propose = QPushButton(self._text("proposal_action"), self)
+        self.propose.setEnabled(False)
         self.table.itemSelectionChanged.connect(self._selection_changed)
         self.details.clicked.connect(self._open_selected)
         self.table.cellDoubleClicked.connect(self._open_selected)
         self.compare.clicked.connect(self._compare_selected)
+        self.propose.clicked.connect(self._propose_selected)
         root.addWidget(self.details)
         root.addWidget(self.compare)
+        root.addWidget(self.propose)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(localizer.text("common.close"))
         buttons.rejected.connect(self.reject)
@@ -367,6 +374,16 @@ class LithologyReviewHistoryDialog(QDialog):
         count = len(self.table.selectionModel().selectedRows())
         self.details.setEnabled(count == 1)
         self.compare.setEnabled(count == 2)
+        self.propose.setEnabled(count == 2)
+
+    def _propose_selected(self) -> None:
+        rows = sorted(index.row() for index in self.table.selectionModel().selectedRows())
+        if len(rows) != 2:
+            return
+        LithologyRevisionProposalDialog(
+            self.entries[rows[0]].record, self.entries[rows[1]].record,
+            self, language=self.language,
+        ).exec()
 
     def _compare_selected(self) -> None:
         rows = sorted(index.row() for index in self.table.selectionModel().selectedRows())
@@ -445,3 +462,114 @@ class LithologyReviewComparisonDialog(QDialog):
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
         fit_window_to_screen(self, preferred=QSize(900, 560), minimum=QSize(380, 360))
+
+
+class LithologyRevisionProposalDialog(QDialog):
+    """Preview an explicit operator proposal without approving or persisting it."""
+
+    def __init__(
+        self, first: SavedLithologyReview, second: SavedLithologyReview,
+        parent: QWidget | None = None, *, language: AppLanguage = AppLanguage.RU,
+    ) -> None:
+        super().__init__(parent)
+        self.records = (first, second)
+        self.localizer = Localizer.create(language)
+        self.proposal: LithologyRevisionProposal | None = None
+        self.setWindowTitle(self._t("proposal_action"))
+        root = QVBoxLayout(self)
+        intro = QLabel(self._t("proposal_intro"), self)
+        intro.setWordWrap(True)
+        intro.setTextFormat(Qt.TextFormat.PlainText)
+        root.addWidget(intro)
+
+        form = QFormLayout()
+        self.baseline = QComboBox(self)
+        self.baseline.addItem(self._t("proposal_choose_baseline"), None)
+        for number, record in enumerate(self.records, 1):
+            self.baseline.addItem(self._t(
+                "proposal_record", number=number, mapping=record.mapping_id,
+                time=record.recorded_at_utc,
+            ), number - 1)
+        form.addRow(self._t("proposal_baseline"), self.baseline)
+
+        self.proposal_id = QLineEdit(self)
+        self.proposal_id.setMaxLength(128)
+        form.addRow(self._t("proposal_id"), self.proposal_id)
+        self.proposed_by = QLineEdit(self)
+        self.proposed_by.setMaxLength(128)
+        form.addRow(self._t("proposal_by"), self.proposed_by)
+        self.justification = QPlainTextEdit(self)
+        self.justification.setMaximumHeight(90)
+        form.addRow(self._t("proposal_justification"), self.justification)
+        root.addLayout(form)
+
+        self.prepare = QPushButton(self._t("proposal_prepare"), self)
+        root.addWidget(self.prepare)
+        self.summary = QLabel(self)
+        self.summary.setTextFormat(Qt.TextFormat.PlainText)
+        self.summary.setWordWrap(True)
+        self.summary.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        root.addWidget(self.summary)
+        self.preview = QTableWidget(0, 3, self)
+        self.preview.setHorizontalHeaderLabels([
+            self._t("comparison_field"), self._t("comparison_first"),
+            self._t("comparison_second"),
+        ])
+        self.preview.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.preview.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        for col, width in enumerate((170, 290, 290)):
+            self.preview.setColumnWidth(col, width)
+        self.preview.hide()
+        root.addWidget(self.preview)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
+        buttons.button(QDialogButtonBox.StandardButton.Close).setText(
+            self.localizer.text("common.close"),
+        )
+        buttons.rejected.connect(self.reject)
+        root.addWidget(buttons)
+        self.baseline.currentIndexChanged.connect(self._invalidate)
+        self.proposal_id.textChanged.connect(self._invalidate)
+        self.proposed_by.textChanged.connect(self._invalidate)
+        self.justification.textChanged.connect(self._invalidate)
+        self.prepare.clicked.connect(self._prepare)
+        fit_window_to_screen(self, preferred=QSize(880, 650), minimum=QSize(380, 360))
+
+    def _t(self, key: str, **values: object) -> str:
+        return self.localizer.text(f"lithology_mapping.{key}", **values)
+
+    def _invalidate(self) -> None:
+        self.proposal = None
+        self.summary.clear()
+        self.preview.setRowCount(0)
+        self.preview.hide()
+
+    def _prepare(self) -> None:
+        self._invalidate()
+        index = self.baseline.currentData()
+        if type(index) is not int or index not in (0, 1):
+            self.summary.setText(self._t("proposal_invalid"))
+            return
+        baseline, candidate = self.records[index], self.records[1 - index]
+        try:
+            proposal = prepare_lithology_revision_proposal(
+                baseline, candidate, proposal_id=self.proposal_id.text(),
+                proposed_by=self.proposed_by.text(),
+                justification=self.justification.toPlainText(),
+            )
+        except (TypeError, ValueError):
+            self.summary.setText(self._t("proposal_invalid"))
+            return
+        self.proposal = proposal
+        self.summary.setText(self._t(
+            "proposal_result", proposal=proposal.proposal_id,
+            status=self._t("proposal_unapproved"),
+        ))
+        differences = proposal.comparison.differences
+        self.preview.setRowCount(len(differences))
+        for row, difference in enumerate(differences):
+            for col, value in enumerate((
+                self._t(f"comparison_field.{difference.field_name}"),
+                difference.first_value, difference.second_value,
+            )):
+                self.preview.setItem(row, col, QTableWidgetItem(value))
+        self.preview.show()

@@ -1,3 +1,36 @@
+## Qt grid renderer isolation after PR #708 native abort
+
+PR #708 quality run 39908137560 aborted with Windows exit `0xC0000005`
+while creating `pyqtgraph.PlotWidget` in
+`test_grid_renderer.py::test_depth_overlay_aligns_horizontal_lines_to_five_metre_values`.
+The stack ended inside `PlotItem.__init__`, after the preceding Qt/graphics
+tests in the same shared offscreen process had passed. Security and GUI/HiDPI/PDF
+gates passed on that head. This trace establishes the crash site, **not** the
+root cause of native Qt issue #544 or a link to the proposal-preview UI.
+
+The complete `tests/test_grid_renderer.py` file now uses the existing mandatory
+one-test-per-native-child batching in Windows full CI. No tests, assertions,
+shard failure propagation, memory/benchmark limits, or gates were removed or
+weakened. `tests/test_windows_qt_test_isolation.py` verifies coverage of every
+grid renderer node and its exclusion from mixed-process shards. A native crash
+in any child still fails quality. The exact-head PR and post-merge Windows
+gates remain required; the native Qt #544 root cause is not considered fixed.
+
+## Archival lithology revision proposal preview (GUI)
+
+Run `.\\.venv\\Scripts\\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_lithology_mapping_dialog.py tests/test_lithology_revision_proposal.py -q`.
+RU/KK/EN GUI tests cover exactly-two-row selection in the archival history
+viewer, no default baseline, explicit reversed source/candidate assignment,
+bounded operator fields, time-only equality, rejection of an oversized reason,
+read-only plain-text diff cells, invalidation after edits, and no project or
+LAS mutations. The data-only service maintains the fixed
+`proposal_not_geological_approval` status. Manual: open history, select exactly
+two records, choose Prepare revision proposal, choose baseline explicitly,
+enter ID/operator/justification and preview the comparison. Nothing is saved,
+activated, authenticated, source-verified or geologically approved; archived UTC
+time is not a revision sequence. Exact-head Windows quality, GUI/PDF and
+security gates and post-merge main are required.
+
 ## Archival lithology revision proposals (data-only)
 
 Run `.\\.venv\\Scripts\\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_lithology_revision_proposal.py tests/test_lithology_review_comparison.py -q`.

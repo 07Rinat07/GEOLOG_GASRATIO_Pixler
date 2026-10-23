@@ -46,6 +46,13 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         # the geodata tablet after earlier Qt report cases. Retain every test
         # in a fresh process; a native crash is still a failing child status.
         "tests/test_geodata_depth_workspace.py",
+        # PR #708 / run 39908137560 aborted with 0xC0000005 inside
+        # pyqtgraph PlotItem.__init__ in test_grid_renderer after prior
+        # unrelated Qt tests shared the Windows offscreen shard. Keep all
+        # actual grid geometry and PlotWidget assertions mandatory, but
+        # construct each Qt plot in a fresh child process. Native #544 root
+        # cause remains under investigation; native child failures still fail.
+        "tests/test_grid_renderer.py",
         # Release gate 38304058011 aborted in ViewBoxMenu construction after
         # earlier report/Qt cases in the shared shard. Keep each overlay case
         # mandatory, but construct MainWindow with a fresh native Qt heap.

@@ -2561,5 +2561,17 @@
   "lithology_mapping.comparison_field.top_md_m": "MD төбесі, м",
   "lithology_mapping.comparison_field.bottom_md_m": "MD табаны, м",
   "lithology_mapping.comparison_field.source_sha256": "Литология SHA-256",
-  "lithology_mapping.comparison_field.axis_sha256": "MD осінің SHA-256"
+  "lithology_mapping.comparison_field.axis_sha256": "MD осінің SHA-256",
+  "lithology_mapping.proposal_action": "Редакция ұсынысын дайындау…",
+  "lithology_mapping.proposal_intro": "Бастапқы жазбаны өзіңіз таңдаңыз. Жазылған уақыт редакциялар ретін растамайды. Ұсыныс сақталмайды, деректерді белсендірмейді және геологтың бекітуі болып саналмайды.",
+  "lithology_mapping.proposal_baseline": "Бастапқы жазба",
+  "lithology_mapping.proposal_choose_baseline": "Бастапқы жазбаны таңдаңыз",
+  "lithology_mapping.proposal_record": "Жазба {number}: {mapping} ({time})",
+  "lithology_mapping.proposal_id": "Ұсыныс ID",
+  "lithology_mapping.proposal_by": "Ұсынушы (тұлғасы расталмаған)",
+  "lithology_mapping.proposal_justification": "Ұсыныстың негіздемесі",
+  "lithology_mapping.proposal_prepare": "Бекітусіз дайындау",
+  "lithology_mapping.proposal_invalid": "Ұсыныс дайындалмады. Бастапқы жазбаны, міндетті өрістерді және жазбалар арасындағы айырмашылықтарды тексеріңіз.",
+  "lithology_mapping.proposal_unapproved": "Оператор ұсынысы, геолог бекітпеген",
+  "lithology_mapping.proposal_result": "{proposal} ұсынысы. Күйі: {status}. Тек алдын ала қарау; жоба мен LAS өзгермеді."
 }

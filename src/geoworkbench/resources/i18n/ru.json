@@ -2561,5 +2561,17 @@
   "lithology_mapping.comparison_field.top_md_m": "Кровля MD, м",
   "lithology_mapping.comparison_field.bottom_md_m": "Подошва MD, м",
   "lithology_mapping.comparison_field.source_sha256": "SHA-256 литологии",
-  "lithology_mapping.comparison_field.axis_sha256": "SHA-256 оси MD"
+  "lithology_mapping.comparison_field.axis_sha256": "SHA-256 оси MD",
+  "lithology_mapping.proposal_action": "Подготовить предложение редакции…",
+  "lithology_mapping.proposal_intro": "Выберите исходную запись вручную. Записанное время не подтверждает порядок редакций. Предложение не сохраняется, не активирует данные и не означает утверждение геологом.",
+  "lithology_mapping.proposal_baseline": "Исходная запись",
+  "lithology_mapping.proposal_choose_baseline": "Выберите исходную запись",
+  "lithology_mapping.proposal_record": "Запись {number}: {mapping} ({time})",
+  "lithology_mapping.proposal_id": "ID предложения",
+  "lithology_mapping.proposal_by": "Инициатор (личность не подтверждена)",
+  "lithology_mapping.proposal_justification": "Обоснование предложения",
+  "lithology_mapping.proposal_prepare": "Подготовить без утверждения",
+  "lithology_mapping.proposal_invalid": "Предложение не подготовлено. Проверьте выбор исходной записи, обязательные поля и наличие отличий между записями.",
+  "lithology_mapping.proposal_unapproved": "Предложение оператора, без геологического утверждения",
+  "lithology_mapping.proposal_result": "Предложение {proposal}. Статус: {status}. Только предварительный просмотр, проект и LAS не изменены."
 }
