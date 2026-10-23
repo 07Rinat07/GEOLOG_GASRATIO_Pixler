@@ -256,6 +256,9 @@ def test_gis_exact_mapping_preserves_depth_value_pairs_in_both_directions(
     )
     assert analysis.mapping is ExternalLasMapping.EXACT
     assert analysis.target_descending == (target_depth[0] > target_depth[-1])
+    assert analysis.target_original_direction.value == (
+        "descending" if analysis.target_descending else "ascending"
+    )
     np.testing.assert_allclose(built.curves[0].values, expected)
     np.testing.assert_allclose(receiver.depth, target_depth)
     np.testing.assert_allclose(source.depth, source_depth)
@@ -297,3 +300,25 @@ def test_gis_receiver_invalid_depth_is_not_silently_sorted(
             imported_result(source, tmp_path / "gis-up.las"), receiver,
         )
     np.testing.assert_allclose(receiver.depth, depth)
+
+
+@pytest.mark.parametrize(
+    "changed_depth",
+    ([103., 102., 101.], [101., 101., 103.], [101., 103., 102.]),
+)
+def test_gis_insert_rejects_receiver_axis_changed_after_analysis(
+    tmp_path: Path, changed_depth: list[float],
+) -> None:
+    source = make_dataset("gis", [101., 102., 103.])
+    add_curve(source, "gr", "GR", [10., 20., 30.])
+    receiver = make_dataset("receiver", [101., 102., 103.])
+    analysis, normalized = analyze_external_las_insert(
+        imported_result(source, tmp_path / "gis.las"), receiver,
+    )
+    receiver.depth[:] = changed_depth
+
+    with pytest.raises(ValueError, match="повторите анализ"):
+        build_external_las_curves(
+            normalized, receiver, analysis, (ExternalLasCurveSelection("gr", "GR_GIS"),),
+        )
+    np.testing.assert_allclose(receiver.depth, changed_depth)
