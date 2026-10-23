@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from geoworkbench.data.las_adapter import LasImportResult
+from geoworkbench.data.las_adapter import LasImportResult, export_las, import_las_with_report
 from geoworkbench.data.las_import_report import LasImportReport, LasSourceSnapshot
 from geoworkbench.data.lossless_las import parse_lossless_las
 from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain
@@ -276,3 +276,55 @@ def test_shared_history_supports_multiple_external_las_inserts(
     controller.redo()
     assert target.curve_by_mnemonic("EXT1") is not None
     assert target.curve_by_mnemonic("EXT2") is not None
+
+
+@pytest.mark.parametrize("gis_source_descending", (False, True))
+def test_bottom_up_receiver_combined_las_export_roundtrip_preserves_depth_values(
+    monkeypatch, tmp_path: Path, gis_source_descending: bool,
+) -> None:
+    # A typical GIS log can run bottom-up; the receiver may also be a
+    # bottom-up LAS. Both output channels must retain their depth pairing.
+    target = dataset("target", [103.0, 102.0, 101.0])
+    add_curve(target, "rop", "ROP", [7.0, 8.0, 9.0])
+    source_depth = [103.0, 102.0, 101.0] if gis_source_descending else [
+        101.0, 102.0, 103.0,
+    ]
+    source_values = [30.0, 20.0, 10.0] if gis_source_descending else [10.0, 20.0, 30.0]
+    source = dataset("gis", source_depth)
+    add_curve(source, "gr", "GK", source_values)
+
+    session = ProjectSession()
+    session.add_dataset(target)
+    controller = ExternalLasInsertController(session)
+    imported_source = imported(source, tmp_path / "survey-gis.las")
+    monkeypatch.setattr(
+        "geoworkbench.project.external_las_insert_controller.import_las_with_report",
+        lambda _path: imported_source,
+    )
+
+    analysis = controller.analyze_file(tmp_path / "survey-gis.las")
+    assert analysis.target_original_direction.value == "descending"
+    assert analysis.source_reversed_in_memory is gis_source_descending
+
+    combined = controller.create_copy(
+        analysis, (ExternalLasCurveSelection("gr", "GK_GIS"),),
+        name="GIS plus ROP",
+    ).dataset
+    np.testing.assert_allclose(combined.depth, [103.0, 102.0, 101.0])
+    np.testing.assert_allclose(combined.curve_by_mnemonic("GK_GIS").values, [30, 20, 10])
+    np.testing.assert_allclose(combined.curve_by_mnemonic("ROP").values, [7, 8, 9])
+    np.testing.assert_allclose(target.depth, [103.0, 102.0, 101.0])
+    assert target.curve_by_mnemonic("GK_GIS") is None
+
+    output = tmp_path / "gis_plus_gti.las"
+    export_las(combined, output)
+    reimported = import_las_with_report(output).dataset
+    assert reimported.curve_by_mnemonic("GK_GIS") is not None
+    assert reimported.curve_by_mnemonic("ROP") is not None
+    np.testing.assert_allclose(reimported.depth, [103.0, 102.0, 101.0])
+    np.testing.assert_allclose(
+        reimported.curve_by_mnemonic("GK_GIS").values, [30.0, 20.0, 10.0],
+    )
+    np.testing.assert_allclose(
+        reimported.curve_by_mnemonic("ROP").values, [7.0, 8.0, 9.0],
+    )
