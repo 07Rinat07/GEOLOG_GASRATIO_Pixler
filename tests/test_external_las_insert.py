@@ -258,9 +258,13 @@ def test_gis_bottom_up_source_and_receiver_keep_values_at_physical_depth(
     analysis, normalized_source = analyze_external_las_insert(
         imported_result(source, tmp_path / "gis-bottom-up.las"), target,
     )
+    # Descending source normalization creates new curve IDs. Use the ID
+    # offered to the operator by the analysis, not a stale raw-source ID.
+    selected_curve_id = analysis.candidates[0].source_curve_id
+    assert selected_curve_id in normalized_source.curves
     result = build_external_las_curves(
         normalized_source, target, analysis,
-        (ExternalLasCurveSelection("gk", "GIS_GK"),),
+        (ExternalLasCurveSelection(selected_curve_id, "GIS_GK"),),
     )
     expected_direction = (
         DepthDirection.DESCENDING if target_descending else DepthDirection.ASCENDING
@@ -302,8 +306,11 @@ def test_bottom_up_gis_interpolation_does_not_shift_nulls_or_extrapolate(
     analysis, normalized = analyze_external_las_insert(
         imported_result(source, tmp_path / "survey-uphole.las"), target,
     )
+    selected_curve_id = analysis.candidates[0].source_curve_id
+    assert selected_curve_id in normalized.curves
     result = build_external_las_curves(
-        normalized, target, analysis, (ExternalLasCurveSelection("gr", "GR_GIS"),),
+        normalized, target, analysis,
+        (ExternalLasCurveSelection(selected_curve_id, "GR_GIS"),),
     )
     expected = [np.nan, 10.0, np.nan, np.nan, np.nan, 30.0, 35.0, 40.0, np.nan]
     if target_descending:
