@@ -306,8 +306,11 @@ def test_bottom_up_receiver_combined_las_export_roundtrip_preserves_depth_values
     assert analysis.target_original_direction.value == "descending"
     assert analysis.source_reversed_in_memory is gis_source_descending
 
+    # The dialog submits candidate IDs from analysis; descending source
+    # normalization intentionally assigns new IDs to its in-memory copy.
+    selected_curve_id = analysis.candidates[0].source_curve_id
     combined = controller.create_copy(
-        analysis, (ExternalLasCurveSelection("gr", "GK_GIS"),),
+        analysis, (ExternalLasCurveSelection(selected_curve_id, "GK_GIS"),),
         name="GIS plus ROP",
     ).dataset
     np.testing.assert_allclose(combined.depth, [103.0, 102.0, 101.0])
