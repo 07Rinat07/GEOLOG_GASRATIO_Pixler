@@ -1,3 +1,15 @@
+## Archived revision proposal baseline/candidate column labels
+
+Regression coverage in `tests/test_lithology_mapping_dialog.py` asserts that
+both read-only tables (diff and full provenance) label columns by explicit
+operator roles, **baseline** and **candidate**, in RU/KK/EN. The diff order
+must match the chosen baseline both for forward and reversed archival record
+order, independent of UTC. Editing the baseline invalidates the detached
+preview; preparing and clearing it must leave project/LAS unchanged and must
+not imply geological approval. Merge only after the three exact-head Windows
+Release checks pass and recheck the new main gate. Native Qt issue #544 is
+not considered resolved by this UI change.
+
 ## Archival proposal source recheck fail-closed boundary — INTERP-FUSION-01
 
 The operator's RU/KK/EN source recheck must never display a partial

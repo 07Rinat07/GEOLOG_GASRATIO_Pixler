@@ -535,9 +535,11 @@ class LithologyRevisionProposalDialog(QDialog):
         self.recheck_sources.setEnabled(False)
         root.addWidget(self.recheck_sources)
         self.preview = QTableWidget(0, 3, self)
+        # The comparison service returns operator-selected baseline first,
+        # even when that is the chronologically newer archive record.
         self.preview.setHorizontalHeaderLabels([
-            self._t("comparison_field"), self._t("comparison_first"),
-            self._t("comparison_second"),
+            self._t("comparison_field"), self._t("proposal_baseline"),
+            self._t("proposal_candidate"),
         ])
         self.preview.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.preview.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
