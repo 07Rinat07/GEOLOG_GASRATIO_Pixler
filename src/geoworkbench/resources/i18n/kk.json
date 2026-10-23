@@ -2573,5 +2573,6 @@
   "lithology_mapping.proposal_prepare": "Бекітусіз дайындау",
   "lithology_mapping.proposal_invalid": "Ұсыныс дайындалмады. Бастапқы жазбаны, міндетті өрістерді және жазбалар арасындағы айырмашылықтарды тексеріңіз.",
   "lithology_mapping.proposal_unapproved": "Оператор ұсынысы, геолог бекітпеген",
+  "lithology_mapping.proposal_source_preflight": "Дайындау сәтіндегі дереккөз сәйкестігі (авторлықты, қолданылуды немесе геологиялық бекітуді растамайды): бастапқы жазба — {baseline}; ұсынылған жазба — {candidate}.",
   "lithology_mapping.proposal_result": "{proposal} ұсынысы. Күйі: {status}. Тек алдын ала қарау; жоба мен LAS өзгермеді."
 }
