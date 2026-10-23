@@ -53,6 +53,11 @@ class ExternalLasInsertAnalysis:
     candidates: tuple[ExternalLasCurveCandidate, ...]
 
     @property
+    def target_original_direction(self) -> DepthDirection:
+        """Receiver direction at analysis time, for UI and stale-axis checks."""
+        return DepthDirection.DESCENDING if self.target_descending else DepthDirection.ASCENDING
+
+    @property
     def overlap_span(self) -> float:
         return self.overlap_bottom - self.overlap_top
 
@@ -190,6 +195,14 @@ def build_external_las_curves(
         raise ValueError("Текущий LAS изменился после анализа вставки")
     if source.dataset_id != analysis.source_dataset_id:
         raise ValueError("Внешний LAS изменился после анализа вставки")
+    current_target_axis = analyze_depth_axis(target.depth)
+    if (
+        target.active_index.role is not IndexRole.DEPTH
+        or current_target_axis.direction is not analysis.target_original_direction
+        or current_target_axis.duplicate_count
+        or current_target_axis.missing_count
+    ):
+        raise ValueError("Направление или корректность глубинного индекса LAS изменились; повторите анализ")
     if not selections:
         raise ValueError("Выберите хотя бы одну кривую для вставки")
 
