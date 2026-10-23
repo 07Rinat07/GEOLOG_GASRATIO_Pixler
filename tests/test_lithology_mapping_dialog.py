@@ -886,7 +886,9 @@ def test_proposal_source_recheck_failure_never_leaves_stale_matching_status(
     assert dialog.proposal is proposal
     assert dialog.source_status.text() == ""
     assert dialog.source_warning.text() == dialog._t("proposal_source_check_failed")
-    assert dialog._t("proposal_source_check_failed") != "lithology_mapping.proposal_source_check_failed"
+    assert dialog._t("proposal_source_check_failed") != (
+        "lithology_mapping.proposal_source_check_failed"
+    )
     assert dialog.preview.rowCount() == 1 and dialog.provenance.rowCount() == 10
     assert not session.dirty and repr(session.project) == original
     dialog.proposal_id.setText("changed")
