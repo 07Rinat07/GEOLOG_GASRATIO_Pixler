@@ -14,6 +14,7 @@ from geoworkbench.services.gis_reference_calibration import (
     CalibratedGisSample, create_gis_reference_calibration, evaluate_gis_reference_sample,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.gis_input_inventory_dialog import GisInputInventoryDialog
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
@@ -32,6 +33,10 @@ class GisReferenceDialog(QDialog):
         intro = QLabel(self._t("intro"), self)
         intro.setWordWrap(True)
         root.addWidget(intro)
+        self.inventory_button = QPushButton(self._t("inventory"), self)
+        self.inventory_button.setObjectName("gis-reference-inventory")
+        self.inventory_button.clicked.connect(self._show_inventory)
+        root.addWidget(self.inventory_button)
         scroll = QScrollArea(self)
         scroll.setWidgetResizable(True)
         body = QWidget(scroll)
@@ -86,6 +91,11 @@ class GisReferenceDialog(QDialog):
         self.calculate.clicked.connect(self._calculate)
         self._method_changed()
         fit_window_to_screen(self, preferred=QSize(640, 620), minimum=QSize(380, 360))
+
+    def _show_inventory(self) -> None:
+        GisInputInventoryDialog(
+            self.dataset, self, language=self.localizer.language,
+        ).exec()
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(f"petro_reference.{key}", **values)

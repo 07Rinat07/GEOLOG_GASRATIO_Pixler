@@ -1,3 +1,17 @@
+## GIS source inventory operator view — INTERP-GIS-01
+
+`tests/test_gis_reference_dialog.py` checks the read-only GIS inventory
+opened from the existing single-sample reference dialog. RU/KK/EN must
+display actual finite paired sample counts and MD bounds, the original
+bottom-up descending axis, explicit QC for duplicate/nonmonotone MD
+and stale curves, and no invented bounds on invalid axes. Opening the
+inventory again must refresh source evidence without changing the
+calibration form, sample result, project or source arrays. This is not
+a petrophysical acceptance test or a claim of continuous coverage.
+Run the complete three exact-HEAD Windows Release jobs before merge;
+verify all three on new main after merge. Qt native #544 remains open.
+
+
 ## Bottom-up GIS LAS acquisition and descending target LAS
 
 `tests/test_external_las_insert.py` checks all four source/receiver
