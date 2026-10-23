@@ -898,3 +898,60 @@ def test_proposal_source_recheck_failure_never_leaves_stale_matching_status(
     assert dialog.proposal is None and not dialog.recheck_sources.isEnabled()
     assert not dialog.source_warning.text()
     dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+@pytest.mark.parametrize("failure_mode", ("second_lookup_error", "invalid_status"))
+def test_proposal_recheck_fails_closed_on_partial_or_malformed_source_results(
+    qapp, tmp_path, language, failure_mode, monkeypatch, caplog,
+):
+    from geoworkbench.services.lithology_review_reader import load_lithology_review
+    from geoworkbench.ui import lithology_mapping_dialog as proposal_ui
+    from test_lithology_review_history import _history_files
+
+    session, first_path, second_path = _history_files(tmp_path)
+    dialog = proposal_ui.LithologyRevisionProposalDialog(
+        load_lithology_review(first_path), load_lithology_review(second_path),
+        session=session, language=language,
+    )
+    session.dirty = False
+    original = repr(session.project)
+    dialog.baseline.setCurrentIndex(1)
+    dialog.proposal_id.setText("untrusted-recheck")
+    dialog.proposed_by.setText("Unverified operator")
+    dialog.justification.setPlainText("Inspect sources before independent review")
+    dialog.prepare.click()
+    proposal = dialog.proposal
+    assert proposal is not None
+    assert not dialog.source_warning.text()
+    assert dialog.source_status.text()
+
+    actual_compare = proposal_ui.compare_review_source
+    calls = 0
+
+    def unreliable_lookup(current_session, record):
+        nonlocal calls
+        calls += 1
+        if failure_mode == "second_lookup_error" and calls == 2:
+            raise RuntimeError("unexpected source lookup failure")
+        if failure_mode == "invalid_status" and calls == 2:
+            return None
+        return actual_compare(current_session, record)
+
+    monkeypatch.setattr(proposal_ui, "compare_review_source", unreliable_lookup)
+    dialog.recheck_sources.click()
+    assert calls == 2  # First lookup succeeded; second must not leave partial clearance.
+    assert dialog.proposal is proposal
+    assert dialog.source_status.text() == ""
+    assert dialog.source_warning.text() == dialog._t("proposal_source_check_failed")
+    assert "Archival proposal source identity recheck failed" in caplog.text
+    assert dialog.preview.rowCount() == 1 and dialog.provenance.rowCount() == 10
+    assert not session.dirty and repr(session.project) == original
+
+    monkeypatch.setattr(proposal_ui, "compare_review_source", actual_compare)
+    dialog.recheck_sources.click()
+    assert dialog.proposal is proposal
+    assert dialog.source_status.text()
+    assert not dialog.source_warning.text()
+    assert not session.dirty and repr(session.project) == original
+    dialog.close()

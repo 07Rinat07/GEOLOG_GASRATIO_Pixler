@@ -1,3 +1,16 @@
+## Archival proposal source recheck fail-closed boundary — INTERP-FUSION-01
+
+The operator's RU/KK/EN source recheck must never display a partial
+matching result if the second live lookup raises an unexpected exception
+or returns a malformed status. The UI clears the entire status, shows the
+localized unknown-state warning, and logs a diagnostic traceback; the
+proposal, read-only comparison, archived provenance, project and LAS remain
+unchanged. A later successful recheck restores the live status without
+repreparing the proposal. Regression:
+`tests/test_lithology_mapping_dialog.py::test_proposal_recheck_fails_closed_on_partial_or_malformed_source_results`.
+The result is not author authentication or geological approval; Qt #544
+remains unresolved.
+
 ## Manual archival proposal source recheck — INTERP-FUSION-01
 
 The read-only archival revision-proposal UI lets an operator recheck
