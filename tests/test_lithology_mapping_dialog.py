@@ -442,3 +442,129 @@ def test_history_identical_assertions_are_not_auto_approved(qapp, tmp_path, monk
     monkeypatch.setattr(LithologyReviewHistoryDialog, "exec", inspect_history)
     dialog.open_history.click()
     dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_revision_proposal_preview_requires_explicit_baseline_and_never_approves(
+    qapp, tmp_path, language,
+):
+    from PySide6.QtWidgets import QAbstractItemView
+    from geoworkbench.services.lithology_review_reader import load_lithology_review
+    from geoworkbench.ui.lithology_mapping_dialog import LithologyRevisionProposalDialog
+    from test_lithology_review_history import _history_files
+
+    session, first_path, second_path = _history_files(tmp_path)
+    first, second = load_lithology_review(first_path), load_lithology_review(second_path)
+    session.dirty = False
+    original = repr(session.project)
+
+    dialog = LithologyRevisionProposalDialog(first, second, language=language)
+    assert dialog.baseline.currentData() is None
+    assert dialog.proposal is None
+    assert dialog.preview.isHidden()
+    assert dialog.summary.textFormat() == Qt.TextFormat.PlainText
+    assert dialog._t("proposal_action") != "lithology_mapping.proposal_action"
+    dialog.proposal_id.setText("proposal-42")
+    dialog.proposed_by.setText("<b>Unverified operator</b>")
+    dialog.justification.setPlainText("Request a geology review; not approval")
+    dialog.prepare.click()
+    assert dialog.proposal is None
+    assert dialog.summary.text() == dialog._t("proposal_invalid")
+
+    # The operator must explicitly choose a baseline. Time order is not authority.
+    dialog.baseline.setCurrentIndex(2)
+    dialog.prepare.click()
+    proposal = dialog.proposal
+    assert proposal is not None
+    assert proposal.review_state == "proposal_not_geological_approval"
+    assert proposal.comparison.first.mapping_id == "review-2"
+    assert proposal.comparison.second.mapping_id == "review-1"
+    assert proposal.proposed_by == "<b>Unverified operator</b>"
+    assert dialog.preview.rowCount() == 1
+    assert dialog.preview.item(0, 1).text() == "review-2"
+    assert dialog.preview.item(0, 2).text() == "review-1"
+    assert dialog.preview.editTriggers() == QAbstractItemView.EditTrigger.NoEditTriggers
+    assert "proposal-42" in dialog.summary.text()
+    assert dialog._t("proposal_unapproved") in dialog.summary.text()
+    assert not dialog.preview.isHidden()
+
+    dialog.justification.setPlainText("Edited explanation")
+    assert dialog.proposal is None and dialog.preview.rowCount() == 0
+    assert dialog.summary.text() == ""
+    assert not session.dirty and repr(session.project) == original
+    dialog.close()
+
+
+def test_revision_proposal_preview_rejects_identical_assertions_and_long_reason(qapp, tmp_path):
+    from dataclasses import replace
+    from geoworkbench.services.lithology_review_reader import load_lithology_review
+    from geoworkbench.ui.lithology_mapping_dialog import LithologyRevisionProposalDialog
+    from test_lithology_review_history import _history_files
+
+    session, first_path, second_path = _history_files(tmp_path)
+    first, second = load_lithology_review(first_path), load_lithology_review(second_path)
+    identical = replace(first, recorded_at_utc="2026-10-22T23:00:00Z")
+    original = repr(session.project)
+    dialog = LithologyRevisionProposalDialog(first, identical)
+    dialog.baseline.setCurrentIndex(1)
+    dialog.proposal_id.setText("proposal-43")
+    dialog.proposed_by.setText("Operator")
+    dialog.justification.setPlainText("Check proposed revision")
+    dialog.prepare.click()
+    assert dialog.proposal is None
+    assert dialog.summary.text() == dialog._t("proposal_invalid")
+    dialog.close()
+
+    dialog = LithologyRevisionProposalDialog(first, second)
+    dialog.baseline.setCurrentIndex(1)
+    dialog.proposal_id.setText("proposal-44")
+    dialog.proposed_by.setText("Operator")
+    dialog.justification.setPlainText("x" * 4097)
+    dialog.prepare.click()
+    assert dialog.proposal is None
+    assert dialog.summary.text() == dialog._t("proposal_invalid")
+    assert repr(session.project) == original
+    dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_history_proposal_action_requires_two_rows_and_no_default_baseline(
+    qapp, tmp_path, monkeypatch, language,
+):
+    from PySide6.QtCore import QItemSelectionModel
+    from geoworkbench.services.lithology_review_history import load_lithology_review_history
+    from geoworkbench.ui.lithology_mapping_dialog import (
+        LithologyReviewHistoryDialog, LithologyRevisionProposalDialog,
+    )
+    from test_lithology_review_history import _history_files
+
+    session, first_path, second_path = _history_files(tmp_path)
+    entries = load_lithology_review_history(session, (first_path, second_path))
+    before = repr(session.project)
+    session.dirty = False
+    history = LithologyReviewHistoryDialog(session, entries, language=language)
+    calls = []
+
+    def inspect_proposal(view):
+        assert view.baseline.currentData() is None
+        assert view.proposal is None
+        assert view.records[0].mapping_id == "review-1"
+        assert view.records[1].mapping_id == "review-2"
+        calls.append(view)
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(LithologyRevisionProposalDialog, "exec", inspect_proposal)
+    assert not history.propose.isEnabled()
+    history.table.selectRow(0)
+    assert not history.propose.isEnabled()
+    history.table.selectionModel().select(
+        history.table.model().index(1, 0),
+        QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows,
+    )
+    assert history.propose.isEnabled()
+    history.propose.click()
+    assert len(calls) == 1
+    history.table.clearSelection()
+    assert not history.propose.isEnabled()
+    assert not session.dirty and repr(session.project) == before
+    history.close()
