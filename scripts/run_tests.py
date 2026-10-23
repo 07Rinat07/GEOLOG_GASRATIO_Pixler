@@ -140,6 +140,12 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         "tests/test_well_update_workflow.py",
         "tests/test_widget_print.py",
         "tests/test_wits0_capture.py",
+        # PR #709 / run 39924194284 aborted with 0xC0000005 in
+        # pyqtgraph ViewBoxMenu.__init__ while constructing WITS0 live view
+        # during capture-dialog tests in a shared Windows offscreen shard.
+        # Keep all capture dialog assertions, but isolate each test's native
+        # QApplication/PlotWidget lifetime. Root cause of #544 is unproven.
+        "tests/test_wits0_capture_dialog.py",
         "tests/test_wits0_live_view.py",
         "tests/test_wits0_network_preflight.py",
         # Dashboard scenes hit 0xC0000005 after earlier pyqtgraph scenarios in
