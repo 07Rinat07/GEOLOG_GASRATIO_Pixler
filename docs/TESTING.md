@@ -1,17 +1,3 @@
-## Upward GIS logging and descending-depth LAS receiver
-
-`tests/test_external_las_insert.py` exercises an upward tool pass
-(103→101 MD) into both ascending and descending LAS receivers and a
-downward pass into a descending receiver. The source depth-value pairs
-must remain intact; exact overlap should not interpolate. Descending
-receiver interpolation preserves the original receiver row order
-while retaining NULL values and rejecting large unmeasured gaps.
-Repeated and non-monotone receiver depths are explicitly rejected,
-not silently sorted. Mapping provenance includes `target_descending`.
-No existing files are modified. A separate real-file export roundtrip
-is required for user-specific GIS/LAS fidelity. All three exact-head
-Windows release jobs and post-merge main validation remain mandatory.
-
 ## Bottom-up GIS LAS acquisition and descending target LAS
 
 `tests/test_external_las_insert.py` checks all four source/receiver
@@ -24,7 +10,11 @@ requires re-analysis. `tests/test_external_las_insert_controller.py`
 exports a generated combined bottom-up LAS and reimports it, verifying
 both original GTI and GIS channels at their corresponding depths.
 `tests/test_external_las_insert_dialog.py` confirms explicit descending
-receiver guidance in RU/KK/EN. No original LAS is rewritten, and
+receiver guidance in RU/KK/EN. The four-way matrix also checks that
+`target_original_direction` and boolean `target_descending` agree in the
+manifest. Additional regressions cover a large unsampled gap in a descending
+receiver and rejection of corrupted receiver depth axes after analysis.
+No original LAS is rewritten, and
 the derived LAS retains the receiver depth direction.
 
 The user-supplied diagnostic ZIP alone cannot prove the values in their
