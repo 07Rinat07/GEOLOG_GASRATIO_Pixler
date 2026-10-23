@@ -111,6 +111,9 @@ class ExternalLasInsertController:
         """Insert curves into a new dataset, leaving both source LAS files untouched."""
 
         target = self._target()
+        # Remember the receiver's tablet layout before the current dataset
+        # changes. Viewport notifications refer to the new dataset id.
+        source_layout = self.session.current_tablet_layout
         if self._analysis != analysis or self._source_dataset is None:
             raise ValueError("Сначала повторно проанализируйте внешний LAS")
         build = build_external_las_curves(self._source_dataset, target, analysis, selections)
@@ -143,6 +146,11 @@ class ExternalLasInsertController:
         if well is None:
             raise RuntimeError("Сначала выберите скважину-приёмник")
         well.datasets[result.dataset_id] = result
+        if source_layout is not None:
+            # A GIS+LAS derived copy must have its *own* layout, otherwise
+            # scrolling raises "Сначала создайте компоновку планшета".
+            # The original layout must remain independent.
+            self.session.tablet_layouts[result.dataset_id] = deepcopy(source_layout)
         source_document = self.session.source_documents.get(target.dataset_id)
         import_report = self.session.import_reports.get(target.dataset_id)
         if source_document is not None:

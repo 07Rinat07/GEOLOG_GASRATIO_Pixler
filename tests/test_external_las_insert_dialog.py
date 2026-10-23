@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from dataclasses import replace
 
+import pytest
 from PySide6.QtCore import Qt
 
 from geoworkbench.services.depth_axis import DepthDirection
+from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.external_las_insert import (
     ExternalLasCurveCandidate,
     ExternalLasInsertAnalysis,
@@ -75,5 +78,32 @@ def test_external_las_dialog_fits_current_work_area(qapp, tmp_path: Path) -> Non
         available = screen.availableGeometry()
         assert dialog.minimumWidth() <= dialog.width() <= available.width()
         assert dialog.minimumHeight() <= dialog.height() <= available.height()
+    finally:
+        dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_bottom_up_gis_receiver_is_explained_before_export(
+    qapp, tmp_path: Path, language: AppLanguage,
+) -> None:
+    path = tmp_path / "bottom-up-survey.las"
+    path.write_text("fake", encoding="utf-8")
+
+    class BottomUpController(FakeController):
+        def analyze_file(self, filename: str | Path) -> ExternalLasInsertAnalysis:
+            return replace(
+                super().analyze_file(filename),
+                target_original_direction=DepthDirection.DESCENDING,
+            )
+
+    dialog = ExternalLasInsertDialog(BottomUpController(), initial_path=path, language=language)
+    try:
+        assert dialog.analysis is not None
+        assert dialog.analysis.target_original_direction is DepthDirection.DESCENDING
+        warnings = [dialog.issues.item(i).text() for i in range(dialog.issues.count())]
+        assert dialog.issues.count() == 3
+        assert dialog._t("external_las.descending_target") in warnings
+        assert dialog._t("external_las.descending_target") != "external_las.descending_target"
+        assert dialog.buttons.button(dialog.buttons.StandardButton.Ok).isEnabled()
     finally:
         dialog.close()

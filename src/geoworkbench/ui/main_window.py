@@ -7344,6 +7344,14 @@ class MainWindow(QMainWindow):
         # toggles it, so users do not need Ctrl and do not have to hit the tiny box.
         curve_list.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
         curve_list.setAlternatingRowColors(True)
+        # Keep both scrollbars available for a large LAS catalog (hundreds
+        # of curves) and for long GIS captions. QListWidget owns the wheel,
+        # keyboard and touchpad navigation; do not nest a QScrollArea.
+        curve_list.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        curve_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        curve_list.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        curve_list.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        curve_list.setTextElideMode(Qt.TextElideMode.ElideNone)
         selected_set = set(preselected)
         curve_by_id = {curve.metadata.curve_id: curve for curve in dataset.curves.values()}
 
@@ -7451,7 +7459,8 @@ class MainWindow(QMainWindow):
 
         curve_list.itemPressed.connect(remember_state)
         curve_list.itemClicked.connect(toggle_full_row)
-        curve_list.itemDoubleClicked.connect(lambda item, _row: rename_curve(item))
+        # QListWidget.itemDoubleClicked sends only the clicked QListWidgetItem.
+        curve_list.itemDoubleClicked.connect(rename_curve)
         rename_button.clicked.connect(lambda: rename_curve())
         layout.addWidget(curve_list)
 
@@ -10265,7 +10274,11 @@ class MainWindow(QMainWindow):
             self._update_title()
 
     def _show_visible_depth(self, top: float, bottom: float) -> None:
-        if self.tablet_controller.set_visible_depth(top, bottom):
+        # A newly derived LAS can render before a persisted tablet layout
+        # exists for its dataset id. The view still emits viewport changes;
+        # persist them only when the session has a layout to update.
+        if (self.session.current_tablet_layout is not None
+                and self.tablet_controller.set_visible_depth(top, bottom)):
             self._update_title()
         top_text = self.tablet_view.format_vertical_value(top)
         bottom_text = self.tablet_view.format_vertical_value(bottom)

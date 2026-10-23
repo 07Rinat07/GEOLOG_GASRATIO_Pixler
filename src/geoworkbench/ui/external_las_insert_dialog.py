@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.project.external_las_insert_controller import ExternalLasInsertController
+from geoworkbench.services.depth_axis import DepthDirection
 from geoworkbench.services.external_las_insert import (
     ExternalLasCurveSelection,
     ExternalLasInsertAnalysis,
@@ -183,6 +184,8 @@ class ExternalLasInsertDialog(QDialog):
         )
         if analysis.source_reversed_in_memory:
             self.issues.addItem(self._t("external_las.reversed_source"))
+        if analysis.target_original_direction is DepthDirection.DESCENDING:
+            self.issues.addItem(self._t("external_las.descending_target"))
         if analysis.depth_conversion_factor != 1.0:
             self.issues.addItem(
                 self._t(
