@@ -6,7 +6,7 @@ from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHeaderView, QLabel, QLineEdit, QPlainTextEdit, QPushButton, QScrollArea, QTableWidget,
-    QTableWidgetItem, QVBoxLayout, QWidget,
+    QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget,
 )
 
 from geoworkbench.project.session import ProjectSession
@@ -536,7 +536,24 @@ class LithologyRevisionProposalDialog(QDialog):
         for col, width in enumerate((170, 290, 290)):
             self.preview.setColumnWidth(col, width)
         self.preview.hide()
-        root.addWidget(self.preview)
+        self.provenance = QTableWidget(0, 3, self)
+        self.provenance.setHorizontalHeaderLabels([
+            self._t("comparison_field"), self._t("proposal_baseline"),
+            self._t("proposal_candidate"),
+        ])
+        self.provenance.setEditTriggers(
+            QAbstractItemView.EditTrigger.NoEditTriggers,
+        )
+        self.provenance.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Interactive,
+        )
+        for col, width in enumerate((170, 290, 290)):
+            self.provenance.setColumnWidth(col, width)
+        self.tabs = QTabWidget(self)
+        self.tabs.addTab(self.preview, self._t("proposal_changes_tab"))
+        self.tabs.addTab(self.provenance, self._t("proposal_sources_tab"))
+        self.tabs.hide()
+        root.addWidget(self.tabs)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(
             self.localizer.text("common.close"),
@@ -559,6 +576,9 @@ class LithologyRevisionProposalDialog(QDialog):
         self.source_status.clear()
         self.source_warning.clear()
         self.preview.setRowCount(0)
+        self.provenance.setRowCount(0)
+        self.tabs.setCurrentIndex(0)
+        self.tabs.hide()
         self.preview.hide()
 
     def _prepare(self) -> None:
@@ -604,4 +624,26 @@ class LithologyRevisionProposalDialog(QDialog):
                 difference.first_value, difference.second_value,
             )):
                 self.preview.setItem(row, col, QTableWidgetItem(value))
+        # Recorded identities are displayed even when values are equal;
+        # the differences-only table cannot show such unchanged provenance.
+        fields = (
+            ("project_id", baseline.project_id, candidate.project_id),
+            ("well_id", baseline.source.well_id, candidate.source.well_id),
+            ("dataset_id", baseline.source.dataset_id, candidate.source.dataset_id),
+            ("depth_axis_id", baseline.source.depth_axis_id, candidate.source.depth_axis_id),
+            ("interval_id", baseline.source.interval_id, candidate.source.interval_id),
+            ("lithotype_id", baseline.source.lithotype_id, candidate.source.lithotype_id),
+            ("top_md_m", baseline.source.top_md_m, candidate.source.top_md_m),
+            ("bottom_md_m", baseline.source.bottom_md_m, candidate.source.bottom_md_m),
+            ("source_sha256", baseline.source.source_sha256, candidate.source.source_sha256),
+            ("axis_sha256", baseline.source.axis_sha256, candidate.source.axis_sha256),
+        )
+        self.provenance.setRowCount(len(fields))
+        for row, (field_name, source_value, candidate_value) in enumerate(fields):
+            for col, value in enumerate((
+                self._t(f"proposal_provenance_field.{field_name}"),
+                str(source_value), str(candidate_value),
+            )):
+                self.provenance.setItem(row, col, QTableWidgetItem(value))
         self.preview.show()
+        self.tabs.show()
