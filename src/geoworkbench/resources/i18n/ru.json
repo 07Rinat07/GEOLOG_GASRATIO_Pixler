@@ -2573,7 +2573,7 @@
   "lithology_mapping.proposal_prepare": "Подготовить без утверждения",
   "lithology_mapping.proposal_invalid": "Предложение не подготовлено. Проверьте выбор исходной записи, обязательные поля и наличие отличий между записями.",
   "lithology_mapping.proposal_unapproved": "Предложение оператора, без геологического утверждения",
-  "lithology_mapping.proposal_source_preflight": "Состояние источников на момент подготовки (не подтверждает авторство, применимость или геологическое утверждение): исходная запись — {baseline}; предлагаемая запись — {candidate}.",
+  "lithology_mapping.proposal_source_preflight": "Состояние источников на момент последней сверки (не подтверждает авторство, применимость или геологическое утверждение): исходная запись — {baseline}; предлагаемая запись — {candidate}.",
   "lithology_mapping.proposal_result": "Предложение {proposal}. Статус: {status}. Только предварительный просмотр, проект и LAS не изменены.",
   "lithology_mapping.proposal_source_warning": "Внимание: минимум одна архивная запись не совпадает с текущим источником, недоступна или относится к другому проекту. Проверьте источник вручную до геологического использования. Предложение не утверждено.",
   "lithology_mapping.proposal_candidate": "Предлагаемая запись",
@@ -2588,5 +2588,7 @@
   "lithology_mapping.proposal_provenance_field.top_md_m": "Кровля MD, м",
   "lithology_mapping.proposal_provenance_field.bottom_md_m": "Подошва MD, м",
   "lithology_mapping.proposal_provenance_field.source_sha256": "SHA-256 литологии",
-  "lithology_mapping.proposal_provenance_field.axis_sha256": "SHA-256 оси MD"
+  "lithology_mapping.proposal_provenance_field.axis_sha256": "SHA-256 оси MD",
+  "lithology_mapping.proposal_recheck_sources": "Повторно проверить источники",
+  "lithology_mapping.proposal_source_check_failed": "Повторная сверка источников не выполнена. Текущее состояние неизвестно. Проверьте данные вручную; предложение не утверждено."
 }
