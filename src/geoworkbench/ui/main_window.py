@@ -7459,7 +7459,8 @@ class MainWindow(QMainWindow):
 
         curve_list.itemPressed.connect(remember_state)
         curve_list.itemClicked.connect(toggle_full_row)
-        curve_list.itemDoubleClicked.connect(lambda item, _row: rename_curve(item))
+        # QListWidget.itemDoubleClicked sends only the clicked QListWidgetItem.
+        curve_list.itemDoubleClicked.connect(rename_curve)
         rename_button.clicked.connect(lambda: rename_curve())
         layout.addWidget(curve_list)
 
