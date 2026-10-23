@@ -39,7 +39,6 @@ class ExternalLasInsertAnalysis:
     source_encoding: str
     source_original_direction: DepthDirection
     source_reversed_in_memory: bool
-    target_descending: bool
     source_depth_unit: str
     target_depth_unit: str
     depth_conversion_factor: float
@@ -51,11 +50,9 @@ class ExternalLasInsertAnalysis:
     overlap_bottom: float
     mapping: ExternalLasMapping
     candidates: tuple[ExternalLasCurveCandidate, ...]
-
-    @property
-    def target_original_direction(self) -> DepthDirection:
-        """Receiver direction at analysis time, for UI and stale-axis checks."""
-        return DepthDirection.DESCENDING if self.target_descending else DepthDirection.ASCENDING
+    # The receiver may be a bottom-to-top GIS LAS too. The row order in the
+    # derived output must match the receiver, not the normalized source.
+    target_original_direction: DepthDirection = DepthDirection.ASCENDING
 
     @property
     def overlap_span(self) -> float:
@@ -104,23 +101,18 @@ def analyze_external_las_insert(
         )
 
     _validate_depth_dataset(source, "Внешний LAS")
-    target_report = analyze_depth_axis(target.depth)
-    if (target.active_index.role is not IndexRole.DEPTH
-            or target_report.direction not in (
-                DepthDirection.ASCENDING, DepthDirection.DESCENDING,
-            )
-            or target_report.duplicate_count or target_report.missing_count):
-        raise ValueError(
-            "Текущий LAS должен иметь монотонный глубинный индекс без пропусков и дубликатов"
-        )
-    target_descending = target_report.direction is DepthDirection.DESCENDING
+    target_direction = _validate_depth_dataset(
+        target, "Текущий LAS", allow_descending=True,
+    )
 
     source_unit = _normalize_depth_unit(source.active_index.unit)
     target_unit = _normalize_depth_unit(target.active_index.unit)
     factor = _depth_factor(source_unit, target_unit)
     source_depth = np.asarray(source.depth, dtype=np.float64) * factor
     target_depth = np.asarray(target.depth, dtype=np.float64)
-    if target_descending:
+    # Normalize the *coordinate view* only. Never reorder target data here:
+    # every curve in the exported copy must follow its original depth rows.
+    if target_direction is DepthDirection.DESCENDING:
         target_depth = target_depth[::-1]
 
     overlap_top = max(float(source_depth[0]), float(target_depth[0]))
@@ -169,7 +161,6 @@ def analyze_external_las_insert(
         source_encoding=imported.report.source.encoding,
         source_original_direction=source_report.direction,
         source_reversed_in_memory=source_reversed,
-        target_descending=target_descending,
         source_depth_unit=source_unit,
         target_depth_unit=target_unit,
         depth_conversion_factor=factor,
@@ -181,6 +172,7 @@ def analyze_external_las_insert(
         overlap_bottom=overlap_bottom,
         mapping=mapping,
         candidates=tuple(candidates),
+        target_original_direction=target_direction,
     )
     return analysis, source
 
@@ -195,14 +187,6 @@ def build_external_las_curves(
         raise ValueError("Текущий LAS изменился после анализа вставки")
     if source.dataset_id != analysis.source_dataset_id:
         raise ValueError("Внешний LAS изменился после анализа вставки")
-    current_target_axis = analyze_depth_axis(target.depth)
-    if (
-        target.active_index.role is not IndexRole.DEPTH
-        or current_target_axis.direction is not analysis.target_original_direction
-        or current_target_axis.duplicate_count
-        or current_target_axis.missing_count
-    ):
-        raise ValueError("Направление или корректность глубинного индекса LAS изменились; повторите анализ")
     if not selections:
         raise ValueError("Выберите хотя бы одну кривую для вставки")
 
@@ -225,8 +209,14 @@ def build_external_las_curves(
         normalized_names.append(mnemonic)
 
     source_depth = np.asarray(source.depth, dtype=np.float64) * analysis.depth_conversion_factor
+    target_direction = _validate_depth_dataset(
+        target, "Текущий LAS", allow_descending=True,
+    )
+    if target_direction is not analysis.target_original_direction:
+        raise ValueError("Направление глубин LAS-приёмника изменилось; повторите анализ")
+    reverse_target = target_direction is DepthDirection.DESCENDING
     target_depth = np.asarray(target.depth, dtype=np.float64)
-    if analysis.target_descending:
+    if reverse_target:
         target_depth = target_depth[::-1]
     curves: list[CurveData] = []
     manifest_curves: list[dict[str, object]] = []
@@ -238,9 +228,9 @@ def build_external_las_curves(
             if analysis.mapping is ExternalLasMapping.EXACT
             else _interpolate_without_bridging(source_depth, source_values, target_depth)
         )
-        if analysis.target_descending:
-            # Keep the receiver's original row order: reverse every curve
-            # after depth-based mapping, never only the depth index.
+        if reverse_target:
+            # Return to the target's exact row order *after* matching physical
+            # depths; reversing the depth vector without values misaligns GIS.
             values = values[::-1].copy()
         curve_id = new_id()
         source_metadata = source_curve.metadata
@@ -284,7 +274,8 @@ def build_external_las_curves(
         "source_encoding": analysis.source_encoding,
         "source_original_direction": analysis.source_original_direction.value,
         "source_reversed_in_memory": analysis.source_reversed_in_memory,
-        "target_descending": analysis.target_descending,
+        "target_original_direction": analysis.target_original_direction.value,
+        "target_descending": analysis.target_original_direction is DepthDirection.DESCENDING,
         "source_depth_unit": analysis.source_depth_unit,
         "target_depth_unit": analysis.target_depth_unit,
         "depth_conversion_factor": analysis.depth_conversion_factor,
@@ -298,18 +289,21 @@ def build_external_las_curves(
     )
 
 
-def _validate_depth_dataset(dataset: Dataset, label: str) -> None:
+def _validate_depth_dataset(
+    dataset: Dataset, label: str, *, allow_descending: bool = False,
+) -> DepthDirection:
     if dataset.active_index.role is not IndexRole.DEPTH:
         raise ValueError(f"{label} должен использовать глубинный индекс")
     report = analyze_depth_axis(dataset.depth)
-    if (
-        report.direction is not DepthDirection.ASCENDING
-        or report.duplicate_count
-        or report.missing_count
-    ):
+    allowed = (DepthDirection.ASCENDING, DepthDirection.DESCENDING) if allow_descending else (
+        DepthDirection.ASCENDING,
+    )
+    if (report.direction not in allowed or report.duplicate_count or report.missing_count):
         raise ValueError(
-            f"{label} должен иметь возрастающий индекс без пропусков и дубликатов"
+            f"{label} должен иметь строго монотонный глубинный индекс "
+            "без пропусков и дубликатов"
         )
+    return report.direction
 
 
 def _normalize_depth_unit(unit: str | None) -> str:
