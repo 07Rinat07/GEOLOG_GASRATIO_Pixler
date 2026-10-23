@@ -1,3 +1,17 @@
+## Upward GIS logging and descending-depth LAS receiver
+
+`tests/test_external_las_insert.py` exercises an upward tool pass
+(103→101 MD) into both ascending and descending LAS receivers and a
+downward pass into a descending receiver. The source depth-value pairs
+must remain intact; exact overlap should not interpolate. Descending
+receiver interpolation preserves the original receiver row order
+while retaining NULL values and rejecting large unmeasured gaps.
+Repeated and non-monotone receiver depths are explicitly rejected,
+not silently sorted. Mapping provenance includes `target_descending`.
+No existing files are modified. A separate real-file export roundtrip
+is required for user-specific GIS/LAS fidelity. All three exact-head
+Windows release jobs and post-merge main validation remain mandatory.
+
 ## Bottom-up GIS LAS acquisition and descending target LAS
 
 `tests/test_external_las_insert.py` checks all four source/receiver
