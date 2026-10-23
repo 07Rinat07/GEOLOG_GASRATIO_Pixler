@@ -534,6 +534,7 @@
   "external_las.redo": "Redo external LAS insertion",
   "external_las.redone": "External LAS insertion redone",
   "external_las.reversed_source": "The source depth was descending; a temporary ascending copy was created for insertion. The source file was not changed.",
+  "external_las.descending_target": "The receiver LAS has descending depth (logged bottom-up). GIS curves will be aligned by physical depth and kept in the receiver's original row order; its depth direction is not changed.",
   "external_las.safe_note": "Safe mode: neither the working LAS nor the external GIS LAS is changed. Selected curves are inserted into a new dataset and saved as a separate LAS. Conflicts receive a safe mnemonic; source, encoding and SHA-256 are recorded in the manifest.",
   "external_las.sample_counts": "values: {finite}; missing: {missing}",
   "external_las.samples": "Coverage",
