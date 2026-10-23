@@ -1,3 +1,23 @@
+## GIS-to-LAS created-copy tablet state and curve picker scrolling
+
+User diagnostic bundle for build 0.7.96+fc51016d5b8b shows repeated
+`MainWindow._show_visible_depth` RuntimeError when a new derived LAS
+has no saved tablet layout. GUI regression in
+`tests/test_main_window_visible_depth_refresh.py` exercises notifications
+without a layout; the handler should still update status but neither
+crash nor change session dirtiness/title. The same test module opens
+the track-curve modal with 40/120 additional GIS curves and checks
+always-visible vertical scrolling, horizontal long-caption scrolling,
+and editable scrollbar ranges without changing selected curves.
+
+`tests/test_external_las_insert_controller.py` verifies a GIS LAS copy
+inherits an **independent**, deep-copied tablet layout from its receiver,
+leaving the receiver layout untouched. Exported values are not proved
+against the user's sample in the supplied diagnostic archive; a future
+data-specific reproduction requires original/produced LAS and exact
+export error. Windows Release Quality, GUI/HiDPI/PDF, Security exact-head
+checks and post-merge main are required. Native Qt issue #544 remains open.
+
 ## Archived revision proposal baseline/candidate column labels
 
 Regression coverage in `tests/test_lithology_mapping_dialog.py` asserts that
