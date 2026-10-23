@@ -12,6 +12,7 @@ from geoworkbench.data.lossless_las import parse_lossless_las
 from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain
 from geoworkbench.project.external_las_insert_controller import ExternalLasInsertController
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
 from geoworkbench.services.depth_axis import analyze_depth_axis
 from geoworkbench.services.edit_history import CommandHistory, CurveEditCommand
 from geoworkbench.services.external_las_insert import ExternalLasCurveSelection
@@ -147,6 +148,18 @@ def test_create_copy_keeps_target_unchanged_and_selects_new_dataset(
     add_curve(source, "gk", "GK:1", [2.0, 1.0])
     session = ProjectSession()
     session.add_dataset(target)
+    original_layout = TabletLayout(
+        [
+            TrackDefinition("depth", "Depth", TrackKind.DEPTH, width=120),
+            TrackDefinition(
+                "gti", "GTI", TrackKind.CURVE, width=220,
+                curve_mnemonics=["ROP"],
+            ),
+        ],
+        visible_depth_top=100.0,
+        visible_depth_bottom=101.0,
+    )
+    session.tablet_layouts[target.dataset_id] = original_layout
     controller = ExternalLasInsertController(session)
     result = imported(source, tmp_path / "gis.las")
     monkeypatch.setattr(
@@ -166,6 +179,16 @@ def test_create_copy_keeps_target_unchanged_and_selects_new_dataset(
     assert target.curve_by_mnemonic("ROP") is not None
     assert outcome.dataset is session.current_dataset
     assert outcome.dataset.dataset_id != target.dataset_id
+    copied_layout = session.current_tablet_layout
+    assert copied_layout is not None
+    assert copied_layout is not original_layout
+    assert session.tablet_layouts[target.dataset_id] is original_layout
+    assert copied_layout.tracks[1].curve_mnemonics == ["ROP"]
+    copied_layout.tracks[1].curve_mnemonics.append("GK_1")
+    assert original_layout.tracks[1].curve_mnemonics == ["ROP"]
+    assert (copied_layout.visible_depth_top, copied_layout.visible_depth_bottom) == (
+        100.0, 101.0,
+    )
     assert outcome.dataset.source_path is None
     assert outcome.dataset.curve_by_mnemonic("ROP") is not None
     inserted = outcome.dataset.curve_by_mnemonic("GK_1")

@@ -141,3 +141,80 @@ def test_reset_visible_depth_performs_one_full_rebuild_without_tree_refresh(
         assert session.dirty
     finally:
         window.close()
+
+
+def test_visible_depth_notification_without_saved_derived_las_layout_is_safe(
+    qapp, monkeypatch,
+) -> None:
+    window, session = _window_with_session(qapp)
+    dataset_id = session.current_dataset_id
+    assert dataset_id is not None
+    saved_layout = session.tablet_layouts.pop(dataset_id)
+    session.dirty = False
+    updated = []
+
+    monkeypatch.setattr(window, "_update_title", lambda: updated.append(True))
+    try:
+        # A new GIS+LAS copy may render a viewport before its layout is saved.
+        # The status update must not call the layout-requiring controller.
+        window._show_visible_depth(20.0, 30.0)
+        window._show_visible_depth(22.0, 32.0)
+        assert not updated
+        assert not session.dirty
+        assert "22" in window.statusBar().currentMessage()
+        assert "32" in window.statusBar().currentMessage()
+    finally:
+        session.tablet_layouts[dataset_id] = saved_layout
+        window.close()
+
+
+@pytest.mark.parametrize("curve_count", (40, 120))
+def test_tablet_curve_picker_has_operable_scrollbars_for_large_las_catalog(
+    qapp, monkeypatch, curve_count,
+) -> None:
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QAbstractItemView, QDialog, QListWidget
+
+    window, session = _window_with_session(qapp)
+    dataset = session.current_dataset
+    assert dataset is not None
+    for index in range(curve_count):
+        curve_id = f"gis-scroll-{index:03d}"
+        dataset.curves[curve_id] = CurveData(
+            CurveMetadata(
+                curve_id, f"GIS{index:03d}", f"GIS{index:03d}", "gAPI",
+                "Geophysical long curve caption " * 10, dataset.dataset_id,
+            ),
+            np.linspace(0.0, 1.0, len(dataset.depth)),
+        )
+
+    tested = []
+
+    def inspect_dialog(dialog: QDialog):
+        picker = dialog.findChild(QListWidget)
+        assert picker is not None
+        assert picker.count() == curve_count + 1
+        assert picker.verticalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAlwaysOn
+        assert picker.horizontalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        assert picker.verticalScrollMode() == QAbstractItemView.ScrollMode.ScrollPerPixel
+        assert picker.horizontalScrollMode() == QAbstractItemView.ScrollMode.ScrollPerPixel
+        dialog.show()
+        qapp.processEvents()
+        vertical = picker.verticalScrollBar()
+        horizontal = picker.horizontalScrollBar()
+        assert vertical.isVisible() and vertical.maximum() > 0
+        assert horizontal.maximum() > 0
+        vertical.setValue(vertical.maximum())
+        horizontal.setValue(horizontal.maximum())
+        assert vertical.value() == vertical.maximum()
+        assert horizontal.value() == horizontal.maximum()
+        tested.append(True)
+        dialog.close()
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(QDialog, "exec", inspect_dialog)
+    try:
+        assert window._select_curve_mnemonics() == []
+        assert tested == [True]
+    finally:
+        window.close()
