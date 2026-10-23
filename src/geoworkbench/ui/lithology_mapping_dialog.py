@@ -519,6 +519,13 @@ class LithologyRevisionProposalDialog(QDialog):
             Qt.TextInteractionFlag.TextSelectableByMouse,
         )
         root.addWidget(self.source_status)
+        self.source_warning = QLabel(self)
+        self.source_warning.setTextFormat(Qt.TextFormat.PlainText)
+        self.source_warning.setWordWrap(True)
+        self.source_warning.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse,
+        )
+        root.addWidget(self.source_warning)
         self.preview = QTableWidget(0, 3, self)
         self.preview.setHorizontalHeaderLabels([
             self._t("comparison_field"), self._t("comparison_first"),
@@ -550,6 +557,7 @@ class LithologyRevisionProposalDialog(QDialog):
         self.proposal = None
         self.summary.clear()
         self.source_status.clear()
+        self.source_warning.clear()
         self.preview.setRowCount(0)
         self.preview.hide()
 
@@ -583,6 +591,11 @@ class LithologyRevisionProposalDialog(QDialog):
             baseline=self._t(f"record_status.{baseline_status.value}"),
             candidate=self._t(f"record_status.{candidate_status.value}"),
         ))
+        # The detached proposal remains visible as an unapproved suggestion,
+        # but neither stale nor missing source data may look like clearance.
+        if (baseline_status is not ReviewSourceStatus.MATCHING
+                or candidate_status is not ReviewSourceStatus.MATCHING):
+            self.source_warning.setText(self._t("proposal_source_warning"))
         differences = proposal.comparison.differences
         self.preview.setRowCount(len(differences))
         for row, difference in enumerate(differences):

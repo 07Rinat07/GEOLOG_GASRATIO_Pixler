@@ -2574,5 +2574,6 @@
   "lithology_mapping.proposal_invalid": "Proposal not prepared. Check the baseline selection, required fields and that the records differ.",
   "lithology_mapping.proposal_unapproved": "Operator proposal, not geological approval",
   "lithology_mapping.proposal_source_preflight": "Source identity at preparation time (not authorship, applicability or geological approval): baseline — {baseline}; candidate — {candidate}.",
-  "lithology_mapping.proposal_result": "Proposal {proposal}. Status: {status}. Preview only; project and LAS unchanged."
+  "lithology_mapping.proposal_result": "Proposal {proposal}. Status: {status}. Preview only; project and LAS unchanged.",
+  "lithology_mapping.proposal_source_warning": "Attention: at least one archived record differs from the current source, is unavailable, or belongs to another project. Check source identity manually before geological use. This proposal is not approved."
 }

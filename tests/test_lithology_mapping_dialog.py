@@ -486,6 +486,8 @@ def test_revision_proposal_preview_requires_explicit_baseline_and_never_approves
     assert dialog.preview.editTriggers() == QAbstractItemView.EditTrigger.NoEditTriggers
     assert "proposal-42" in dialog.summary.text()
     assert dialog._t("proposal_unapproved") in dialog.summary.text()
+    assert dialog.source_warning.textFormat() == Qt.TextFormat.PlainText
+    assert not dialog.source_warning.text()  # Both archived sources still match.
     assert not dialog.preview.isHidden()
 
     dialog.justification.setPlainText("Edited explanation")
@@ -587,7 +589,10 @@ def test_proposal_preflight_rechecks_both_archival_sources_without_approval(
     before = repr(session.project)
     dialog = LithologyRevisionProposalDialog(first, second, session=session, language=language)
     assert dialog.source_status.textFormat() == Qt.TextFormat.PlainText
+    assert dialog.source_warning.textFormat() == Qt.TextFormat.PlainText
     assert not dialog.source_status.text()
+    assert not dialog.source_warning.text()
+    assert "lithology_mapping.proposal_source_warning" in Localizer.create(language).catalog
     assert "lithology_mapping.proposal_source_preflight" in Localizer.create(
         language,
     ).catalog
@@ -605,6 +610,8 @@ def test_proposal_preflight_rechecks_both_archival_sources_without_approval(
         baseline=dialog._t("record_status.different"),
         candidate=dialog._t("record_status.matching"),
     )
+    assert dialog.source_warning.text() == dialog._t("proposal_source_warning")
+    assert dialog._t("proposal_unapproved") in dialog.summary.text()
     assert repr(session.project) == before and not session.dirty
 
     # The history table's old source status must not be reused after source edits.
@@ -616,6 +623,7 @@ def test_proposal_preflight_rechecks_both_archival_sources_without_approval(
         baseline=dialog._t("record_status.different"),
         candidate=dialog._t("record_status.different"),
     )
+    assert dialog.source_warning.text() == dialog._t("proposal_source_warning")
 
     session.current_well.lithology.clear()
     dialog.prepare.click()
@@ -625,8 +633,50 @@ def test_proposal_preflight_rechecks_both_archival_sources_without_approval(
         baseline=dialog._t("record_status.unavailable"),
         candidate=dialog._t("record_status.unavailable"),
     )
+    assert dialog.source_warning.text() == dialog._t("proposal_source_warning")
     dialog.proposal_id.setText("edited")
     assert dialog.proposal is None
     assert dialog.source_status.text() == ""
+    assert dialog.source_warning.text() == ""
     assert dialog.preview.rowCount() == 0
+    dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_unrelated_project_proposal_preflight_warns_without_authorizing(
+    qapp, tmp_path, language,
+):
+    from dataclasses import replace
+    from geoworkbench.services.lithology_review_reader import load_lithology_review
+    from geoworkbench.ui.lithology_mapping_dialog import LithologyRevisionProposalDialog
+    from test_lithology_review_history import _history_files
+
+    session, baseline_path, candidate_path = _history_files(tmp_path)
+    baseline = replace(load_lithology_review(baseline_path), project_id="other-project")
+    candidate = replace(load_lithology_review(candidate_path), project_id="other-project")
+    session.dirty = False
+    original = repr(session.project)
+
+    dialog = LithologyRevisionProposalDialog(
+        baseline, candidate, session=session, language=language,
+    )
+    dialog.baseline.setCurrentIndex(1)
+    dialog.proposal_id.setText("operator-diagnostic")
+    dialog.proposed_by.setText("Unverified initiator")
+    dialog.justification.setPlainText("Manual source investigation required")
+    dialog.prepare.click()
+
+    assert dialog.proposal is not None  # Detached proposal, never active.
+    assert dialog.proposal.review_state == "proposal_not_geological_approval"
+    assert dialog.source_status.text() == dialog._t(
+        "proposal_source_preflight",
+        baseline=dialog._t("record_status.other_project"),
+        candidate=dialog._t("record_status.other_project"),
+    )
+    assert dialog.source_warning.text() == dialog._t("proposal_source_warning")
+    assert not session.dirty and repr(session.project) == original
+
+    dialog.baseline.setCurrentIndex(2)
+    assert dialog.proposal is None and not dialog.source_warning.text()
+    assert not dialog.source_status.text()
     dialog.close()
