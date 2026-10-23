@@ -484,6 +484,18 @@ def test_revision_proposal_preview_requires_explicit_baseline_and_never_approves
     assert dialog.preview.rowCount() == 1
     assert dialog.preview.item(0, 1).text() == "review-2"
     assert dialog.preview.item(0, 2).text() == "review-1"
+    assert dialog.preview.horizontalHeaderItem(1).text() == dialog._t(
+        "proposal_baseline",
+    )
+    assert dialog.preview.horizontalHeaderItem(2).text() == dialog._t(
+        "proposal_candidate",
+    )
+    assert dialog.preview.horizontalHeaderItem(1).text() != dialog._t(
+        "comparison_first",
+    )
+    assert dialog.preview.horizontalHeaderItem(2).text() != dialog._t(
+        "comparison_second",
+    )
     assert dialog.preview.editTriggers() == QAbstractItemView.EditTrigger.NoEditTriggers
     assert dialog.provenance.rowCount() == 10
     assert dialog.provenance.editTriggers() == QAbstractItemView.EditTrigger.NoEditTriggers
@@ -722,6 +734,10 @@ def test_revision_proposal_shows_complete_unverified_provenance_even_when_equal(
     assert dialog.proposal is not None
     assert dialog.proposal.review_state == "proposal_not_geological_approval"
     assert dialog.preview.rowCount() == 1  # Only mapping_id differs.
+    assert dialog.preview.horizontalHeaderItem(1).text() == dialog._t("proposal_baseline")
+    assert dialog.preview.horizontalHeaderItem(2).text() == dialog._t("proposal_candidate")
+    assert dialog.preview.item(0, 1).text() == second.mapping_id
+    assert dialog.preview.item(0, 2).text() == first.mapping_id
     assert dialog.provenance.rowCount() == 10
     assert dialog.provenance.columnCount() == 3
     assert not dialog.tabs.isHidden()
@@ -954,4 +970,41 @@ def test_proposal_recheck_fails_closed_on_partial_or_malformed_source_results(
     assert dialog.source_status.text()
     assert not dialog.source_warning.text()
     assert not session.dirty and repr(session.project) == original
+    dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_proposal_difference_headers_follow_explicit_forward_baseline(
+    qapp, tmp_path, language,
+):
+    from geoworkbench.services.lithology_review_reader import load_lithology_review
+    from geoworkbench.ui.lithology_mapping_dialog import LithologyRevisionProposalDialog
+    from test_lithology_review_history import _history_files
+
+    session, first_path, second_path = _history_files(tmp_path)
+    first = load_lithology_review(first_path)
+    second = load_lithology_review(second_path)
+    session.dirty = False
+    original = repr(session.project)
+
+    dialog = LithologyRevisionProposalDialog(
+        first, second, session=session, language=language,
+    )
+    dialog.baseline.setCurrentIndex(1)
+    dialog.proposal_id.setText("forward-direction")
+    dialog.proposed_by.setText("Unverified operator")
+    dialog.justification.setPlainText("Review the operator-selected baseline")
+    dialog.prepare.click()
+
+    assert dialog.proposal is not None
+    assert dialog.proposal.review_state == "proposal_not_geological_approval"
+    assert dialog.preview.item(0, 1).text() == first.mapping_id
+    assert dialog.preview.item(0, 2).text() == second.mapping_id
+    for table in (dialog.preview, dialog.provenance):
+        assert table.horizontalHeaderItem(1).text() == dialog._t("proposal_baseline")
+        assert table.horizontalHeaderItem(2).text() == dialog._t("proposal_candidate")
+    assert not session.dirty and repr(session.project) == original
+    dialog.baseline.setCurrentIndex(2)
+    assert dialog.proposal is None and dialog.preview.rowCount() == 0
+    assert dialog.tabs.isHidden()
     dialog.close()
