@@ -588,9 +588,9 @@ def test_proposal_preflight_rechecks_both_archival_sources_without_approval(
     dialog = LithologyRevisionProposalDialog(first, second, session=session, language=language)
     assert dialog.source_status.textFormat() == Qt.TextFormat.PlainText
     assert not dialog.source_status.text()
-    assert dialog._t("proposal_source_preflight") != (
-        "lithology_mapping.proposal_source_preflight"
-    )
+    assert "lithology_mapping.proposal_source_preflight" in Localizer.create(
+        language,
+    ).catalog
 
     # Reversed baseline proves statuses follow the operator's choice, not UTC order.
     dialog.baseline.setCurrentIndex(2)
