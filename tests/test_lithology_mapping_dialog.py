@@ -458,7 +458,7 @@ def test_revision_proposal_preview_requires_explicit_baseline_and_never_approves
     session.dirty = False
     original = repr(session.project)
 
-    dialog = LithologyRevisionProposalDialog(first, second, language=language)
+    dialog = LithologyRevisionProposalDialog(first, second, session=session, language=language)
     assert dialog.baseline.currentData() is None
     assert dialog.proposal is None
     assert dialog.preview.isHidden()
@@ -505,7 +505,7 @@ def test_revision_proposal_preview_rejects_identical_assertions_and_long_reason(
     first, second = load_lithology_review(first_path), load_lithology_review(second_path)
     identical = replace(first, recorded_at_utc="2026-10-22T23:00:00Z")
     original = repr(session.project)
-    dialog = LithologyRevisionProposalDialog(first, identical)
+    dialog = LithologyRevisionProposalDialog(first, identical, session=session)
     dialog.baseline.setCurrentIndex(1)
     dialog.proposal_id.setText("proposal-43")
     dialog.proposed_by.setText("Operator")
@@ -515,7 +515,7 @@ def test_revision_proposal_preview_rejects_identical_assertions_and_long_reason(
     assert dialog.summary.text() == dialog._t("proposal_invalid")
     dialog.close()
 
-    dialog = LithologyRevisionProposalDialog(first, second)
+    dialog = LithologyRevisionProposalDialog(first, second, session=session)
     dialog.baseline.setCurrentIndex(1)
     dialog.proposal_id.setText("proposal-44")
     dialog.proposed_by.setText("Operator")
@@ -568,3 +568,65 @@ def test_history_proposal_action_requires_two_rows_and_no_default_baseline(
     assert not history.propose.isEnabled()
     assert not session.dirty and repr(session.project) == before
     history.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_proposal_preflight_rechecks_both_archival_sources_without_approval(
+    qapp, tmp_path, language,
+):
+    from dataclasses import replace
+    from geoworkbench.services.lithology_review_reader import load_lithology_review
+    from geoworkbench.ui.lithology_mapping_dialog import LithologyRevisionProposalDialog
+    from test_lithology_review_history import _history_files
+
+    session, first_path, second_path = _history_files(tmp_path)
+    first = load_lithology_review(first_path)
+    second = load_lithology_review(second_path)
+    second = replace(second, source=replace(second.source, source_sha256="0" * 64))
+    session.dirty = False
+    before = repr(session.project)
+    dialog = LithologyRevisionProposalDialog(first, second, session=session, language=language)
+    assert dialog.source_status.textFormat() == Qt.TextFormat.PlainText
+    assert not dialog.source_status.text()
+    assert dialog._t("proposal_source_preflight") != (
+        "lithology_mapping.proposal_source_preflight"
+    )
+
+    # Reversed baseline proves statuses follow the operator's choice, not UTC order.
+    dialog.baseline.setCurrentIndex(2)
+    dialog.proposal_id.setText("proposal-source-preflight")
+    dialog.proposed_by.setText("<b>Unverified</b>")
+    dialog.justification.setPlainText("Please check source identity before geology review")
+    dialog.prepare.click()
+    assert dialog.proposal is not None
+    assert dialog.proposal.review_state == "proposal_not_geological_approval"
+    assert dialog.source_status.text() == dialog._t(
+        "proposal_source_preflight",
+        baseline=dialog._t("record_status.different"),
+        candidate=dialog._t("record_status.matching"),
+    )
+    assert repr(session.project) == before and not session.dirty
+
+    # The history table's old source status must not be reused after source edits.
+    session.current_well.lithology[0].description = "Source changed during preview"
+    dialog.prepare.click()
+    assert dialog.proposal is not None
+    assert dialog.source_status.text() == dialog._t(
+        "proposal_source_preflight",
+        baseline=dialog._t("record_status.different"),
+        candidate=dialog._t("record_status.different"),
+    )
+
+    session.current_well.lithology.clear()
+    dialog.prepare.click()
+    assert dialog.proposal is not None  # An unapproved archival suggestion, not activation.
+    assert dialog.source_status.text() == dialog._t(
+        "proposal_source_preflight",
+        baseline=dialog._t("record_status.unavailable"),
+        candidate=dialog._t("record_status.unavailable"),
+    )
+    dialog.proposal_id.setText("edited")
+    assert dialog.proposal is None
+    assert dialog.source_status.text() == ""
+    assert dialog.preview.rowCount() == 0
+    dialog.close()
