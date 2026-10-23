@@ -382,7 +382,7 @@ class LithologyReviewHistoryDialog(QDialog):
             return
         LithologyRevisionProposalDialog(
             self.entries[rows[0]].record, self.entries[rows[1]].record,
-            self, language=self.language,
+            self, session=self.session, language=self.language,
         ).exec()
 
     def _compare_selected(self) -> None:
@@ -469,9 +469,11 @@ class LithologyRevisionProposalDialog(QDialog):
 
     def __init__(
         self, first: SavedLithologyReview, second: SavedLithologyReview,
-        parent: QWidget | None = None, *, language: AppLanguage = AppLanguage.RU,
+        parent: QWidget | None = None, *,
+        session: ProjectSession, language: AppLanguage = AppLanguage.RU,
     ) -> None:
         super().__init__(parent)
+        self.session = session
         self.records = (first, second)
         self.localizer = Localizer.create(language)
         self.proposal: LithologyRevisionProposal | None = None
@@ -510,6 +512,13 @@ class LithologyRevisionProposalDialog(QDialog):
         self.summary.setWordWrap(True)
         self.summary.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         root.addWidget(self.summary)
+        self.source_status = QLabel(self)
+        self.source_status.setTextFormat(Qt.TextFormat.PlainText)
+        self.source_status.setWordWrap(True)
+        self.source_status.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse,
+        )
+        root.addWidget(self.source_status)
         self.preview = QTableWidget(0, 3, self)
         self.preview.setHorizontalHeaderLabels([
             self._t("comparison_field"), self._t("comparison_first"),
@@ -540,6 +549,7 @@ class LithologyRevisionProposalDialog(QDialog):
     def _invalidate(self) -> None:
         self.proposal = None
         self.summary.clear()
+        self.source_status.clear()
         self.preview.setRowCount(0)
         self.preview.hide()
 
@@ -556,13 +566,22 @@ class LithologyRevisionProposalDialog(QDialog):
                 proposed_by=self.proposed_by.text(),
                 justification=self.justification.toPlainText(),
             )
-        except (TypeError, ValueError):
+            # Re-evaluate both archived snapshots against the current session
+            # at preparation time; the history table may have become stale.
+            baseline_status = compare_review_source(self.session, baseline)
+            candidate_status = compare_review_source(self.session, candidate)
+        except (TypeError, ValueError, OverflowError):
             self.summary.setText(self._t("proposal_invalid"))
             return
         self.proposal = proposal
         self.summary.setText(self._t(
             "proposal_result", proposal=proposal.proposal_id,
             status=self._t("proposal_unapproved"),
+        ))
+        self.source_status.setText(self._t(
+            "proposal_source_preflight",
+            baseline=self._t(f"record_status.{baseline_status.value}"),
+            candidate=self._t(f"record_status.{candidate_status.value}"),
         ))
         differences = proposal.comparison.differences
         self.preview.setRowCount(len(differences))
