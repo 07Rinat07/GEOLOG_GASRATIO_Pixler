@@ -1,3 +1,24 @@
+## Bottom-up GIS LAS acquisition and descending target LAS
+
+`tests/test_external_las_insert.py` checks all four source/receiver
+direction combinations, preserving the original physical depth/value pairs;
+a descending receiver keeps its row order even for EXACT matching and
+LINEAR_OVERLAP. The 4-case NULL/gap/coverage test prevents interpolation
+across missing values or outside GIS measurements. Repeated/non-finite/
+mixed depth indexes reject cleanly, and a changed receiver direction
+requires re-analysis. `tests/test_external_las_insert_controller.py`
+exports a generated combined bottom-up LAS and reimports it, verifying
+both original GTI and GIS channels at their corresponding depths.
+`tests/test_external_las_insert_dialog.py` confirms explicit descending
+receiver guidance in RU/KK/EN. No original LAS is rewritten, and
+the derived LAS retains the receiver depth direction.
+
+The user-supplied diagnostic ZIP alone cannot prove the values in their
+specific output LAS. Full field data acceptance still requires original
+GIS LAS, receiver LAS, and output LAS with sample-depth comparisons.
+Do not merge until all three Windows exact-head gates pass and the
+post-merge main release gate is green.
+
 ## GIS-to-LAS created-copy tablet state and curve picker scrolling
 
 User diagnostic bundle for build 0.7.96+fc51016d5b8b shows repeated
