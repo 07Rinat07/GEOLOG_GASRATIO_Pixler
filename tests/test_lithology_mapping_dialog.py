@@ -484,6 +484,11 @@ def test_revision_proposal_preview_requires_explicit_baseline_and_never_approves
     assert dialog.preview.item(0, 1).text() == "review-2"
     assert dialog.preview.item(0, 2).text() == "review-1"
     assert dialog.preview.editTriggers() == QAbstractItemView.EditTrigger.NoEditTriggers
+    assert dialog.provenance.rowCount() == 10
+    assert dialog.provenance.editTriggers() == QAbstractItemView.EditTrigger.NoEditTriggers
+    assert dialog.tabs.tabText(0) == dialog._t("proposal_changes_tab")
+    assert dialog.tabs.tabText(1) == dialog._t("proposal_sources_tab")
+    assert dialog.provenance.horizontalHeaderItem(2).text() == dialog._t("proposal_candidate")
     assert "proposal-42" in dialog.summary.text()
     assert dialog._t("proposal_unapproved") in dialog.summary.text()
     assert dialog.source_warning.textFormat() == Qt.TextFormat.PlainText
@@ -492,6 +497,7 @@ def test_revision_proposal_preview_requires_explicit_baseline_and_never_approves
 
     dialog.justification.setPlainText("Edited explanation")
     assert dialog.proposal is None and dialog.preview.rowCount() == 0
+    assert dialog.provenance.rowCount() == 0 and dialog.tabs.isHidden()
     assert dialog.summary.text() == ""
     assert not session.dirty and repr(session.project) == original
     dialog.close()
@@ -679,4 +685,82 @@ def test_unrelated_project_proposal_preflight_warns_without_authorizing(
     dialog.baseline.setCurrentIndex(2)
     assert dialog.proposal is None and not dialog.source_warning.text()
     assert not dialog.source_status.text()
+    dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_revision_proposal_shows_complete_unverified_provenance_even_when_equal(
+    qapp, tmp_path, language,
+):
+    from dataclasses import replace
+    from PySide6.QtWidgets import QAbstractItemView
+    from geoworkbench.services.lithology_review_reader import load_lithology_review
+    from geoworkbench.ui.lithology_mapping_dialog import LithologyRevisionProposalDialog
+    from test_lithology_review_history import _history_files
+
+    session, first_path, second_path = _history_files(tmp_path)
+    first, second = load_lithology_review(first_path), load_lithology_review(second_path)
+    # Both archives contain the same unverified fingerprint and literal source
+    # text; comparison omits these unchanged assertions, provenance must not.
+    first = replace(first, source=replace(first.source, dataset_id="<b>archive</b>"))
+    second = replace(second, source=replace(second.source, dataset_id="<b>archive</b>"))
+    session.dirty = False
+    original = repr(session.project)
+    dialog = LithologyRevisionProposalDialog(first, second, session=session, language=language)
+    assert dialog.provenance.rowCount() == 0 and dialog.tabs.isHidden()
+    assert dialog.preview.isHidden()
+
+    dialog.baseline.setCurrentIndex(2)
+    dialog.proposal_id.setText("proposal-complete-identity")
+    dialog.proposed_by.setText("Unverified operator")
+    dialog.justification.setPlainText("Compare archived source identity in both records")
+    dialog.prepare.click()
+
+    assert dialog.proposal is not None
+    assert dialog.proposal.review_state == "proposal_not_geological_approval"
+    assert dialog.preview.rowCount() == 1  # Only mapping_id differs.
+    assert dialog.provenance.rowCount() == 10
+    assert dialog.provenance.columnCount() == 3
+    assert not dialog.tabs.isHidden()
+    assert dialog.provenance.editTriggers() == QAbstractItemView.EditTrigger.NoEditTriggers
+    assert dialog.tabs.tabText(1) == dialog._t("proposal_sources_tab")
+    assert dialog.provenance.horizontalHeaderItem(1).text() == dialog._t("proposal_baseline")
+    assert dialog.provenance.horizontalHeaderItem(2).text() == dialog._t("proposal_candidate")
+    assert dialog._t("proposal_sources_tab") != "lithology_mapping.proposal_sources_tab"
+
+    fields = {
+        dialog.provenance.item(row, 0).text(): row
+        for row in range(dialog.provenance.rowCount())
+    }
+    expected = (
+        ("project_id", first.project_id, second.project_id),
+        ("well_id", first.source.well_id, second.source.well_id),
+        ("dataset_id", "<b>archive</b>", "<b>archive</b>"),
+        ("depth_axis_id", first.source.depth_axis_id, second.source.depth_axis_id),
+        ("interval_id", first.source.interval_id, second.source.interval_id),
+        ("lithotype_id", first.source.lithotype_id, second.source.lithotype_id),
+        ("top_md_m", str(first.source.top_md_m), str(second.source.top_md_m)),
+        ("bottom_md_m", str(first.source.bottom_md_m), str(second.source.bottom_md_m)),
+        ("source_sha256", first.source.source_sha256, second.source.source_sha256),
+        ("axis_sha256", first.source.axis_sha256, second.source.axis_sha256),
+    )
+    assert len(fields) == len(expected)
+    for name, first_value, second_value in expected:
+        name_label = dialog._t(f"proposal_provenance_field.{name}")
+        assert name_label != f"lithology_mapping.proposal_provenance_field.{name}"
+        row = fields[name_label]
+        # The operator selected record 2 as baseline, reversing both columns.
+        assert dialog.provenance.item(row, 1).text() == str(second_value)
+        assert dialog.provenance.item(row, 2).text() == str(first_value)
+    assert dialog.source_warning.text() == dialog._t("proposal_source_warning")
+    assert not session.dirty and repr(session.project) == original
+
+    dialog.tabs.setCurrentIndex(1)
+    assert dialog.tabs.currentWidget() is dialog.provenance
+    dialog.proposed_by.setText("New operator entry")
+    assert dialog.proposal is None
+    assert dialog.provenance.rowCount() == 0
+    assert dialog.tabs.currentIndex() == 0 and dialog.tabs.isHidden()
+    assert dialog.source_status.text() == "" and dialog.source_warning.text() == ""
+    assert not session.dirty and repr(session.project) == original
     dialog.close()

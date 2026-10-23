@@ -2575,5 +2575,18 @@
   "lithology_mapping.proposal_unapproved": "Оператор ұсынысы, геолог бекітпеген",
   "lithology_mapping.proposal_source_preflight": "Дайындау сәтіндегі дереккөз сәйкестігі (авторлықты, қолданылуды немесе геологиялық бекітуді растамайды): бастапқы жазба — {baseline}; ұсынылған жазба — {candidate}.",
   "lithology_mapping.proposal_result": "{proposal} ұсынысы. Күйі: {status}. Тек алдын ала қарау; жоба мен LAS өзгермеді.",
-  "lithology_mapping.proposal_source_warning": "Назар аударыңыз: кемінде бір мұрағат жазбасы ағымдағы дереккөзге сәйкес келмейді, қолжетімсіз немесе басқа жобаға жатады. Геологиялық пайдаланудың алдында дереккөзді қолмен тексеріңіз. Ұсыныс бекітілмеген."
+  "lithology_mapping.proposal_source_warning": "Назар аударыңыз: кемінде бір мұрағат жазбасы ағымдағы дереккөзге сәйкес келмейді, қолжетімсіз немесе басқа жобаға жатады. Геологиялық пайдаланудың алдында дереккөзді қолмен тексеріңіз. Ұсыныс бекітілмеген.",
+  "lithology_mapping.proposal_candidate": "Ұсынылған жазба",
+  "lithology_mapping.proposal_changes_tab": "Өзгерістер",
+  "lithology_mapping.proposal_sources_tab": "Мұрағат деректері (расталмаған)",
+  "lithology_mapping.proposal_provenance_field.project_id": "Жоба ID",
+  "lithology_mapping.proposal_provenance_field.well_id": "Ұңғыма ID",
+  "lithology_mapping.proposal_provenance_field.dataset_id": "Деректер жиынының ID",
+  "lithology_mapping.proposal_provenance_field.depth_axis_id": "MD тереңдік осінің ID",
+  "lithology_mapping.proposal_provenance_field.interval_id": "Литологиялық аралық ID",
+  "lithology_mapping.proposal_provenance_field.lithotype_id": "Литотип ID",
+  "lithology_mapping.proposal_provenance_field.top_md_m": "MD төбесі, м",
+  "lithology_mapping.proposal_provenance_field.bottom_md_m": "MD табаны, м",
+  "lithology_mapping.proposal_provenance_field.source_sha256": "Литология SHA-256",
+  "lithology_mapping.proposal_provenance_field.axis_sha256": "MD осінің SHA-256"
 }

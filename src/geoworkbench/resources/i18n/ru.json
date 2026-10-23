@@ -2575,5 +2575,18 @@
   "lithology_mapping.proposal_unapproved": "Предложение оператора, без геологического утверждения",
   "lithology_mapping.proposal_source_preflight": "Состояние источников на момент подготовки (не подтверждает авторство, применимость или геологическое утверждение): исходная запись — {baseline}; предлагаемая запись — {candidate}.",
   "lithology_mapping.proposal_result": "Предложение {proposal}. Статус: {status}. Только предварительный просмотр, проект и LAS не изменены.",
-  "lithology_mapping.proposal_source_warning": "Внимание: минимум одна архивная запись не совпадает с текущим источником, недоступна или относится к другому проекту. Проверьте источник вручную до геологического использования. Предложение не утверждено."
+  "lithology_mapping.proposal_source_warning": "Внимание: минимум одна архивная запись не совпадает с текущим источником, недоступна или относится к другому проекту. Проверьте источник вручную до геологического использования. Предложение не утверждено.",
+  "lithology_mapping.proposal_candidate": "Предлагаемая запись",
+  "lithology_mapping.proposal_changes_tab": "Изменения",
+  "lithology_mapping.proposal_sources_tab": "Архивные реквизиты (не подтверждены)",
+  "lithology_mapping.proposal_provenance_field.project_id": "ID проекта",
+  "lithology_mapping.proposal_provenance_field.well_id": "ID скважины",
+  "lithology_mapping.proposal_provenance_field.dataset_id": "ID набора данных",
+  "lithology_mapping.proposal_provenance_field.depth_axis_id": "ID оси глубины MD",
+  "lithology_mapping.proposal_provenance_field.interval_id": "ID литологического интервала",
+  "lithology_mapping.proposal_provenance_field.lithotype_id": "ID литотипа",
+  "lithology_mapping.proposal_provenance_field.top_md_m": "Кровля MD, м",
+  "lithology_mapping.proposal_provenance_field.bottom_md_m": "Подошва MD, м",
+  "lithology_mapping.proposal_provenance_field.source_sha256": "SHA-256 литологии",
+  "lithology_mapping.proposal_provenance_field.axis_sha256": "SHA-256 оси MD"
 }

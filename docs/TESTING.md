@@ -1,3 +1,17 @@
+## Archival proposal provenance tab (INTERP-FUSION-01)
+
+Run `.\\.venv\\Scripts\\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_lithology_mapping_dialog.py -q`.
+The RU/KK/EN tests check a detached revision proposal from two strict-reader
+records, both hash values even if unchanged, all project/well/dataset/axis/
+interval/lithotype/depth identities, reverse baseline ordering, literal
+untrusted markup in table cells, and invalidation of both tabs on any input
+change. The original difference table and source-status warning are retained,
+and no project/LAS write, automatic revision activation, author authentication,
+or geological approval occurs. SHA-256 is an archival assertion, not proof
+that an external source or geological interpretation is valid. Require all
+three exact-head Windows quality, GUI/HiDPI/PDF and security gates plus
+post-merge main green. Qt native lifecycle issue #544 remains unresolved.
+
 ## Non-authoritative archival source warning — INTERP-FUSION-01
 
 Run `.\\.venv\\Scripts\\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_lithology_mapping_dialog.py -q`.
