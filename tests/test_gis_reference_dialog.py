@@ -3,7 +3,7 @@ from dataclasses import replace
 import numpy as np
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDialog, QMessageBox
+from PySide6.QtWidgets import QAbstractItemView, QDialog, QMessageBox
 
 from geoworkbench.domain.models import (
     CalculationState, CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain,
@@ -11,6 +11,7 @@ from geoworkbench.domain.models import (
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.semantic_channels import SemanticChannelDictionary
 from geoworkbench.ui.gis_reference_dialog import GisReferenceDialog
+from geoworkbench.ui.gis_input_inventory_dialog import GisInputInventoryDialog
 
 
 def _dataset(density=False):
@@ -145,3 +146,67 @@ def test_real_mainwindow_menu_localizes_and_opens_read_only_dialog(qapp, monkeyp
     assert messages == [window._t("petro_reference.select_gis")]
     assert len(observed) == 3
     window.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_source_inventory_shows_descending_md_and_finite_pairs(qapp, language):
+    dataset = _dataset()
+    dataset.active_index.values = np.array([102.0, 101.0, 100.0])
+    depths = dataset.active_index.values.copy()
+    values = dataset.curves["selected"].values.copy()
+    dialog = GisInputInventoryDialog(dataset, language=language)
+    assert dialog.inventory.axis_issues == ()
+    assert dialog.table.rowCount() == 1
+    assert dialog.table.item(0, 2).text() == "2"
+    assert dialog.table.item(0, 3).text() == "100 – 102"
+    assert dialog.table.item(0, 4).text() == "original-run"
+    assert dialog.table.item(0, 5).text() == dialog._t("ok")
+    assert dialog._t("direction_descending") in dialog.axis_label.text()
+    assert dialog.table.editTriggers() == QAbstractItemView.EditTrigger.NoEditTriggers
+    dialog.close()
+    np.testing.assert_array_equal(dataset.active_index.values, depths)
+    np.testing.assert_array_equal(dataset.curves["selected"].values, values)
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_source_inventory_reports_invalid_axis_and_stale_curve(qapp, language):
+    dataset = _dataset()
+    dataset.active_index.values = np.array([100.0, 100.0, 102.0])
+    dataset.curves["selected"].state = CalculationState.STALE
+    dialog = GisInputInventoryDialog(dataset, language=language)
+    assert "ambiguous_depth_order" in dialog.inventory.axis_issues
+    assert dialog._t("direction_unknown") in dialog.axis_label.text()
+    assert dialog.table.item(0, 3).text() == "—"
+    assert dialog.localizer.text("gis_inventory.issue.ambiguous_depth_order") in (
+        dialog.axis_label.text()
+    )
+    assert dialog.localizer.text("gis_inventory.issue.curve_not_current") in (
+        dialog.table.item(0, 5).text()
+    )
+    dialog.close()
+
+
+def test_inventory_button_refreshes_source_without_recalculating(qapp, monkeypatch):
+    dataset = _dataset()
+    dialog = GisReferenceDialog(dataset, language=AppLanguage.EN)
+    _fill(dialog)
+    dialog.calculate.click()
+    sample = dialog.sample
+    assert sample is not None
+    seen = []
+
+    def inspect(inventory_dialog):
+        seen.append((
+            inventory_dialog.inventory.curves[0].issues,
+            inventory_dialog.localizer.language,
+        ))
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(GisInputInventoryDialog, "exec", inspect)
+    dialog.inventory_button.click()
+    dataset.curves["selected"].state = CalculationState.STALE
+    dialog.inventory_button.click()
+    assert seen == [((), AppLanguage.EN), (("curve_not_current",), AppLanguage.EN)]
+    assert dialog.sample is sample
+    assert dialog.fields["calibration_id"].text() == "cal-1"
+    dialog.close()
