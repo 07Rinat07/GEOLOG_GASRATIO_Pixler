@@ -2575,5 +2575,18 @@
   "lithology_mapping.proposal_unapproved": "Operator proposal, not geological approval",
   "lithology_mapping.proposal_source_preflight": "Source identity at preparation time (not authorship, applicability or geological approval): baseline — {baseline}; candidate — {candidate}.",
   "lithology_mapping.proposal_result": "Proposal {proposal}. Status: {status}. Preview only; project and LAS unchanged.",
-  "lithology_mapping.proposal_source_warning": "Attention: at least one archived record differs from the current source, is unavailable, or belongs to another project. Check source identity manually before geological use. This proposal is not approved."
+  "lithology_mapping.proposal_source_warning": "Attention: at least one archived record differs from the current source, is unavailable, or belongs to another project. Check source identity manually before geological use. This proposal is not approved.",
+  "lithology_mapping.proposal_candidate": "Candidate record",
+  "lithology_mapping.proposal_changes_tab": "Differences",
+  "lithology_mapping.proposal_sources_tab": "Archived identity (unverified)",
+  "lithology_mapping.proposal_provenance_field.project_id": "Project ID",
+  "lithology_mapping.proposal_provenance_field.well_id": "Well ID",
+  "lithology_mapping.proposal_provenance_field.dataset_id": "Dataset ID",
+  "lithology_mapping.proposal_provenance_field.depth_axis_id": "MD depth axis ID",
+  "lithology_mapping.proposal_provenance_field.interval_id": "Lithology interval ID",
+  "lithology_mapping.proposal_provenance_field.lithotype_id": "Lithotype ID",
+  "lithology_mapping.proposal_provenance_field.top_md_m": "Top MD, m",
+  "lithology_mapping.proposal_provenance_field.bottom_md_m": "Bottom MD, m",
+  "lithology_mapping.proposal_provenance_field.source_sha256": "Lithology SHA-256",
+  "lithology_mapping.proposal_provenance_field.axis_sha256": "MD axis SHA-256"
 }
