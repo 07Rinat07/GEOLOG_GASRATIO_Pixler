@@ -1,3 +1,21 @@
+## Windows native WITS0 capture-dialog isolation — PR #709
+
+Quality run `39924194284` aborted on Windows with `0xC0000005` in
+`pyqtgraph.graphicsItems.ViewBox.ViewBoxMenu.__init__` while constructing
+the WITS0 live-view plot from `tests/test_wits0_capture_dialog.py` after
+other Qt cases in a shared offscreen process. No pytest assertion failure
+was reported. The crash site does not establish the underlying native cause,
+and issue #544 remains open.
+
+The existing mandatory Windows native-child mechanism now executes **each**
+capture-dialog test function in its own subprocess, retaining all original
+assertions and parameterizations. The runner still fails on any nonzero child
+exit, including native access violations. Test contracts confirm complete
+node coverage and exclusion from regular shared shards. No production WITS0
+behavior, dependency versions, skipped tests, pass thresholds or benchmarks
+were changed. Require three exact-head Windows PR gates and green post-merge
+main; this isolation does not claim to resolve #544.
+
 ## Qt grid renderer isolation after PR #708 native abort
 
 PR #708 quality run 39908137560 aborted with Windows exit `0xC0000005`

@@ -60,6 +60,7 @@ def test_native_isolation_keeps_masterlog_mapping_out_of_regular_shards() -> Non
         "tests/test_well_update_workflow.py",
         "tests/test_widget_print.py",
         "tests/test_wits0_capture.py",
+        "tests/test_wits0_capture_dialog.py",
         "tests/test_wits0_live_view.py",
         "tests/test_wits0_network_preflight.py",
         "tests/test_wits0_operator_dashboard.py",
@@ -121,3 +122,27 @@ def test_grid_renderer_native_isolation_retains_every_test_node() -> None:
                for batch_path, selectors in batches)
     assert tuple(selector for _batch_path, selectors in batches
                  for selector in selectors) == nodes
+
+
+def test_wits0_capture_dialog_native_batches_preserve_every_assertion() -> None:
+    """CI may isolate a native Qt heap but must not skip capture scenarios."""
+    runner = runpy.run_path("scripts/run_tests.py")
+    path = Path("tests/test_wits0_capture_dialog.py")
+    nodes = runner["_top_level_test_nodes"](path)
+    assert len(nodes) >= 12
+    assert (
+        "tests/test_wits0_capture_dialog.py::"
+        "test_wits0_capture_reports_synchronous_startup_failures"
+    ) in nodes
+    assert (
+        "tests/test_wits0_capture_dialog.py::"
+        "test_wits0_capture_dialog_constructs_offscreen"
+    ) in nodes
+    assert path.as_posix() in runner["_FORCED_NATIVE_BATCH_FILES"]
+    assert path.as_posix() in runner["_SINGLE_TEST_PROCESS_FILES"]
+    assert runner["_test_file_shards"](16, (path,)) == ()
+    batches = runner["_heavy_test_batches"]((path,))
+    assert len(batches) == len(nodes)
+    assert all(name == path.as_posix() and len(selectors) == 1
+               for name, selectors in batches)
+    assert tuple(selector for _, selectors in batches for selector in selectors) == nodes
