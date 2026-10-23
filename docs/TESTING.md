@@ -1,3 +1,18 @@
+## Archival lithology revision proposal preview (GUI)
+
+Run `.\\.venv\\Scripts\\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_lithology_mapping_dialog.py tests/test_lithology_revision_proposal.py -q`.
+RU/KK/EN GUI tests cover exactly-two-row selection in the archival history
+viewer, no default baseline, explicit reversed source/candidate assignment,
+bounded operator fields, time-only equality, rejection of an oversized reason,
+read-only plain-text diff cells, invalidation after edits, and no project or
+LAS mutations. The data-only service maintains the fixed
+`proposal_not_geological_approval` status. Manual: open history, select exactly
+two records, choose Prepare revision proposal, choose baseline explicitly,
+enter ID/operator/justification and preview the comparison. Nothing is saved,
+activated, authenticated, source-verified or geologically approved; archived UTC
+time is not a revision sequence. Exact-head Windows quality, GUI/PDF and
+security gates and post-merge main are required.
+
 ## Archival lithology revision proposals (data-only)
 
 Run `.\\.venv\\Scripts\\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_lithology_revision_proposal.py tests/test_lithology_review_comparison.py -q`.
