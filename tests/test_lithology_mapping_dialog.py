@@ -871,7 +871,11 @@ def test_proposal_source_recheck_failure_never_leaves_stale_matching_status(
     dialog.prepare.click()
     assert dialog.proposal is not None
     proposal = dialog.proposal
-    assert "matching" not in dialog.source_status.text().lower() or dialog.source_status.text()
+    assert dialog.source_status.text() == dialog._t(
+        "proposal_source_preflight",
+        baseline=dialog._t("record_status.matching"),
+        candidate=dialog._t("record_status.matching"),
+    )
     assert not dialog.source_warning.text()
 
     def fail_source_lookup(_session, _record):
