@@ -1,3 +1,13 @@
+## GIS calibration source integrity — in-place sample changes
+
+A session-local GIS reference calibration now fingerprints the complete selected
+curve as well as the MD axis. The four regression cases in
+`tests/test_gis_reference_calibration.py` cover GR and RHOB with in-place edits
+to the selected and unselected finite sample rows without a version increment.
+An existing calibration must fail closed, while array identity and the original
+version remain unchanged; creating a new calibration requires explicit review.
+These checks do not establish instrument calibration or field interpretation.
+
 ## GIS source inventory operator view — INTERP-GIS-01
 
 `tests/test_gis_reference_las_reopen.py` exercises the external wrapped LAS 2.0
