@@ -1,5 +1,12 @@
 ## GIS source inventory operator view — INTERP-GIS-01
 
+Axis-details regressions cover the separate Depth axis tab in RU/KK/EN,
+including an empty curve catalog and no selection. Saved evidence is literal
+text, missing evidence stays explicit, and an unverified ft axis retains its
+unit and QC warning. Clearing curve selection must preserve axis details.
+Live evidence/unit changes must not mix with the opening QC snapshot;
+reopening refreshes both. No alignment or geological approval is inferred.
+
 The selected-curve details regressions also cover RU/KK/EN source IDs,
 saved mnemonic/family bindings, provenance, version and literal recognition
 evidence. Switching or clearing selection must replace or clear all details;

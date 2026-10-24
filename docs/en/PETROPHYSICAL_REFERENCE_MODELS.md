@@ -2,6 +2,13 @@
 
 ## Saved source details
 
+The Depth axis tab is available without curve selection and with an empty
+curve catalog. It shows dataset/axis IDs, the original unit, saved alignment
+evidence and QC. Missing evidence is explicit; recorded evidence does not
+certify correct alignment or geological approval. Clearing curve selection
+does not clear this tab. Axis details and QC share the opening snapshot;
+reopen the window to refresh them.
+
 Select one curve in the GIS inventory to inspect its dataset, axis and curve IDs,
 curve key, original and saved canonical mnemonic, saved family, source ID,
 provenance, version and recognition evidence. Missing records are marked
