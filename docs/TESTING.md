@@ -1,5 +1,11 @@
 ## GIS source inventory operator view — INTERP-GIS-01
 
+Selected-source review also previews exactly the requested original row before
+calibration. Tests cover RU/KK/EN, ascending/descending MD, NULL/Inf, arrays
+shortened after opening, stale/removed curves and unverified axes. Selection
+changes clear the preview; rechecking must never retain an earlier value or
+substitute a neighbor. Preview leaves calibration fields and arrays unchanged.
+
 The one-sample dialog's selected-source review must work before calibration
 fields are filled. RU/KK/EN regressions cover incompatible family/unit scale,
 removed curves, missing identity, unverified MD and stale curves. Rechecking
