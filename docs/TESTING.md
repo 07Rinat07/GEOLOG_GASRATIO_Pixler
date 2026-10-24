@@ -1,5 +1,13 @@
 ## GIS source inventory operator view — INTERP-GIS-01
 
+The one-sample dialog's selected-source review must work before calibration
+fields are filled. RU/KK/EN regressions cover incompatible family/unit scale,
+removed curves, missing identity, unverified MD and stale curves. Rechecking
+reads live data and clears previous results without clearing entered evidence;
+method/channel changes clear the review. A successful prior review must not
+authorize calculation after a source becomes stale. Existing calibration tests
+remain authoritative for parameter and sample constraints.
+
 Missing or whitespace-only curve IDs must produce an explicit inventory QC
 warning in RU/KK/EN before reference calculation. Service and dialog tests
 verify consistency with the existing reference-input rejection, preservation

@@ -36,6 +36,83 @@ def _fill(dialog, density=False):
 
 
 @pytest.mark.parametrize("language", list(AppLanguage))
+@pytest.mark.parametrize("failure,issue", [
+    ("unit", "petro_reference.issue.method_unit_mismatch"),
+    ("family", "petro_reference.issue.method_family_mismatch"),
+    ("missing", "petro_reference.issue.curve_not_found"),
+    ("identity", "gis_inventory.issue.missing_curve_id"),
+    ("axis", "gis_inventory.issue.unverified_metre_md_alignment"),
+    ("stale", "gis_inventory.issue.curve_not_current"),
+])
+def test_source_review_explains_blockers_without_calibration(qapp, language, failure, issue):
+    dataset = _dataset()
+    curve = dataset.curves["selected"]
+    values = curve.values.copy()
+    dialog = GisReferenceDialog(dataset, language=language)
+    dialog.method.setCurrentIndex(1)
+    dialog.channel.setCurrentIndex(1)
+    if failure == "unit":
+        binding = SemanticChannelDictionary().resolve("GR", unit="uR/h")
+        curve.metadata = replace(curve.metadata, unit="uR/h", semantic=binding)
+    elif failure == "family":
+        dialog.method.setCurrentIndex(2)
+    elif failure == "missing":
+        dataset.curves.clear()
+    elif failure == "identity":
+        curve.metadata = replace(curve.metadata, curve_id="")
+    elif failure == "axis":
+        dataset.active_index.unit = "ft"
+    else:
+        curve.state = CalculationState.STALE
+    metadata = curve.metadata
+    try:
+        dialog.review_source.click()
+        text = dialog.source_review_label.text()
+        assert dialog.localizer.text(issue) in text
+        assert "gis_inventory." not in text and "petro_reference." not in text
+        assert dialog.source_review_label.textFormat() is Qt.TextFormat.PlainText
+        assert dialog.sample is None and not dialog.result_label.text()
+        assert all(not field.text() for field in dialog.fields.values())
+        assert curve.metadata is metadata
+        np.testing.assert_array_equal(curve.values, values)
+        np.testing.assert_array_equal(dataset.active_index.values, [100, 101, 102])
+    finally:
+        dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_source_review_refreshes_live_state_and_clears_on_selection_change(qapp, language):
+    dataset = _dataset()
+    dialog = GisReferenceDialog(dataset, language=language)
+    try:
+        dialog.review_source.click()
+        assert dialog.source_review_label.text() == dialog._t("selection_required")
+        _fill(dialog)
+        dialog.review_source.click()
+        assert dialog.source_review_label.text() == dialog._t("source_ready")
+        assert dialog.sample is None
+        dataset.curves["selected"].state = CalculationState.STALE
+        dialog.calculate.click()
+        assert dialog.sample is None
+        assert dialog.localizer.text("gis_inventory.issue.curve_not_current") in (
+            dialog.source_review_label.text()
+        )
+        assert dialog.result_label.text() == dialog._t("invalid")
+        dataset.curves["selected"].state = CalculationState.CURRENT
+        dialog.review_source.click()
+        assert dialog.source_review_label.text() == dialog._t("source_ready")
+        assert not dialog.result_label.text()
+        dialog.method.setCurrentIndex(2)
+        assert not dialog.source_review_label.text()
+        dialog.review_source.click()
+        dialog.channel.setCurrentIndex(0)
+        assert not dialog.source_review_label.text()
+        assert dialog.fields["calibration_id"].text() == "cal-1"
+    finally:
+        dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
 @pytest.mark.parametrize("density,expected", [(False, 0.4), (True, (2.71-2.42)/1.71)])
 def test_operator_evaluates_actual_row_in_three_languages(qapp, language, density, expected):
     dataset = _dataset(density)
