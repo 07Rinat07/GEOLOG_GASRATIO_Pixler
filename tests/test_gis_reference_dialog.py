@@ -36,6 +36,42 @@ def _fill(dialog, density=False):
 
 
 @pytest.mark.parametrize("language", list(AppLanguage))
+def test_source_review_refreshes_row_range_without_substituting_removed_row(qapp, language):
+    dataset = _dataset()
+    curve = dataset.curves["selected"]
+    dialog = GisReferenceDialog(dataset, language=language)
+    try:
+        _fill(dialog)
+        fields = {key: field.text() for key, field in dialog.fields.items()}
+        assert dialog.row.maximum() == 3
+        dataset.active_index.values = np.array([100., 101., 102., 103.])
+        curve.values = np.array([65., np.nan, 145., 150.])
+        dialog.review_source.click()
+        assert dialog.row.maximum() == 4 and dialog.row.value() == 1
+        dialog.row.setValue(4)
+        dialog.review_source.click()
+        assert dialog.source_sample_label.text() == dialog._t(
+            "source_sample", row=4, md="103", value="150", unit="API",
+        )
+        dataset.active_index.values = np.array([100., 101.])
+        curve.values = np.array([65., 70.])
+        dialog.review_source.click()
+        assert dialog.row.value() == 4
+        assert dialog.source_sample_label.text() == dialog._t("sample_unavailable")
+        assert dialog.sample is None and not dialog.result_label.text()
+        assert {key: field.text() for key, field in dialog.fields.items()} == fields
+        np.testing.assert_array_equal(curve.values, [65., 70.])
+        dialog.row.setValue(2)
+        dialog.review_source.click()
+        assert dialog.row.maximum() == 2
+        assert dialog.source_sample_label.text() == dialog._t(
+            "source_sample", row=2, md="101", value="70", unit="API",
+        )
+    finally:
+        dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
 @pytest.mark.parametrize("descending", [False, True])
 def test_source_sample_preview_preserves_exact_row_and_missing_values(qapp, language, descending):
     dataset = _dataset()

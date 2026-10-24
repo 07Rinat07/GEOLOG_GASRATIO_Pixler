@@ -2295,3 +2295,11 @@ Workspace identity: `python scripts/run_tests.py -p no:cacheprovider tests/test_
 Workspace finite ranges: `python scripts/run_tests.py -p no:cacheprovider tests/test_wits0_reliability.py tests/test_wits0_capture_dialog.py`. NaN and both infinities in either boundary fail domain validation and return default persisted state without rewriting or syncing the corrupt payload.
 
 Production capture reopen: `python scripts/run_tests.py -p no:cacheprovider tests/test_wits0_capture_reopen_runtime.py tests/test_wits0_acquisition.py tests/test_wits0_reliability.py tests/test_wits0_capture_dialog.py`. Six RU/KK/EN JSON/package cases exercise real dialog/runtime restoration, Live focus, saved view state and sequence continuation.
+## GIS live source row range
+
+`test_source_review_refreshes_row_range_without_substituting_removed_row`
+checks RU/KK/EN source growth and shrinkage in an open reference dialog.
+Successful source review exposes appended rows. A removed selected row stays
+selected and unavailable; it never silently becomes a neighbouring sample.
+Explicitly choosing a remaining row restores the current range. Operator
+evidence and source values are preserved, with no implicit calibration.
