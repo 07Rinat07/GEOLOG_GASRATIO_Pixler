@@ -52,6 +52,11 @@ class GisReferenceDialog(QDialog):
         for key, curve in dataset.curves.items():
             self.channel.addItem(f"{key} [{curve.metadata.unit or '?'}]", key)
         form.addRow(self._t("channel"), self.channel)
+        self.row = QSpinBox(body)
+        depths = np.asarray(dataset.active_index.values)
+        count = len(depths) if depths.ndim == 1 else 0
+        self.row.setRange(1, max(1, min(count, 2_147_483_647)))
+        form.addRow(self._t("row"), self.row)
         self.review_source = QPushButton(self._t("review_source"), body)
         form.addRow(self.review_source)
         self.source_review_label = QLabel(body)
@@ -59,6 +64,11 @@ class GisReferenceDialog(QDialog):
         self.source_review_label.setWordWrap(True)
         self.source_review_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         form.addRow(self.source_review_label)
+        self.source_sample_label = QLabel(body)
+        self.source_sample_label.setTextFormat(Qt.TextFormat.PlainText)
+        self.source_sample_label.setWordWrap(True)
+        self.source_sample_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        form.addRow(self.source_sample_label)
         self.fields: dict[str, QLineEdit] = {}
         for key in ("calibration_id", "tool_id", "reviewer", "evidence", "top", "base"):
             field = QLineEdit(body)
@@ -71,11 +81,6 @@ class GisReferenceDialog(QDialog):
         for label, field in zip(self.parameter_labels, self.parameters):
             field.setMaxLength(100)
             form.addRow(label, field)
-        self.row = QSpinBox(body)
-        depths = np.asarray(dataset.active_index.values)
-        count = len(depths) if depths.ndim == 1 else 0
-        self.row.setRange(1, max(1, min(count, 2_147_483_647)))
-        form.addRow(self._t("row"), self.row)
         scroll.setWidget(body)
         root.addWidget(scroll)
         self.calculate = QPushButton(self._t("calculate"), self)
@@ -96,6 +101,9 @@ class GisReferenceDialog(QDialog):
         self.channel.currentIndexChanged.connect(self.source_review_label.clear)
         self.method.currentIndexChanged.connect(self.source_review_label.clear)
         self.row.valueChanged.connect(self._invalidate)
+        for selector in (self.method, self.channel):
+            selector.currentIndexChanged.connect(self.source_sample_label.clear)
+        self.row.valueChanged.connect(self.source_sample_label.clear)
         for field in (*self.fields.values(), *self.parameters):
             field.textChanged.connect(self._invalidate)
         self.calculate.clicked.connect(self._calculate)
@@ -117,6 +125,7 @@ class GisReferenceDialog(QDialog):
 
     def _review_source(self) -> None:
         self._invalidate()
+        self.source_sample_label.clear()
         method, channel = self.method.currentData(), self.channel.currentData()
         if not isinstance(method, str) or not isinstance(channel, str):
             self.source_review_label.setText(self._t("selection_required"))
@@ -130,6 +139,19 @@ class GisReferenceDialog(QDialog):
             return
         if review.ready_for_calibration:
             self.source_review_label.setText(self._t("source_ready"))
+            index = self.row.value() - 1
+            depths = self.dataset.active_index.values
+            values = self.dataset.curves[channel].values
+            # The fresh review validates shapes, axis and units; never substitute a nearby row.
+            if not 0 <= index < len(depths) or not (
+                np.isfinite(depths[index]) and np.isfinite(values[index])
+            ):
+                self.source_sample_label.setText(self._t("sample_unavailable"))
+            else:
+                self.source_sample_label.setText(self._t(
+                    "source_sample", row=index + 1, md=f"{depths[index]:.9g}",
+                    value=f"{values[index]:.9g}", unit=review.curve.unit if review.curve else "",
+                ))
             return
         reasons = []
         for issue in review.issues:

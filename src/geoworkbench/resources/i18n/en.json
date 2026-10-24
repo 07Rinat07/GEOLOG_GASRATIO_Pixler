@@ -2516,6 +2516,8 @@
   "gis_inventory.issue.curve_not_current": "Curve is not current",
   "gis_inventory.issue.invalid_curve_samples": "Invalid curve samples",
   "gis_inventory.issue.no_finite_paired_samples": "No finite depth/value pairs",
+  "petro_reference.source_sample": "Source row {row}: MD {md} m; value {value} {unit}. No calibration applied.",
+  "petro_reference.sample_unavailable": "The selected row is unavailable or contains a missing/non-finite sample. No neighboring value is substituted.",
   "petro_reference.review_source": "Review selected source",
   "petro_reference.source_ready": "Source checks passed. Calibration parameters and expert applicability evidence are still required; this does not approve interpretation.",
   "petro_reference.source_blocked": "Source unavailable for this method:\n{reasons}",

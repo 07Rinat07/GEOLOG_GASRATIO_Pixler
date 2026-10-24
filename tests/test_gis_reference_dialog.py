@@ -36,6 +36,76 @@ def _fill(dialog, density=False):
 
 
 @pytest.mark.parametrize("language", list(AppLanguage))
+@pytest.mark.parametrize("descending", [False, True])
+def test_source_sample_preview_preserves_exact_row_and_missing_values(qapp, language, descending):
+    dataset = _dataset()
+    if descending:
+        dataset.active_index.values = np.array([102.0, 101.0, 100.0])
+    curve = dataset.curves["selected"]
+    before = curve.values.copy()
+    depths = dataset.active_index.values.copy()
+    dialog = GisReferenceDialog(dataset, language=language)
+    try:
+        dialog.method.setCurrentIndex(1)
+        dialog.channel.setCurrentIndex(1)
+        dialog.review_source.click()
+        assert dialog.source_sample_label.text() == dialog._t(
+            "source_sample", row=1, md="102" if descending else "100", value="65", unit="API",
+        )
+        assert dialog.source_sample_label.textFormat() is Qt.TextFormat.PlainText
+        assert dialog.sample is None and not dialog.result_label.text()
+        assert all(not field.text() for field in dialog.fields.values())
+        dialog.row.setValue(2)
+        assert not dialog.source_sample_label.text()
+        dialog.review_source.click()
+        assert dialog.source_sample_label.text() == dialog._t("sample_unavailable")
+        dialog.row.setValue(3)
+        dialog.review_source.click()
+        assert dialog.source_sample_label.text() == dialog._t(
+            "source_sample", row=3, md="100" if descending else "102", value="145", unit="API",
+        )
+        dialog.channel.setCurrentIndex(0)
+        assert not dialog.source_sample_label.text()
+        np.testing.assert_array_equal(curve.values, before)
+        np.testing.assert_array_equal(dataset.active_index.values, depths)
+    finally:
+        dialog.close()
+
+
+@pytest.mark.parametrize("change", ["shrink", "inf", "axis", "stale", "removed"])
+def test_sample_preview_rechecks_changed_source_and_never_retains_old_value(qapp, change):
+    dataset = _dataset()
+    curve = dataset.curves["selected"]
+    dialog = GisReferenceDialog(dataset)
+    try:
+        dialog.method.setCurrentIndex(1)
+        dialog.channel.setCurrentIndex(1)
+        dialog.row.setValue(3)
+        dialog.review_source.click()
+        assert "145" in dialog.source_sample_label.text()
+        if change == "shrink":
+            dataset.active_index.values = np.array([100.0])
+            curve.values = np.array([65.0])
+        elif change == "inf":
+            curve.values[2] = np.inf
+        elif change == "axis":
+            dataset.active_index.unit = "ft"
+        elif change == "stale":
+            curve.state = CalculationState.STALE
+        else:
+            dataset.curves.clear()
+        dialog.review_source.click()
+        assert "145" not in dialog.source_sample_label.text()
+        assert dialog.sample is None
+        if change in {"shrink", "inf"}:
+            assert dialog.source_sample_label.text() == dialog._t("sample_unavailable")
+        else:
+            assert not dialog.source_sample_label.text()
+    finally:
+        dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
 @pytest.mark.parametrize("failure,issue", [
     ("unit", "petro_reference.issue.method_unit_mismatch"),
     ("family", "petro_reference.issue.method_family_mismatch"),

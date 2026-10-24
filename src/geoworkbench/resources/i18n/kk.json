@@ -2516,6 +2516,8 @@
   "gis_inventory.issue.curve_not_current": "Қисық өзекті емес",
   "gis_inventory.issue.invalid_curve_samples": "Қате өлшемдер",
   "gis_inventory.issue.no_finite_paired_samples": "Ақырлы тереңдік–мән жұптары жоқ",
+  "petro_reference.source_sample": "Бастапқы жол {row}: MD {md} м; мәні {value} {unit}. Калибрлеу қолданылмаған.",
+  "petro_reference.sample_unavailable": "Таңдалған жол қолжетімсіз немесе бос не шексіз мәнді қамтиды. Көршілес мән қойылмайды.",
   "petro_reference.review_source": "Таңдалған дереккөзді тексеру",
   "petro_reference.source_ready": "Дереккөз тексерулері өтті. Калибрлеу параметрлері мен қолдануға жарамдылықтың сарапшылық негіздері әлі қажет; бұл интерпретацияны бекіту емес.",
   "petro_reference.source_blocked": "Бұл әдіс үшін дереккөз қолжетімсіз:\n{reasons}",

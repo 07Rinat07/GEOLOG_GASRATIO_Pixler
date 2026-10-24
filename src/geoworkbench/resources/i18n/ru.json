@@ -2516,6 +2516,8 @@
   "gis_inventory.issue.curve_not_current": "Кривая неактуальна",
   "gis_inventory.issue.invalid_curve_samples": "Некорректные отсчёты",
   "gis_inventory.issue.no_finite_paired_samples": "Нет конечных пар глубина–значение",
+  "petro_reference.source_sample": "Исходная строка {row}: MD {md} м; значение {value} {unit}. Калибровка не применена.",
+  "petro_reference.sample_unavailable": "Выбранная строка недоступна либо содержит пропуск или неконечное значение. Соседний отсчёт не подставляется.",
   "petro_reference.review_source": "Проверить выбранный источник",
   "petro_reference.source_ready": "Проверки источника пройдены. Требуются параметры калибровки и экспертные основания применимости; это не утверждение интерпретации.",
   "petro_reference.source_blocked": "Источник недоступен для этого метода:\n{reasons}",
