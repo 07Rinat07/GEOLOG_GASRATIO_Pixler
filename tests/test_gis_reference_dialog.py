@@ -186,6 +186,34 @@ def test_source_inventory_reports_invalid_axis_and_stale_curve(qapp, language):
     dialog.close()
 
 
+@pytest.mark.parametrize("language", list(AppLanguage))
+@pytest.mark.parametrize("curve_id", ["", "  \t"])
+def test_inventory_reports_missing_identity_before_reference_calculation(qapp, language, curve_id):
+    from geoworkbench.services.gis_reference_input_review import review_gis_reference_input
+
+    dataset = _dataset()
+    curve = dataset.curves["selected"]
+    curve.metadata = replace(curve.metadata, curve_id=curve_id)
+    metadata = curve.metadata
+    values = curve.values.copy()
+    dialog = GisInputInventoryDialog(dataset, language=language)
+    try:
+        warning = dialog._t("issue.missing_curve_id")
+        assert not warning.startswith("gis_inventory.")
+        assert dialog.table.item(0, 5).text() == warning
+        assert dialog.inventory.curves[0].curve_id == curve_id
+        review = review_gis_reference_input(
+            dataset, method_id="igr-linear-1", curve_key="selected",
+        )
+        assert not review.ready_for_calibration
+        assert "missing_curve_id" in review.issues
+        assert curve.metadata is metadata
+        np.testing.assert_array_equal(curve.values, values)
+        np.testing.assert_array_equal(dataset.active_index.values, [100, 101, 102])
+    finally:
+        dialog.close()
+
+
 def test_inventory_button_refreshes_source_without_recalculating(qapp, monkeypatch):
     dataset = _dataset()
     dialog = GisReferenceDialog(dataset, language=AppLanguage.EN)

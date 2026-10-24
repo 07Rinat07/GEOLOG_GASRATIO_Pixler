@@ -2512,6 +2512,7 @@
   "gis_inventory.issue.semantic_unit_changed": "Unit changed after binding",
   "gis_inventory.issue.semantic_mnemonic_changed": "Mnemonic changed after binding",
   "gis_inventory.issue.missing_source_provenance": "Missing source provenance",
+  "gis_inventory.issue.missing_curve_id": "Missing curve ID",
   "gis_inventory.issue.curve_not_current": "Curve is not current",
   "gis_inventory.issue.invalid_curve_samples": "Invalid curve samples",
   "gis_inventory.issue.no_finite_paired_samples": "No finite depth/value pairs",

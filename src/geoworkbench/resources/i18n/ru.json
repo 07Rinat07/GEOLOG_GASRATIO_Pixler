@@ -2512,6 +2512,7 @@
   "gis_inventory.issue.semantic_unit_changed": "Единица изменена после привязки",
   "gis_inventory.issue.semantic_mnemonic_changed": "Мнемоника изменена после привязки",
   "gis_inventory.issue.missing_source_provenance": "Не указан источник",
+  "gis_inventory.issue.missing_curve_id": "Не указан идентификатор кривой",
   "gis_inventory.issue.curve_not_current": "Кривая неактуальна",
   "gis_inventory.issue.invalid_curve_samples": "Некорректные отсчёты",
   "gis_inventory.issue.no_finite_paired_samples": "Нет конечных пар глубина–значение",

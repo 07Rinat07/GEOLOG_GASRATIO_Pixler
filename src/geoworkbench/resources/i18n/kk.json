@@ -2512,6 +2512,7 @@
   "gis_inventory.issue.semantic_unit_changed": "Байланыстырудан кейін бірлік өзгерген",
   "gis_inventory.issue.semantic_mnemonic_changed": "Байланыстырудан кейін мнемоника өзгерген",
   "gis_inventory.issue.missing_source_provenance": "Дереккөз көрсетілмеген",
+  "gis_inventory.issue.missing_curve_id": "Қисық идентификаторы көрсетілмеген",
   "gis_inventory.issue.curve_not_current": "Қисық өзекті емес",
   "gis_inventory.issue.invalid_curve_samples": "Қате өлшемдер",
   "gis_inventory.issue.no_finite_paired_samples": "Ақырлы тереңдік–мән жұптары жоқ",
