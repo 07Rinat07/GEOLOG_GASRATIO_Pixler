@@ -151,7 +151,7 @@ def test_wits0_capture_dialog_native_batches_preserve_every_assertion() -> None:
 def test_well_numerical_save_scenarios_have_independent_native_lifetimes() -> None:
     """Five mandatory save-gate outcomes each construct MainWindow in a fresh process.
 
-    Main #724 post-merge / run 40089829503 aborted with 0xC0000005 in
+    Main after PR #723 / run 40089829503 aborted with 0xC0000005 in
     pyqtgraph ViewBoxMenu while the final parametrized case shared one
     QApplication with four earlier cases. This isolates Qt lifetimes only;
     it does not classify the unknown native root cause as fixed (#544).
