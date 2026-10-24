@@ -1,3 +1,14 @@
+## GIS reference calibration: dtype and shape integrity
+
+The calibration binds the NumPy dtype and shape as well as the complete MD
+and curve sample bytes to its session-local source fingerprint. Raw-byte-only
+SHA-256 could not detect changing a float64 curve's dtype to int64 in place:
+identical bytes, identity, version, sample count and source review would be
+accepted while numerical meaning changed. The GR and RHOB regressions ensure
+such unchanged-byte reinterpretation invalidates the original calibration.
+No source array is modified by the fingerprint; this is not an instrument
+calibration or petrophysical method change.
+
 ## GIS preview integrity on return from inventory (INTERP-GIS-01)
 
 `tests/test_gis_reference_dialog.py` checks the source-only (no calibration)
