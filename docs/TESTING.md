@@ -1,3 +1,13 @@
+## GIS preview integrity on return from inventory (INTERP-GIS-01)
+
+`tests/test_gis_reference_dialog.py` checks the source-only (no calibration)
+preview after returning from the modal inventory. In RU/KK/EN it preserves
+entered operator evidence/parameters but re-reads the exact selected source
+row: unchanged data stays visible, in-place sample/MD edits refresh, a
+new NULL becomes unavailable, and a stale or removed channel clears its
+preview and shows the existing QC reason. No calculation, implicit channel
+switch, data rollback or LAS/project write occurs.
+
 ## Windows Qt native isolation — well numerical save gate
 
 After main Release gate 40089829503 (after PR #723, attempt 1) reported an access violation
