@@ -1,3 +1,15 @@
+## Windows Qt native isolation — well numerical save gate
+
+After main Release gate 40089829503 (after PR #723, attempt 1) reported an access violation
+(0xC0000005) in pyqtgraph ViewBoxMenu while running the fifth parameter of
+`test_main_window_numerical_save_gate`, the five existing outcomes (save,
+no selection, disk full, external change and cancel) are run as separate
+pytest functions. The Windows native-heavy runner already grants one child
+process per test function for this file. A runner contract test verifies that
+all five cases remain mandatory and get distinct processes; test assertions
+and the application save workflow are unchanged. A green CI gate is necessary,
+but not evidence that the underlying native Qt issue #544 is resolved.
+
 ## GIS calibration source integrity — in-place sample changes
 
 A session-local GIS reference calibration now fingerprints the complete selected

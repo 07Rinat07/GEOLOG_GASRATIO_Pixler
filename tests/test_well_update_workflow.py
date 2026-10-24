@@ -139,8 +139,7 @@ def test_codec_rejects_malformed_update_audit(tmp_path, damage):
         project_document_from_dict(payload)
 
 
-@pytest.mark.parametrize("scenario", ["save", "no_selection", "disk_full", "external", "cancel"])
-def test_main_window_numerical_save_gate(qapp, monkeypatch, tmp_path, scenario):
+def _assert_main_window_numerical_save_gate(qapp, monkeypatch, tmp_path, scenario):
     from types import SimpleNamespace
     from PySide6.QtWidgets import QDialog, QMessageBox
     from test_daily_las_growth_autosave import _prepare_window
@@ -189,6 +188,26 @@ def test_main_window_numerical_save_gate(qapp, monkeypatch, tmp_path, scenario):
             assert "Numerical update saved: 0 new rows, 1 selected cells" in logs[-1]
             assert ".geolog-backups" in logs[-1]
     window.hide()
+
+
+def test_main_window_numerical_save_gate_save(qapp, monkeypatch, tmp_path):
+    _assert_main_window_numerical_save_gate(qapp, monkeypatch, tmp_path, "save")
+
+
+def test_main_window_numerical_save_gate_no_selection(qapp, monkeypatch, tmp_path):
+    _assert_main_window_numerical_save_gate(qapp, monkeypatch, tmp_path, "no_selection")
+
+
+def test_main_window_numerical_save_gate_disk_full(qapp, monkeypatch, tmp_path):
+    _assert_main_window_numerical_save_gate(qapp, monkeypatch, tmp_path, "disk_full")
+
+
+def test_main_window_numerical_save_gate_external(qapp, monkeypatch, tmp_path):
+    _assert_main_window_numerical_save_gate(qapp, monkeypatch, tmp_path, "external")
+
+
+def test_main_window_numerical_save_gate_cancel(qapp, monkeypatch, tmp_path):
+    _assert_main_window_numerical_save_gate(qapp, monkeypatch, tmp_path, "cancel")
 
 
 def test_partial_numerical_update_does_not_mark_unselected_suffix_imported(tmp_path):

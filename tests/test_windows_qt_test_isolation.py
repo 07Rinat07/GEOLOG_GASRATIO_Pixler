@@ -146,3 +146,28 @@ def test_wits0_capture_dialog_native_batches_preserve_every_assertion() -> None:
     assert all(name == path.as_posix() and len(selectors) == 1
                for name, selectors in batches)
     assert tuple(selector for _, selectors in batches for selector in selectors) == nodes
+
+
+def test_well_numerical_save_scenarios_have_independent_native_lifetimes() -> None:
+    """Five mandatory save-gate outcomes each construct MainWindow in a fresh process.
+
+    Main after PR #723 / run 40089829503 aborted with 0xC0000005 in
+    pyqtgraph ViewBoxMenu while the final parametrized case shared one
+    QApplication with four earlier cases. This isolates Qt lifetimes only;
+    it does not classify the unknown native root cause as fixed (#544).
+    """
+    runner = runpy.run_path("scripts/run_tests.py")
+    path = Path("tests/test_well_update_workflow.py")
+    nodes = runner["_top_level_test_nodes"](path)
+    expected = tuple(
+        f"{path.as_posix()}::test_main_window_numerical_save_gate_{scenario}"
+        for scenario in ("save", "no_selection", "disk_full", "external", "cancel")
+    )
+    assert len(expected) == len(set(expected)) == 5
+    assert all(node in nodes for node in expected)
+    assert path.as_posix() in runner["_SINGLE_TEST_PROCESS_FILES"]
+    batches = runner["_heavy_test_batches"]((path,))
+    assert all(len(selectors) == 1 for _batch_path, selectors in batches)
+    assert tuple(
+        selectors[0] for _path, selectors in batches if selectors[0] in expected
+    ) == expected
