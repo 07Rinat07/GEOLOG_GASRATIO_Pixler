@@ -1,5 +1,13 @@
 ## GIS source inventory operator view — INTERP-GIS-01
 
+The selected-curve details regressions also cover RU/KK/EN source IDs,
+saved mnemonic/family bindings, provenance, version and literal recognition
+evidence. Switching or clearing selection must replace or clear all details;
+missing bindings and empty datasets must not invent evidence. Details and QC
+must use the same opening snapshot even if the live source changes, while
+reopening must reflect the new source. Imported HTML-like strings remain
+plain table text, and arrays and metadata are not mutated.
+
 `tests/test_gis_reference_dialog.py` checks the read-only GIS inventory
 opened from the existing single-sample reference dialog. RU/KK/EN must
 display actual finite paired sample counts and MD bounds, the original

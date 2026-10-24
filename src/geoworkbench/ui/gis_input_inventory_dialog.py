@@ -6,7 +6,7 @@ import numpy as np
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView, QDialog, QDialogButtonBox, QHeaderView, QLabel,
-    QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
 from geoworkbench.domain.models import Dataset
@@ -58,6 +58,7 @@ class GisInputInventoryDialog(QDialog):
         ])
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.table.setSortingEnabled(False)
@@ -77,7 +78,23 @@ class GisInputInventoryDialog(QDialog):
         for column in range(5):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
-        root.addWidget(self.table)
+        self.details = QTableWidget(0, 2, self)
+        self.details.setObjectName("gis-input-inventory-details")
+        self.details.setHorizontalHeaderLabels([self._t("detail_field"), self._t("detail_value")])
+        self.details.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.details.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.details.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.details.verticalHeader().hide()
+        self.details.setWordWrap(True)
+        hint = QLabel(self._t("details_hint"), self)
+        hint.setWordWrap(True)
+        root.addWidget(hint)
+        splitter = QSplitter(Qt.Orientation.Vertical, self)
+        splitter.addWidget(self.table)
+        splitter.addWidget(self.details)
+        splitter.setChildrenCollapsible(False)
+        root.addWidget(splitter)
+        self.table.itemSelectionChanged.connect(self._show_curve_details)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(
@@ -89,6 +106,32 @@ class GisInputInventoryDialog(QDialog):
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(f"gis_inventory.{key}", **values)
+
+    def _show_curve_details(self) -> None:
+        self.details.setRowCount(0)
+        rows = self.table.selectionModel().selectedRows()
+        if len(rows) != 1 or not 0 <= rows[0].row() < len(self.inventory.curves):
+            return
+        # Use the same immutable snapshot as the QC table, not a newer live binding.
+        curve = self.inventory.curves[rows[0].row()]
+        fields = (
+            ("dataset_id", self.inventory.dataset_id),
+            ("axis_id", self.inventory.axis_id),
+            ("curve_id", curve.curve_id),
+            ("curve_key", curve.curve_key),
+            ("original_mnemonic", curve.original_mnemonic),
+            ("canonical_mnemonic", curve.canonical_mnemonic),
+            ("family", curve.family),
+            ("source", curve.source_dataset_id),
+            ("provenance", curve.provenance),
+            ("version", str(curve.version)),
+            ("semantic_evidence", "\n".join(curve.semantic_evidence)),
+        )
+        self.details.setRowCount(len(fields))
+        for row, (key, value) in enumerate(fields):
+            self.details.setItem(row, 0, QTableWidgetItem(self._t(key)))
+            self.details.setItem(row, 1, QTableWidgetItem(value or self._t("not_recorded")))
+        self.details.resizeRowsToContents()
 
     def _issues(self, issues: tuple[str, ...]) -> str:
         if not issues:
