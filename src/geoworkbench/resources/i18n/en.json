@@ -1,4 +1,7 @@
 {
+  "gis_inventory.axis_evidence": "Saved axis alignment evidence",
+  "gis_inventory.curve_details_tab": "Selected curve",
+  "gis_inventory.axis_details_tab": "Depth axis",
   "gis_inventory.detail_field": "Field",
   "gis_inventory.detail_value": "Recorded value",
   "gis_inventory.details_hint": "Select a curve to inspect its saved records. This is a snapshot at opening; recognition evidence does not certify calibration or geological approval.",

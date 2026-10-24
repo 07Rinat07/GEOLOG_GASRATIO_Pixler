@@ -1,4 +1,7 @@
 {
+  "gis_inventory.axis_evidence": "Сохранённые основания привязки оси",
+  "gis_inventory.curve_details_tab": "Выбранная кривая",
+  "gis_inventory.axis_details_tab": "Глубинная ось",
   "gis_inventory.detail_field": "Реквизит",
   "gis_inventory.detail_value": "Сохранённое значение",
   "gis_inventory.details_hint": "Выберите кривую для просмотра сохранённых реквизитов. Это снимок на момент открытия; основания распознавания не подтверждают калибровку или геологическое утверждение.",

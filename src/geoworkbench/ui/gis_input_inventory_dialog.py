@@ -6,7 +6,7 @@ import numpy as np
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView, QDialog, QDialogButtonBox, QHeaderView, QLabel,
-    QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QSplitter, QTableWidget, QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget,
 )
 
 from geoworkbench.domain.models import Dataset
@@ -78,20 +78,24 @@ class GisInputInventoryDialog(QDialog):
         for column in range(5):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
-        self.details = QTableWidget(0, 2, self)
-        self.details.setObjectName("gis-input-inventory-details")
-        self.details.setHorizontalHeaderLabels([self._t("detail_field"), self._t("detail_value")])
-        self.details.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.details.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self.details.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.details.verticalHeader().hide()
-        self.details.setWordWrap(True)
+        self.details = self._details_table("gis-input-inventory-details")
+        self.axis_details = self._details_table("gis-input-inventory-axis-details")
+        self._fill_details(self.axis_details, (
+            ("dataset_id", self.inventory.dataset_id),
+            ("axis_id", self.inventory.axis_id),
+            ("unit", self.inventory.axis_unit),
+            ("axis_evidence", "\n".join(self.inventory.axis_evidence)),
+            ("qc", self._issues(self.inventory.axis_issues)),
+        ))
+        self.detail_tabs = QTabWidget(self)
+        self.detail_tabs.addTab(self.details, self._t("curve_details_tab"))
+        self.detail_tabs.addTab(self.axis_details, self._t("axis_details_tab"))
         hint = QLabel(self._t("details_hint"), self)
         hint.setWordWrap(True)
         root.addWidget(hint)
         splitter = QSplitter(Qt.Orientation.Vertical, self)
         splitter.addWidget(self.table)
-        splitter.addWidget(self.details)
+        splitter.addWidget(self.detail_tabs)
         splitter.setChildrenCollapsible(False)
         root.addWidget(splitter)
         self.table.itemSelectionChanged.connect(self._show_curve_details)
@@ -106,6 +110,26 @@ class GisInputInventoryDialog(QDialog):
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(f"gis_inventory.{key}", **values)
+
+    def _details_table(self, name: str) -> QTableWidget:
+        table = QTableWidget(0, 2, self)
+        table.setObjectName(name)
+        table.setHorizontalHeaderLabels([self._t("detail_field"), self._t("detail_value")])
+        table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        table.verticalHeader().hide()
+        table.setWordWrap(True)
+        return table
+
+    def _fill_details(
+        self, table: QTableWidget, fields: tuple[tuple[str, str | None], ...],
+    ) -> None:
+        table.setRowCount(len(fields))
+        for row, (key, value) in enumerate(fields):
+            table.setItem(row, 0, QTableWidgetItem(self._t(key)))
+            table.setItem(row, 1, QTableWidgetItem(value or self._t("not_recorded")))
+        table.resizeRowsToContents()
 
     def _show_curve_details(self) -> None:
         self.details.setRowCount(0)
@@ -127,11 +151,7 @@ class GisInputInventoryDialog(QDialog):
             ("version", str(curve.version)),
             ("semantic_evidence", "\n".join(curve.semantic_evidence)),
         )
-        self.details.setRowCount(len(fields))
-        for row, (key, value) in enumerate(fields):
-            self.details.setItem(row, 0, QTableWidgetItem(self._t(key)))
-            self.details.setItem(row, 1, QTableWidgetItem(value or self._t("not_recorded")))
-        self.details.resizeRowsToContents()
+        self._fill_details(self.details, fields)
 
     def _issues(self, issues: tuple[str, ...]) -> str:
         if not issues:

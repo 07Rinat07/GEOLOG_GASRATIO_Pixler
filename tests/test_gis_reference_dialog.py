@@ -302,3 +302,68 @@ def test_inventory_details_use_qc_snapshot_and_refresh_only_on_reopen(qapp):
     )
     dialog.close()
     reopened.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_axis_evidence_is_available_without_curve_selection_and_stays_literal(qapp, language):
+    dataset = _dataset()
+    evidence = ('<b>MD & тереңдік</b><img src="file:///not-loaded">', "source marker")
+    dataset.active_index.evidence = evidence
+    depths = dataset.active_index.values.copy()
+    dialog = GisInputInventoryDialog(dataset, language=language)
+    dialog.detail_tabs.setCurrentWidget(dialog.axis_details)
+    assert dialog.axis_details.isVisibleTo(dialog)
+    assert dialog.detail_tabs.tabText(1) == dialog._t("axis_details_tab")
+    assert not dialog.detail_tabs.tabText(1).startswith("gis_inventory.")
+    assert dialog.details.rowCount() == 0
+    assert dialog.axis_details.item(0, 1).text() == dataset.dataset_id
+    assert dialog.axis_details.item(1, 1).text() == dataset.active_index.index_id
+    assert dialog.axis_details.item(2, 1).text() == "m"
+    assert dialog.axis_details.item(3, 1).data(Qt.ItemDataRole.DisplayRole) == "\n".join(evidence)
+    assert dialog.axis_details.item(4, 1).text() == dialog._t("ok")
+    assert dialog.axis_details.editTriggers() == QAbstractItemView.EditTrigger.NoEditTriggers
+    dialog.table.selectRow(0)
+    dialog.table.clearSelection()
+    assert dialog.details.rowCount() == 0
+    assert dialog.axis_details.item(3, 1).text() == "\n".join(evidence)
+    np.testing.assert_array_equal(dataset.active_index.values, depths)
+    assert dataset.active_index.evidence == evidence
+    dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_axis_evidence_empty_dataset_and_unverified_unit_remain_explicit(qapp, language):
+    dataset = _dataset()
+    dataset.curves.clear()
+    dataset.active_index.unit = "ft"
+    dataset.active_index.evidence = ()
+    dialog = GisInputInventoryDialog(dataset, language=language)
+    dialog.detail_tabs.setCurrentWidget(dialog.axis_details)
+    assert dialog.table.rowCount() == dialog.details.rowCount() == 0
+    assert dialog.axis_details.item(2, 1).text() == "ft"
+    assert dialog.axis_details.item(3, 1).text() == dialog._t("not_recorded")
+    assert dialog.axis_details.item(4, 1).text() == dialog.localizer.text(
+        "gis_inventory.issue.unverified_metre_md_alignment",
+    )
+    assert dataset.active_index.unit == "ft"
+    dialog.close()
+
+
+def test_axis_details_and_qc_share_snapshot_until_reopen(qapp):
+    dataset = _dataset()
+    dataset.active_index.evidence = ("opening evidence",)
+    dialog = GisInputInventoryDialog(dataset)
+    dataset.active_index.evidence = ("changed evidence",)
+    dataset.active_index.unit = "ft"
+    dialog.detail_tabs.setCurrentWidget(dialog.axis_details)
+    assert dialog.axis_details.item(2, 1).text() == "m"
+    assert dialog.axis_details.item(3, 1).text() == "opening evidence"
+    assert dialog.axis_details.item(4, 1).text() == dialog._t("ok")
+    reopened = GisInputInventoryDialog(dataset)
+    assert reopened.axis_details.item(2, 1).text() == "ft"
+    assert reopened.axis_details.item(3, 1).text() == "changed evidence"
+    assert reopened.axis_details.item(4, 1).text() == reopened.localizer.text(
+        "gis_inventory.issue.unverified_metre_md_alignment",
+    )
+    dialog.close()
+    reopened.close()

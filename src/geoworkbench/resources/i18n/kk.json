@@ -1,4 +1,7 @@
 {
+  "gis_inventory.axis_evidence": "Осьті байланыстырудың сақталған негіздері",
+  "gis_inventory.curve_details_tab": "Таңдалған қисық",
+  "gis_inventory.axis_details_tab": "Тереңдік осі",
   "gis_inventory.detail_field": "Деректеме",
   "gis_inventory.detail_value": "Сақталған мән",
   "gis_inventory.details_hint": "Сақталған деректемелерді көру үшін қисықты таңдаңыз. Бұл — терезе ашылған сәттегі көшірме; тану негіздері калибрлеуді немесе геологиялық бекітуді растамайды.",
