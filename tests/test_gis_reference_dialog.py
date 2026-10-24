@@ -451,7 +451,7 @@ def test_inventory_return_refreshes_uncalibrated_preview(
 
 
 @pytest.mark.parametrize("language", list(AppLanguage))
-@pytest.mark.parametrize("change", ["values", "axis", "removed"])
+@pytest.mark.parametrize("change", ["values", "axis", "axis_evidence", "removed"])
 def test_inventory_return_invalidates_result_changed_during_modal(
     qapp, monkeypatch, language, change,
 ):
@@ -469,6 +469,8 @@ def test_inventory_return_invalidates_result_changed_during_modal(
             curve.values[2] = 150.0  # Another row changes without a version increment.
         elif change == "axis":
             dataset.active_index.values[1] = 101.5
+        elif change == "axis_evidence":
+            dataset.active_index.evidence = ("new reviewed MD evidence",)
         else:
             dataset.curves.clear()
         return QDialog.DialogCode.Rejected
@@ -486,6 +488,8 @@ def test_inventory_return_invalidates_result_changed_during_modal(
             assert curve.version == 1
         elif change == "axis":
             assert dataset.active_index.values[1] == 101.5
+        elif change == "axis_evidence":
+            assert dataset.active_index.evidence == ("new reviewed MD evidence",)
         else:
             assert not dataset.curves
     finally:

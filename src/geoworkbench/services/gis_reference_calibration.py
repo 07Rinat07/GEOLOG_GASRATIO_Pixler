@@ -14,7 +14,7 @@ from weakref import ReferenceType, ref
 
 import numpy as np
 
-from geoworkbench.domain.models import Dataset
+from geoworkbench.domain.models import Dataset, DatasetIndex, IndexRole, IndexType
 from geoworkbench.services.gis_reference_input_review import (
     GisReferenceInputReview, review_gis_reference_input,
 )
@@ -28,6 +28,11 @@ _PARAMETERS = {
     "density-porosity-1": {"matrix_density_g_cm3", "fluid_density_g_cm3"},
 }
 
+# Axis evidence may be edited without changing the source-review summary or MD bytes.
+AxisSourceSignature = tuple[
+    str, IndexType, IndexRole, str | None, float, tuple[str, ...],
+]
+
 
 @dataclass(frozen=True, slots=True)
 class GisReferenceCalibration:
@@ -38,6 +43,7 @@ class GisReferenceCalibration:
     md_bounds: tuple[float, float]
     parameters: tuple[tuple[str, float], ...]
     source: GisReferenceInputReview
+    _axis_signature: AxisSourceSignature
     # Weak references detect replacement/reopen without retaining large LAS arrays.
     _depths: ReferenceType[np.ndarray]
     _values: ReferenceType[np.ndarray]
@@ -80,6 +86,7 @@ def create_gis_reference_calibration(
         calibration_id=_text(calibration_id), tool_id=_text(tool_id),
         reviewer=_text(reviewer), applicability_reference=_text(applicability_reference),
         md_bounds=bounds, parameters=tuple(sorted(normalized.items())), source=source,
+        _axis_signature=_axis_source_signature(dataset.active_index),
         _depths=ref(dataset.active_index.values), _values=ref(dataset.curves[curve_key].values),
         _depth_sha256=_array_digest(dataset.active_index.values),
         _values_sha256=_array_digest(dataset.curves[curve_key].values),
@@ -102,6 +109,8 @@ def evaluate_gis_reference_sample(
     )
     if not current.ready_for_calibration or current != source:
         raise ValueError("Calibration source is stale or no longer eligible")
+    if calibration._axis_signature != _axis_source_signature(dataset.active_index):
+        raise ValueError("Calibration MD axis evidence changed")
     depths = dataset.active_index.values
     values = dataset.curves[source.curve_key].values
     if calibration._depths() is not depths or calibration._values() is not values:
@@ -123,6 +132,14 @@ def _estimate(method: str, parameters: dict[str, float], value: float) -> Petrop
     if method == "igr-linear-1":
         return gamma_ray_index(gamma_api=value, **parameters)
     return density_porosity(bulk_density_g_cm3=value, **parameters)
+
+
+def _axis_source_signature(axis: DatasetIndex) -> AxisSourceSignature:
+    """Bind the reviewed MD axis identity and evidence without copying samples."""
+    return (
+        axis.mnemonic, axis.index_type, axis.role, axis.unit,
+        axis.confidence, axis.evidence,
+    )
 
 
 def _array_digest(samples: np.ndarray) -> str:

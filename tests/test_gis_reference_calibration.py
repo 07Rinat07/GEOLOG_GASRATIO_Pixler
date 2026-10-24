@@ -146,6 +146,36 @@ def test_in_place_dtype_reinterpretation_without_byte_edit_invalidates_calibrati
         evaluate_gis_reference_sample(dataset, calibration, sample_index=0)
 
 
+@pytest.mark.parametrize("density", [False, True])
+@pytest.mark.parametrize("change", ["evidence", "confidence", "unit_alias", "mnemonic"])
+def test_changed_md_axis_evidence_invalidates_calibration_with_same_review(density, change):
+    from geoworkbench.services.gis_reference_input_review import review_gis_reference_input
+
+    dataset = _dataset(density)
+    calibration = _calibration(dataset, density)
+    axis = dataset.active_index
+    depths, values = axis.values, dataset.curves["selected"].values
+    original_depths, original_values = depths.copy(), values.copy()
+    if change == "evidence":
+        axis.evidence = ("new MD source evidence",)
+    elif change == "confidence":
+        axis.confidence = 0.75
+    elif change == "unit_alias":
+        axis.unit = "meter"  # Still an eligible metre-MD source.
+    else:
+        axis.mnemonic = "REVIEWED_MD"
+
+    # Existing review does not include the mutable axis provenance fields.
+    assert review_gis_reference_input(
+        dataset, method_id=calibration.source.method_id, curve_key="selected",
+    ) == calibration.source
+    assert axis.values is depths and dataset.curves["selected"].values is values
+    np.testing.assert_array_equal(depths, original_depths)
+    np.testing.assert_array_equal(values, original_values)
+    with pytest.raises(ValueError, match="MD axis evidence changed"):
+        evaluate_gis_reference_sample(dataset, calibration, sample_index=0)
+
+
 def test_another_dataset_with_copied_ids_requires_rebinding():
     dataset = _dataset()
     calibration = _calibration(dataset)
