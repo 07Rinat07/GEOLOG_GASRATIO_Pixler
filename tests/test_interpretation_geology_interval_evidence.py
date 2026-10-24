@@ -257,6 +257,70 @@ def test_overlapping_sample_coverage_uses_union_and_preserves_provenance() -> No
     assert all(0 < item.overlap_fraction <= 1 for item in carbonate)
 
 
+@pytest.mark.parametrize("bad_depth", (float("nan"), float("inf"), float("-inf")))
+def test_nonfinite_md_sample_rejects_geology_correlation_without_discarding_row(bad_depth):
+    session = _session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    source_values = dataset.curves["curve-c1"].values.copy()
+    original_well = repr(session.current_well)
+    # The other MD rows still span the gas interval. Dropping this row used
+    # to make an incomplete axis appear valid for geological evidence.
+    dataset.active_index.values[1] = bad_depth
+    before_depth = dataset.active_index.values.copy()
+    with pytest.raises(ValueError, match="one-dimensional finite numeric MD axis"):
+        _intersect(session)
+    np.testing.assert_array_equal(dataset.active_index.values, before_depth)
+    np.testing.assert_array_equal(dataset.curves["curve-c1"].values, source_values)
+    assert repr(session.current_well) == original_well
+
+
+@pytest.mark.parametrize("depth", (
+    np.array(["1000", "1005", "1010", "1015"]),
+    np.array([1000, 1005, 1010, 1015], dtype=object),
+    np.array([[1000.0, 1005.0], [1010.0, 1015.0]]),
+))
+def test_coercible_text_object_or_multidimensional_md_is_not_verified(depth):
+    session = _session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    dataset.active_index.values = depth
+    original = depth.copy()
+    with pytest.raises(ValueError, match="one-dimensional finite numeric MD axis"):
+        _intersect(session)
+    np.testing.assert_array_equal(dataset.active_index.values, original)
+
+
+@pytest.mark.parametrize("depth", (
+    [1015.0, 1010.0, 1005.0, 1000.0],
+    [1000.0, 1005.0, 1005.0, 1015.0],
+))
+def test_finite_md_correlation_preserves_descending_and_stationary_source_order(depth):
+    session = _session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    dataset.active_index.values[:] = depth
+    original = dataset.active_index.values.copy()
+    observed = _intersect(session)
+    assert observed.coverage("lithology") == pytest.approx(6 / 8)
+    assert observed.coverage("cuttings") == pytest.approx(5 / 8)
+    assert observed.depth_axis_id == dataset.active_index_id
+    np.testing.assert_array_equal(dataset.active_index.values, original)
+
+
+def test_signed_geology_selection_fails_closed_after_md_becomes_nonfinite():
+    from test_interpretation_geology_evidence_signed_pdf import _actual_source
+    from geoworkbench.services.interpretation_geology_evidence_export import (
+        verified_session_geology_evidence,
+    )
+
+    session, report, selected = _actual_source()
+    assert verified_session_geology_evidence(session, report, (selected,)) == (selected,)
+    session.current_dataset.active_index.values[1] = np.nan
+    with pytest.raises(ValueError, match="one-dimensional finite numeric MD axis"):
+        verified_session_geology_evidence(session, report, (selected,))
+
+
 def test_time_tvd_and_unknown_units_are_refused_without_depth_conversion() -> None:
     for typ, role, unit in (
         (IndexType.RELATIVE_TIME, IndexRole.TIME, "s"),
