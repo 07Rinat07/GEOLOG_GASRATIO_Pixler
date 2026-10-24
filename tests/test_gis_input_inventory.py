@@ -57,6 +57,8 @@ def test_inventory_preserves_source_and_counts_actual_samples(mnemonic, unit):
     ({"unit": "vendor-ticks"}, "unknown_unit"),
     ({"semantic": None}, "unverified_semantics"),
     ({"provenance": ""}, "missing_source_provenance"),
+    ({"curve_id": ""}, "missing_curve_id"),
+    ({"curve_id": "  \t"}, "missing_curve_id"),
     ({"original_mnemonic": "RT"}, "semantic_mnemonic_changed"),
     ({"canonical_mnemonic": "RT"}, "semantic_mnemonic_changed"),
 ])

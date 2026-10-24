@@ -1,5 +1,11 @@
 ## GIS source inventory operator view — INTERP-GIS-01
 
+Missing or whitespace-only curve IDs must produce an explicit inventory QC
+warning in RU/KK/EN before reference calculation. Service and dialog tests
+verify consistency with the existing reference-input rejection, preservation
+of the original ID and source arrays, and acceptance of imported provenance
+whose source dataset ID differs from the current dataset.
+
 Axis-details regressions cover the separate Depth axis tab in RU/KK/EN,
 including an empty curve catalog and no selection. Saved evidence is literal
 text, missing evidence stays explicit, and an unverified ft axis retains its

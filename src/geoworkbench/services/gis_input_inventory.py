@@ -85,6 +85,8 @@ def inventory_gis_inputs(dataset: Dataset) -> GisInputInventory:
         metadata = curve.metadata
         binding = metadata.semantic
         issues: list[str] = []
+        if not metadata.curve_id.strip():
+            issues.append("missing_curve_id")
         family = binding.family if binding is not None else None
         expected = _FAMILIES.get(family or "")
         if binding is None or not binding.resolved:
