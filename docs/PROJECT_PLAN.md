@@ -2,7 +2,7 @@
 
 ## CI/Qt — отдельный процесс для вариантов сохранения скважины (24.10.2026, PR-проверка)
 
-Post-merge main PR #724, Release gate 40089829503 (первая попытка), завершился
+Post-merge main PR #723, Release gate 40089829503 (первая попытка), завершился
 Windows native error 0xC0000005 при построении pyqtgraph ViewBoxMenu в
 пятом варианте `test_main_window_numerical_save_gate[cancel]` после четырёх
 успешных сценариев в том же процессе. Временная мера — каждый из пяти
