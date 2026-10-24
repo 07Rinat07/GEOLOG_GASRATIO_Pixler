@@ -1,6 +1,6 @@
 ## Windows Qt native isolation — well numerical save gate
 
-After main Release gate 40089829503 (attempt 1) reported an access violation
+After main Release gate 40089829503 (after PR #723, attempt 1) reported an access violation
 (0xC0000005) in pyqtgraph ViewBoxMenu while running the fifth parameter of
 `test_main_window_numerical_save_gate`, the five existing outcomes (save,
 no selection, disk full, external change and cancel) are run as separate
