@@ -379,12 +379,56 @@ def test_inventory_button_refreshes_source_without_recalculating(qapp, monkeypat
 
     monkeypatch.setattr(GisInputInventoryDialog, "exec", inspect)
     dialog.inventory_button.click()
+    assert dialog.sample is sample
     dataset.curves["selected"].state = CalculationState.STALE
     dialog.inventory_button.click()
     assert seen == [((), AppLanguage.EN), (("curve_not_current",), AppLanguage.EN)]
-    assert dialog.sample is sample
+    assert dialog.sample is None
+    assert dialog.result_label.text() == dialog._t("invalid")
     assert dialog.fields["calibration_id"].text() == "cal-1"
     dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+@pytest.mark.parametrize("change", ["values", "axis", "removed"])
+def test_inventory_return_invalidates_result_changed_during_modal(
+    qapp, monkeypatch, language, change,
+):
+    dataset = _dataset()
+    dialog = GisReferenceDialog(dataset, language=language)
+    _fill(dialog)
+    dialog.calculate.click()
+    assert dialog.sample is not None
+    fields = {key: field.text() for key, field in dialog.fields.items()}
+    parameters = tuple(field.text() for field in dialog.parameters)
+    curve = dataset.curves["selected"]
+
+    def inspect(_dialog):
+        if change == "values":
+            curve.values[2] = 150.0  # Another row changes without a version increment.
+        elif change == "axis":
+            dataset.active_index.values[1] = 101.5
+        else:
+            dataset.curves.clear()
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(GisInputInventoryDialog, "exec", inspect)
+    try:
+        dialog.inventory_button.click()
+        assert dialog.sample is None
+        assert dialog.result_label.text() == dialog._t("invalid")
+        assert {key: field.text() for key, field in dialog.fields.items()} == fields
+        assert tuple(field.text() for field in dialog.parameters) == parameters
+        # The check must neither undo the source edit nor silently recalibrate.
+        if change == "values":
+            assert curve.values[2] == 150.0
+            assert curve.version == 1
+        elif change == "axis":
+            assert dataset.active_index.values[1] == 101.5
+        else:
+            assert not dataset.curves
+    finally:
+        dialog.close()
 
 
 def _inventory_details(dialog):

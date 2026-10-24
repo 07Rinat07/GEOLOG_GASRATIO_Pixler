@@ -115,6 +115,16 @@ class GisReferenceDialog(QDialog):
         GisInputInventoryDialog(
             self.dataset, self, language=self.localizer.language,
         ).exec()
+        if self.sample is not None:
+            try:
+                # The modal event loop may outlive source edits. Retain the displayed
+                # result only while its original calibration still validates.
+                evaluate_gis_reference_sample(
+                    self.dataset, self.sample.calibration, sample_index=self.sample.sample_index,
+                )
+            except ValueError:
+                self._review_source()
+                self.result_label.setText(self._t("invalid"))
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(f"petro_reference.{key}", **values)

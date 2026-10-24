@@ -22,6 +22,12 @@ These checks do not establish instrument calibration or field interpretation.
 
 ## GIS source inventory operator view — INTERP-GIS-01
 
+Returning from the inventory must revalidate an existing sample against its
+original calibration. Unchanged sources preserve the result; stale/removed
+curves and in-place edits to MD or another curve row invalidate it without
+recalibration or reverting source edits. RU/KK/EN dialog tests exercise changes
+inside the modal loop and verify that all entered evidence/parameters survive.
+
 `tests/test_gis_reference_las_reopen.py` exercises the external wrapped LAS 2.0
 fixture through real import, ProjectController save/open and the GIS dialog in
 RU/KK/EN for JSON and package projects. It checks the actual descending GR row
