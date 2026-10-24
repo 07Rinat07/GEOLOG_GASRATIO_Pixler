@@ -42,6 +42,7 @@ class GisReferenceCalibration:
     _depths: ReferenceType[np.ndarray]
     _values: ReferenceType[np.ndarray]
     _depth_sha256: str
+    _values_sha256: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,7 +81,8 @@ def create_gis_reference_calibration(
         reviewer=_text(reviewer), applicability_reference=_text(applicability_reference),
         md_bounds=bounds, parameters=tuple(sorted(normalized.items())), source=source,
         _depths=ref(dataset.active_index.values), _values=ref(dataset.curves[curve_key].values),
-        _depth_sha256=_axis_digest(dataset.active_index.values),
+        _depth_sha256=_array_digest(dataset.active_index.values),
+        _values_sha256=_array_digest(dataset.curves[curve_key].values),
     )
 
 
@@ -89,8 +91,9 @@ def evaluate_gis_reference_sample(
 ) -> CalibratedGisSample:
     """Recheck the source, then evaluate exactly one row without interpolation.
 
-    Source controllers must increment curve.version for in-place data edits.
-    Replaced arrays and reopened datasets require a new calibration even if the
+    The original array identities, MD coordinates and curve values are checked
+    even if a caller edits samples in place without incrementing curve.version.
+    Replaced arrays and reopened datasets require a new calibration even when
     copied IDs/versions match. Results retain their immutable calibration context.
     """
     source = calibration.source
@@ -103,8 +106,10 @@ def evaluate_gis_reference_sample(
     values = dataset.curves[source.curve_key].values
     if calibration._depths() is not depths or calibration._values() is not values:
         raise ValueError("Calibration source arrays were replaced")
-    if calibration._depth_sha256 != _axis_digest(depths):
+    if calibration._depth_sha256 != _array_digest(depths):
         raise ValueError("Calibration MD coordinates changed")
+    if calibration._values_sha256 != _array_digest(values):
+        raise ValueError("Calibration curve sample values changed")
     if type(sample_index) is not int or not 0 <= sample_index < len(depths):
         raise ValueError("A valid integer source sample index is required")
     md, value = _finite(depths[sample_index]), _finite(values[sample_index])
@@ -120,9 +125,9 @@ def _estimate(method: str, parameters: dict[str, float], value: float) -> Petrop
     return density_porosity(bulk_density_g_cm3=value, **parameters)
 
 
-def _axis_digest(depths: np.ndarray) -> str:
-    # DatasetIndex has no revision counter: identity misses in-place MD edits.
-    return sha256(np.ascontiguousarray(depths).data).hexdigest()
+def _array_digest(samples: np.ndarray) -> str:
+    # Array identity and curve.version alone miss in-place edits to source data.
+    return sha256(np.ascontiguousarray(samples).data).hexdigest()
 
 
 def _finite(value: float) -> float:
