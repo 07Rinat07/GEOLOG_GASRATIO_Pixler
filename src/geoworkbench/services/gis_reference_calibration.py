@@ -126,8 +126,15 @@ def _estimate(method: str, parameters: dict[str, float], value: float) -> Petrop
 
 
 def _array_digest(samples: np.ndarray) -> str:
-    # Array identity and curve.version alone miss in-place edits to source data.
-    return sha256(np.ascontiguousarray(samples).data).hexdigest()
+    # Raw bytes alone miss in-place dtype reinterpretation with unchanged storage.
+    # Bind the numeric representation and shape to the sampled bytes.
+    digest = sha256()
+    digest.update(samples.dtype.str.encode("ascii"))
+    digest.update(b"\0")
+    digest.update(str(samples.shape).encode("ascii"))
+    digest.update(b"\0")
+    digest.update(np.ascontiguousarray(samples).data)
+    return digest.hexdigest()
 
 
 def _finite(value: float) -> float:
