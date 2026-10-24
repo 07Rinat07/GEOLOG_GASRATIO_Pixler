@@ -390,6 +390,67 @@ def test_inventory_button_refreshes_source_without_recalculating(qapp, monkeypat
 
 
 @pytest.mark.parametrize("language", list(AppLanguage))
+@pytest.mark.parametrize("change", ["unchanged", "value", "null", "axis", "stale", "removed"])
+def test_inventory_return_refreshes_uncalibrated_preview(
+    qapp, monkeypatch, language, change,
+):
+    dataset = _dataset()
+    curve = dataset.curves["selected"]
+    dialog = GisReferenceDialog(dataset, language=language)
+    _fill(dialog)
+    dialog.row.setValue(3)
+    dialog.review_source.click()
+    assert dialog.source_sample_label.text() == dialog._t(
+        "source_sample", row=3, md="102", value="145", unit="API",
+    )
+    assert dialog.sample is None
+    fields = {key: field.text() for key, field in dialog.fields.items()}
+    parameters = tuple(field.text() for field in dialog.parameters)
+    initial_version = curve.version
+
+    def inspect(_dialog):
+        if change == "value":
+            curve.values[2] = 150.0
+        elif change == "null":
+            curve.values[2] = np.nan
+        elif change == "axis":
+            dataset.active_index.values[2] = 102.5
+        elif change == "stale":
+            curve.state = CalculationState.STALE
+        elif change == "removed":
+            dataset.curves.clear()
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(GisInputInventoryDialog, "exec", inspect)
+    try:
+        dialog.inventory_button.click()
+        assert dialog.sample is None and not dialog.result_label.text()
+        assert {key: field.text() for key, field in dialog.fields.items()} == fields
+        assert tuple(field.text() for field in dialog.parameters) == parameters
+        assert curve.version == initial_version
+        if change in {"unchanged", "value", "axis"}:
+            assert dialog.source_review_label.text() == dialog._t("source_ready")
+            assert dialog.source_sample_label.text() == dialog._t(
+                "source_sample", row=3, md="102.5" if change == "axis" else "102",
+                value="150" if change == "value" else "145", unit="API",
+            )
+        elif change == "null":
+            assert dialog.source_sample_label.text() == dialog._t("sample_unavailable")
+            assert dialog.source_review_label.text() == dialog._t("source_ready")
+            assert np.isnan(curve.values[2])
+        else:
+            assert not dialog.source_sample_label.text()
+            assert dialog.localizer.text(
+                "gis_inventory.issue.curve_not_current" if change == "stale"
+                else "petro_reference.issue.curve_not_found"
+            ) in dialog.source_review_label.text()
+            if change == "removed":
+                assert not dataset.curves
+    finally:
+        dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
 @pytest.mark.parametrize("change", ["values", "axis", "removed"])
 def test_inventory_return_invalidates_result_changed_during_modal(
     qapp, monkeypatch, language, change,
