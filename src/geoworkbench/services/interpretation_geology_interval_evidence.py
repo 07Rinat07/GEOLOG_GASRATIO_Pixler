@@ -128,9 +128,18 @@ def correlate_gas_interval_with_well_geology(
     top, bottom = float(top_depth), float(bottom_depth)
     if not (isfinite(top) and isfinite(bottom) and top < bottom):
         raise ValueError("Gas interval requires two increasing finite MD depths")
-    depth = np.asarray(axis.values, dtype=float)
-    finite = depth[np.isfinite(depth)]
-    if finite.size < 2 or top < float(finite.min()) or bottom > float(finite.max()):
+    depth = np.asarray(axis.values)
+    # Filtering invalid coordinates would make a partly unreadable MD axis
+    # appear eligible merely because its remaining min/max enclose the gas
+    # interval. Never coerce text depths or silently discard source rows.
+    if (
+        depth.ndim != 1
+        or depth.dtype.kind not in "fiu"
+        or depth.size < 2
+        or not np.isfinite(depth).all()
+    ):
+        raise ValueError("Geology correlation requires a one-dimensional finite numeric MD axis")
+    if top < float(depth.min()) or bottom > float(depth.max()):
         raise ValueError("Gas interval is outside the measured MD axis")
 
     evidence: list[MeasuredGeologyIntersection] = []
