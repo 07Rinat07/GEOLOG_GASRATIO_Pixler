@@ -14,6 +14,7 @@ from geoworkbench.services.gis_reference_calibration import (
     CalibratedGisSample, create_gis_reference_calibration, evaluate_gis_reference_sample,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.gis_reference_input_review import review_gis_reference_input
 from geoworkbench.ui.gis_input_inventory_dialog import GisInputInventoryDialog
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
@@ -51,6 +52,13 @@ class GisReferenceDialog(QDialog):
         for key, curve in dataset.curves.items():
             self.channel.addItem(f"{key} [{curve.metadata.unit or '?'}]", key)
         form.addRow(self._t("channel"), self.channel)
+        self.review_source = QPushButton(self._t("review_source"), body)
+        form.addRow(self.review_source)
+        self.source_review_label = QLabel(body)
+        self.source_review_label.setTextFormat(Qt.TextFormat.PlainText)
+        self.source_review_label.setWordWrap(True)
+        self.source_review_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        form.addRow(self.source_review_label)
         self.fields: dict[str, QLineEdit] = {}
         for key in ("calibration_id", "tool_id", "reviewer", "evidence", "top", "base"):
             field = QLineEdit(body)
@@ -85,10 +93,13 @@ class GisReferenceDialog(QDialog):
         root.addWidget(buttons)
         self.method.currentIndexChanged.connect(self._method_changed)
         self.channel.currentIndexChanged.connect(self._invalidate)
+        self.channel.currentIndexChanged.connect(self.source_review_label.clear)
+        self.method.currentIndexChanged.connect(self.source_review_label.clear)
         self.row.valueChanged.connect(self._invalidate)
         for field in (*self.fields.values(), *self.parameters):
             field.textChanged.connect(self._invalidate)
         self.calculate.clicked.connect(self._calculate)
+        self.review_source.clicked.connect(self._review_source)
         self._method_changed()
         fit_window_to_screen(self, preferred=QSize(640, 620), minimum=QSize(380, 360))
 
@@ -104,6 +115,33 @@ class GisReferenceDialog(QDialog):
         self.sample = None
         self.result_label.clear()
 
+    def _review_source(self) -> None:
+        self._invalidate()
+        method, channel = self.method.currentData(), self.channel.currentData()
+        if not isinstance(method, str) or not isinstance(channel, str):
+            self.source_review_label.setText(self._t("selection_required"))
+            return
+        try:
+            review = review_gis_reference_input(
+                self.dataset, method_id=method, curve_key=channel,
+            )
+        except ValueError:
+            self.source_review_label.setText(self._t("invalid"))
+            return
+        if review.ready_for_calibration:
+            self.source_review_label.setText(self._t("source_ready"))
+            return
+        reasons = []
+        for issue in review.issues:
+            if issue.startswith(("axis:", "curve:")) or issue == "missing_curve_id":
+                key = f"gis_inventory.issue.{issue.split(':', 1)[-1]}"
+            else:
+                key = f"petro_reference.issue.{issue}"
+            reason = self.localizer.catalog.get(key, self._t("invalid"))
+            if reason not in reasons:
+                reasons.append(reason)
+        self.source_review_label.setText(self._t("source_blocked", reasons="\n".join(reasons)))
+
     def _method_changed(self) -> None:
         density = self.method.currentData() == "density-porosity-1"
         labels = ("matrix", "fluid") if density else ("clean", "shale")
@@ -118,7 +156,8 @@ class GisReferenceDialog(QDialog):
         return float(field.text().strip().replace(",", "."))
 
     def _calculate(self) -> None:
-        self._invalidate()
+        # Recheck live source quality; a prior operator review never authorizes calculation.
+        self._review_source()
         method, channel = self.method.currentData(), self.channel.currentData()
         if not isinstance(method, str) or not isinstance(channel, str):
             self.result_label.setText(self._t("selection_required"))
