@@ -345,12 +345,18 @@ def test_petrophysical_reference_guides_keep_methods_and_operator_scope_in_sync(
         "kg/m3",
         "uR/h",
     )
-    for language in ("ru", "kk", "en"):
+    detail_headings = {
+        "ru": "Сохранённые реквизиты источника",
+        "kk": "Дереккөздің сақталған деректемелері",
+        "en": "Saved source details",
+    }
+    for language, heading in detail_headings.items():
         guide = (
             ROOT / "docs" / language / "PETROPHYSICAL_REFERENCE_MODELS.md"
         ).read_text(encoding="utf-8")
         assert all(name in guide for name in names)
-        assert guide.count("\n## ") == 6
+        assert guide.count("\n## ") == 7
+        assert guide.count(f"\n## {heading}\n") == 1
 
     index = (ROOT / "docs" / "DOCUMENTATION_INDEX.md").read_text(encoding="utf-8")
     for language in ("ru", "kk", "en"):

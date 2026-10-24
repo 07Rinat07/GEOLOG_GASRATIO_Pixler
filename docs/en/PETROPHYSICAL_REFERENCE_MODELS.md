@@ -1,5 +1,15 @@
 # Petrophysical reference calculations: IGR, porosity and Archie
 
+## Saved source details
+
+Select one curve in the GIS inventory to inspect its dataset, axis and curve IDs,
+curve key, original and saved canonical mnemonic, saved family, source ID,
+provenance, version and recognition evidence. Missing records are marked
+explicitly. Values are literal source text; they do not certify calibration or
+geological approval. Details and QC share the snapshot taken when the window
+opened. Reopen to inspect subsequent source changes. Clearing selection clears
+all details. The two tables can be resized with the divider; neither edits data.
+
 ## Purpose and availability
 
 This guide describes isolated calculation code in PR #686 (INTERP-PETRO-01), **not a UI command**. The reference functions were integrated through PR #686; the operator dialog is described below. `geoworkbench.services.petrophysical_reference_models` accepts previously verified scalar inputs and returns an immutable result with `method_id`, `value`, `unit`, `quality`, and `parameters`. It does not discover LAS mnemonics, convert units, align MD/TVD, or modify the project.

@@ -210,3 +210,95 @@ def test_inventory_button_refreshes_source_without_recalculating(qapp, monkeypat
     assert dialog.sample is sample
     assert dialog.fields["calibration_id"].text() == "cal-1"
     dialog.close()
+
+
+def _inventory_details(dialog):
+    return {
+        dialog.details.item(row, 0).text(): dialog.details.item(row, 1).text()
+        for row in range(dialog.details.rowCount())
+    }
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_inventory_selection_shows_saved_provenance_as_literal_text(qapp, language):
+    dataset = _dataset()
+    curve = dataset.curves["selected"]
+    hostile = '<b>Жыныс & rock</b><img src="file:///not-loaded">'
+    curve.metadata = replace(
+        curve.metadata, provenance=hostile,
+        semantic=replace(curve.metadata.semantic, evidence=(hostile, "raw evidence")),
+    )
+    metadata = curve.metadata
+    values = curve.values.copy()
+    depths = dataset.active_index.values.copy()
+    dialog = GisInputInventoryDialog(dataset, language=language)
+    assert dialog.details.rowCount() == 0
+    dialog.table.selectRow(0)
+    details = _inventory_details(dialog)
+    assert details == {
+        dialog._t("dataset_id"): dataset.dataset_id,
+        dialog._t("axis_id"): dataset.active_index.index_id,
+        dialog._t("curve_id"): "curve-1",
+        dialog._t("curve_key"): "selected",
+        dialog._t("original_mnemonic"): "GR",
+        dialog._t("canonical_mnemonic"): metadata.semantic.canonical_mnemonic,
+        dialog._t("family"): metadata.semantic.family,
+        dialog._t("source"): "original-run",
+        dialog._t("provenance"): hostile,
+        dialog._t("version"): str(curve.version),
+        dialog._t("semantic_evidence"): hostile + "\nraw evidence",
+    }
+    assert dialog.details.isVisibleTo(dialog)
+    assert dialog.details.editTriggers() == QAbstractItemView.EditTrigger.NoEditTriggers
+    assert all(not key.startswith("gis_inventory.") for key in details)
+    # QTableWidgetItem display data is plain text; imported markup stays literal.
+    assert dialog.details.item(8, 1).data(Qt.ItemDataRole.DisplayRole) == hostile
+    dialog.table.clearSelection()
+    assert dialog.details.rowCount() == 0
+    assert curve.metadata is metadata
+    np.testing.assert_array_equal(curve.values, values)
+    np.testing.assert_array_equal(dataset.active_index.values, depths)
+    dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_inventory_details_switch_clear_and_preserve_missing_evidence(qapp, language):
+    dataset = _dataset()
+    dataset.curves["unknown"] = CurveData(
+        CurveMetadata("unknown-id", "VENDOR", None, None, "", "", "", None),
+        np.array([1.0, 2.0, 3.0]),
+    )
+    dialog = GisInputInventoryDialog(dataset, language=language)
+    dialog.table.selectRow(0)
+    assert _inventory_details(dialog)[dialog._t("curve_id")] == "curve-1"
+    dialog.table.selectRow(1)
+    details = _inventory_details(dialog)
+    assert details[dialog._t("curve_id")] == "unknown-id"
+    for key in ("canonical_mnemonic", "family", "source", "provenance", "semantic_evidence"):
+        assert details[dialog._t(key)] == dialog._t("not_recorded")
+    dialog.table.clearSelection()
+    assert dialog.details.rowCount() == 0
+    dialog.close()
+    dataset.curves.clear()
+    empty = GisInputInventoryDialog(dataset, language=language)
+    assert empty.table.rowCount() == empty.details.rowCount() == 0
+    empty.close()
+
+
+def test_inventory_details_use_qc_snapshot_and_refresh_only_on_reopen(qapp):
+    dataset = _dataset()
+    curve = dataset.curves["selected"]
+    dialog = GisInputInventoryDialog(dataset)
+    curve.metadata = replace(curve.metadata, provenance="changed", semantic=None)
+    dialog.table.selectRow(0)
+    assert _inventory_details(dialog)[dialog._t("provenance")] == "source:las"
+    assert dialog.table.item(0, 5).text() == dialog._t("ok")
+    reopened = GisInputInventoryDialog(dataset)
+    reopened.table.selectRow(0)
+    assert _inventory_details(reopened)[reopened._t("provenance")] == "changed"
+    assert _inventory_details(reopened)[reopened._t("family")] == reopened._t("not_recorded")
+    assert reopened.localizer.text("gis_inventory.issue.unverified_semantics") in (
+        reopened.table.item(0, 5).text()
+    )
+    dialog.close()
+    reopened.close()
