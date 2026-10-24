@@ -1,3 +1,17 @@
+## GIS reference calibration: MD axis evidence revision
+
+Session-local GIS calibration now binds the saved MD axis mnemonic, index
+type/role, metre-unit spelling, confidence and evidence tuple, in addition to
+the complete depth/curve array fingerprints and existing source review.
+Changing any axis provenance after operator review invalidates that
+calibration, even if the arrays, IDs, curve version and source-review summary
+are unchanged and both unit spellings are eligible. GR/RHOB regressions
+cover the evidence, confidence, equivalent unit spelling and mnemonic.
+The existing modal-inventory regression covers an axis-evidence change
+in RU/KK/EN: the old result clears, while operator inputs and source edits
+remain intact. This is a source-integrity guard, not a depth conversion or
+confirmation of physical MD alignment.
+
 ## GIS reference calibration: dtype and shape integrity
 
 The calibration binds the NumPy dtype and shape as well as the complete MD
