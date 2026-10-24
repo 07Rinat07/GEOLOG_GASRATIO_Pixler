@@ -104,6 +104,24 @@ def test_changed_source_blocks_existing_calibration(change):
         evaluate_gis_reference_sample(dataset, calibration, sample_index=0)
 
 
+
+@pytest.mark.parametrize("density", [False, True])
+@pytest.mark.parametrize("edited_row", [0, 2])
+def test_in_place_curve_edit_without_version_increment_invalidates_calibration(
+    density, edited_row,
+):
+    dataset = _dataset(density)
+    calibration = _calibration(dataset, density)
+    curve = dataset.curves["selected"]
+    values = curve.values
+    unchanged_version = curve.version
+    curve.values[edited_row] += 0.1
+    assert curve.values is values and curve.version == unchanged_version
+    # A change outside the selected row must also invalidate the whole source.
+    with pytest.raises(ValueError, match="curve sample values changed"):
+        evaluate_gis_reference_sample(dataset, calibration, sample_index=0)
+
+
 def test_another_dataset_with_copied_ids_requires_rebinding():
     dataset = _dataset()
     calibration = _calibration(dataset)
