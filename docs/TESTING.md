@@ -1,5 +1,13 @@
 ## GIS source inventory operator view — INTERP-GIS-01
 
+`tests/test_gis_reference_las_reopen.py` exercises the external wrapped LAS 2.0
+fixture through real import, ProjectController save/open and the GIS dialog in
+RU/KK/EN for JSON and package projects. It checks the actual descending GR row
+and an independently specified IGR result with synthetic calibration, unchanged
+arrays/metadata/source bytes/project bytes, clean state and fresh empty dialog
+calibration. The fixture's unknown density unit must remain blocked after reopen.
+This software acceptance does not certify field calibration or interpretation.
+
 Selected-source review also previews exactly the requested original row before
 calibration. Tests cover RU/KK/EN, ascending/descending MD, NULL/Inf, arrays
 shortened after opening, stale/removed curves and unverified axes. Selection
