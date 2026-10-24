@@ -122,6 +122,30 @@ def test_in_place_curve_edit_without_version_increment_invalidates_calibration(
         evaluate_gis_reference_sample(dataset, calibration, sample_index=0)
 
 
+@pytest.mark.parametrize("density", [False, True])
+def test_in_place_dtype_reinterpretation_without_byte_edit_invalidates_calibration(density):
+    from geoworkbench.services.gis_reference_input_review import review_gis_reference_input
+
+    dataset = _dataset(density)
+    curve = dataset.curves["selected"]
+    # Keep every source sample finite, so inventory QC/counts remain unchanged.
+    curve.values[1] = 2.55 if density else 95.0
+    calibration = _calibration(dataset, density)
+    values = curve.values
+    original_bytes = values.tobytes()
+    unchanged_version = curve.version
+    values.dtype = np.int64
+    assert curve.values is values and curve.version == unchanged_version
+    assert values.tobytes() == original_bytes
+    assert review_gis_reference_input(
+        dataset, method_id=calibration.source.method_id, curve_key="selected",
+    ) == calibration.source
+    # The stored array's bytes and source review did not change, but their
+    # interpretation did: an old calibration must not evaluate those integers.
+    with pytest.raises(ValueError, match="curve sample values changed"):
+        evaluate_gis_reference_sample(dataset, calibration, sample_index=0)
+
+
 def test_another_dataset_with_copied_ids_requires_rebinding():
     dataset = _dataset()
     calibration = _calibration(dataset)
