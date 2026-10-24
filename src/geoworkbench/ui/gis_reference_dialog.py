@@ -157,6 +157,8 @@ class GisReferenceDialog(QDialog):
             index = self.row.value() - 1
             depths = self.dataset.active_index.values
             values = self.dataset.curves[channel].values
+            # Expose new rows without clamping a removed selection to a neighbour.
+            self.row.setMaximum(max(self.row.value(), min(len(depths), 2_147_483_647)))
             # The fresh review validates shapes, axis and units; never substitute a nearby row.
             if not 0 <= index < len(depths) or not (
                 np.isfinite(depths[index]) and np.isfinite(values[index])
