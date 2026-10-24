@@ -440,7 +440,6 @@ def test_inventory_return_refreshes_uncalibrated_preview(
             assert np.isnan(curve.values[2])
         else:
             assert not dialog.source_sample_label.text()
-            issue = "curve_not_current" if change == "stale" else "curve_not_found"
             assert dialog.localizer.text(
                 "gis_inventory.issue.curve_not_current" if change == "stale"
                 else "petro_reference.issue.curve_not_found"
