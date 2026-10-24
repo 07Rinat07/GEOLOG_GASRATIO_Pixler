@@ -115,6 +115,11 @@ class GisReferenceDialog(QDialog):
         GisInputInventoryDialog(
             self.dataset, self, language=self.localizer.language,
         ).exec()
+        if self.sample is None:
+            # The modal inventory can outlive edits to an uncalibrated preview.
+            # Refresh the exact selected row so stale source values never linger.
+            self._review_source()
+            return
         if self.sample is not None:
             try:
                 # The modal event loop may outlive source edits. Retain the displayed
