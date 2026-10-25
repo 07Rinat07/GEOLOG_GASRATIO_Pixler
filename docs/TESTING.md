@@ -1,3 +1,22 @@
+## INTERP-GEO-01 — optional stratigraphy name/rank validation
+
+For explicit measured gas/geology evidence, the optional source
+`StratigraphyInterval.name` and `rank` must be text or `None`.
+Previously non-text values could raise an unrelated `AttributeError`
+on `.strip()`; malformed metadata was not checked in records with a
+blank code. Fail closed before snapshot/export, without changing the
+source well, measured MD axis or curves.
+
+Data-only regressions in `tests/test_interpretation_geology_interval_evidence.py`
+cover both fields, five invalid types, source intervals inside/outside
+selection, blank codes, and allowed empty/ordinary/missing text. Signed
+export regressions in
+`tests/test_interpretation_geology_evidence_signed_pdf.py` cover
+RU/KK/EN × new/existing PDF/passport × both fields with byte-identical
+existing files after rejection. Run both modules and all three Windows
+Release gates on exact PR HEAD, then verify the new main gate. Field
+geology and Qt #544 remain independent.
+
 ## INTERP-GEO-01 — reject corrupt cuttings component percentages
 
 Measured gas/geology correlation now fails closed if any raw cuttings
