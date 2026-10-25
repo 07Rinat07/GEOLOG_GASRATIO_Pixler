@@ -2444,3 +2444,15 @@ None, boolean, число и массив вместо текстового ко
 семантику. Signed-PDF регрессии RU/KK/EN проверяют сохранность новых и
 существующих PDF/паспортов при повреждённой кальциметрии.
 Команда: `.venv\Scripts\python.exe scripts/run_tests.py tests/test_interpretation_geology_interval_evidence.py tests/test_interpretation_geology_evidence_signed_pdf.py -p no:cacheprovider`.
+
+### PR #741: XML parser security regression (25.10.2026)
+
+Word table resizing uses defusedxml for parsing; ElementTree remains the serializer.
+`test_word_table_resize_rejects_xml_entities` requires EntitiesForbidden for an
+entity declaration. Bandit B314 is fixed without suppressions. Run Bandit with
+medium severity/confidence and the Word orientation/footer regression modules.
+The first CI also had a native access violation during garbage collection in
+`test_generic_office_control_after_reopen`; a local combined run reproduced a
+native GC crash later in the Word footer tests. Its root cause is unresolved;
+passing an isolated test does not close Qt #544. Match CI's PYTHONUTF8=1 when
+running the generic report tests on Windows.

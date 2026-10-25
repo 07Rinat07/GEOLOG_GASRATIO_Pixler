@@ -24,6 +24,15 @@ from test_interpretation_method_comparison_explicit_ui import _workspace
 W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
 
+def test_word_table_resize_rejects_xml_entities():
+    from defusedxml.common import EntitiesForbidden
+    from geoworkbench.data.hydrocarbon_interpretation_export import _resize_docx_tables
+
+    xml = '<!DOCTYPE root [<!ENTITY injected "expanded">]><root>&injected;</root>'
+    with pytest.raises(EntitiesForbidden):
+        _resize_docx_tables(xml, 9600)
+
+
 @pytest.mark.parametrize("language", list(AppLanguage))
 @pytest.mark.parametrize("report_profile", ("standard", "opus"))
 @pytest.mark.parametrize("polished", (False, True))

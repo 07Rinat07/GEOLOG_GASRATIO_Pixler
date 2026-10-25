@@ -5,6 +5,7 @@ from pathlib import Path
 from functools import partial
 from typing import Literal
 from xml.etree import ElementTree as ET
+from defusedxml.ElementTree import fromstring as parse_xml
 from collections.abc import Callable
 import tempfile
 import zipfile
@@ -93,7 +94,7 @@ def _fit_table_widths(widths: tuple[int, ...], *, max_width: int = _MAX_BODY_TAB
 
 def _resize_docx_tables(document_xml: str | bytes, limit: int) -> bytes:
     """Keep every fixed-grid Word table inside the portrait printable width."""
-    root = ET.fromstring(document_xml)
+    root = parse_xml(document_xml)
     def q(tag: str) -> str:
         return f"{{{_WORD_NS}}}{tag}"
     for table in root.iter(q("tbl")):
