@@ -79,7 +79,7 @@ def export_polished_hydrocarbon_interpretation_docx(
             dataset=dataset,
             language=language,
             overwrite=True,
-            **({"orientation": orientation} if orientation == "portrait" else {}),
+            orientation=orientation,
         )
         _rewrite_cover(source, rewritten, report, details, language, orientation=orientation)
         os.replace(rewritten, destination)
