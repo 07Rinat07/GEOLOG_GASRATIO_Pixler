@@ -61,23 +61,28 @@ _MAX_BODY_TABLE_WIDTH_TWIPS = 14_000
 
 
 def _fit_table_widths(widths: tuple[int, ...]) -> tuple[int, ...]:
-    """Preserve relative column weights while staying inside the print region."""
+    """Keep positive weighted columns within the physical Word page width."""
     if not widths or any(type(width) is not int or width <= 0 for width in widths):
         raise ValueError("Column widths must be positive integers")
     total = sum(widths)
     if total <= _MAX_BODY_TABLE_WIDTH_TWIPS:
         return widths
-    scaled = tuple(
-        max(1, width * _MAX_BODY_TABLE_WIDTH_TWIPS // total)
-        for width in widths
-    )
-    # Allocate remaining twips deterministically, with exact total and no
-    # drift between table grid widths and individual cell widths.
+    # Each column requires at least one twip. Scaling first and clamping
+    # zero-width columns afterwards could exceed the printable page width.
+    count = len(widths)
+    if count > _MAX_BODY_TABLE_WIDTH_TWIPS:
+        raise ValueError("Too many columns to fit the printable Word table width")
+    available = _MAX_BODY_TABLE_WIDTH_TWIPS - count
+    quotas = tuple(divmod(width * available, total) for width in widths)
+    scaled = [1 + whole for whole, _ in quotas]
     remainder = _MAX_BODY_TABLE_WIDTH_TWIPS - sum(scaled)
-    return tuple(
-        width + (1 if index < remainder else 0)
-        for index, width in enumerate(scaled)
-    )
+    # Largest-remainder apportionment is deterministic, retains proportions
+    # to twip precision and makes tblW, tblGrid and tcW agree exactly.
+    for index in sorted(
+        range(count), key=lambda index: (-quotas[index][1], index)
+    )[:remainder]:
+        scaled[index] += 1
+    return tuple(scaled)
 
 
 _DOCX_PROGRESS = {

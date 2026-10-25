@@ -57,3 +57,38 @@ def test_table_width_weights_preserved_and_invalid_inputs_fail_closed() -> None:
     for invalid in ((), (0, 100), (-10, 200), (1.5, 200), (True, 200)):
         with pytest.raises(ValueError):
             _fit_table_widths(invalid)
+
+
+@pytest.mark.parametrize("widths", (
+    (1, 1, 1_000_000),
+    (1, 2, 10**100),
+    (1, 1, 1, 10**40),
+    (1,) * 20 + (10**30,),
+))
+def test_extreme_column_weight_ratio_never_exceeds_printable_width(
+    widths: tuple[int, ...],
+) -> None:
+    fitted = _fit_table_widths(widths)
+    assert len(fitted) == len(widths)
+    assert all(isinstance(width, int) and width > 0 for width in fitted)
+    assert sum(fitted) == _MAX_BODY_TABLE_WIDTH_TWIPS
+    assert fitted[-1] == max(fitted)
+
+    names = tuple(f"Column {index}" for index in range(len(widths)))
+    document = ET.fromstring(
+        '<root xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        + _table(names, (names,), widths=widths) + "</root>"
+    )
+    table = document.find(W + "tbl")
+    assert table is not None
+    declared = int(table.find(W + "tblPr").find(W + "tblW").get(W + "w"))
+    grid = tuple(int(col.get(W + "w")) for col in table.find(W + "tblGrid"))
+    assert declared == sum(grid) == _MAX_BODY_TABLE_WIDTH_TWIPS
+    for row in table.findall(W + "tr"):
+        assert tuple(int(cell.find(W + "tcPr").find(W + "tcW").get(W + "w"))
+                     for cell in row.findall(W + "tc")) == grid
+
+
+def test_word_width_allocator_rejects_more_columns_than_positive_twips() -> None:
+    with pytest.raises(ValueError, match="Too many columns"):
+        _fit_table_widths((1,) * (_MAX_BODY_TABLE_WIDTH_TWIPS + 1))
