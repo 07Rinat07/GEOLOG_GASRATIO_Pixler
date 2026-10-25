@@ -140,6 +140,44 @@ def test_signed_pdf_rejects_stale_evidence_before_creating_files(
     assert not passport_sidecar_path(target).exists()
 
 
+@pytest.mark.parametrize("language", list(AppLanguage))
+@pytest.mark.parametrize("existing", (False, True))
+@pytest.mark.parametrize("change", ("nan", "inf", "negative_inf", "text", "object", "shape"))
+def test_invalid_md_axis_preserves_pdf_and_passport(
+    qapp, tmp_path: Path, language: AppLanguage, existing: bool, change: str,
+) -> None:
+    session, report, observation = _actual_source()
+    dataset = session.current_dataset
+    assert dataset is not None
+    axis = dataset.active_index
+    if change in {"nan", "inf", "negative_inf"}:
+        axis.values[1] = {"nan": np.nan, "inf": np.inf, "negative_inf": -np.inf}[change]
+    elif change == "text":
+        axis.values = axis.values.astype(str)
+    elif change == "object":
+        axis.values = axis.values.astype(object)
+    else:
+        axis.values = axis.values.reshape(1, -1)
+    depths = axis.values.copy()
+    curves = {key: curve.values.copy() for key, curve in dataset.curves.items()}
+    target = tmp_path / "protected.pdf"
+    passport = passport_sidecar_path(target)
+    if existing:
+        target.write_bytes(b"%PDF-existing-approved-report")
+        passport.write_bytes(b'{"existing": "approved passport"}')
+    before = {path.name: path.read_bytes() for path in tmp_path.iterdir()}
+    with pytest.raises(HydrocarbonInterpretationPdfError, match="finite numeric MD axis"):
+        export_hydrocarbon_interpretation_pdf_with_passport(
+            session, report, target,
+            identity=default_interpretation_report_identity(report, language),
+            language=language, geology_evidence=(observation,),
+        )
+    assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == before
+    np.testing.assert_array_equal(axis.values, depths)
+    for key, values in curves.items():
+        np.testing.assert_array_equal(dataset.curves[key].values, values)
+
+
 def test_measured_zero_and_missing_lba_are_not_synthesized_in_pdf(
     qapp, tmp_path: Path,
 ) -> None:
