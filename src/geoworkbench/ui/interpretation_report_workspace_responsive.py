@@ -445,10 +445,15 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
         )
         self.export_label.setVisible(not compact)
 
+        # The legacy footer is replaced above; the Word orientation selector
+        # must be moved into this live, responsive layout with the export buttons.
         if compact:
-            for index, button in enumerate(buttons):
-                row, column = divmod(index, 2)
-                self._export_grid.addWidget(button, row, column)
+            self._export_grid.addWidget(self.xlsx_button, 0, 0)
+            self._export_grid.addWidget(self.docx_button, 0, 1)
+            self._export_grid.addWidget(self.word_orientation_label, 1, 0)
+            self._export_grid.addWidget(self.word_orientation, 1, 1)
+            self._export_grid.addWidget(self.pdf_button, 2, 0)
+            self._export_grid.addWidget(self.print_button, 2, 1)
             self._export_grid.setColumnStretch(0, 1)
             self._export_grid.setColumnStretch(1, 1)
         else:
@@ -456,6 +461,8 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
             self._export_grid.setColumnStretch(1, 1)
             for column, button in enumerate(buttons, start=2):
                 self._export_grid.addWidget(button, 0, column)
+            self._export_grid.addWidget(self.word_orientation_label, 1, 2)
+            self._export_grid.addWidget(self.word_orientation, 1, 3, 1, 2)
 
         self._apply_compact_export_labels()
 

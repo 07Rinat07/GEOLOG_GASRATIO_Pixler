@@ -145,3 +145,34 @@ def test_ui_choice_survives_language_change_and_is_forwarded(
     assert len(captured) == 1
     assert captured[0]["orientation"] == orientation
     workspace.close()
+
+
+
+@pytest.mark.parametrize("compact", (False, True))
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_operator_can_reach_word_orientation_in_responsive_export_footer(
+    qapp, monkeypatch: pytest.MonkeyPatch, language: AppLanguage, compact: bool,
+) -> None:
+    workspace = _workspace(language)
+    workspace.resize(1300, 800)
+    workspace.show()
+    qapp.processEvents()
+    # Exercise both layout branches independently of a particular screen DPI.
+    monkeypatch.setattr(workspace, "_EXPORT_COMPACT_BREAKPOINT", 100000 if compact else -1)
+    workspace._relayout_export_actions(force=True)
+    qapp.processEvents()
+    assert workspace.export_footer.isVisible()
+    for widget in (workspace.word_orientation_label, workspace.word_orientation):
+        assert workspace._export_grid.indexOf(widget) >= 0
+        assert widget.isVisible()
+        assert widget.parentWidget() is workspace.export_footer
+    assert workspace.word_orientation.currentData() == "portrait"
+    position = workspace.word_orientation.findData("landscape")
+    workspace.word_orientation.setCurrentIndex(position)
+    assert workspace.word_orientation.currentData() == "landscape"
+    workspace.set_language({AppLanguage.RU: AppLanguage.EN,
+                            AppLanguage.KK: AppLanguage.RU,
+                            AppLanguage.EN: AppLanguage.KK}[language])
+    assert workspace.word_orientation.currentData() == "landscape"
+    assert workspace.word_orientation.isVisible()
+    workspace.close()
