@@ -420,7 +420,7 @@ def _write_docx(
         "</w:body></w:document>"
     )
     if orientation == "portrait":
-        document_xml = _resize_docx_tables(document_xml, _PORTRAIT_TABLE_WIDTH_TWIPS)
+        document_xml = _resize_docx_tables(document_xml, _PORTRAIT_TABLE_WIDTH_TWIPS).decode("utf-8")
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as package:
         package.writestr(
             "[Content_Types].xml",
