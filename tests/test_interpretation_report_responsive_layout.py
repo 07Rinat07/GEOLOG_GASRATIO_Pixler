@@ -191,8 +191,10 @@ def test_interpretation_workspace_keeps_export_actions_visible_at_laptop_height(
     assert not workspace.export_label.isVisible()
     assert _export_grid_position(workspace, workspace.xlsx_button) == (0, 0, 1, 1)
     assert _export_grid_position(workspace, workspace.docx_button) == (0, 1, 1, 1)
-    assert _export_grid_position(workspace, workspace.pdf_button) == (1, 0, 1, 1)
-    assert _export_grid_position(workspace, workspace.print_button) == (1, 1, 1, 1)
+    assert _export_grid_position(workspace, workspace.word_orientation_label) == (1, 0, 1, 1)
+    assert _export_grid_position(workspace, workspace.word_orientation) == (1, 1, 1, 1)
+    assert _export_grid_position(workspace, workspace.pdf_button) == (2, 0, 1, 1)
+    assert _export_grid_position(workspace, workspace.print_button) == (2, 1, 1, 1)
 
     for button in (workspace.xlsx_button, workspace.docx_button, workspace.pdf_button, workspace.print_button):
         top_left = button.mapTo(workspace, QPoint(0, 0))

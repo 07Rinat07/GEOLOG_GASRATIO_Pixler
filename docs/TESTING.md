@@ -2469,3 +2469,11 @@ The first CI also had a native access violation during garbage collection in
 native GC crash later in the Word footer tests. Its root cause is unresolved;
 passing an isolated test does not close Qt #544. Match CI's PYTHONUTF8=1 when
 running the generic report tests on Windows.
+
+The 904-test shared-shard replay on c369cc7b passed locally in 406.79 seconds;
+this does not resolve the native GC failure. After the responsive-layout changes,
+CI 40229786296 exposed three legacy expectations. Identity regressions now require
+the default portrait cover/body and its 9600-twip, three-equal-column control
+table. The laptop-layout regression checks the orientation row between Word/Excel
+and PDF/print actions, retaining the existing visibility checks. Run both modules:
+`python scripts/run_tests.py tests/test_interpretation_report_identity.py tests/test_interpretation_report_responsive_layout.py -p no:cacheprovider`.

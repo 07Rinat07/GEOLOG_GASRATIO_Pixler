@@ -205,12 +205,12 @@ def test_default_word_cover_uses_full_width_three_column_control_table(tmp_path)
     assert control_table is not None
     table_width = control_table.find("w:tblPr/w:tblW", _W)
     assert table_width is not None
-    assert table_width.get(f"{{{_W_NS}}}w") == "15000"
+    assert table_width.get(f"{{{_W_NS}}}w") == "9600"
     grid_widths = [
         int(column.get(f"{{{_W_NS}}}w", "0"))
         for column in control_table.findall("w:tblGrid/w:gridCol", _W)
     ]
-    assert grid_widths == [5000, 5000, 5000]
+    assert grid_widths == [3200, 3200, 3200]
 
 
 def test_word_cover_is_separate_and_not_bunched_at_top(tmp_path) -> None:
@@ -264,11 +264,12 @@ def test_word_cover_is_separate_and_not_bunched_at_top(tmp_path) -> None:
     assert cover_type.get(f"{{{_W_NS}}}val") == "nextPage"
     assert cover_size is not None
     assert body_size is not None
-    assert int(cover_size.get(f"{{{_W_NS}}}w", "0")) > int(
+    assert cover_size.get(f"{{{_W_NS}}}orient") == "portrait"
+    assert int(cover_size.get(f"{{{_W_NS}}}w", "0")) < int(
         cover_size.get(f"{{{_W_NS}}}h", "0")
     )
-    assert body_size.get(f"{{{_W_NS}}}orient") == "landscape"
-    assert int(body_size.get(f"{{{_W_NS}}}w", "0")) > int(
+    assert body_size.get(f"{{{_W_NS}}}orient") == "portrait"
+    assert int(body_size.get(f"{{{_W_NS}}}w", "0")) < int(
         body_size.get(f"{{{_W_NS}}}h", "0")
     )
 
