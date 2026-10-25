@@ -1,3 +1,12 @@
+## PRINT-STYLE-01 — Windows Qt/Office regression isolation (26.10.2026)
+
+- Exposed PR #741 Word page orientation in the responsive export footer.
+- After observed native 0xC0000005 in the mixed Windows test shard, both
+  orientation/UI and generic Office regression functions run in fresh
+  native test processes. Tests, checks and crash failures remain mandatory.
+- Added a runner contract assertion. This is containment for CI, not
+  evidence that underlying native Qt #544 has been repaired.
+
 ## PRINT-STYLE-01 — граничные ширины Word-таблиц (25.10.2026, PR-проверка)
 
 ## PRINT-STYLE-01 — книжная ориентация Word по умолчанию (25.10.2026, PR-проверка)

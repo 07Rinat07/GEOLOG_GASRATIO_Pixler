@@ -1,3 +1,16 @@
+## PRINT-STYLE-01 — Windows isolation of Word-orientation regression
+
+PR #741 showed 0xC0000005 in the Windows quality gate on the mixed
+Qt/Office shard (first while loading an Excel workbook, then during
+construction of a gas-ratio workspace). The current Windows runner
+already isolates known native-sensitive tests by function. Apply that
+existing mandatory isolation to `test_gas_ratio_word_page_orientation.py`
+and `test_generic_report_control.py`; each selected test function,
+including every parameter variation, still executes under pytest.
+Native failures remain failures with their selector and exit code logged.
+Validate runner batching contract and all three Release Gate jobs on the
+exact new PR head; this does not establish the root cause of Qt issue #544.
+
 ## PRINT-STYLE-01 — Word table width apportionment
 
 ## PRINT-STYLE-01 — gas Word A4 page orientation
