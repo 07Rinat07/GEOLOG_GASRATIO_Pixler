@@ -152,16 +152,19 @@ def correlate_gas_interval_with_well_geology(
         ("stratigraphy", well.stratigraphy),
     ):
         for record in records:
+            # Validate each source scalar before combining: NumPy would
+            # otherwise coerce a boolean + float pair to a numeric array.
             try:
-                bounds = np.asarray((record.top_depth, record.bottom_depth))
+                bounds = (np.asarray(record.top_depth), np.asarray(record.bottom_depth))
             except (TypeError, ValueError) as exc:
                 raise ValueError(
                     f"Geology correlation requires finite numeric MD bounds in {source_kind}"
                 ) from exc
-            if (
-                bounds.shape != (2,)
-                or bounds.dtype.kind not in "fiu"
-                or not np.isfinite(bounds).all()
+            if any(
+                bound.ndim != 0
+                or bound.dtype.kind not in "fiu"
+                or not np.isfinite(bound).all()
+                for bound in bounds
             ):
                 raise ValueError(
                     f"Geology correlation requires finite numeric MD bounds in {source_kind}"
