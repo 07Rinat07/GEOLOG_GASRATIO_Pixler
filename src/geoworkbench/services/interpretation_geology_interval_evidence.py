@@ -188,21 +188,13 @@ def correlate_gas_interval_with_well_geology(
     # components from the generic report snapshot or the 0..100 filter.
     for source_sample in well.cuttings:
         for component in source_sample.components:
-            try:
-                fraction = np.asarray(component.percentage)
-            except (TypeError, ValueError) as exc:
-                raise ValueError(
-                    "Geology correlation requires finite numeric cuttings percentages from 0 to 100"
-                ) from exc
-            if (
-                fraction.ndim != 0
-                or fraction.dtype.kind not in "fiu"
-                or not np.isfinite(fraction).all()
-                or not 0.0 <= float(fraction) <= 100.0
-            ):
-                raise ValueError(
-                    "Geology correlation requires finite numeric cuttings percentages from 0 to 100"
-                )
+            _validate_measured_percentage(component.percentage, "cuttings")
+        # None means no assay; a present value must survive validation before
+        # the generic snapshot can coerce it or discard it as missing.
+        for field in ("calcite_percent", "dolomite_percent", "total_carbonate_percent"):
+            value = getattr(source_sample, field)
+            if value is not None:
+                _validate_measured_percentage(value, "calcimetry")
 
     evidence: list[MeasuredGeologyIntersection] = []
 
@@ -305,6 +297,21 @@ def correlate_gas_interval_with_well_geology(
         coverage_by_kind=coverage,
         missing_kinds=tuple(kind for kind, fraction in coverage if fraction == 0.0),
     )
+
+
+def _validate_measured_percentage(value: object, source: str) -> None:
+    message = f"Geology correlation requires finite numeric {source} percentages from 0 to 100"
+    try:
+        fraction = np.asarray(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(message) from exc
+    if (
+        fraction.ndim != 0
+        or fraction.dtype.kind not in "fiu"
+        or not np.isfinite(fraction).all()
+        or not 0.0 <= float(fraction) <= 100.0
+    ):
+        raise ValueError(message)
 
 
 def _union_coverage(intervals, target_length: float) -> float:

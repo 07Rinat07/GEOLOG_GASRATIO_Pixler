@@ -2393,3 +2393,12 @@ None, boolean, число и массив вместо текстового ко
 `test_interpretation_geology_evidence_signed_pdf.py` проверяет RU/KK/EN
 и сохранность новых/существующих PDF и паспортов при повреждённом коде.
 Запуск: `.venv\Scripts\python.exe scripts/run_tests.py tests/test_interpretation_geology_interval_evidence.py tests/test_interpretation_geology_evidence_signed_pdf.py -p no:cacheprovider`.
+
+### Исходная кальциметрия (25.10.2026)
+
+В `test_interpretation_geology_interval_evidence.py` проверяется каждый из
+трёх карбонатных процентов: NaN/Inf, выход за 0–100, текст, boolean и массив
+отклоняются без изменения записи. None, ноль и числовые значения сохраняют
+семантику. Signed-PDF регрессии RU/KK/EN проверяют сохранность новых и
+существующих PDF/паспортов при повреждённой кальциметрии.
+Команда: `.venv\Scripts\python.exe scripts/run_tests.py tests/test_interpretation_geology_interval_evidence.py tests/test_interpretation_geology_evidence_signed_pdf.py -p no:cacheprovider`.

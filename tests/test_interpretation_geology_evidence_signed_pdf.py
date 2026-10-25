@@ -256,13 +256,17 @@ def test_corrupt_geology_record_md_preserves_signed_pdf_and_passport(
 @pytest.mark.parametrize("language", tuple(AppLanguage))
 @pytest.mark.parametrize("existing", (False, True))
 @pytest.mark.parametrize("bad_fraction", (float("nan"), 101.0, "70.0"))
+@pytest.mark.parametrize("source", ("cuttings", "calcimetry"))
 def test_invalid_cuttings_percentage_preserves_signed_pdf_and_passport(
-    qapp, tmp_path: Path, language: AppLanguage, existing: bool, bad_fraction,
+    qapp, tmp_path: Path, language: AppLanguage, existing: bool, bad_fraction, source: str,
 ) -> None:
     session, report, selected = _actual_source()
     well, dataset = session.current_well, session.current_dataset
     assert well is not None and dataset is not None
-    well.cuttings[0].components[0].percentage = bad_fraction
+    if source == "cuttings":
+        well.cuttings[0].components[0].percentage = bad_fraction
+    else:
+        well.cuttings[0].calcite_percent = bad_fraction
     before_well = repr(well)
     before_md = dataset.depth.copy()
     before_curves = {key: curve.values.copy() for key, curve in dataset.curves.items()}
@@ -274,7 +278,7 @@ def test_invalid_cuttings_percentage_preserves_signed_pdf_and_passport(
         passport.write_bytes(b'{"previous": "approved"}')
     before_files = {path.name: path.read_bytes() for path in tmp_path.iterdir()}
 
-    with pytest.raises(HydrocarbonInterpretationPdfError, match="finite numeric cuttings percentages"):
+    with pytest.raises(HydrocarbonInterpretationPdfError, match=f"finite numeric {source} percentages"):
         export_hydrocarbon_interpretation_pdf_with_passport(
             session, report, target,
             identity=default_interpretation_report_identity(report, language),
