@@ -2477,3 +2477,11 @@ the default portrait cover/body and its 9600-twip, three-equal-column control
 table. The laptop-layout regression checks the orientation row between Word/Excel
 and PDF/print actions, retaining the existing visibility checks. Run both modules:
 `python scripts/run_tests.py tests/test_interpretation_report_identity.py tests/test_interpretation_report_responsive_layout.py -p no:cacheprovider`.
+
+CI 40236145192 exposed a missing setup action in the responsive Word-orientation
+test: export controls belong to the initially collapsed preview. The regression
+now clicks the operator's preview toggle before checking both export layouts in
+RU/KK/EN; visibility and language-change persistence assertions remain mandatory.
+All six cases failed locally before this setup fix and passed after it. A broader
+combined orientation/responsive run still terminated with a native exception;
+the six-case success does not resolve that separate lifecycle issue (#544).

@@ -157,6 +157,11 @@ def test_operator_can_reach_word_orientation_in_responsive_export_footer(
     workspace.resize(1300, 800)
     workspace.show()
     qapp.processEvents()
+    assert not workspace.preview_toggle.isChecked()
+    assert not workspace.export_footer.isVisible()
+    workspace.preview_toggle.click()
+    qapp.processEvents()
+    assert workspace.report_panel.isVisible()
     # Exercise both layout branches independently of a particular screen DPI.
     monkeypatch.setattr(workspace, "_EXPORT_COMPACT_BREAKPOINT", 100000 if compact else -1)
     workspace._relayout_export_actions(force=True)
