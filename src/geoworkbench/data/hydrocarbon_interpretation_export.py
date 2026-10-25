@@ -94,7 +94,8 @@ def _fit_table_widths(widths: tuple[int, ...], *, max_width: int = _MAX_BODY_TAB
 def _resize_docx_tables(document_xml: str | bytes, limit: int) -> bytes:
     """Keep every fixed-grid Word table inside the portrait printable width."""
     root = ET.fromstring(document_xml)
-    q = lambda tag: f"{{{_WORD_NS}}}{tag}"
+    def q(tag: str) -> str:
+        return f"{{{_WORD_NS}}}{tag}"
     for table in root.iter(q("tbl")):
         properties = table.find(q("tblPr"))
         grid = table.find(q("tblGrid"))
