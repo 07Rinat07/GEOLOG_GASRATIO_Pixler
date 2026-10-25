@@ -186,8 +186,8 @@ def correlate_gas_interval_with_well_geology(
 
     # Explicit measured evidence must not silently discard malformed
     # components from the generic report snapshot or the 0..100 filter.
-    for sample in well.cuttings:
-        for component in sample.components:
+    for source_sample in well.cuttings:
+        for component in source_sample.components:
             try:
                 fraction = np.asarray(component.percentage)
             except (TypeError, ValueError) as exc:
