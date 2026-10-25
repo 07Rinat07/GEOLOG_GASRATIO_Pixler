@@ -184,6 +184,26 @@ def correlate_gas_interval_with_well_geology(
                     f"Geology correlation requires finite numeric MD bounds in {source_kind}"
                 )
 
+    # Explicit measured evidence must not silently discard malformed
+    # components from the generic report snapshot or the 0..100 filter.
+    for sample in well.cuttings:
+        for component in sample.components:
+            try:
+                fraction = np.asarray(component.percentage)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    "Geology correlation requires finite numeric cuttings percentages from 0 to 100"
+                ) from exc
+            if (
+                fraction.ndim != 0
+                or fraction.dtype.kind not in "fiu"
+                or not np.isfinite(fraction).all()
+                or not 0.0 <= float(fraction) <= 100.0
+            ):
+                raise ValueError(
+                    "Geology correlation requires finite numeric cuttings percentages from 0 to 100"
+                )
+
     evidence: list[MeasuredGeologyIntersection] = []
 
     def add(
