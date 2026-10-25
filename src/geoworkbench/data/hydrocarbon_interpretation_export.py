@@ -3,6 +3,9 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from functools import partial
+from typing import Literal
+from xml.etree import ElementTree as ET
+from defusedxml.ElementTree import fromstring as parse_xml
 from collections.abc import Callable
 import tempfile
 import zipfile
@@ -58,24 +61,29 @@ class HydrocarbonInterpretationExportError(RuntimeError):
 # A4 landscape body: 16838 twips, 850-twip left and right margins.
 # Keep a further buffer so Word/LibreOffice border rounding cannot clip cells.
 _MAX_BODY_TABLE_WIDTH_TWIPS = 14_000
+_PORTRAIT_TABLE_WIDTH_TWIPS = 9_600
+_WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+_R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 
 
-def _fit_table_widths(widths: tuple[int, ...]) -> tuple[int, ...]:
+def _fit_table_widths(widths: tuple[int, ...], *, max_width: int = _MAX_BODY_TABLE_WIDTH_TWIPS) -> tuple[int, ...]:
     """Keep positive weighted columns within the physical Word page width."""
     if not widths or any(type(width) is not int or width <= 0 for width in widths):
         raise ValueError("Column widths must be positive integers")
+    if type(max_width) is not int or max_width <= 0:
+        raise ValueError("Printable table width must be a positive integer")
     total = sum(widths)
-    if total <= _MAX_BODY_TABLE_WIDTH_TWIPS:
+    if total <= max_width:
         return widths
     # Each column requires at least one twip. Scaling first and clamping
     # zero-width columns afterwards could exceed the printable page width.
     count = len(widths)
-    if count > _MAX_BODY_TABLE_WIDTH_TWIPS:
+    if count > max_width:
         raise ValueError("Too many columns to fit the printable Word table width")
-    available = _MAX_BODY_TABLE_WIDTH_TWIPS - count
+    available = max_width - count
     quotas = tuple(divmod(width * available, total) for width in widths)
     scaled = [1 + whole for whole, _ in quotas]
-    remainder = _MAX_BODY_TABLE_WIDTH_TWIPS - sum(scaled)
+    remainder = max_width - sum(scaled)
     # Largest-remainder apportionment is deterministic, retains proportions
     # to twip precision and makes tblW, tblGrid and tcW agree exactly.
     for index in sorted(
@@ -84,6 +92,38 @@ def _fit_table_widths(widths: tuple[int, ...]) -> tuple[int, ...]:
         scaled[index] += 1
     return tuple(scaled)
 
+def _resize_docx_tables(document_xml: str | bytes, limit: int) -> bytes:
+    """Keep every fixed-grid Word table inside the portrait printable width."""
+    root = parse_xml(document_xml)
+    def q(tag: str) -> str:
+        return f"{{{_WORD_NS}}}{tag}"
+    for table in root.iter(q("tbl")):
+        properties = table.find(q("tblPr"))
+        grid = table.find(q("tblGrid"))
+        if properties is None or grid is None:
+            raise ValueError("Word table has no fixed-width metadata")
+        columns = grid.findall(q("gridCol"))
+        widths = _fit_table_widths(
+            tuple(int(col.get(q("w"), "0")) for col in columns), max_width=limit,
+        )
+        tbl_width = properties.find(q("tblW"))
+        if tbl_width is None:
+            raise ValueError("Word table has no declared width")
+        tbl_width.set(q("w"), str(sum(widths)))
+        for col, width in zip(columns, widths, strict=True):
+            col.set(q("w"), str(width))
+        for row in table.findall(q("tr")):
+            cells = row.findall(q("tc"))
+            if len(cells) != len(widths):
+                raise ValueError("Word table column count changed")
+            for cell, width in zip(cells, widths, strict=True):
+                tc_width = cell.find(f'{q("tcPr")}/{q("tcW")}')
+                if tc_width is None:
+                    raise ValueError("Word table cell is missing width")
+                tc_width.set(q("w"), str(width))
+    ET.register_namespace("w", _WORD_NS)
+    ET.register_namespace("r", _R_NS)
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
 _DOCX_PROGRESS = {
     AppLanguage.RU: (
@@ -165,11 +205,14 @@ def export_hydrocarbon_interpretation_docx(
     *,
     dataset: Dataset | None = None,
     language: AppLanguage = AppLanguage.RU,
+    orientation: Literal["landscape", "portrait"] = "portrait",
     overwrite: bool = False,
     progress: Callable[[str, int, int], None] | None = None,
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
     geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
 ) -> Path:
+    if orientation not in ("landscape", "portrait"):
+        raise ValueError("Word page orientation must be landscape or portrait")
     verified_report_geology_evidence(report, geology_evidence)
     progress_prepare, progress_statistics, progress_save, progress_ready, error_export = (
         _DOCX_PROGRESS[language]
@@ -188,7 +231,7 @@ def export_hydrocarbon_interpretation_docx(
         )
         if geology_evidence:
             writer = partial(writer, geology_evidence=geology_evidence)
-        writer(temporary, report, dataset, language)
+        writer(temporary, report, dataset, language, orientation=orientation)
         _notify_export_progress(progress, progress_save, 90, 100)
         os.replace(temporary, destination)
         _notify_export_progress(progress, progress_ready, 100, 100)
@@ -220,6 +263,7 @@ def _write_docx(
     *,
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
     geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
+    orientation: Literal["landscape", "portrait"] = "portrait",
 ) -> None:
     interval = getattr(report, "analysis_depth_interval", None)
     labels = hydrocarbon_report_labels(language)
@@ -364,17 +408,20 @@ def _write_docx(
         )
     else:
         body.append(_paragraph(labels.no_manual))
+    page_width, page_height = ((11906, 16838) if orientation == "portrait" else (16838, 11906))
     document_xml = (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
         'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
         "<w:body>"
         + "".join(body)
-        + '<w:sectPr><w:footerReference w:type="default" r:id="rIdFooter"/><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>'
+        + f'<w:sectPr><w:footerReference w:type="default" r:id="rIdFooter"/><w:pgSz w:w="{page_width}" w:h="{page_height}" w:orient="{orientation}"/>'
         '<w:pgMar w:top="850" w:right="850" w:bottom="1440" w:left="850" '
         'w:header="708" w:footer="720" w:gutter="0"/></w:sectPr>'
         "</w:body></w:document>"
     )
+    if orientation == "portrait":
+        document_xml = _resize_docx_tables(document_xml, _PORTRAIT_TABLE_WIDTH_TWIPS).decode("utf-8")
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as package:
         package.writestr(
             "[Content_Types].xml",
@@ -421,7 +468,8 @@ def _write_docx(
             + '</classificationAudit>',
         )
         package.writestr("word/styles.xml", _docx_styles())
-        package.writestr("word/footer.xml", report_document_control_docx_footer(None, language))
+        package.writestr("word/footer.xml", (report_document_control_docx_footer(None, language, width_twips=_PORTRAIT_TABLE_WIDTH_TWIPS)
+             if orientation == "portrait" else report_document_control_docx_footer(None, language)))
 
 
 

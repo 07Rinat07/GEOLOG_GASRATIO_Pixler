@@ -88,6 +88,11 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         # cases shared a process with earlier GUI tests. Give these cases a
         # clean subprocess without changing or skipping any assertions.
         "tests/test_report_document_control_docx_footer.py",
+        # PR #741: Windows 0xC0000005 during GC in a mixed Qt/Office shard.
+        # Exercise each Word orientation and generic Office test function in
+        # a fresh Windows Qt process; no assertions or failure exits are masked.
+        "tests/test_gas_ratio_word_page_orientation.py",
+        "tests/test_generic_report_control.py",
         # 39081611121: UI→Word acceptance stopped in a shared Qt shard even
         # with a bounded faulthandler. Retain every RU/KK/EN and stale-source
         # assertion, with a fresh QApplication/native heap per test function.

@@ -174,6 +174,7 @@ class InterpretationReportWorkspace(_FinalInterpretationReportWorkspace):
                     identity=identity,
                     language=self._report_output_language(),
                     overwrite=target.exists(),
+                    orientation=self.word_orientation.currentData() or "portrait",
                 )
         except (OSError, FileExistsError, HydrocarbonInterpretationExportError) as exc:
             self._show_export_error(exc)
@@ -201,13 +202,11 @@ class InterpretationReportWorkspace(_FinalInterpretationReportWorkspace):
         self.docx_button.setToolTip(
             self._text(
                 "Перед сохранением позволяет изменить реквизиты. Титульный лист Word "
-                "создаётся отдельной книжной страницей, а таблицы начинаются со "
-                "следующей альбомной страницы.",
-                "Сақтау алдында деректемелерді өзгертуге болады. Word титулдық беті "
-                "жеке кітапша бет ретінде жасалады, ал кестелер келесі альбомдық "
-                "беттен басталады.",
-                "Lets you edit report details before saving. Word uses a separate "
-                "portrait cover page, and tables start on the next landscape page.",
+                "и основные таблицы используют выбранную ориентацию A4.",
+                "Сақтау алдында деректемелерді өзгертуге болады. Титулдық бет "
+                "және кестелер таңдалған A4 бағытында болады.",
+                "Lets you edit report details before saving. The cover and tables "
+                "use the selected A4 page orientation.",
             )
         )
 

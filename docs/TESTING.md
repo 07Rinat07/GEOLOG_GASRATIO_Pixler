@@ -1,4 +1,30 @@
+## PRINT-STYLE-01 — Windows isolation of Word-orientation regression
+
+PR #741 showed 0xC0000005 in the Windows quality gate on the mixed
+Qt/Office shard (first while loading an Excel workbook, then during
+construction of a gas-ratio workspace). The current Windows runner
+already isolates known native-sensitive tests by function. Apply that
+existing mandatory isolation to `test_gas_ratio_word_page_orientation.py`
+and `test_generic_report_control.py`; each selected test function,
+including every parameter variation, still executes under pytest.
+Native failures remain failures with their selector and exit code logged.
+Validate runner batching contract and all three Release Gate jobs on the
+exact new PR head; this does not establish the root cause of Qt issue #544.
+
 ## PRINT-STYLE-01 — Word table width apportionment
+
+## PRINT-STYLE-01 — gas Word A4 page orientation
+
+Default Word export of gas ratios and interpretation reports is A4 portrait.
+Users may select landscape in the report workspace; the polished cover and
+report body must use the same selected orientation. RU/KK/EN standard and
+OPUS actual DOCX exports must validate page sizes of every sectPr and
+matching tblW/tblGrid/tcW and footer widths, bounded to 9600 twips in
+portrait, with the old landscape option intact. Test language-choice
+persistence, invalid-orientation refusal, report source immutability and
+no change to PDF/system print. Exact HEAD Windows CI (all three jobs)
+and post-merge main CI are required; physical print acceptance separately.
+
 
 Regression `tests/test_docx_table_print_bounds.py`: very skewed positive
 integer weights (including large integers), more than 14 000 one-twip columns,
@@ -2431,3 +2457,31 @@ None, boolean, число и массив вместо текстового ко
 семантику. Signed-PDF регрессии RU/KK/EN проверяют сохранность новых и
 существующих PDF/паспортов при повреждённой кальциметрии.
 Команда: `.venv\Scripts\python.exe scripts/run_tests.py tests/test_interpretation_geology_interval_evidence.py tests/test_interpretation_geology_evidence_signed_pdf.py -p no:cacheprovider`.
+
+### PR #741: XML parser security regression (25.10.2026)
+
+Word table resizing uses defusedxml for parsing; ElementTree remains the serializer.
+`test_word_table_resize_rejects_xml_entities` requires EntitiesForbidden for an
+entity declaration. Bandit B314 is fixed without suppressions. Run Bandit with
+medium severity/confidence and the Word orientation/footer regression modules.
+The first CI also had a native access violation during garbage collection in
+`test_generic_office_control_after_reopen`; a local combined run reproduced a
+native GC crash later in the Word footer tests. Its root cause is unresolved;
+passing an isolated test does not close Qt #544. Match CI's PYTHONUTF8=1 when
+running the generic report tests on Windows.
+
+The 904-test shared-shard replay on c369cc7b passed locally in 406.79 seconds;
+this does not resolve the native GC failure. After the responsive-layout changes,
+CI 40229786296 exposed three legacy expectations. Identity regressions now require
+the default portrait cover/body and its 9600-twip, three-equal-column control
+table. The laptop-layout regression checks the orientation row between Word/Excel
+and PDF/print actions, retaining the existing visibility checks. Run both modules:
+`python scripts/run_tests.py tests/test_interpretation_report_identity.py tests/test_interpretation_report_responsive_layout.py -p no:cacheprovider`.
+
+CI 40236145192 exposed a missing setup action in the responsive Word-orientation
+test: export controls belong to the initially collapsed preview. The regression
+now clicks the operator's preview toggle before checking both export layouts in
+RU/KK/EN; visibility and language-change persistence assertions remain mandatory.
+All six cases failed locally before this setup fix and passed after it. A broader
+combined orientation/responsive run still terminated with a native exception;
+the six-case success does not resolve that separate lifecycle issue (#544).

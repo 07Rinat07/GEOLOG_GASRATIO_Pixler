@@ -42,3 +42,11 @@ across page boundaries; coverage and data headers repeat on subsequent pages.
 Geological and interpretation Word reports (standard/OPUS, including polished
 versions) keep headings with their following content. Ordinary paragraphs and
 individual table rows may move independently to the next page.
+
+## Word gas-ratio reports: page orientation
+
+In the interpretation workspace, select **Portrait** (A4, default)
+or **Landscape** next to the Word button. Both the cover and the full
+report use the selected orientation, including the tables and footer.
+PDF and direct application printing are not changed. Check long tables
+in Word's print preview before delivering a report.
