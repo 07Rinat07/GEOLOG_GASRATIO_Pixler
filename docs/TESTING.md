@@ -2315,3 +2315,11 @@ Successful source review exposes appended rows. A removed selected row stays
 selected and unavailable; it never silently becomes a neighbouring sample.
 Explicitly choosing a remaining row restores the current range. Operator
 evidence and source values are preserved, with no implicit calibration.
+## Signed geology PDF: invalid MD never replaces existing outputs
+
+The 36-case `test_invalid_md_axis_preserves_pdf_and_passport` matrix covers
+RU/KK/EN, new/existing targets and NaN, positive/negative infinity, text,
+object and two-dimensional MD axes after selecting valid geology evidence.
+It invokes the signed PDF API and requires its public export exception,
+no new directory entries and byte-identical existing PDF/passport contents.
+The malformed source axis and curve samples must remain unchanged.
