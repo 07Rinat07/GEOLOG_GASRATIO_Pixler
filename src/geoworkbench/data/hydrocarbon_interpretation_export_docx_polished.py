@@ -46,7 +46,7 @@ def export_polished_hydrocarbon_interpretation_docx(
     dataset: Dataset | None = None,
     identity: InterpretationReportIdentity | None = None,
     language: AppLanguage = AppLanguage.RU,
-    orientation: Literal["landscape", "portrait"] = "landscape",
+    orientation: Literal["landscape", "portrait"] = "portrait",
     overwrite: bool = False,
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
     geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),

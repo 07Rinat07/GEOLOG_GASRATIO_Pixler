@@ -986,7 +986,7 @@ class InterpretationReportWorkspace(QWidget):
                     language=self._report_output_language(),
                     overwrite=target.exists(),
                     progress=self._update_report_export_progress,
-                    **({"orientation": "portrait"} if self.word_orientation.currentData() == "portrait" else {}),
+                    orientation=self.word_orientation.currentData() or "portrait",
                 )
         except (OSError, FileExistsError, HydrocarbonInterpretationExportError) as exc:
             self._show_export_error(exc)
@@ -1476,8 +1476,8 @@ class InterpretationReportWorkspace(QWidget):
         current_orientation = self.word_orientation.currentData()
         self.word_orientation.blockSignals(True)
         self.word_orientation.clear()
-        self.word_orientation.addItem(self._text("Альбомная", "Альбомдық", "Landscape"), "landscape")
         self.word_orientation.addItem(self._text("Книжная", "Кітаптық", "Portrait"), "portrait")
+        self.word_orientation.addItem(self._text("Альбомная", "Альбомдық", "Landscape"), "landscape")
         self.word_orientation.setCurrentIndex(max(0, self.word_orientation.findData(current_orientation)))
         self.word_orientation.blockSignals(False)
         self.word_orientation.setToolTip(self._text(

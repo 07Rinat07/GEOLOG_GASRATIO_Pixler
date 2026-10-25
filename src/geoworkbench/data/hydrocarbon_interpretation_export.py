@@ -203,7 +203,7 @@ def export_hydrocarbon_interpretation_docx(
     *,
     dataset: Dataset | None = None,
     language: AppLanguage = AppLanguage.RU,
-    orientation: Literal["landscape", "portrait"] = "landscape",
+    orientation: Literal["landscape", "portrait"] = "portrait",
     overwrite: bool = False,
     progress: Callable[[str, int, int], None] | None = None,
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
@@ -261,7 +261,7 @@ def _write_docx(
     *,
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
     geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
-    orientation: Literal["landscape", "portrait"] = "landscape",
+    orientation: Literal["landscape", "portrait"] = "portrait",
 ) -> None:
     interval = getattr(report, "analysis_depth_interval", None)
     labels = hydrocarbon_report_labels(language)

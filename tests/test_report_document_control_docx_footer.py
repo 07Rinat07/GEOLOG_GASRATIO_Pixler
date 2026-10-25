@@ -36,7 +36,7 @@ def _text(element):
     return ''.join(node.text or '' for node in element.findall('.//w:t', _NAMESPACES))
 
 
-def _check_footer_package(path, language, expected_sections, has_details):
+def _check_footer_package(path, language, expected_sections, has_details, orientation="portrait"):
     with zipfile.ZipFile(path) as package:
         assert package.testzip() is None
         for name in package.namelist():
@@ -76,12 +76,11 @@ def _check_footer_package(path, language, expected_sections, has_details):
         width = footer.find('.//w:tblPr/w:tblW', _NAMESPACES)
         assert width.get(_W + 'type') == 'dxa'
         declared = int(width.get(_W + 'w'))
-        assert declared == 15_000
-        # Even polished A4-landscape reports use at most 850 twip side margins.
-        assert declared < 16_838 - 2 * 850
+        assert declared == (9_600 if orientation == "portrait" else 15_000)
+        assert declared < (11_906 if orientation == "portrait" else 16_838) - 2 * 850
         grid = footer.findall('.//w:tblGrid/w:gridCol', _NAMESPACES)
         col_widths = tuple(int(column.get(_W + 'w')) for column in grid)
-        assert col_widths == (12_000, 3_000)
+        assert col_widths == ((7_680, 1_920) if orientation == "portrait" else (12_000, 3_000))
         assert sum(col_widths) == declared
         for cell, expected in zip(rows[0].findall('w:tc', _NAMESPACES), col_widths):
             cell_width = cell.find('w:tcPr/w:tcW', _NAMESPACES)
@@ -106,8 +105,9 @@ def _check_footer_package(path, language, expected_sections, has_details):
         if has_details:
             assert len(_text(rows[1])) <= 96
         sizes = document.findall('.//w:pgSz', _NAMESPACES)
-        assert sizes and all(size.get(_W + "orient") == "landscape" for size in sizes)
-        assert len({(size.get(_W + "w"), size.get(_W + "h")) for size in sizes}) == 1
+        assert sizes and all(size.get(_W + "orient") == orientation for size in sizes)
+        expected = (("11906", "16838") if orientation == "portrait" else ("16838", "11906"))
+        assert {(size.get(_W + "w"), size.get(_W + "h")) for size in sizes} == {expected}
         assert 'customXml/geolog-classification-audit.xml' in package.namelist()
     return document, footer
 
@@ -253,7 +253,7 @@ def test_footer_failure_preserves_existing_document_and_cleans_staging(tmp_path,
 
     target = tmp_path / 'existing.docx'
     target.write_bytes(b'original document')
-    def fail_footer(*args):
+    def fail_footer(*args, **kwargs):
         raise RuntimeError('footer failed')
     monkeypatch.setattr(exporter, 'report_document_control_docx_footer', fail_footer)
     with pytest.raises(RuntimeError, match='footer failed'):

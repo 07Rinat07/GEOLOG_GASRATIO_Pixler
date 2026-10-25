@@ -174,7 +174,7 @@ class InterpretationReportWorkspace(_FinalInterpretationReportWorkspace):
                     identity=identity,
                     language=self._report_output_language(),
                     overwrite=target.exists(),
-                    **({"orientation": "portrait"} if self.word_orientation.currentData() == "portrait" else {}),
+                    orientation=self.word_orientation.currentData() or "portrait",
                 )
         except (OSError, FileExistsError, HydrocarbonInterpretationExportError) as exc:
             self._show_export_error(exc)
