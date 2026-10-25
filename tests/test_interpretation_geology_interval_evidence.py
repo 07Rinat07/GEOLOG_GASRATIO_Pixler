@@ -477,3 +477,30 @@ def test_large_representable_md_span_keeps_measured_coverage():
     session.current_well.lithology[0].bottom_depth = 0.0
     evidence = _intersect(session, -1e307, 1e307)
     assert evidence.coverage("lithology") == pytest.approx(0.5)
+
+
+@pytest.mark.parametrize("code", (None, True, 123, np.array(["C1"])))
+def test_non_text_stratigraphy_code_cannot_become_measured_evidence(code):
+    session = _session()
+    well = session.current_well
+    well.stratigraphy.append(StratigraphyInterval("invalid-code", 1004.0, 1009.0, code))
+    before = repr(well)
+    with pytest.raises(ValueError, match="text stratigraphy code"):
+        _intersect(session)
+    assert repr(well) == before
+
+
+@pytest.mark.parametrize("code", ("", "   ", " C1 "))
+def test_text_stratigraphy_codes_keep_blank_and_trimmed_behavior(code):
+    session = _session()
+    session.current_well.stratigraphy.append(
+        StratigraphyInterval("stratum", 1004.0, 1009.0, code),
+    )
+    evidence = _intersect(session)
+    observed = [item for item in evidence.intersections if item.kind == "stratigraphy"]
+    if code.strip():
+        assert observed[0].attributes == (("code", "C1"),)
+        assert evidence.coverage("stratigraphy") == pytest.approx(5 / 8)
+    else:
+        assert observed == []
+        assert evidence.coverage("stratigraphy") == 0.0
