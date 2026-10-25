@@ -184,6 +184,17 @@ def correlate_gas_interval_with_well_geology(
                     f"Geology correlation requires finite numeric MD bounds in {source_kind}"
                 )
 
+    # Code is required, while optional name/rank may be absent. Reject
+    # non-text metadata even on an outside or blank-code source record;
+    # otherwise a malformed field can be silently excluded or crash export.
+    for stratum in well.stratigraphy:
+        for field in ("name", "rank"):
+            value = getattr(stratum, field)
+            if value is not None and not isinstance(value, str):
+                raise ValueError(
+                    f"Geology correlation requires text stratigraphy {field}"
+                )
+
     # Explicit measured evidence must not silently discard malformed
     # components from the generic report snapshot or the 0..100 filter.
     for source_sample in well.cuttings:
