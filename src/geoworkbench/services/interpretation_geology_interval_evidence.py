@@ -85,6 +85,7 @@ class GasGeologyIntervalEvidence:
         if self.depth_unit != "m" or kind not in _KINDS or not (
             isfinite(self.gas_top) and isfinite(self.gas_bottom)
             and self.gas_top < self.gas_bottom
+            and isfinite(self.gas_bottom - self.gas_top)
         ):
             raise ValueError("Uncovered intervals require a known kind and finite MD bounds")
         cursor = self.gas_top
@@ -137,7 +138,9 @@ def correlate_gas_interval_with_well_geology(
     ):
         raise ValueError("Gas interval requires two increasing finite numeric MD depths")
     top, bottom = (float(value) for value in selected_bounds)
-    if not (isfinite(top) and isfinite(bottom) and top < bottom):
+    # Finite endpoints can still overflow on subtraction. Coverage needs a
+    # representable denominator, otherwise measured intervals become zero.
+    if not (isfinite(top) and isfinite(bottom) and top < bottom and isfinite(bottom - top)):
         raise ValueError("Gas interval requires two increasing finite MD depths")
     depth = np.asarray(axis.values)
     # Filtering invalid coordinates would make a partly unreadable MD axis

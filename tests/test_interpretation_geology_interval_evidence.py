@@ -448,3 +448,32 @@ def test_valid_outside_source_records_still_do_not_inflate_coverage():
     assert evidence.coverage("lithology") == pytest.approx(6 / 8)
     assert evidence.coverage("cuttings") == pytest.approx(5 / 8)
     assert all(item.source_id not in {"lith-out", "sample-out"} for item in evidence.intersections)
+
+
+def test_finite_md_bounds_with_overflowing_span_are_rejected_without_source_changes():
+    session = _session()
+    dataset = session.current_dataset
+    dataset.active_index.values = np.array([-1e308, 1e308])
+    before = repr(session.current_well)
+    depths = dataset.depth.copy()
+    with pytest.raises(ValueError, match="finite MD"):
+        _intersect(session, -1e308, 1e308)
+    assert repr(session.current_well) == before
+    np.testing.assert_array_equal(dataset.depth, depths)
+
+
+def test_evidence_gap_and_attribute_coverage_reject_overflowing_span():
+    evidence = replace(_intersect(_session()), gas_top=-1e308, gas_bottom=1e308)
+    with pytest.raises(ValueError, match="finite MD"):
+        evidence.uncovered_intervals("lithology")
+    with pytest.raises(ValueError, match="finite MD"):
+        evidence.attribute_coverage("lithology", "lithotype_id")
+
+
+def test_large_representable_md_span_keeps_measured_coverage():
+    session = _session()
+    session.current_dataset.active_index.values = np.array([-1e307, 1e307])
+    session.current_well.lithology[0].top_depth = -1e307
+    session.current_well.lithology[0].bottom_depth = 0.0
+    evidence = _intersect(session, -1e307, 1e307)
+    assert evidence.coverage("lithology") == pytest.approx(0.5)
