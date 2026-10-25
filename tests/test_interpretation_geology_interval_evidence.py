@@ -357,6 +357,47 @@ def test_invalid_or_outside_gas_intervals_never_produce_geology_claims() -> None
             _intersect(session, top, bottom)
 
 
+@pytest.mark.parametrize("side", ("top", "bottom"))
+@pytest.mark.parametrize("invalid_type", ("numeric_text", "boolean", "array", "object_scalar", "none"))
+def test_requested_interval_rejects_non_numeric_md_without_changing_sources(side, invalid_type):
+    session = _session()
+    dataset, well = session.current_dataset, session.current_well
+    assert dataset is not None and well is not None
+    selected = {"top": 1002.0, "bottom": 1010.0}
+    nominal = selected[side]
+    value = {
+        "numeric_text": str(nominal),
+        "boolean": True,
+        "array": np.array([nominal]),
+        "object_scalar": np.array(nominal, dtype=object),
+        "none": None,
+    }[invalid_type]
+    selected[side] = value
+    before_well = repr(well)
+    before_axis = dataset.active_index.values.copy()
+    before_curve = dataset.curves["curve-c1"].values.copy()
+
+    with pytest.raises(ValueError, match="finite numeric MD depths"):
+        _intersect(session, **selected)
+
+    assert repr(well) == before_well
+    np.testing.assert_array_equal(dataset.active_index.values, before_axis)
+    np.testing.assert_array_equal(dataset.curves["curve-c1"].values, before_curve)
+
+
+@pytest.mark.parametrize(("top", "bottom"), (
+    (np.int64(1002), np.float64(1010.0)),
+    (np.float32(1002.0), np.int32(1010)),
+    (np.array(1002.0), np.array(1010.0)),
+))
+def test_requested_interval_keeps_explicit_numeric_md_scalars(top, bottom):
+    session = _session()
+    result = _intersect(session, top, bottom)
+    assert (result.gas_top, result.gas_bottom, result.depth_unit) == (1002.0, 1010.0, "m")
+    assert result.coverage("lithology") == pytest.approx(6 / 8)
+    assert result.coverage("cuttings") == pytest.approx(5 / 8)
+
+
 def test_touching_boundaries_are_not_observations() -> None:
     session = _session()
     well = session.current_well

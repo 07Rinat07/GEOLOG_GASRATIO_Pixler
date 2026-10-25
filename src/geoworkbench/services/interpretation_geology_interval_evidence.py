@@ -125,7 +125,18 @@ def correlate_gas_interval_with_well_geology(
     if not supports_saved_md_geology(dataset):
         raise ValueError("Geology correlation requires an explicit metre MD depth axis with verified source alignment")
 
-    top, bottom = float(top_depth), float(bottom_depth)
+    # The requested gas interval is a measured MD selection, not an
+    # untyped UI string or boolean. float(...) would silently accept both.
+    # Check each scalar separately before any numeric coercion.
+    selected_bounds = (np.asarray(top_depth), np.asarray(bottom_depth))
+    if any(
+        value.ndim != 0
+        or value.dtype.kind not in "fiu"
+        or not np.isfinite(value).all()
+        for value in selected_bounds
+    ):
+        raise ValueError("Gas interval requires two increasing finite numeric MD depths")
+    top, bottom = (float(value) for value in selected_bounds)
     if not (isfinite(top) and isfinite(bottom) and top < bottom):
         raise ValueError("Gas interval requires two increasing finite MD depths")
     depth = np.asarray(axis.values)
