@@ -1,3 +1,15 @@
+## INTERP-GEO-01 — reject incomplete MD axes before measured geology correlation
+
+The data-only geology interval evidence service requires a one-dimensional
+numeric metre-MD axis with at least two samples and **all** source coordinates
+finite. It no longer discards NaN/Inf rows to derive min/max from a partial
+axis or silently converts numeric-looking text/object arrays to measured MD.
+The same guard runs when previously selected evidence is reverified for a
+signed report. Regression tests cover NaN/positive and negative infinity,
+coercible strings, object dtype, a 2-D axis, and preserved descending/stationary
+MD acquisition order. No source samples, LAS/GTI or geological observations
+are rewritten; a green test is not field alignment acceptance.
+
 ## GIS reference calibration: MD axis evidence revision
 
 Session-local GIS calibration now binds the saved MD axis mnemonic, index
