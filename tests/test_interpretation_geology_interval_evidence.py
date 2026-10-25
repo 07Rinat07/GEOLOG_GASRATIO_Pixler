@@ -490,6 +490,35 @@ def test_non_text_stratigraphy_code_cannot_become_measured_evidence(code):
     assert repr(well) == before
 
 
+@pytest.mark.parametrize("field", ("calcite_percent", "dolomite_percent", "total_carbonate_percent"))
+@pytest.mark.parametrize("value", (nan, float("inf"), -1.0, 101.0, "12.5", True, np.array([12.5])))
+def test_invalid_calcimetry_cannot_be_coerced_or_discarded(field, value):
+    session = _session()
+    sample = session.current_well.cuttings[0]
+    setattr(sample, field, value)
+    before = repr(session.current_well)
+    with pytest.raises(ValueError, match="numeric calcimetry percentages"):
+        _intersect(session)
+    assert repr(session.current_well) == before
+
+
+@pytest.mark.parametrize("value", (None, 0.0, np.float64(12.5), 100.0))
+def test_calcimetry_keeps_missing_zero_and_numeric_measurements_distinct(value):
+    session = _session()
+    sample = session.current_well.cuttings[0]
+    sample.calcite_percent = value
+    sample.dolomite_percent = None
+    sample.total_carbonate_percent = None
+    evidence = _intersect(session)
+    observed = [item for item in evidence.intersections if item.kind == "calcimetry"]
+    if value is None:
+        assert observed == []
+        assert evidence.coverage("calcimetry") == 0.0
+    else:
+        assert observed[0].attributes == (("calcite_percent", float(value)),)
+        assert evidence.coverage("calcimetry") == pytest.approx(5 / 8)
+
+
 @pytest.mark.parametrize("code", ("", "   ", " C1 "))
 def test_text_stratigraphy_codes_keep_blank_and_trimmed_behavior(code):
     session = _session()
