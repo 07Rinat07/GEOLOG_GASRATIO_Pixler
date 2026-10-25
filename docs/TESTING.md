@@ -1,5 +1,18 @@
 ## PRINT-STYLE-01 — Word table width apportionment
 
+## PRINT-STYLE-01 — gas Word A4 page orientation
+
+Default Word export of gas ratios and interpretation reports is A4 portrait.
+Users may select landscape in the report workspace; the polished cover and
+report body must use the same selected orientation. RU/KK/EN standard and
+OPUS actual DOCX exports must validate page sizes of every sectPr and
+matching tblW/tblGrid/tcW and footer widths, bounded to 9600 twips in
+portrait, with the old landscape option intact. Test language-choice
+persistence, invalid-orientation refusal, report source immutability and
+no change to PDF/system print. Exact HEAD Windows CI (all three jobs)
+and post-merge main CI are required; physical print acceptance separately.
+
+
 Regression `tests/test_docx_table_print_bounds.py`: very skewed positive
 integer weights (including large integers), more than 14 000 one-twip columns,
 positive cell widths, exact max 14 000 twips and equality of tblW/tblGrid/tcW
