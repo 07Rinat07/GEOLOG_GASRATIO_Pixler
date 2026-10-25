@@ -1,3 +1,13 @@
+## PRINT-STYLE-01 — Word table width apportionment
+
+Regression `tests/test_docx_table_print_bounds.py`: very skewed positive
+integer weights (including large integers), more than 14 000 one-twip columns,
+positive cell widths, exact max 14 000 twips and equality of tblW/tblGrid/tcW
+in actual XML for header and body rows. Valid non-overflow layouts remain
+unchanged. Run the module and all three exact-head Windows Release gates
+before merge, then require a green main. Physical printer acceptance is
+independent.
+
 ## INTERP-GEO-01 — optional stratigraphy name/rank validation
 
 For explicit measured gas/geology evidence, the optional source
