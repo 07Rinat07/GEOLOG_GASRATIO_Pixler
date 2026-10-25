@@ -248,7 +248,11 @@ def correlate_gas_interval_with_well_geology(
             )
 
     for stratum in well.stratigraphy:
-        code = str(stratum.code).strip()
+        # Coercion would turn absent or malformed data into an observation
+        # such as "None" and falsely increase measured coverage.
+        if not isinstance(stratum.code, str):
+            raise ValueError("Geology correlation requires a text stratigraphy code")
+        code = stratum.code.strip()
         if not code:
             continue
         stratigraphy_attrs: list[tuple[str, _NumberOrText]] = [("code", code)]

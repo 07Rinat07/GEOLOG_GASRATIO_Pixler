@@ -2366,3 +2366,12 @@ The malformed source axis and curve samples must remain unchanged.
 в корреляции, расчёте пробелов и покрытия атрибутов. Источник сохраняется;
 контроль -1e307 / 1e307 сохраняет измеренное покрытие 0.5.
 Команда: `.venv\Scripts\python.exe scripts/run_tests.py tests/test_interpretation_geology_interval_evidence.py -p no:cacheprovider`.
+
+### Тип кода стратиграфии (25.10.2026)
+
+Регрессии `test_interpretation_geology_interval_evidence.py` отклоняют
+None, boolean, число и массив вместо текстового кода без изменения записи.
+Пустой код не даёт покрытия; ` C1 ` сохраняет код C1 и покрытие 5/8.
+`test_interpretation_geology_evidence_signed_pdf.py` проверяет RU/KK/EN
+и сохранность новых/существующих PDF и паспортов при повреждённом коде.
+Запуск: `.venv\Scripts\python.exe scripts/run_tests.py tests/test_interpretation_geology_interval_evidence.py tests/test_interpretation_geology_evidence_signed_pdf.py -p no:cacheprovider`.

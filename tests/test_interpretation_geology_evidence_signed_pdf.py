@@ -203,7 +203,7 @@ def test_measured_zero_and_missing_lba_are_not_synthesized_in_pdf(
 
 @pytest.mark.parametrize("language", tuple(AppLanguage))
 @pytest.mark.parametrize("existing", (False, True))
-@pytest.mark.parametrize("source_kind", ("lithology", "cuttings", "stratigraphy"))
+@pytest.mark.parametrize("source_kind", ("lithology", "cuttings", "stratigraphy", "stratigraphy_code"))
 def test_corrupt_geology_record_md_preserves_signed_pdf_and_passport(
     qapp, tmp_path: Path, language: AppLanguage, existing: bool, source_kind: str,
 ) -> None:
@@ -213,7 +213,7 @@ def test_corrupt_geology_record_md_preserves_signed_pdf_and_passport(
     well = session.current_well
     dataset = session.current_dataset
     assert well is not None and dataset is not None
-    if source_kind == "stratigraphy":
+    if source_kind in {"stratigraphy", "stratigraphy_code"}:
         well.stratigraphy.append(StratigraphyInterval(
             "invalid-stratum", 1004.0, 1009.0, "C1",
         ))
@@ -221,8 +221,12 @@ def test_corrupt_geology_record_md_preserves_signed_pdf_and_passport(
         "lithology": well.lithology,
         "cuttings": well.cuttings,
         "stratigraphy": well.stratigraphy,
+        "stratigraphy_code": well.stratigraphy,
     }[source_kind][0]
-    record.top_depth = np.nan
+    if source_kind == "stratigraphy_code":
+        record.code = None
+    else:
+        record.top_depth = np.nan
     original_geology = repr(well)
     original_depth = dataset.depth.copy()
     original_curves = {key: curve.values.copy() for key, curve in dataset.curves.items()}
@@ -234,7 +238,8 @@ def test_corrupt_geology_record_md_preserves_signed_pdf_and_passport(
         passport.write_bytes(b'{"previous": "approved"}')
     before = {path.name: path.read_bytes() for path in tmp_path.iterdir()}
 
-    with pytest.raises(HydrocarbonInterpretationPdfError, match="finite numeric MD bounds"):
+    reason = "text stratigraphy code" if source_kind == "stratigraphy_code" else "finite numeric MD bounds"
+    with pytest.raises(HydrocarbonInterpretationPdfError, match=reason):
         export_hydrocarbon_interpretation_pdf_with_passport(
             session, report, target,
             identity=default_interpretation_report_identity(report, language),
