@@ -268,11 +268,15 @@ def test_nonfinite_md_sample_rejects_geology_correlation_without_discarding_row(
     # to make an incomplete axis appear valid for geological evidence.
     dataset.active_index.values[1] = bad_depth
     before_depth = dataset.active_index.values.copy()
+    edited_well = repr(session.current_well)
+    # The setup intentionally changes one MD sample. Correlation itself must
+    # neither repair nor rewrite that malformed source axis.
+    assert edited_well != original_well
     with pytest.raises(ValueError, match="one-dimensional finite numeric MD axis"):
         _intersect(session)
     np.testing.assert_array_equal(dataset.active_index.values, before_depth)
     np.testing.assert_array_equal(dataset.curves["curve-c1"].values, source_values)
-    assert repr(session.current_well) == original_well
+    assert repr(session.current_well) == edited_well
 
 
 @pytest.mark.parametrize("depth", (
