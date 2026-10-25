@@ -1,3 +1,14 @@
+## PRINT-STYLE-01 — целостность XML-текста Word (26.10.2026, PR-проверка)
+
+- Фильтрация символов XML 1.0 вынесена в общую функцию для текста
+  основного Word-отчёта, титульной части, колонтитула и XML-аудита.
+  Недопустимые управляющие символы, Unicode surrogate и U+FFFE/U+FFFF
+  удаляются только из экспортируемого XML, без изменения исходных записей.
+- Сохраняются RU/KK/EN, спецсимволы Word/XML, emoji и ранее допустимое
+  содержание отчётов; добавлены граничные тесты и проверка ZIP/XML Word.
+- Требуются три Windows Gate на точном HEAD и зелёная main после merge;
+  физическая приёмка печати отдельно.
+
 ## PRINT-STYLE-01 — Windows Qt/Office regression isolation (26.10.2026)
 
 - Exposed PR #741 Word page orientation in the responsive export footer.

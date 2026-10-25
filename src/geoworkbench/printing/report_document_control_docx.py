@@ -4,6 +4,7 @@ from xml.etree import ElementTree as ET
 
 from geoworkbench.printing.report_document_control import ReportDocumentControl, compact_report_footer
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
+from geoworkbench.printing.docx_xml_characters import docx_xml_safe_text
 from geoworkbench.services.localization import AppLanguage
 
 
@@ -79,7 +80,7 @@ def report_document_control_docx_footer(
         ET.SubElement(run_properties, _word_name("sz"), {_word_name("val"): str(round(visual.typography.footer_pt * 2))})
         ET.SubElement(run_properties, _word_name("szCs"), {_word_name("val"): str(round(visual.typography.footer_pt * 2))})
         node = ET.SubElement(run, _word_name("t"), {"{http://www.w3.org/XML/1998/namespace}space": "preserve"})
-        node.text = value
+        node.text = docx_xml_safe_text(value)
 
     first_row = row(240)
     text(paragraph(first_row, grid_widths[0]), visual.brand_wordmark, bold=True)

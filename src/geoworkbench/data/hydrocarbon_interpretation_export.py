@@ -19,6 +19,7 @@ from geoworkbench.services.gas_context_report_labels import (
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.report_document_control_docx import report_document_control_docx_footer
+from geoworkbench.printing.docx_xml_characters import docx_xml_safe_text
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
@@ -464,7 +465,7 @@ def _write_docx(
             CLASSIFICATION_AUDIT_DOCX_PART,
             '<?xml version="1.0" encoding="UTF-8"?>'
             '<classificationAudit xmlns="urn:digital-geolog:interpretation-audit:1">'
-            + xml_escape(interpretation_classification_audit_json(report))
+            + _xml_text(interpretation_classification_audit_json(report))
             + '</classificationAudit>',
         )
         package.writestr("word/styles.xml", _docx_styles())
@@ -836,12 +837,7 @@ def _table_row(
 
 
 def _xml_text(value: object) -> str:
-    text = "".join(
-        character
-        for character in str(value)
-        if character in "\t\n\r" or ord(character) >= 0x20
-    )
-    return xml_escape(text)
+    return xml_escape(docx_xml_safe_text(value))
 
 
 def _docx_styles() -> str:

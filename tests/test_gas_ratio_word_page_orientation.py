@@ -17,7 +17,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
 )
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui import interpretation_report_workspace_drilling as drilling
-from test_interpretation_report_identity import _report
+from test_interpretation_report_identity import _manual_identity, _report
 from test_interpretation_method_comparison_explicit_ui import _workspace
 
 
@@ -181,3 +181,94 @@ def test_operator_can_reach_word_orientation_in_responsive_export_footer(
     assert workspace.word_orientation.currentData() == "landscape"
     assert workspace.word_orientation.isVisible()
     workspace.close()
+
+
+
+@pytest.mark.parametrize("invalid", (
+    "\x00", "\x01", "\x08", "\x0b", "\x0c", "\x1f",
+    "\ud800", "\udfff", "\ufffe", "\uffff",
+))
+def test_word_xml10_filter_drops_only_forbidden_characters(invalid: str) -> None:
+    from xml.sax.saxutils import escape
+    from geoworkbench.data.hydrocarbon_interpretation_export import _xml_text
+    from geoworkbench.printing.docx_xml_characters import docx_xml_safe_text
+
+    source = f"Максат & <M-1>\t\n\rЖазба 🛢{invalid} End"
+    accepted = source.replace(invalid, "")
+    assert docx_xml_safe_text(source) == accepted
+    assert _xml_text(source) == escape(accepted)
+    assert "".join(ET.fromstring("<root>" + _xml_text(source) + "</root>").itertext()).replace(
+        "\n", ""
+    ).startswith("Максат & <M-1>")
+
+
+def test_word_xml10_filter_preserves_unicode_boundary_characters() -> None:
+    from geoworkbench.printing.docx_xml_characters import docx_xml_safe_text
+
+    valid = "".join(chr(cp) for cp in (
+        0x9, 0xA, 0xD, 0x20, 0xD7FF, 0xE000, 0xFFFD, 0x10000, 0x10FFFF,
+    ))
+    assert docx_xml_safe_text(valid) == valid
+    assert docx_xml_safe_text("Қазақша 😀 & <геология>") == "Қазақша 😀 & <геология>"
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+@pytest.mark.parametrize("orientation", ("portrait", "landscape"))
+@pytest.mark.parametrize("polished", (False, True))
+@pytest.mark.parametrize("profile", ("standard", "opus"))
+def test_complete_word_package_escapes_illegal_unicode_without_changing_inputs(
+    tmp_path: Path, language: AppLanguage, orientation: str, polished: bool, profile: str,
+) -> None:
+    from geoworkbench.printing.docx_xml_characters import docx_xml_safe_text
+
+    unsafe = "Максат-1 & <скважина> Қаз 🛢\x00\ud800\udfff\ufffe\uffff"
+    expected = docx_xml_safe_text(unsafe)
+    report = replace(
+        _report(), report_profile=profile, project_name=unsafe,
+        well_name=unsafe, dataset_name=unsafe,
+    )
+    identity = replace(
+        _manual_identity(), report_title=unsafe, report_subtitle=unsafe,
+        project_name=unsafe, well_name=unsafe, prepared_by=unsafe, remarks=unsafe,
+    )
+    before_report, before_identity = deepcopy(report), deepcopy(identity)
+    exporter = (
+        export_polished_hydrocarbon_interpretation_docx if polished
+        else export_hydrocarbon_interpretation_docx
+    )
+    kwargs = {"identity": identity} if polished else {}
+    result = exporter(
+        report, tmp_path / "unicode.docx", language=language,
+        orientation=orientation, **kwargs,
+    )
+    with zipfile.ZipFile(result) as package:
+        assert package.testzip() is None
+        xml_parts = [name for name in package.namelist()
+                     if name.endswith((".xml", ".rels"))]
+        assert "word/document.xml" in xml_parts
+        assert "word/footer.xml" in xml_parts
+        assert "customXml/geolog-classification-audit.xml" in xml_parts
+        for name in xml_parts:
+            ET.fromstring(package.read(name))
+        document = ET.fromstring(package.read("word/document.xml"))
+        document_text = "".join(node.text or "" for node in document.iter(W + "t"))
+        assert expected in document_text
+        assert unsafe not in document_text
+        sizes = document.findall(".//" + W + "pgSz")
+        assert sizes and all(size.get(W + "orient") == orientation for size in sizes)
+    assert report == before_report
+    assert identity == before_identity
+
+
+def test_word_footer_removes_illegal_xml_character_from_compact_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from geoworkbench.printing import report_document_control_docx as footer
+
+    source = "Казахстан 🛢\ud800\ufffe\x00 & <M-1>"
+    monkeypatch.setattr(footer, "compact_report_footer", lambda control: source)
+    xml = footer.report_document_control_docx_footer(None, AppLanguage.RU, width_twips=9600)
+    root = ET.fromstring(xml)
+    text = "".join(node.text or "" for node in root.iter(W + "t"))
+    assert "Казахстан 🛢 & <M-1>" in text
+    assert "\ud800" not in text and "\ufffe" not in text and "\x00" not in text

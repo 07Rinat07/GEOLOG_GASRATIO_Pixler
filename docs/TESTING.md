@@ -1,3 +1,15 @@
+## PRINT-STYLE-01 — Word XML 1.0 character integrity
+
+New shared Word XML text sanitizer filters only characters outside the XML 1.0
+Char production before XML escaping. Apply to ordinary body and custom
+classification-audit XML, polished cover/identity and common footer text.
+Regressions live in the already Windows-isolated Word orientation test module:
+control characters, surrogates and U+FFFE/U+FFFF, valid Unicode boundaries,
+RU/KK/EN × standard/OPUS × portrait/landscape × ordinary/polished actual
+DOCX package parsing, escaped XML syntax and unchanged source objects.
+Run the exact-HEAD three-job Windows Release Gate and post-merge main CI.
+Do not disable native tests or treat this as resolution of Qt #544.
+
 ## PRINT-STYLE-01 — Windows isolation of Word-orientation regression
 
 PR #741 showed 0xC0000005 in the Windows quality gate on the mixed
