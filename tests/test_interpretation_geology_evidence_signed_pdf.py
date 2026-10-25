@@ -199,3 +199,50 @@ def test_measured_zero_and_missing_lba_are_not_synthesized_in_pdf(
     assert "Calcite, %: 0.0" in text
     assert "No measurement / record" in text
     assert "lba_group" not in text
+
+
+@pytest.mark.parametrize("language", tuple(AppLanguage))
+@pytest.mark.parametrize("existing", (False, True))
+@pytest.mark.parametrize("source_kind", ("lithology", "cuttings", "stratigraphy"))
+def test_corrupt_geology_record_md_preserves_signed_pdf_and_passport(
+    qapp, tmp_path: Path, language: AppLanguage, existing: bool, source_kind: str,
+) -> None:
+    from geoworkbench.domain.models import StratigraphyInterval
+
+    session, report, selected = _actual_source()
+    well = session.current_well
+    dataset = session.current_dataset
+    assert well is not None and dataset is not None
+    if source_kind == "stratigraphy":
+        well.stratigraphy.append(StratigraphyInterval(
+            "invalid-stratum", 1004.0, 1009.0, "C1",
+        ))
+    record = {
+        "lithology": well.lithology,
+        "cuttings": well.cuttings,
+        "stratigraphy": well.stratigraphy,
+    }[source_kind][0]
+    record.top_depth = np.nan
+    original_geology = repr(well)
+    original_depth = dataset.depth.copy()
+    original_curves = {key: curve.values.copy() for key, curve in dataset.curves.items()}
+
+    target = tmp_path / "protected.pdf"
+    passport = passport_sidecar_path(target)
+    if existing:
+        target.write_bytes(b"%PDF-previous-approved-report")
+        passport.write_bytes(b'{"previous": "approved"}')
+    before = {path.name: path.read_bytes() for path in tmp_path.iterdir()}
+
+    with pytest.raises(HydrocarbonInterpretationPdfError, match="finite numeric MD bounds"):
+        export_hydrocarbon_interpretation_pdf_with_passport(
+            session, report, target,
+            identity=default_interpretation_report_identity(report, language),
+            language=language, geology_evidence=(selected,),
+        )
+
+    assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == before
+    assert repr(well) == original_geology
+    np.testing.assert_array_equal(dataset.depth, original_depth)
+    for key, values in original_curves.items():
+        np.testing.assert_array_equal(dataset.curves[key].values, values)

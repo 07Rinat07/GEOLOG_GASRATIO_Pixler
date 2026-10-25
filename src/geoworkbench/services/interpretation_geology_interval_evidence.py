@@ -142,6 +142,34 @@ def correlate_gas_interval_with_well_geology(
     if top < float(depth.min()) or bottom > float(depth.max()):
         raise ValueError("Gas interval is outside the measured MD axis")
 
+    # The generic report snapshot skips malformed source intervals. Explicit
+    # measured evidence must not silently turn a corrupt geological record
+    # into an apparent gap or incomplete coverage. An invalid bound cannot
+    # reliably be classified as inside or outside the requested gas interval.
+    for source_kind, records in (
+        ("lithology", well.lithology),
+        ("cuttings", well.cuttings),
+        ("stratigraphy", well.stratigraphy),
+    ):
+        for record in records:
+            # Validate each source scalar before combining: NumPy would
+            # otherwise coerce a boolean + float pair to a numeric array.
+            try:
+                bounds = (np.asarray(record.top_depth), np.asarray(record.bottom_depth))
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"Geology correlation requires finite numeric MD bounds in {source_kind}"
+                ) from exc
+            if any(
+                bound.ndim != 0
+                or bound.dtype.kind not in "fiu"
+                or not np.isfinite(bound).all()
+                for bound in bounds
+            ):
+                raise ValueError(
+                    f"Geology correlation requires finite numeric MD bounds in {source_kind}"
+                )
+
     evidence: list[MeasuredGeologyIntersection] = []
 
     def add(

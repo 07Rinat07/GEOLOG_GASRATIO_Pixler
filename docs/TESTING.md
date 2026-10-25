@@ -1,3 +1,24 @@
+## INTERP-GEO-01 — invalid source geology MD bounds fail closed
+
+`tests/test_interpretation_geology_interval_evidence.py` verifies that
+NaN/positive and negative infinity, numeric-looking text and boolean source
+interval bounds in lithology, cuttings and stratigraphy cannot silently
+disappear from measured gas/geology correlation. Valid out-of-range source
+records still do not inflate measured coverage; original source records,
+MD samples and curves remain unchanged. Zero-length records retain the
+existing no-overlap behavior.
+
+`tests/test_interpretation_geology_evidence_signed_pdf.py` additionally
+checks RU/KK/EN × new/existing PDF/passport for non-finite geology record
+bounds introduced after explicit selection. The signed export must reject
+before creating/replacing either artifact, preserving every existing byte.
+Run both files with `python scripts/run_tests.py -p no:cacheprovider
+tests/test_interpretation_geology_interval_evidence.py
+tests/test_interpretation_geology_evidence_signed_pdf.py -q`, then require
+the three Windows Release jobs on exact PR HEAD and post-merge main.
+This is software source-integrity QA, not field or physical acceptance;
+native Qt issue #544 remains open.
+
 ## INTERP-GEO-01 — reject incomplete MD axes before measured geology correlation
 
 The data-only geology interval evidence service requires a one-dimensional

@@ -370,3 +370,40 @@ def test_touching_boundaries_are_not_observations() -> None:
     assert evidence.missing_kinds == (
         "lithology", "cuttings", "lba", "calcimetry", "stratigraphy",
     )
+
+
+@pytest.mark.parametrize("source_kind", ("lithology", "cuttings", "stratigraphy"))
+@pytest.mark.parametrize("bad_bound", (float("nan"), float("inf"), float("-inf"), "1004.0", True))
+def test_corrupt_source_geology_md_bounds_never_become_missing_evidence(source_kind, bad_bound):
+    session = _session()
+    well = session.current_well
+    dataset = session.current_dataset
+    assert well is not None and dataset is not None
+    if source_kind == "stratigraphy":
+        well.stratigraphy.append(StratigraphyInterval(
+            "invalid-stratum", 1004.0, 1009.0, "C1",
+        ))
+    record = {
+        "lithology": well.lithology,
+        "cuttings": well.cuttings,
+        "stratigraphy": well.stratigraphy,
+    }[source_kind][0]
+    record.top_depth = bad_bound
+    before_record = repr(well)
+    before_depth = dataset.depth.copy()
+    before_curve = dataset.curves["curve-c1"].values.copy()
+
+    with pytest.raises(ValueError, match="finite numeric MD bounds"):
+        _intersect(session)
+
+    assert repr(well) == before_record
+    np.testing.assert_array_equal(dataset.depth, before_depth)
+    np.testing.assert_array_equal(dataset.curves["curve-c1"].values, before_curve)
+
+
+def test_valid_outside_source_records_still_do_not_inflate_coverage():
+    session = _session()
+    evidence = _intersect(session)
+    assert evidence.coverage("lithology") == pytest.approx(6 / 8)
+    assert evidence.coverage("cuttings") == pytest.approx(5 / 8)
+    assert all(item.source_id not in {"lith-out", "sample-out"} for item in evidence.intersections)
