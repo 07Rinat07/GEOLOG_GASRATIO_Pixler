@@ -2358,3 +2358,11 @@ object and two-dimensional MD axes after selecting valid geology evidence.
 It invokes the signed PDF API and requires its public export exception,
 no new directory entries and byte-identical existing PDF/passport contents.
 The malformed source axis and curve samples must remain unchanged.
+
+### Конечная длина MD-интервала (25.10.2026)
+
+`tests/test_interpretation_geology_interval_evidence.py` проверяет отказ
+для конечных границ -1e308 / 1e308, переполняющих длину интервала,
+в корреляции, расчёте пробелов и покрытия атрибутов. Источник сохраняется;
+контроль -1e307 / 1e307 сохраняет измеренное покрытие 0.5.
+Команда: `.venv\Scripts\python.exe scripts/run_tests.py tests/test_interpretation_geology_interval_evidence.py -p no:cacheprovider`.
