@@ -358,6 +358,11 @@ class InterpretationReportWorkspace(QWidget):
         self.xlsx_button = QPushButton("Excel (.xlsx)")
         self.xlsx_button.clicked.connect(self._export_xlsx)
         export_row.addWidget(self.xlsx_button)
+        self.word_orientation_label = QLabel()
+        self.word_orientation = QComboBox()
+        self.word_orientation.setObjectName("interpretation-word-page-orientation")
+        export_row.addWidget(self.word_orientation_label)
+        export_row.addWidget(self.word_orientation)
         self.docx_button = QPushButton("Word (.docx)")
         self.docx_button.clicked.connect(self._export_docx)
         export_row.addWidget(self.docx_button)
@@ -981,6 +986,7 @@ class InterpretationReportWorkspace(QWidget):
                     language=self._report_output_language(),
                     overwrite=target.exists(),
                     progress=self._update_report_export_progress,
+                    **({"orientation": "portrait"} if self.word_orientation.currentData() == "portrait" else {}),
                 )
         except (OSError, FileExistsError, HydrocarbonInterpretationExportError) as exc:
             self._show_export_error(exc)
@@ -1466,6 +1472,19 @@ class InterpretationReportWorkspace(QWidget):
         self.refresh_button.setText(
             self._text("Обновить анализ", "Талдауды жаңарту", "Refresh analysis")
         )
+        self.word_orientation_label.setText(self._text("Страницы Word:", "Word беттері:", "Word pages:"))
+        current_orientation = self.word_orientation.currentData()
+        self.word_orientation.blockSignals(True)
+        self.word_orientation.clear()
+        self.word_orientation.addItem(self._text("Альбомная", "Альбомдық", "Landscape"), "landscape")
+        self.word_orientation.addItem(self._text("Книжная", "Кітаптық", "Portrait"), "portrait")
+        self.word_orientation.setCurrentIndex(max(0, self.word_orientation.findData(current_orientation)))
+        self.word_orientation.blockSignals(False)
+        self.word_orientation.setToolTip(self._text(
+            "Только Word. PDF и печать через приложение не изменяются.",
+            "Тек Word. PDF және қолданба арқылы басып шығару өзгермейді.",
+            "Word only; PDF and application printer output are unchanged.",
+        ))
         self.print_button.setText(self._text("Печать…", "Басып шығару…", "Print…"))
 
     def _report_mode(self) -> str:

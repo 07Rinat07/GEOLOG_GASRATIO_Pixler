@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import partial
+from typing import Literal
 from typing import Callable
 import os
 from pathlib import Path
@@ -12,6 +13,8 @@ from defusedxml.ElementTree import fromstring
 
 from geoworkbench.data.hydrocarbon_interpretation_export import (
     export_hydrocarbon_interpretation_docx,
+    _PORTRAIT_TABLE_WIDTH_TWIPS,
+    _resize_docx_tables,
 )
 from geoworkbench.domain.models import Dataset
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
@@ -43,12 +46,15 @@ def export_polished_hydrocarbon_interpretation_docx(
     dataset: Dataset | None = None,
     identity: InterpretationReportIdentity | None = None,
     language: AppLanguage = AppLanguage.RU,
+    orientation: Literal["landscape", "portrait"] = "landscape",
     overwrite: bool = False,
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
     geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
 ) -> Path:
     """Export Word with its existing cover and optional preverified comparison."""
 
+    if orientation not in ("landscape", "portrait"):
+        raise ValueError("Word page orientation must be landscape or portrait")
     verified_report_geology_evidence(report, geology_evidence)
     destination = Path(target)
     if destination.suffix.casefold() != ".docx":
@@ -73,8 +79,9 @@ def export_polished_hydrocarbon_interpretation_docx(
             dataset=dataset,
             language=language,
             overwrite=True,
+            **({"orientation": orientation} if orientation == "portrait" else {}),
         )
-        _rewrite_cover(source, rewritten, report, details, language)
+        _rewrite_cover(source, rewritten, report, details, language, orientation=orientation)
         os.replace(rewritten, destination)
     finally:
         source.unlink(missing_ok=True)
@@ -98,6 +105,7 @@ def _rewrite_cover(
     report: HydrocarbonInterpretationReport,
     identity: InterpretationReportIdentity,
     language: AppLanguage,
+    *, orientation: Literal["landscape", "portrait"] = "landscape",
 ) -> None:
     with (
         zipfile.ZipFile(source, "r") as input_package,
@@ -111,9 +119,12 @@ def _rewrite_cover(
                     report,
                     identity,
                     language,
+                    orientation=orientation,
                 )
             elif item.filename == "word/footer.xml":
-                data = report_document_control_docx_footer(report_document_control(identity, language), language)
+                data = (report_document_control_docx_footer(report_document_control(identity, language), language,
+                     width_twips=_PORTRAIT_TABLE_WIDTH_TWIPS) if orientation == "portrait"
+                     else report_document_control_docx_footer(report_document_control(identity, language), language))
             output_package.writestr(item, data)
 
 
@@ -122,6 +133,7 @@ def _document_with_polished_cover(
     report: HydrocarbonInterpretationReport,
     identity: InterpretationReportIdentity,
     language: AppLanguage,
+    *, orientation: Literal["landscape", "portrait"] = "landscape",
 ) -> bytes:
     root = fromstring(xml)
     body = root.find(_q("body"))
@@ -143,7 +155,7 @@ def _document_with_polished_cover(
     for child in children[:first_heading]:
         body.remove(child)
 
-    cover = _cover_elements(report, identity, language)
+    cover = _cover_elements(report, identity, language, orientation=orientation)
     for index, element in enumerate(cover):
         body.insert(index, element)
 
@@ -166,7 +178,9 @@ def _document_with_polished_cover(
         for offset, element in enumerate(conclusion):
             body.insert(section_index + offset, element)
 
-    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+    result = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+    return (_resize_docx_tables(result, _PORTRAIT_TABLE_WIDTH_TWIPS)
+            if orientation == "portrait" else result)
 
 
 def _paragraph_style(paragraph: ET.Element) -> str:
@@ -178,6 +192,7 @@ def _cover_elements(
     report: HydrocarbonInterpretationReport,
     identity: InterpretationReportIdentity,
     language: AppLanguage,
+    *, orientation: Literal["landscape", "portrait"] = "landscape",
 ) -> tuple[ET.Element, ...]:
     visual = modern_oilfield_report_profile()
     details = identity.cleaned()
@@ -249,7 +264,7 @@ def _cover_elements(
         for note in notes
         if note.strip()
     )
-    elements.append(_landscape_section_break())
+    elements.append(_word_section_break(orientation))
     return tuple(elements)
 
 
@@ -469,7 +484,7 @@ def _word_color(value: str) -> str:
     return value.lstrip("#").upper()
 
 
-def _landscape_section_break() -> ET.Element:
+def _word_section_break(orientation: Literal["landscape", "portrait"]) -> ET.Element:
     paragraph = ET.Element(_q("p"))
     properties = ET.SubElement(paragraph, _q("pPr"))
     section = ET.SubElement(properties, _q("sectPr"))
@@ -479,7 +494,9 @@ def _landscape_section_break() -> ET.Element:
     ET.SubElement(
         section,
         _q("pgSz"),
-        {_q("w"): "16838", _q("h"): "11906", _q("orient"): "landscape"},
+        {_q("w"): "11906" if orientation == "portrait" else "16838",
+         _q("h"): "16838" if orientation == "portrait" else "11906",
+         _q("orient"): orientation},
     )
     ET.SubElement(
         section,
