@@ -583,3 +583,66 @@ def test_valid_cuttings_component_percentages_keep_measured_source_evidence(
     assert ("lithotype:clay", float(second)) in samples[0].attributes
     assert evidence.coverage("cuttings") == pytest.approx(5 / 8)
     assert repr(well) == before
+
+
+@pytest.mark.parametrize("field", ("name", "rank"))
+@pytest.mark.parametrize("value", (True, 123, np.array(["Stage"]), ["Stage"], {"ru": "Ярус"}))
+@pytest.mark.parametrize("outside", (False, True))
+def test_non_text_stratigraphy_metadata_is_rejected_without_source_changes(
+    field, value, outside,
+):
+    session = _session()
+    well, dataset = session.current_well, session.current_dataset
+    assert well is not None and dataset is not None
+    top, bottom = (1020.0, 1025.0) if outside else (1004.0, 1009.0)
+    stratum = StratigraphyInterval("invalid-meta", top, bottom, "C1")
+    setattr(stratum, field, value)
+    well.stratigraphy.append(stratum)
+    before_well = repr(well)
+    before_md = dataset.active_index.values.copy()
+    before_curve = dataset.curves["curve-c1"].values.copy()
+
+    with pytest.raises(ValueError, match=f"text stratigraphy {field}"):
+        _intersect(session)
+
+    assert repr(well) == before_well
+    np.testing.assert_array_equal(dataset.active_index.values, before_md)
+    np.testing.assert_array_equal(dataset.curves["curve-c1"].values, before_curve)
+
+
+@pytest.mark.parametrize(("name", "rank", "attributes"), (
+    (None, None, (("code", "C1"),)),
+    ("", "   ", (("code", "C1"),)),
+    ("Carboniferous", "stage", (
+        ("code", "C1"), ("name", "Carboniferous"), ("rank", "stage"),
+    )),
+))
+def test_optional_text_stratigraphy_metadata_preserves_measured_evidence(
+    name, rank, attributes,
+):
+    session = _session()
+    well = session.current_well
+    assert well is not None
+    well.stratigraphy.append(StratigraphyInterval(
+        "valid-meta", 1004.0, 1009.0, "C1", name, rank,
+    ))
+    before = repr(well)
+    evidence = _intersect(session)
+    measured = [item for item in evidence.intersections if item.kind == "stratigraphy"]
+    assert len(measured) == 1
+    assert measured[0].source_id == "valid-meta"
+    assert measured[0].attributes == attributes
+    assert evidence.coverage("stratigraphy") == pytest.approx(5 / 8)
+    assert repr(well) == before
+
+
+@pytest.mark.parametrize("field", ("name", "rank"))
+def test_blank_stratigraphy_code_still_rejects_corrupt_metadata(field):
+    session = _session()
+    stratum = StratigraphyInterval("blank-code", 1004.0, 1009.0, "   ")
+    setattr(stratum, field, 123)
+    session.current_well.stratigraphy.append(stratum)
+    before = repr(session.current_well)
+    with pytest.raises(ValueError, match=f"text stratigraphy {field}"):
+        _intersect(session)
+    assert repr(session.current_well) == before
