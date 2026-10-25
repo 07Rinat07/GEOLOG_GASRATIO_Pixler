@@ -1,3 +1,21 @@
+## INTERP-GEO-01 — reject corrupt cuttings component percentages
+
+Measured gas/geology correlation now fails closed if any raw cuttings
+component percentage is not a finite numeric scalar between 0 and 100,
+including the exact endpoints 0 and 100. NaN/Inf, negative/out-of-range,
+text, boolean, vector or missing values must never disappear into a report
+snapshot and leave misleading partial source coverage. Source components
+are not normalized to sum to 100: incomplete measured records stay incomplete.
+
+`tests/test_interpretation_geology_interval_evidence.py` tests malformed
+components both within and outside the gas interval, valid scalar values,
+source/curve immutability and unchanged interval coverage. Signed-PDF
+regressions in `tests/test_interpretation_geology_evidence_signed_pdf.py`
+exercise RU/KK/EN x new/existing PDF and passport, requiring no new or
+replaced artifacts on rejection. Require the full three Windows Release
+jobs on the exact PR SHA and post-merge main. These are software-input
+integrity tests, not field or petrophysical acceptance.
+
 ## INTERP-GEO-01 — request MD interval scalar validation
 
 The measured-gas/geology interval API now refuses numeric-looking text,
