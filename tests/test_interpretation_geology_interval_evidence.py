@@ -504,3 +504,53 @@ def test_text_stratigraphy_codes_keep_blank_and_trimmed_behavior(code):
     else:
         assert observed == []
         assert evidence.coverage("stratigraphy") == 0.0
+
+
+@pytest.mark.parametrize("sample_index", (0, 1))
+@pytest.mark.parametrize("bad_fraction", (
+    float("nan"), float("inf"), float("-inf"), -1.0, 101.0,
+    "70.0", True, None, np.array([70.0]), np.array(70.0, dtype=object),
+))
+def test_corrupt_cuttings_percentage_never_becomes_incomplete_measured_evidence(
+    sample_index, bad_fraction,
+):
+    session = _session()
+    well, dataset = session.current_well, session.current_dataset
+    assert well is not None and dataset is not None
+    # Even samples outside the request must not be silently discarded.
+    component = well.cuttings[sample_index].components[0]
+    component.percentage = bad_fraction
+    before_well = repr(well)
+    before_md = dataset.active_index.values.copy()
+    before_curve = dataset.curves["curve-c1"].values.copy()
+
+    with pytest.raises(ValueError, match="finite numeric cuttings percentages"):
+        _intersect(session)
+
+    assert repr(well) == before_well
+    np.testing.assert_array_equal(dataset.active_index.values, before_md)
+    np.testing.assert_array_equal(dataset.curves["curve-c1"].values, before_curve)
+
+
+@pytest.mark.parametrize(("first", "second"), (
+    (0.0, 100.0),
+    (np.int64(70), np.float32(30.0)),
+    (np.array(70.0), np.array(30.0)),
+))
+def test_valid_cuttings_component_percentages_keep_measured_source_evidence(
+    first, second,
+):
+    session = _session()
+    well = session.current_well
+    assert well is not None
+    well.cuttings[0].components[0].percentage = first
+    well.cuttings[0].components[1].percentage = second
+    before = repr(well)
+    evidence = _intersect(session)
+    samples = [item for item in evidence.intersections if item.kind == "cuttings"]
+    assert len(samples) == 1
+    assert samples[0].source_id == "sample-in"
+    assert ("lithotype:sandstone", float(first)) in samples[0].attributes
+    assert ("lithotype:clay", float(second)) in samples[0].attributes
+    assert evidence.coverage("cuttings") == pytest.approx(5 / 8)
+    assert repr(well) == before
