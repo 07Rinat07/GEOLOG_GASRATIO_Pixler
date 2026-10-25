@@ -1,3 +1,17 @@
+## INTERP-GEO-01 — request MD interval scalar validation
+
+The measured-gas/geology interval API now refuses numeric-looking text,
+booleans, object scalars, non-scalar arrays and missing requested MD
+boundaries **before** applying float conversion. Both top and bottom are
+checked individually; explicit Python/NumPy numeric scalars still work.
+The test matrix verifies the same finite, increasing metre-MD interval
+coverage and unchanged well, source axis and curve values. These are
+application-level request validity checks, not physical depth tie acceptance.
+No original LAS/GIS/GTI/LBA is rewritten and there is no implicit unit
+conversion. Test file: `tests/test_interpretation_geology_interval_evidence.py`.
+Full Windows Quality, GUI/HiDPI/PDF and Security gates are required on the
+exact PR HEAD, followed by the post-merge main gates.
+
 ## INTERP-GEO-01 — invalid source geology MD bounds fail closed
 
 `tests/test_interpretation_geology_interval_evidence.py` verifies that
