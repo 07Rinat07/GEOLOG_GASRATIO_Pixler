@@ -189,7 +189,6 @@ class UserProfileSettings:
     ) -> PrintExportPreferences:
         normalized = self._validated_form_id(form_id)
         global_key = self._print_export_preferences_key()
-        global_raw = self.settings.value(global_key, "")
         fallback = self._read_print_export_preferences(
             global_key,
             PrintExportPreferences(),
@@ -199,12 +198,10 @@ class UserProfileSettings:
         if str(form_raw).strip():
             return self._read_print_export_preferences(form_key, fallback)
 
-        # Only a truly absent preference is an untouched legacy default.
-        # A persisted fixed 50 m CURRENT preference may be a deliberate user
-        # choice and must never be reinterpreted from its numeric values.
-        if normalized.startswith("factory-masterlog-a4-") and not str(
-            global_raw
-        ).strip():
+        # Default factory Masterlog A4 to optimized density, even when
+        # legacy global preferences retained 50 m. An explicit per-form
+        # manual choice (returned above) is never overwritten.
+        if normalized.startswith("factory-masterlog-a4-"):
             return replace(
                 fallback,
                 auto_units_per_page=True,

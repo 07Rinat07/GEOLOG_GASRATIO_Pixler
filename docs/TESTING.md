@@ -1,3 +1,15 @@
+## PRINT-STYLE-01 — Masterlog automatic page-density default
+
+New print settings and factory Masterlog A4 default to Auto, including
+when only legacy global fixed-50-m settings exist; an explicit per-form
+manual choice remains unchanged. Qt regression in
+`tests/test_print_center.py` covers RU/KK/EN Full-range A4 Fit hiding the
+inactive fixed interval, manual-toggle restoration, and roll-media gating.
+`tests/test_user_profiles.py` covers default, legacy-global and saved
+per-form precedence. Exact-head three Windows Gate and post-merge main CI
+are required; 200-page guard, source LAS and physical printer acceptance
+are unchanged.
+
 ## INTERP-GEO-01 — source ID provenance integrity
 
 Measured gas/geology interval evidence requires non-empty text IDs for

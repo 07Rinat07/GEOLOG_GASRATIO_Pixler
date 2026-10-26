@@ -760,6 +760,7 @@ class PrintCenterDialog(QDialog):
             self.auto_units_per_page_check.isChecked()
             and mode is not PrintRangeMode.CURRENT
             and PrintScaleMode(str(self.scale_combo.currentData())) is PrintScaleMode.FIT
+            and PrintPageFormat(str(self.format_combo.currentData())) is not PrintPageFormat.ROLL
         )
         return PrintPaginationSettings(
             range_mode=mode,
@@ -1365,6 +1366,8 @@ class PrintCenterDialog(QDialog):
         automatic = auto_available and self.auto_units_per_page_check.isChecked()
         self.auto_units_per_page_check.setEnabled(auto_available)
         self.units_per_page_input.setEnabled(multipage and not automatic)
+        # The disabled 50 m input is not the calculated automatic interval.
+        self.units_per_page_input.setVisible(not automatic)
         self.overlap_input.setEnabled(multipage and not automatic)
         self.custom_start_input.setEnabled(custom)
         self.custom_end_input.setEnabled(custom)
