@@ -66,9 +66,17 @@ def test_word_text_parts_preserve_order_and_source() -> None:
 @pytest.mark.parametrize("where", ("ordinary", "table", "cover"))
 def test_word_text_markup_contains_real_break_and_tab_elements(where: str) -> None:
     if where == "ordinary":
-        node = ET.fromstring(ordinary_paragraph(SOURCE, style="Normal"))
+        fragment = ordinary_paragraph(SOURCE, style="Normal")
+        node = ET.fromstring(
+            '<root xmlns:w="http://schemas.openxmlformats.org/'
+            'wordprocessingml/2006/main">' + fragment + '</root>'
+        )
     elif where == "table":
-        node = ET.fromstring(_table_row((SOURCE,), (5200,)))
+        fragment = _table_row((SOURCE,), (5200,))
+        node = ET.fromstring(
+            '<root xmlns:w="http://schemas.openxmlformats.org/'
+            'wordprocessingml/2006/main">' + fragment + '</root>'
+        )
     else:
         node = polished_paragraph(SOURCE, bold=True)
     runs = node.findall(".//" + W + "r")
