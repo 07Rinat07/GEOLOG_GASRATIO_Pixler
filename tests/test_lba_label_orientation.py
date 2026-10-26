@@ -15,7 +15,6 @@ from geoworkbench.forms.catalog import visible_factory_forms
 from geoworkbench.forms.codec import form_from_dict, form_to_dict
 from geoworkbench.forms.from_tablet import form_from_tablet_layout
 from geoworkbench.forms.models import FormAxisKind, FormColumn, FormDocument, FormTrack
-from geoworkbench.forms.templates import factory_templates
 from geoworkbench.tablet.layout_codec import layout_from_dict, layout_to_dict
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
 from geoworkbench.tablet.tablet_view import TabletView
