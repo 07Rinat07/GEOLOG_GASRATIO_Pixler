@@ -184,6 +184,19 @@ def correlate_gas_interval_with_well_geology(
                     f"Geology correlation requires finite numeric MD bounds in {source_kind}"
                 )
 
+    # Report snapshots turn some source IDs into strings. Reject missing or
+    # malformed provenance before that conversion; otherwise None/True/123
+    # can become plausible-looking origin identifiers in signed evidence.
+    for source_kind, records, id_field in (
+        ("lithology", well.lithology, "interval_id"),
+        ("cuttings", well.cuttings, "sample_id"),
+        ("stratigraphy", well.stratigraphy, "interval_id"),
+    ):
+        for source_record in records:
+            source_id = getattr(source_record, id_field)
+            if not isinstance(source_id, str) or not source_id.strip():
+                raise ValueError(f"Geology correlation requires non-empty text {source_kind} source ID")
+
     # Snapshot coercion can turn a malformed description into an apparent
     # observation, including coverage for a sample without components.
     for source_kind, observations in (("lithology", well.lithology), ("cuttings", well.cuttings)):
