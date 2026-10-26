@@ -18,6 +18,7 @@ from geoworkbench.data.hydrocarbon_interpretation_export_docx_polished import (
     export_polished_hydrocarbon_interpretation_docx,
 )
 from geoworkbench.printing.docx_xml_characters import docx_word_text_parts
+from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
 from geoworkbench.services.localization import AppLanguage
 from test_interpretation_report_identity import _manual_identity, _report
 
@@ -107,7 +108,11 @@ def test_produced_word_preserves_line_breaks_tabs_and_source(
     with zipfile.ZipFile(exported) as archive:
         assert archive.testzip() is None
         root = ET.fromstring(archive.read("word/document.xml"))
-        assert any(_run_parts(run) == EXPECTED for run in root.findall(".//" + W + "r"))
+        expected = EXPECTED
+        if not polished:
+            project_label = hydrocarbon_report_labels(language).project
+            expected = (("text", f"{project_label}: {EXPECTED[0][1]}"), *EXPECTED[1:])
+        assert any(_run_parts(run) == expected for run in root.findall(".//" + W + "r"))
         page_sizes = root.findall(".//" + W + "pgSz")
         assert page_sizes
         assert all(page.get(W + "orient") == orientation for page in page_sizes)
