@@ -146,6 +146,20 @@ def _selected_tablet_tracks(widget: TabletView, job: PrintJobSettings):
     return selected
 
 
+def _selected_tablet_print_header_height(printable_tracks) -> int:
+    """Measure the print header from selected tracks' natural title and legend bands.
+
+    Screen titles can absorb a synchronized parameter band when their track has
+    no curves. That merged display height must not leak into pagination, and
+    title and curve rows are synchronized independently during print capture.
+    """
+    if not printable_tracks:
+        return 0
+    return max(item.widget.natural_title_header_height for item in printable_tracks) + max(
+        item.widget.print_curve_header_height for item in printable_tracks
+    )
+
+
 def build_document_plan(
     widget: QWidget,
     job: PrintJobSettings,
@@ -174,10 +188,7 @@ def build_document_plan(
             printable_tracks = _selected_tablet_tracks(widget, job)
             selected_definitions = [item.definition for item in printable_tracks]
             auto_source_width = original_column_layout(selected_definitions).total_width
-            header_height = max(
-                item.widget.title.height() + item.widget.print_curve_header_height
-                for item in printable_tracks
-            )
+            header_height = _selected_tablet_print_header_height(printable_tracks)
             domain_span = abs(float(full_range[1]) - float(full_range[0]))
             current_range = widget.visible_depth_range or full_range
             visible_span = abs(float(current_range[1]) - float(current_range[0]))
@@ -284,10 +295,7 @@ def build_document_plan(
             # to the paper, never to the operator's short screen viewport.
             # Dense legends can occupy almost all of that viewport.
             printable_tracks = _selected_tablet_tracks(widget, job)
-            header_height = max(
-                item.widget.title.height() + item.widget.print_curve_header_height
-                for item in printable_tracks
-            )
+            header_height = _selected_tablet_print_header_height(printable_tracks)
             media = job.page.media_dimensions(source_width, source_height)
             full_band = _planned_full_header_band_height_mm(
                 context,
