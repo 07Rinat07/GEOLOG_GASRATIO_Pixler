@@ -11,7 +11,7 @@ from collections.abc import Callable
 from pathlib import Path
 import tempfile
 
-import fitz
+import pymupdf as fitz
 from PySide6.QtCore import QEvent, QObject, QRectF, Qt, QTimer
 from PySide6.QtGui import QCloseEvent, QImage, QMouseEvent, QPainter, QPixmap, QResizeEvent, QShowEvent
 from PySide6.QtPrintSupport import QAbstractPrintDialog, QPrintDialog, QPrinter

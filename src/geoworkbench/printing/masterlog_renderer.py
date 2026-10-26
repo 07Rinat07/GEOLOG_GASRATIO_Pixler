@@ -11,7 +11,7 @@ from pathlib import Path
 from collections.abc import Sequence
 from typing import Protocol
 
-import fitz
+import pymupdf as fitz
 import numpy as np
 from PySide6.QtCore import QLineF, QMarginsF, QPointF, QRectF, QSizeF, Qt
 from PySide6.QtGui import (
@@ -1751,7 +1751,13 @@ def _paint_column_heading(
 ) -> None:
     visual = modern_oilfield_report_profile()
     painter.setPen(QColor(visual.palette.text))
-    orientation = str(column.properties.get("title_orientation", "horizontal"))
+    # Special Masterlog lanes have a vertical engineering caption by default.
+    # A persisted per-column direction (including horizontal) always wins.
+    compact_heading = column.column_type in {
+        "depth", "stratigraphy", "lithology", "cuttings", "calcimetry", "lba",
+    }
+    default_orientation = "vertical_bottom_to_top" if compact_heading else "horizontal"
+    orientation = str(column.properties.get("title_orientation", default_orientation))
     position = str(column.properties.get("title_position", "center"))
     # Vertical headings retain the existing taller lane above the legend.
     title_height = (rect.height() * 0.62 if orientation != "horizontal"

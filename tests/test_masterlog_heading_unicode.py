@@ -127,3 +127,39 @@ def test_heading_and_bound_unicode_unit_export_after_reopen(qapp, tmp_path, lang
     assert saved == before
     assert restored.current_dataset.curve_by_mnemonic("VENDOR").metadata == source_metadata
     np.testing.assert_array_equal(restored.current_dataset.curve_by_mnemonic("VENDOR").values, source_values)
+
+def test_default_masterlog_column_captions_and_manual_overrides(qapp, tmp_path, monkeypatch) -> None:
+    from PySide6.QtGui import QPainter, QPdfWriter
+    from PySide6.QtCore import QRectF
+
+    captured: list[tuple[str, str, str]] = []
+
+    def capture(_painter, _rect, label, *, orientation, position, **_kwargs):
+        captured.append((label, orientation, position))
+
+    monkeypatch.setattr(renderer, "draw_oriented_text", capture)
+    target = tmp_path / "masterlog-captions.pdf"
+    writer = QPdfWriter(str(target))
+    painter = QPainter(writer)
+    try:
+        for kind in ("depth", "stratigraphy", "lithology", "cuttings", "calcimetry", "lba"):
+            column = MasterlogColumnTemplate(kind, kind, kind, 28.0)
+            renderer._paint_column_heading(painter, QRectF(0, 0, 28, 40), column, None, {})
+            assert captured[-1] == (kind, "vertical_bottom_to_top", "center")
+
+        description = MasterlogColumnTemplate(
+            "rock-description", "Описание пород", "cuttings_description", 75.0,
+        )
+        renderer._paint_column_heading(painter, QRectF(0, 0, 75, 40), description, None, {})
+        assert captured[-1] == ("Описание пород", "horizontal", "center")
+
+        overridden = MasterlogColumnTemplate(
+            "user-column", "Литология", "lithology", 28.0,
+            properties={"title_orientation": "vertical_top_to_bottom", "title_position": "bottom"},
+        )
+        renderer._paint_column_heading(painter, QRectF(0, 0, 28, 40), overridden, None, {})
+        assert captured[-1] == ("Литология", "vertical_top_to_bottom", "bottom")
+    finally:
+        painter.end()
+
+

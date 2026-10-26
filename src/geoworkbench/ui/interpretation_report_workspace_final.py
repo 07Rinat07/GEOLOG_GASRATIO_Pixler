@@ -9,7 +9,7 @@ from pathlib import Path
 import tempfile
 from typing import Callable
 
-import fitz
+import pymupdf as fitz
 import numpy as np
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPageLayout

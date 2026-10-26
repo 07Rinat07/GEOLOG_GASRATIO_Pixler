@@ -10,12 +10,14 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QDoubleSpinBox,
     QFormLayout,
+    QFrame,
     QHBoxLayout,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -41,6 +43,19 @@ from geoworkbench.tablet.grid_geometry import (
 from geoworkbench.ui.adaptive_toolbar import AdaptiveActionToolBar
 from geoworkbench.ui.grid_settings_widget import GridSettingsWidget
 from geoworkbench.ui.window_geometry import fit_window_to_screen
+
+
+_GEOLOGY_HEADING_COLUMN_TYPES = frozenset({
+    "depth", "stratigraphy", "lithology", "cuttings", "calcimetry", "lba",
+})
+
+
+def _default_heading_orientation(column_type: str) -> str:
+    return (
+        "vertical_bottom_to_top"
+        if column_type.strip().casefold() in _GEOLOGY_HEADING_COLUMN_TYPES
+        else "horizontal"
+    )
 
 
 class ColumnPropertiesDialog(QDialog):
@@ -99,13 +114,15 @@ class ColumnPropertiesDialog(QDialog):
         for value in TEXT_ORIENTATIONS:
             self.title_orientation_input.addItem(orientation_labels[value], value)
         selected_orientation = (
-            str(column.properties.get("title_orientation", "horizontal"))
+            str(column.properties.get("title_orientation", _default_heading_orientation(column.column_type)))
             if column is not None
             else "horizontal"
         )
         self.title_orientation_input.setCurrentIndex(
             max(0, self.title_orientation_input.findData(selected_orientation))
         )
+        self._editing_existing_column = column is not None
+        self.type_input.currentTextChanged.connect(self._apply_default_title_direction)
         self.title_position_input = QComboBox()
         position_labels = {
             AppLanguage.RU: {"top": "Ближе к верху", "center": "По центру", "bottom": "Ближе к низу"},
@@ -237,9 +254,17 @@ class ColumnPropertiesDialog(QDialog):
             AppLanguage.KK: ("Баған", "Қисықтар", "Тор және баспа"),
             AppLanguage.EN: ("Column", "Curves", "Grid and print"),
         }[language]
-        self.settings_tabs.addTab(column_tab, tab_labels[0])
-        self.settings_tabs.addTab(curve_tab, tab_labels[1])
-        self.settings_tabs.addTab(grid_tab, tab_labels[2])
+        # Scroll tab contents independently, leaving confirmation actions visible.
+        self.settings_tab_scrollers: list[QScrollArea] = []
+        for tab, label in zip((column_tab, curve_tab, grid_tab), tab_labels, strict=True):
+            scroller = QScrollArea()
+            scroller.setWidgetResizable(True)
+            scroller.setFrameShape(QFrame.Shape.NoFrame)
+            scroller.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+            scroller.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            scroller.setWidget(tab)
+            self.settings_tab_scrollers.append(scroller)
+            self.settings_tabs.addTab(scroller, label)
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
@@ -284,6 +309,14 @@ class ColumnPropertiesDialog(QDialog):
             self.line_width_input.value(),
             str(self.line_style_input.currentData()),
         )
+
+    def _apply_default_title_direction(self, column_type: str) -> None:
+        if self._editing_existing_column:
+            return
+        orientation = _default_heading_orientation(column_type)
+        index = self.title_orientation_input.findData(orientation)
+        if index >= 0:
+            self.title_orientation_input.setCurrentIndex(index)
 
     def title_presentation(self) -> tuple[str, str]:
         return (

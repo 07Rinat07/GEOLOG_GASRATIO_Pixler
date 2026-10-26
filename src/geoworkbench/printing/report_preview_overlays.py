@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 import tempfile
 
-import fitz
+import pymupdf as fitz
 from PySide6.QtCore import QBuffer, QIODevice, QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QImage, QImageWriter, QPainter, QPen, QPolygonF
 

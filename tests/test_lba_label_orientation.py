@@ -11,10 +11,10 @@ from geoworkbench.domain.models import (
     DepthDomain,
 )
 from geoworkbench.forms.apply import FormApplyEngine
+from geoworkbench.forms.catalog import visible_factory_forms
 from geoworkbench.forms.codec import form_from_dict, form_to_dict
 from geoworkbench.forms.from_tablet import form_from_tablet_layout
 from geoworkbench.forms.models import FormAxisKind, FormColumn, FormDocument, FormTrack
-from geoworkbench.forms.templates import factory_templates
 from geoworkbench.tablet.layout_codec import layout_from_dict, layout_to_dict
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
 from geoworkbench.tablet.tablet_view import TabletView
@@ -86,10 +86,10 @@ def test_lba_label_orientation_round_trips_through_forms_and_v14_migration() -> 
     )
 
 
-def test_all_factory_lba_forms_use_vertical_colour_and_bitumen_labels() -> None:
+def test_visible_a4_factory_lba_forms_use_bottom_up_colour_and_bitumen_labels() -> None:
     lba_tracks = [
         track
-        for form in factory_templates("ru").values()
+        for form in visible_factory_forms(None, "ru")
         for column in form.columns
         for track in column.tracks
         if track.kind is TrackKind.LBA
@@ -97,7 +97,7 @@ def test_all_factory_lba_forms_use_vertical_colour_and_bitumen_labels() -> None:
 
     assert lba_tracks
     assert all(
-        track.lba_label_orientation == "vertical_top_to_bottom"
+        track.lba_label_orientation == "vertical_bottom_to_top"
         for track in lba_tracks
     )
 

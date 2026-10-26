@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
-import fitz
+import pymupdf as fitz
 from PySide6.QtCore import QMarginsF, QRectF
 from PySide6.QtGui import (
     QColor,

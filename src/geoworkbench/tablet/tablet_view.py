@@ -1625,7 +1625,8 @@ class TabletTrackWidget(QFrame):
         return max(36, int(bounds.height()) + 12)
 
     def set_synchronized_title_header_height(self, height: int) -> None:
-        self.title.setFixedHeight(max(36, int(height)))
+        self._base_title_header_height = max(36, int(height))
+        self.title.setFixedHeight(self._base_title_header_height)
 
     @property
     def synchronized_header_heights(self) -> tuple[int, int]:
@@ -1656,6 +1657,16 @@ class TabletTrackWidget(QFrame):
         normalized = align_curve_header_band_height(
             height, row_height=self._curve_header_row_height
         )
+        if not self._curve_header_labels and normalized:
+            # No curve parameters: one merged header cell instead of a title
+            # stuck at the top of an otherwise empty synchronized band.
+            # Keep total height identical to curve tracks for depth alignment.
+            base = getattr(self, "_base_title_header_height", self.natural_title_header_height)
+            self.title.setFixedHeight(base + normalized)
+            normalized = 0
+        else:
+            base = getattr(self, "_base_title_header_height", self.natural_title_header_height)
+            self.title.setFixedHeight(base)
         self.curve_header_scroll.setVisible(normalized > 0)
         self.curve_header_scroll.setMinimumHeight(normalized)
         self.curve_header_scroll.setMaximumHeight(normalized)

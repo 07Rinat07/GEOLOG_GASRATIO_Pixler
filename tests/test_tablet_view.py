@@ -466,6 +466,37 @@ def test_wrapped_horizontal_track_title_expands_common_header_band(qapp) -> None
     widget.close()
 
 
+
+def test_empty_geology_header_merges_caption_across_unused_parameter_rows(qapp) -> None:
+    from geoworkbench.tablet.header_geometry import align_curve_header_band_height
+
+    geology = TabletTrackWidget(
+        TrackDefinition(
+            "strat", "Стратиграфия", TrackKind.STRATIGRAPHY,
+            title_orientation="vertical_bottom_to_top",
+        )
+    )
+    curves = TabletTrackWidget(TrackDefinition("c", "C1", TrackKind.CURVE))
+    curves.set_curve_headers([("C1", "C1", "#2563eb", "#0f172a", None)])
+    title_height, requested_curve_height = 96, 100
+    aligned = align_curve_header_band_height(requested_curve_height)
+    for widget in (geology, curves):
+        widget.set_synchronized_title_header_height(title_height)
+        widget.set_synchronized_header_height(requested_curve_height)
+
+    assert geology.title.height() == title_height + aligned
+    assert geology.curve_header_scroll.height() == 0
+    assert curves.title.height() == title_height
+    assert curves.curve_header_scroll.height() == aligned
+    assert sum(geology.synchronized_header_heights) == sum(curves.synchronized_header_heights)
+    assert geology.definition.title_orientation == "vertical_bottom_to_top"
+
+    # Repeated sync must not accumulate height from the prior page.
+    geology.set_synchronized_header_height(requested_curve_height)
+    assert geology.title.height() == title_height + aligned
+    geology.close()
+    curves.close()
+
 def test_no_numeric_hint_is_screen_only_and_restored_after_print(qapp) -> None:
     dataset = Dataset(
         "dataset-no-numeric-print",
@@ -2855,9 +2886,16 @@ def test_masterlog_tracks_reserve_one_header_band_and_align_plot_viewports(qapp)
         view._rendered["drilling"].widget.natural_curve_header_height
         == expected_header_height
     )
-    assert {
-        rendered.widget.curve_header_scroll.height() for rendered in view._rendered.values()
-    } == {expected_header_height}
+    drilling_header = view._rendered["drilling"].widget
+    assert drilling_header.curve_header_scroll.height() == expected_header_height
+    expected_total_height = sum(drilling_header.synchronized_header_heights)
+    for track_id, rendered in view._rendered.items():
+        assert sum(rendered.widget.synchronized_header_heights) == expected_total_height
+        if track_id in {"depth", "strat", "cuttings"}:
+            assert rendered.widget.curve_header_scroll.height() == 0
+            assert rendered.widget.title.height() == expected_total_height
+        else:
+            assert rendered.widget.curve_header_scroll.height() == expected_header_height
 
     viewport_tops = {
         rendered.plot.viewport().mapToGlobal(QPoint(0, 0)).y()

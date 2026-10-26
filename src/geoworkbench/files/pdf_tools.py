@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import zipfile
 
-import fitz
+import pymupdf as fitz
 
 
 class PdfToolsError(RuntimeError):

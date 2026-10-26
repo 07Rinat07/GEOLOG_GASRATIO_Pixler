@@ -44,7 +44,7 @@ STANDARD_MIN_TRACK_WIDTH = 80
 COMPACT_MIN_TRACK_WIDTH = 48
 MAX_TRACK_WIDTH = 2000
 COMPACT_WIDTH_FACTOR = 0.50
-COMPACT_TITLE_ORIENTATION = "vertical_top_to_bottom"
+COMPACT_TITLE_ORIENTATION = "vertical_bottom_to_top"
 COMPACT_TITLE_POSITION = "center"
 VERTICAL_COMPACT_TITLE_KINDS = COMPACT_TRACK_KINDS
 
@@ -52,9 +52,8 @@ VERTICAL_COMPACT_TITLE_KINDS = COMPACT_TRACK_KINDS
 def compact_track_title_orientation(kind: TrackKind) -> str:
     """Return one canonical vertical direction for compact special columns.
 
-    All compact geology/reference columns use the same top-to-bottom +90°
-    direction. This removes the historical LBA exception and prevents mixed
-    bottom-to-top/top-to-bottom headers across screen, forms and print output.
+    New compact geology/reference captions read from bottom to top.
+    The three-direction per-track setting remains available for overrides.
     """
 
     return COMPACT_TITLE_ORIENTATION if kind in VERTICAL_COMPACT_TITLE_KINDS else "horizontal"

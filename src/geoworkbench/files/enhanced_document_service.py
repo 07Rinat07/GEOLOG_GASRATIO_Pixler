@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 import html
 
-import fitz
+import pymupdf as fitz
 
 from geoworkbench.files.document_service import DocumentError, DocumentService, _Snapshot
 
@@ -70,7 +70,7 @@ class EnhancedDocumentService(DocumentService):
         try:
             for rect in prepared:
                 page.add_redact_annot(rect, fill=(1.0, 1.0, 1.0), cross_out=False)
-            page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_PIXELS)
+            page.apply_redactions(images=getattr(fitz, "PDF_REDACT_IMAGE_PIXELS"))
         except Exception as exc:
             self._rollback_transaction(before, dirty_before, undo_before, redo_before)
             raise DocumentError(f"Не удалось применить ластик: {exc}") from exc
@@ -137,7 +137,7 @@ class EnhancedDocumentService(DocumentService):
         try:
             if replace:
                 page.add_redact_annot(target, fill=(1.0, 1.0, 1.0), cross_out=False)
-                page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_PIXELS)
+                page.apply_redactions(images=getattr(fitz, "PDF_REDACT_IMAGE_PIXELS"))
             if background is not None:
                 page.draw_rect(target, color=None, fill=background, overlay=True)
             remaining = self._insert_html_text(

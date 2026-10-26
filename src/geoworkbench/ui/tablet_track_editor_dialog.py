@@ -393,6 +393,12 @@ class TabletTrackEditorDialog(QDialog):
         self.editor_scroll = QScrollArea()
         self.editor_scroll.setObjectName("tablet-track-editor-scroll")
         self.editor_scroll.setWidgetResizable(True)
+        self.editor_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOn
+        )
+        self.editor_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
         self.editor_scroll.setWidget(editor_widget)
         self.editor_scroll.setMinimumWidth(340)
 
