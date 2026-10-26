@@ -2605,3 +2605,9 @@ blank source IDs across lithology, cuttings and stratigraphy, both inside and
 outside the selected interval. Valid Unicode, numeric-looking and padded text
 IDs remain byte-for-byte unchanged across all five evidence kinds, with the
 same measured coverage. Source well, MD and C1 values must remain unchanged.
+
+Independent Masterlog PDF column renderer defaults to bottom-to-top for six
+compact geology/depth types, full-cell horizontal centered rock description;
+per-column custom orientation/position must override defaults. Test
+`test_masterlog_heading_unicode.py::test_default_masterlog_column_captions_and_manual_overrides`
+records paint direction via Qt QPdfWriter without modifying geological data.
