@@ -19,7 +19,7 @@ from geoworkbench.services.gas_context_report_labels import (
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.report_document_control_docx import report_document_control_docx_footer
-from geoworkbench.printing.docx_xml_characters import docx_xml_safe_text
+from geoworkbench.printing.docx_xml_characters import docx_xml_safe_text, docx_word_text_parts
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
@@ -754,13 +754,22 @@ def _method_comparisons_docx(
     ]
 
 
+def _word_run_body(value: object) -> str:
+    """Represent manual newlines and tabs explicitly inside a Word run."""
+    return "".join(
+        (f'<w:t xml:space="preserve">{_xml_text(part)}</w:t>'
+         if kind == "text" else "<w:br/>" if kind == "break" else "<w:tab/>")
+        for kind, part in docx_word_text_parts(value)
+    )
+
+
 def _paragraph(text: str, *, style: str | None = None) -> str:
     style_xml = ""
     if style:
         # Section labels must stay with their first content paragraph or table.
         pagination = "<w:keepNext/><w:keepLines/>" if style in {"Title", "Heading1"} else ""
         style_xml = f'<w:pPr><w:pStyle w:val="{style}"/>{pagination}</w:pPr>'
-    return f'<w:p>{style_xml}<w:r><w:t xml:space="preserve">{_xml_text(text)}</w:t></w:r></w:p>'
+    return f'<w:p>{style_xml}<w:r>{_word_run_body(text)}</w:r></w:p>'
 
 
 def _table(
@@ -824,8 +833,7 @@ def _table_row(
             f'<w:tc><w:tcPr><w:tcW w:w="{width}" w:type="dxa"/>'
             f'<w:vAlign w:val="center"/>{shading}</w:tcPr>'
             '<w:p><w:pPr><w:spacing w:after="0"/></w:pPr>'
-            f'<w:r>{run_properties}<w:t xml:space="preserve">'
-            f"{_xml_text(value)}</w:t></w:r></w:p></w:tc>"
+            f'<w:r>{run_properties}{_word_run_body(value)}</w:r></w:p></w:tc>'
         )
     row_properties = (
         "<w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>"

@@ -1,3 +1,12 @@
+## PRINT-STYLE-01 — Word text line breaks and tabs
+
+`tests/test_docx_text_whitespace.py` validates explicit `<w:br/>` for LF,
+CRLF and CR, `<w:tab/>` for tab, and `<w:t xml:space="preserve">`
+for ordinary text after XML 1.0 filtering. Covers ordinary paragraph,
+tables and polished paragraphs, plus actual ZIP/XML DOCX export in
+RU/KK/EN and portrait/landscape. Checks source strings/identity unchanged.
+Require three exact-HEAD Windows Release Gate jobs and green post-merge main.
+
 ## PRINT-STYLE-01 — isolate all Word UI orientation scenarios
 
 PR #742 run 40246626008: native 0xC0000005 occurred in the sixth
