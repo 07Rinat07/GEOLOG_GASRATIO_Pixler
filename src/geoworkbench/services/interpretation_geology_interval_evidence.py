@@ -202,6 +202,15 @@ def correlate_gas_interval_with_well_geology(
         # malformed metadata, including records outside the selection.
         for field in LBA_OBSERVATION_FIELDS:
             if field in ("lba_group", "lba_intensity"):
+                value = getattr(source_sample, field)
+                if value is not None:
+                    scalar = np.asarray(value)
+                    if (
+                        scalar.ndim != 0
+                        or scalar.dtype.kind not in "fiu"
+                        or not np.isfinite(scalar).all()
+                    ):
+                        raise ValueError(f"Geology correlation requires finite numeric LBA {field}")
                 continue
             value = getattr(source_sample, field)
             if value is not None and not isinstance(value, str):
