@@ -184,6 +184,13 @@ def correlate_gas_interval_with_well_geology(
                     f"Geology correlation requires finite numeric MD bounds in {source_kind}"
                 )
 
+    # Snapshot coercion can turn a malformed description into an apparent
+    # observation, including coverage for a sample without components.
+    for source_kind, observations in (("lithology", well.lithology), ("cuttings", well.cuttings)):
+        for observation in observations:
+            if observation.description is not None and not isinstance(observation.description, str):
+                raise ValueError(f"Geology correlation requires text {source_kind} description")
+
     # Code is required, while optional name/rank may be absent. Reject
     # non-text metadata even on an outside or blank-code source record;
     # otherwise a malformed field can be silently excluded or crash export.

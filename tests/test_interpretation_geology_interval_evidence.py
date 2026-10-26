@@ -14,6 +14,7 @@ from geoworkbench.domain.models import (
     DatasetIndex,
     IndexRole,
     IndexType,
+    LithologyInterval,
     StratigraphyInterval,
 )
 from geoworkbench.services.interpretation_geology_interval_evidence import (
@@ -27,6 +28,58 @@ _LBA_TEXT_FIELDS = (
     "lba_cut_speed", "lba_cut_color", "lba_residue_type", "lba_residue_color",
     "lba_odour", "lba_stain", "lba_description",
 )
+
+
+@pytest.mark.parametrize("kind", ("lithology", "cuttings"))
+@pytest.mark.parametrize("value", (True, 123, ["rock"], {"ru": "rock"}, np.array(["rock"])))
+@pytest.mark.parametrize("outside", (False, True))
+def test_non_text_geology_description_is_rejected(kind, value, outside):
+    session = _session()
+    well, dataset = session.current_well, session.current_dataset
+    top, bottom = (1020.0, 1025.0) if outside else (1004.0, 1009.0)
+    record = (
+        LithologyInterval("description", top, bottom, "sandstone")
+        if kind == "lithology" else CuttingsSample("description", top, bottom)
+    )
+    record.description = value
+    getattr(well, kind).append(record)
+    before = repr(well)
+    md = dataset.active_index.values.copy()
+    curve = dataset.curves["curve-c1"].values.copy()
+    with pytest.raises(ValueError, match=f"text {kind} description"):
+        _intersect(session)
+    assert repr(well) == before
+    np.testing.assert_array_equal(dataset.active_index.values, md)
+    np.testing.assert_array_equal(dataset.curves["curve-c1"].values, curve)
+
+
+@pytest.mark.parametrize("kind", ("lithology", "cuttings"))
+@pytest.mark.parametrize("description", (None, "", "   ", "  Песчаник\nЛБА  "))
+def test_optional_geology_description_keeps_observed_coverage(kind, description):
+    session = _session()
+    well = session.current_well
+    well.lithology = []
+    well.cuttings = []
+    record = (
+        LithologyInterval("description", 1004.0, 1009.0, "sandstone")
+        if kind == "lithology" else CuttingsSample("description", 1004.0, 1009.0)
+    )
+    record.description = description
+    getattr(well, kind).append(record)
+    before = repr(well)
+    evidence = _intersect(session)
+    observed = [item for item in evidence.intersections if item.kind == kind]
+    text = description.strip() if description else ""
+    if kind == "cuttings" and not text:
+        assert observed == []
+        assert evidence.coverage(kind) == 0.0
+    else:
+        expected = (("lithotype_id", "sandstone"),) if kind == "lithology" else ()
+        if text:
+            expected += (("description", text),)
+        assert observed[0].attributes == expected
+        assert evidence.coverage(kind) == pytest.approx(5 / 8)
+    assert repr(well) == before
 
 
 @pytest.mark.parametrize("field", ("lba_group", "lba_intensity"))
