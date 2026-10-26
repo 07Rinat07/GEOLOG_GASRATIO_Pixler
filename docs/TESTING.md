@@ -2508,3 +2508,10 @@ RU/KK/EN; visibility and language-change persistence assertions remain mandatory
 All six cases failed locally before this setup fix and passed after it. A broader
 combined orientation/responsive run still terminated with a native exception;
 the six-case success does not resolve that separate lifecycle issue (#544).
+
+### INTERP-GEO-01: LBA text source validation
+
+`python scripts/run_tests.py tests/test_interpretation_geology_interval_evidence.py -p no:cacheprovider`
+checks all eleven LBA text fields with malformed scalar/container inputs, including
+records outside the selection. None and blank text remain missing; recorded text
+retains its observed coverage. Every case checks unchanged source records.

@@ -4210,6 +4210,14 @@ placeholder names между RU/KK/EN. Руководство Print Center на 
 
 <!-- runtime-contract: package=0.7.96; project=v38; form=v18; layout=v25 -->
 
+#### INTERP-GEO-01 — типы текстовых наблюдений ЛБА (на проверке)
+
+До snapshot проверяются исходные текстовые поля ЛБА: допустимы строки и None.
+Числа, boolean и контейнеры отклоняются, включая пробы вне выбранного интервала,
+чтобы преобразование в текст не создавало фиктивное измеренное покрытие.
+Пустой текст остаётся отсутствием наблюдения; исходные записи не изменяются.
+Числовые group/intensity и классификация флюида этим инкрементом не меняются.
+
 #### Windows CI — lifecycle regression в свежем процессе (на проверке)
 
 Run38324037518 завершился 0xC0000005 при MainWindow/ViewBoxMenu construction до close-order assertion. Локальный shared prefix32tests и отдельный тест прошли; точная причина не доказана. Existing runner выполняет обязательную regression в отдельном процессе без skips и изменения assertions; новые exact-head gates обязательны.
