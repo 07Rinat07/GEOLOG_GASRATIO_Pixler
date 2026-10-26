@@ -104,6 +104,33 @@ def test_new_geology_column_defaults_to_bottom_up_but_manual_override_survives(q
     assert dialog.title_presentation() == ("horizontal", "center")
     dialog.close()
 
+
+def test_existing_masterlog_column_uses_render_default_when_orientation_unsaved(qapp) -> None:
+    from geoworkbench.domain.models import MasterlogColumnTemplate
+
+    for kind in ("depth", "stratigraphy", "lithology", "cuttings", "calcimetry", "lba"):
+        column = MasterlogColumnTemplate(kind, kind, kind, 30.0)
+        dialog = ColumnPropertiesDialog(column=column, language=AppLanguage.RU)
+        assert dialog.title_presentation() == ("vertical_bottom_to_top", "center")
+        dialog.close()
+
+    description = MasterlogColumnTemplate(
+        "description", "Описание пород", "cuttings_description", 75.0,
+    )
+    dialog = ColumnPropertiesDialog(column=description, language=AppLanguage.RU)
+    assert dialog.title_presentation() == ("horizontal", "center")
+    dialog.close()
+
+    # A saved horizontal choice must not be overwritten by geology defaults.
+    overridden = MasterlogColumnTemplate(
+        "saved", "Литология", "lithology", 30.0,
+        properties={"title_orientation": "horizontal", "title_position": "bottom"},
+    )
+    dialog = ColumnPropertiesDialog(column=overridden, language=AppLanguage.RU)
+    assert dialog.title_presentation() == ("horizontal", "bottom")
+    dialog.close()
+
+
 def test_masterlog_controller_persists_column_title_presentation() -> None:
     controller = MasterlogTemplateController(ProjectSession())
     template = controller.create("Rotated")
