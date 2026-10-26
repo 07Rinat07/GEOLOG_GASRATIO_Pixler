@@ -1,3 +1,13 @@
+## INTERP-GEO-01 — lithotype identifier type validation
+
+`tests/test_interpretation_geology_interval_evidence.py` checks 28 source
+malformations (lithology or cuttings, within/outside MD selection, seven
+invalid identifier types), plus a valid-evidence provenance and coverage
+regression. Unlike the permissive report snapshot, interval evidence must
+reject non-text lithotype IDs before converting them to strings. The tests
+assert that original well, MD and C1 samples are not modified. The full
+module and all three exact-HEAD Windows Release Gates remain required.
+
 ## INTERP-GEO-01 — source description integrity
 
 `tests/test_interpretation_geology_interval_evidence.py` rejects non-text

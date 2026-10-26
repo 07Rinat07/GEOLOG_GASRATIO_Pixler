@@ -31,6 +31,46 @@ _LBA_TEXT_FIELDS = (
 
 
 @pytest.mark.parametrize("kind", ("lithology", "cuttings"))
+@pytest.mark.parametrize("outside", (False, True))
+@pytest.mark.parametrize("value", (None, True, 123, 1.5, ["sandstone"], {"id": "sandstone"}, np.array(["sandstone"])))
+def test_non_text_lithotype_id_is_rejected_without_fabricating_rock_evidence(kind, outside, value):
+    session = _session()
+    well, dataset = session.current_well, session.current_dataset
+    if kind == "lithology":
+        source = well.lithology[1 if outside else 0]
+    else:
+        source = well.cuttings[1 if outside else 0].components[0]
+    source.lithotype_id = value
+    before = repr(well)
+    md = dataset.active_index.values.copy()
+    c1 = dataset.curves["curve-c1"].values.copy()
+    with pytest.raises(ValueError, match=f"text {kind} lithotype_id"):
+        _intersect(session)
+    assert repr(well) == before
+    np.testing.assert_array_equal(dataset.active_index.values, md)
+    np.testing.assert_array_equal(dataset.curves["curve-c1"].values, c1)
+
+
+def test_text_lithotype_ids_preserve_measured_coverage_and_source_provenance():
+    session = _session()
+    well = session.current_well
+    before = repr(well)
+    evidence = _intersect(session)
+    lithology = [item for item in evidence.intersections if item.kind == "lithology"]
+    cuttings = [item for item in evidence.intersections if item.kind == "cuttings"]
+    assert len(lithology) == 1
+    assert lithology[0].source_id == "lith-in"
+    assert ("lithotype_id", "sandstone") in lithology[0].attributes
+    assert len(cuttings) == 1
+    assert cuttings[0].source_id == "sample-in"
+    assert ("lithotype:sandstone", 70.0) in cuttings[0].attributes
+    assert ("lithotype:clay", 30.0) in cuttings[0].attributes
+    assert evidence.coverage("lithology") == pytest.approx(6 / 8)
+    assert evidence.coverage("cuttings") == pytest.approx(5 / 8)
+    assert repr(well) == before
+
+
+@pytest.mark.parametrize("kind", ("lithology", "cuttings"))
 @pytest.mark.parametrize("value", (True, 123, ["rock"], {"ru": "rock"}, np.array(["rock"])))
 @pytest.mark.parametrize("outside", (False, True))
 def test_non_text_geology_description_is_rejected(kind, value, outside):
