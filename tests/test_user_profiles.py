@@ -304,7 +304,7 @@ def test_v2_print_preferences_keep_header_placement_but_header_choice_is_implici
     assert restored.header_template_id is None
 
 
-def test_masterlog_form_uses_auto_density_only_for_untouched_legacy_default() -> None:
+def test_masterlog_form_prefers_auto_density_over_legacy_global_fixed_50m() -> None:
     from geoworkbench.printing.print_job import PrintExportPreferences
 
     storage = MemorySettings()
@@ -327,29 +327,44 @@ def test_masterlog_form_uses_auto_density_only_for_untouched_legacy_default() ->
     )
     assert preserved.range_mode.value == "full"
     assert preserved.units_per_page == 50.0
-    assert preserved.auto_units_per_page is False
+    assert preserved.auto_units_per_page is True
+    assert settings.print_export_preferences_for_form("customer-form") == explicit_fixed
 
 
 
 
-def test_explicit_current_50m_masterlog_preference_is_not_migrated() -> None:
+def test_explicit_per_form_manual_masterlog_span_remains_unchanged() -> None:
     from geoworkbench.printing.print_job import PrintExportPreferences
 
     storage = MemorySettings()
     settings = UserProfileSettings(storage)
     explicit = PrintExportPreferences(
-        range_mode=PrintRangeMode.CURRENT,
+        range_mode=PrintRangeMode.FULL,
         units_per_page=50.0,
         auto_units_per_page=False,
-        overlap=0.0,
+        overlap=5.0,
     )
-    settings.save_print_export_preferences(explicit)
-
-    restored = settings.print_export_preferences_for_form(
-        "factory-masterlog-a4-landscape"
+    settings.save_print_export_preferences_for_form(
+        "factory-masterlog-a4-landscape", explicit,
     )
-
+    restored = UserProfileSettings(storage).print_export_preferences_for_form(
+        "factory-masterlog-a4-landscape",
+    )
     assert restored == explicit
+    assert restored.auto_units_per_page is False
+
+
+def test_new_print_preferences_use_automatic_page_density() -> None:
+    from geoworkbench.printing.print_job import PrintExportPreferences
+
+    settings = UserProfileSettings(MemorySettings())
+    assert PrintExportPreferences().auto_units_per_page is True
+    assert settings.print_export_preferences().auto_units_per_page is True
+    assert settings.print_export_preferences_for_form("customer-form").auto_units_per_page is True
+    assert settings.print_export_preferences_for_form(
+        "factory-masterlog-a4-portrait",
+    ).auto_units_per_page is True
+
 
 def test_form_print_preferences_do_not_leak_to_global_or_other_forms() -> None:
     from geoworkbench.printing.print_job import PrintExportPreferences
@@ -366,7 +381,7 @@ def test_form_print_preferences_do_not_leak_to_global_or_other_forms() -> None:
     assert settings.print_export_preferences_for_form(
         "factory-masterlog-a4-landscape"
     ) == masterlog_preferences
-    assert settings.print_export_preferences().auto_units_per_page is False
+    assert settings.print_export_preferences().auto_units_per_page is True
     assert settings.print_export_preferences_for_form(
         "customer-form"
-    ).auto_units_per_page is False
+    ).auto_units_per_page is True

@@ -1,6 +1,8 @@
 import re
 from pathlib import Path
 
+import pytest
+
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import QImageReader
 from PySide6.QtWidgets import QDialog, QLabel
@@ -423,6 +425,54 @@ def test_print_center_auto_interval_disables_manual_span_and_overlap(qapp) -> No
     assert pagination.units_per_page == 50.0
     assert pagination.overlap == 0.0
     assert dialog.preferences().auto_units_per_page is True
+    dialog.close()
+
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_long_masterlog_defaults_to_auto_without_showing_stale_50_m(qapp, language) -> None:
+    from geoworkbench.printing.pagination import PrintRangeMode
+
+    dialog = PrintCenterDialog(
+        language=language,
+        supports_pagination=True,
+        full_vertical_range=(0.0, 28750.0),
+        current_vertical_range=(0.0, 100.0),
+        vertical_unit="m",
+    )
+    dialog.range_combo.setCurrentIndex(
+        dialog.range_combo.findData(PrintRangeMode.FULL.value)
+    )
+    dialog.show()
+    qapp.processEvents()
+    assert dialog.auto_units_per_page_check.isChecked()
+    assert dialog.pagination_settings().auto_units_per_page is True
+    assert dialog.units_per_page_input.isHidden()
+    assert dialog.page_settings().effective_fit_form_columns is True
+
+    dialog.auto_units_per_page_check.setChecked(False)
+    assert dialog.units_per_page_input.isVisibleTo(dialog)
+    assert dialog.units_per_page_input.value() == 50.0
+    assert dialog.pagination_settings().auto_units_per_page is False
+    dialog.close()
+
+
+def test_roll_media_never_serializes_unavailable_automatic_pagination(qapp) -> None:
+    from geoworkbench.printing.page_settings import PrintPageFormat
+    from geoworkbench.printing.pagination import PrintRangeMode
+
+    dialog = PrintCenterDialog(
+        supports_pagination=True,
+        full_vertical_range=(0.0, 1000.0),
+    )
+    dialog.range_combo.setCurrentIndex(
+        dialog.range_combo.findData(PrintRangeMode.FULL.value)
+    )
+    dialog.format_combo.setCurrentIndex(
+        dialog.format_combo.findData(PrintPageFormat.ROLL.value)
+    )
+    assert dialog.auto_units_per_page_check.isEnabled() is False
+    assert dialog.pagination_settings().auto_units_per_page is False
     dialog.close()
 
 
