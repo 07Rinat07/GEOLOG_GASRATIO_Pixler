@@ -191,6 +191,18 @@ def correlate_gas_interval_with_well_geology(
             if observation.description is not None and not isinstance(observation.description, str):
                 raise ValueError(f"Geology correlation requires text {source_kind} description")
 
+    # The report snapshot coerces lithotype IDs with str(...). A malformed
+    # source ID (including None or bool) would become an invented literal
+    # 'None'/'True' rock code in measured evidence and provenance.
+    # Validate every record, including those outside the selected interval.
+    for interval in well.lithology:
+        if not isinstance(interval.lithotype_id, str):
+            raise ValueError("Geology correlation requires text lithology lithotype_id")
+    for sample in well.cuttings:
+        for component in sample.components:
+            if not isinstance(component.lithotype_id, str):
+                raise ValueError("Geology correlation requires text cuttings lithotype_id")
+
     # Code is required, while optional name/rank may be absent. Reject
     # non-text metadata even on an outside or blank-code source record;
     # otherwise a malformed field can be silently excluded or crash export.
