@@ -249,6 +249,7 @@ class FormApplyEngine:
                 # Presentation settings belong to the form/track, even when
                 # the source template was factory supplied. Do not overwrite
                 # an explicitly selected caption direction on application.
+                is_calcimetry = form_track.kind is TrackKind.CALCIMETRY
                 tracks.append(
                     TrackDefinition(
                         track_id=form_track.track_id or new_id(),
