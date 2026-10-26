@@ -93,3 +93,19 @@ def test_native_dialog_cases_run_in_single_test_processes(filename: str) -> None
     assert all(len(selectors) == 1 for selectors in batches)
     assert tuple(selector for batch in batches for selector in batch) == nodes
     assert run_tests._test_file_shards(1, (path,)) == ()
+
+
+def test_word_ui_language_orientation_cases_use_separate_native_processes() -> None:
+    """Preserve all six real Qt scenarios, one per process in Windows CI."""
+    path = Path("tests/test_gas_ratio_word_page_orientation.py")
+    selectors = run_tests._top_level_test_nodes(path)
+    cases = tuple(selector for selector in selectors if "::test_word_handoff_" in selector)
+    assert len(cases) == 6
+    assert {case.rsplit("::test_word_handoff_", 1)[1] for case in cases} == {
+        f"{orientation}_{language}"
+        for orientation in ("portrait", "landscape")
+        for language in ("ru", "kk", "en")
+    }
+    batches = run_tests._heavy_test_batches((path,))
+    assert all(len(selectors) == 1 for _, selectors in batches)
+    assert all((path.as_posix(), (case,)) in batches for case in cases)

@@ -113,9 +113,7 @@ def test_word_export_defaults_to_portrait(tmp_path: Path, export) -> None:
         assert {size.get(W + "orient") for size in document.findall(".//" + W + "pgSz")} == {"portrait"}
 
 
-@pytest.mark.parametrize("language", list(AppLanguage))
-@pytest.mark.parametrize("orientation", ("portrait", "landscape"))
-def test_ui_choice_survives_language_change_and_is_forwarded(
+def _exercise_word_orientation_handoff(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, qapp,
     language: AppLanguage, orientation: str,
 ) -> None:
@@ -146,6 +144,34 @@ def test_ui_choice_survives_language_change_and_is_forwarded(
     assert captured[0]["orientation"] == orientation
     workspace.close()
 
+
+
+# The previous parametrized Qt UI test ran all six cases in one process.
+# The Windows-native runner isolates test functions, not pytest parameters.
+# Use six real functions to retain every scenario with a fresh Qt heap.
+# Release Gate 40246626008 crashed at the sixth case (0xC0000005).
+def test_word_handoff_portrait_ru(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, qapp) -> None:
+    _exercise_word_orientation_handoff(tmp_path, monkeypatch, qapp, AppLanguage.RU, "portrait")
+
+
+def test_word_handoff_portrait_kk(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, qapp) -> None:
+    _exercise_word_orientation_handoff(tmp_path, monkeypatch, qapp, AppLanguage.KK, "portrait")
+
+
+def test_word_handoff_portrait_en(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, qapp) -> None:
+    _exercise_word_orientation_handoff(tmp_path, monkeypatch, qapp, AppLanguage.EN, "portrait")
+
+
+def test_word_handoff_landscape_ru(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, qapp) -> None:
+    _exercise_word_orientation_handoff(tmp_path, monkeypatch, qapp, AppLanguage.RU, "landscape")
+
+
+def test_word_handoff_landscape_kk(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, qapp) -> None:
+    _exercise_word_orientation_handoff(tmp_path, monkeypatch, qapp, AppLanguage.KK, "landscape")
+
+
+def test_word_handoff_landscape_en(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, qapp) -> None:
+    _exercise_word_orientation_handoff(tmp_path, monkeypatch, qapp, AppLanguage.EN, "landscape")
 
 
 @pytest.mark.parametrize("compact", (False, True))

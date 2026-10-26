@@ -1,3 +1,14 @@
+## PRINT-STYLE-01 — isolate all Word UI orientation scenarios
+
+PR #742 run 40246626008: native 0xC0000005 occurred in the sixth
+parametrized Word UI handoff variant. The Windows runner isolates functions,
+not parameters. Split the same six RU/KK/EN x portrait/landscape checks
+into separate top-level tests, preserving assertions and creating one
+Qt process for each under the existing runner. New runner contract tests
+the six exact function selectors and one-function-per-process batches.
+This is CI isolation, not proof of root cause repair (Qt #544).
+Merge only after three exact-HEAD Windows Release Gates succeed.
+
 ## PRINT-STYLE-01 — Word XML 1.0 character integrity
 
 New shared Word XML text sanitizer filters only characters outside the XML 1.0
