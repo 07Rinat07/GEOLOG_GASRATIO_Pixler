@@ -195,11 +195,11 @@ def correlate_gas_interval_with_well_geology(
     # source ID (including None or bool) would become an invented literal
     # 'None'/'True' rock code in measured evidence and provenance.
     # Validate every record, including those outside the selected interval.
-    for interval in well.lithology:
-        if not isinstance(interval.lithotype_id, str):
+    for source_lithology in well.lithology:
+        if not isinstance(source_lithology.lithotype_id, str):
             raise ValueError("Geology correlation requires text lithology lithotype_id")
-    for sample in well.cuttings:
-        for component in sample.components:
+    for source_cuttings in well.cuttings:
+        for component in source_cuttings.components:
             if not isinstance(component.lithotype_id, str):
                 raise ValueError("Geology correlation requires text cuttings lithotype_id")
 
