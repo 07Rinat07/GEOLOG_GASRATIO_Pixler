@@ -2886,9 +2886,16 @@ def test_masterlog_tracks_reserve_one_header_band_and_align_plot_viewports(qapp)
         view._rendered["drilling"].widget.natural_curve_header_height
         == expected_header_height
     )
-    assert {
-        rendered.widget.curve_header_scroll.height() for rendered in view._rendered.values()
-    } == {expected_header_height}
+    drilling_header = view._rendered["drilling"].widget
+    assert drilling_header.curve_header_scroll.height() == expected_header_height
+    expected_total_height = sum(drilling_header.synchronized_header_heights)
+    for track_id, rendered in view._rendered.items():
+        assert sum(rendered.widget.synchronized_header_heights) == expected_total_height
+        if track_id in {"depth", "strat", "cuttings"}:
+            assert rendered.widget.curve_header_scroll.height() == 0
+            assert rendered.widget.title.height() == expected_total_height
+        else:
+            assert rendered.widget.curve_header_scroll.height() == expected_header_height
 
     viewport_tops = {
         rendered.plot.viewport().mapToGlobal(QPoint(0, 0)).y()
