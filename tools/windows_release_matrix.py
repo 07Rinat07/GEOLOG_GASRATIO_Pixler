@@ -89,6 +89,7 @@ class MatrixCase:
     widget_kind: str = "label"
     pagination_mode: str = "current"
     units_per_page: float = 50.0
+    auto_units_per_page: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,6 +119,7 @@ AUTOMATED_CASES = (
         widget_kind="tablet",
         pagination_mode="full",
         units_per_page=50.0,
+        auto_units_per_page=False,  # Explicit manual-density acceptance: at least four pages.
     ),
     MatrixCase(
         case_id="a4-portrait-fit",
@@ -532,6 +534,7 @@ def _run_case(app, case: MatrixCase, output_dir: Path) -> CaseResult:
             dpi=case.dpi,
             range_mode=PrintRangeMode(case.pagination_mode),
             units_per_page=case.units_per_page,
+            auto_units_per_page=case.auto_units_per_page,
         ),
         language=language,
         source_name=f"Release acceptance {case.case_id}",
