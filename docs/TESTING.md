@@ -1,3 +1,13 @@
+## INTERP-GEO-01 — source description integrity
+
+`tests/test_interpretation_geology_interval_evidence.py` rejects non-text
+lithology/cuttings descriptions before snapshot coercion, inside and outside
+the selected interval. Regressions preserve source well, MD and curve arrays.
+None/blank descriptions do not create cuttings coverage without components;
+valid multiline text and independent lithotype evidence retain their coverage.
+The new cases reproduced 20 failures before the fix, with eight valid-input
+cases passing. Run the full module and all three exact-HEAD Windows gates.
+
 ## PRINT-STYLE-01 — Word text line breaks and tabs
 
 `tests/test_docx_text_whitespace.py` validates explicit `<w:br/>` for LF,
