@@ -256,7 +256,7 @@ class DocumentService:
         page = self._pdf_page()
         self._begin_edit()
         page.add_redact_annot(fitz.Rect(*rect), fill=(1.0, 1.0, 1.0))
-        page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_PIXELS)
+        page.apply_redactions(images=getattr(fitz, "PDF_REDACT_IMAGE_PIXELS"))
         self.dirty = True
 
     def delete_pdf_annotations(self, rect: tuple[float, float, float, float]) -> int:
