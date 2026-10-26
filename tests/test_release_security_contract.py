@@ -164,7 +164,7 @@ def test_native_dump_artifact_is_optional_bounded_and_windows_only() -> None:
 
     assert '$env:GITHUB_ACTIONS -ne "true"' in configure
     assert '$env:RUNNER_OS -ne "Windows"' in configure
-    assert r"LocalDumps\\python.exe" in configure
+    assert r"LocalDumps\python.exe" in configure
     assert "DumpType -Value 1 -PropertyType DWord" in configure
     assert "DumpCount -Value 2 -PropertyType DWord" in configure
 
