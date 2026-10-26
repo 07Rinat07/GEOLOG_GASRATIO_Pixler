@@ -1,3 +1,14 @@
+## PRINT-STYLE-01 — manual Masterlog caption override after type changes
+
+`tests/test_masterlog_columns_dialog.py` covers RU/KK/EN new-column type
+changes before a user override (automatic bottom-up geology/horizontal text),
+then top-to-bottom and horizontal explicit selections surviving subsequent
+type changes. The title vertical position remains independently editable.
+Existing saved columns and templates are unchanged. This does not establish
+physical header-template dimensions or solve intermittent native Qt #544.
+All three Windows Release Gate jobs must pass on the exact PR HEAD and
+current main before merging.
+
 ## PRINT-STYLE-01 — Masterlog captions, empty-header merging and editor scroll
 
 User-provided 150-page Maksat M-1 PDF, first page: vertical rock captions are
