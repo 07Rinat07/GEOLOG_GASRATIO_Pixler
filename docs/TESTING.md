@@ -1,3 +1,26 @@
+## PRINT-STYLE-01 — isolate all Word UI orientation scenarios
+
+PR #742 run 40246626008: native 0xC0000005 occurred in the sixth
+parametrized Word UI handoff variant. The Windows runner isolates functions,
+not parameters. Split the same six RU/KK/EN x portrait/landscape checks
+into separate top-level tests, preserving assertions and creating one
+Qt process for each under the existing runner. New runner contract tests
+the six exact function selectors and one-function-per-process batches.
+This is CI isolation, not proof of root cause repair (Qt #544).
+Merge only after three exact-HEAD Windows Release Gates succeed.
+
+## PRINT-STYLE-01 — Word XML 1.0 character integrity
+
+New shared Word XML text sanitizer filters only characters outside the XML 1.0
+Char production before XML escaping. Apply to ordinary body and custom
+classification-audit XML, polished cover/identity and common footer text.
+Regressions live in the already Windows-isolated Word orientation test module:
+control characters, surrogates and U+FFFE/U+FFFF, valid Unicode boundaries,
+RU/KK/EN × standard/OPUS × portrait/landscape × ordinary/polished actual
+DOCX package parsing, escaped XML syntax and unchanged source objects.
+Run the exact-HEAD three-job Windows Release Gate and post-merge main CI.
+Do not disable native tests or treat this as resolution of Qt #544.
+
 ## PRINT-STYLE-01 — Windows isolation of Word-orientation regression
 
 PR #741 showed 0xC0000005 in the Windows quality gate on the mixed

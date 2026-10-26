@@ -24,6 +24,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
 from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.report_document_control_docx import report_document_control_docx_footer
+from geoworkbench.printing.docx_xml_characters import docx_xml_safe_text
 from geoworkbench.printing.report_document_control import report_document_control, resolved_report_identity
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
@@ -338,7 +339,7 @@ def _paragraph(
     ET.SubElement(run_properties, _q("sz"), {_q("val"): str(resolved_size)})
     text_node = ET.SubElement(run, _q("t"))
     text_node.set(f"{{{_XML_NS}}}space", "preserve")
-    text_node.text = text
+    text_node.text = docx_xml_safe_text(text)
     return paragraph
 
 
