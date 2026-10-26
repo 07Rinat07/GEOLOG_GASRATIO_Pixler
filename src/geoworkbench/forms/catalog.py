@@ -87,12 +87,14 @@ def _apply_factory_presentation_defaults(
     for column in form.columns:
         for track in column.tracks:
             if track.kind in COMPACT_TRACK_KINDS:
-                column.title_orientation = "vertical_top_to_bottom"
-                track.title_orientation = "vertical_top_to_bottom"
+                column.title_orientation = "vertical_bottom_to_top"
+                column.title_position = "center"
+                track.title_orientation = "vertical_bottom_to_top"
+                track.title_position = "center"
             if track.kind is TrackKind.LBA:
-                track.lba_label_orientation = "vertical_top_to_bottom"
+                track.lba_label_orientation = "vertical_bottom_to_top"
             if track.kind is TrackKind.CALCIMETRY:
-                track.calcimetry_label_orientation = "vertical_top_to_bottom"
+                track.calcimetry_label_orientation = "vertical_bottom_to_top"
 
     if form_id.startswith("factory-masterlog-a4-"):
         widths = _MASTERLOG_WIDTHS[orientation]

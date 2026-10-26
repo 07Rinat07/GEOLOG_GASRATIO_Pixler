@@ -5,6 +5,7 @@ import numpy as np
 from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain
 from geoworkbench.forms import FormApplyEngine, factory_templates
 from geoworkbench.forms.a4_factory_templates import a4_factory_templates
+from geoworkbench.tablet.models import TrackKind
 from geoworkbench.tablet.vertical_ruler import (
     VerticalRulerMode,
     VerticalRulerTrackSettings,
@@ -67,6 +68,20 @@ def test_form_apply_propagates_track_title_presentation() -> None:
     assert applied.title_orientation == "vertical_top_to_bottom"
     assert applied.title_position == "top"
     assert applied.vertical_ruler == source_track.vertical_ruler
+
+
+def test_factory_track_title_direction_is_not_overridden_on_apply() -> None:
+    form = factory_templates("ru")["factory-lithology-cuttings"]
+    compact_track = next(
+        track for column in form.columns for track in column.tracks
+        if track.kind is TrackKind.LITHOLOGY
+    )
+    compact_track.title_orientation = "horizontal"
+    compact_track.title_position = "bottom"
+    result = FormApplyEngine().build_layout(form, _dataset())
+    mapped = next(track for track in result.layout.tracks if track.track_id == compact_track.track_id)
+    assert mapped.title_orientation == "horizontal"
+    assert mapped.title_position == "bottom"
 
 
 def test_explicit_binding_has_priority() -> None:

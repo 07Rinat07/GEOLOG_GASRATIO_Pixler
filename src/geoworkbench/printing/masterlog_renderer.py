@@ -11,7 +11,7 @@ from pathlib import Path
 from collections.abc import Sequence
 from typing import Protocol
 
-import fitz
+import pymupdf as fitz
 import numpy as np
 from PySide6.QtCore import QLineF, QMarginsF, QPointF, QRectF, QSizeF, Qt
 from PySide6.QtGui import (

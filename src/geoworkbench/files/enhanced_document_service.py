@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 import html
 
-import fitz
+import pymupdf as fitz
 
 from geoworkbench.files.document_service import DocumentError, DocumentService, _Snapshot
 

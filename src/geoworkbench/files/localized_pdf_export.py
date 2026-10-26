@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import zipfile
 
-import fitz
+import pymupdf as fitz
 
 from geoworkbench.files.pdf_tools import PdfTools, PdfToolsError
 

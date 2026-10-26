@@ -10,12 +10,14 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QDoubleSpinBox,
     QFormLayout,
+    QFrame,
     QHBoxLayout,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -106,6 +108,8 @@ class ColumnPropertiesDialog(QDialog):
         self.title_orientation_input.setCurrentIndex(
             max(0, self.title_orientation_input.findData(selected_orientation))
         )
+        self._editing_existing_column = column is not None
+        self.type_input.currentTextChanged.connect(self._apply_default_title_direction)
         self.title_position_input = QComboBox()
         position_labels = {
             AppLanguage.RU: {"top": "Ближе к верху", "center": "По центру", "bottom": "Ближе к низу"},
@@ -237,9 +241,17 @@ class ColumnPropertiesDialog(QDialog):
             AppLanguage.KK: ("Баған", "Қисықтар", "Тор және баспа"),
             AppLanguage.EN: ("Column", "Curves", "Grid and print"),
         }[language]
-        self.settings_tabs.addTab(column_tab, tab_labels[0])
-        self.settings_tabs.addTab(curve_tab, tab_labels[1])
-        self.settings_tabs.addTab(grid_tab, tab_labels[2])
+        # Scroll tab contents independently, leaving confirmation actions visible.
+        self.settings_tab_scrollers: list[QScrollArea] = []
+        for tab, label in zip((column_tab, curve_tab, grid_tab), tab_labels, strict=True):
+            scroller = QScrollArea()
+            scroller.setWidgetResizable(True)
+            scroller.setFrameShape(QFrame.Shape.NoFrame)
+            scroller.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+            scroller.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            scroller.setWidget(tab)
+            self.settings_tab_scrollers.append(scroller)
+            self.settings_tabs.addTab(scroller, label)
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
@@ -284,6 +296,18 @@ class ColumnPropertiesDialog(QDialog):
             self.line_width_input.value(),
             str(self.line_style_input.currentData()),
         )
+
+    def _apply_default_title_direction(self, column_type: str) -> None:
+        if self._editing_existing_column:
+            return
+        vertical = column_type.strip().casefold() in {
+            "depth", "stratigraphy", "lithology", "cuttings",
+            "calcimetry", "lba",
+        }
+        orientation = "vertical_bottom_to_top" if vertical else "horizontal"
+        index = self.title_orientation_input.findData(orientation)
+        if index >= 0:
+            self.title_orientation_input.setCurrentIndex(index)
 
     def title_presentation(self) -> tuple[str, str]:
         return (

@@ -97,7 +97,7 @@ def test_all_factory_lba_forms_use_vertical_colour_and_bitumen_labels() -> None:
 
     assert lba_tracks
     assert all(
-        track.lba_label_orientation == "vertical_top_to_bottom"
+        track.lba_label_orientation == "vertical_bottom_to_top"
         for track in lba_tracks
     )
 

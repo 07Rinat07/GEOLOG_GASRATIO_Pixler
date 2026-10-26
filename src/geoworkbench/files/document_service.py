@@ -5,7 +5,7 @@ from enum import StrEnum
 from io import BytesIO
 from pathlib import Path
 
-import fitz
+import pymupdf as fitz
 from PIL import Image, ImageEnhance, ImageOps
 
 

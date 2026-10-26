@@ -1,3 +1,23 @@
+## PRINT-STYLE-01 — Masterlog captions, empty-header merging and editor scroll
+
+User-provided 150-page Maksat M-1 PDF, first page: vertical rock captions are
+on the upper part of a large unused synchronized curve-header band. Regression
+covers combined header height for a no-curve geology track versus a curve track,
+unchanged plot-alignment sum across rerenders, factory/compact bottom-to-top
+captions, explicit form title direction surviving application, RU column editor
+scroll widgets, and per-column manual direction selection. The visible controls
+support top-to-bottom, bottom-to-top and horizontal orientations. Application
+source import of PyMuPDF uses its supported `pymupdf` name; existing PDF API
+calls are aliased internally without changing document output.
+
+Latest main e41129c2207d had failed native Windows Quality with Qt/pyqtgraph
+0xC0000005 in `test_tabular_export_output_language.py` while GUI/PDF and
+Security were successful. This is NOT a passing main gate: do not merge a
+feature PR until the latest main and PR exact SHA both have three successful
+Windows jobs. Reproduce actual page/header match with the original source
+Masterlog template separately; the 150-page PDF alone is insufficient for
+physical printer/row-template sign-off.
+
 ## PRINT-STYLE-01 — Masterlog automatic page-density default
 
 New print settings and factory Masterlog A4 default to Auto, including

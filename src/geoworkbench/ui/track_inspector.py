@@ -155,7 +155,7 @@ class TrackInspector(QWidget):
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
         self._editor_scroll.setVerticalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOn
         )
         self._editor_scroll.setWidget(editor)
         self._sync_editor_scroll_minimum_width()

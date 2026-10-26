@@ -78,6 +78,32 @@ def test_column_properties_dialog_returns_title_orientation_and_position(qapp) -
     dialog.close()
 
 
+
+def test_masterlog_column_tabs_scroll_in_short_window_and_keep_buttons(qapp) -> None:
+    from PySide6.QtWidgets import QScrollArea
+
+    dialog = ColumnPropertiesDialog(language=AppLanguage.RU)
+    dialog.resize(530, 360)
+    dialog.show()
+    qapp.processEvents()
+    assert dialog.settings_tabs.count() == 3
+    for tab in dialog.settings_tab_scrollers:
+        assert isinstance(tab, QScrollArea)
+        assert tab.verticalScrollBarPolicy() is Qt.ScrollBarPolicy.ScrollBarAlwaysOn
+        assert tab.widget() is not None
+    dialog.close()
+
+
+def test_new_geology_column_defaults_to_bottom_up_but_manual_override_survives(qapp) -> None:
+    dialog = ColumnPropertiesDialog(language=AppLanguage.RU)
+    dialog.type_input.setCurrentText("calcimetry")
+    assert dialog.title_presentation() == ("vertical_bottom_to_top", "center")
+    dialog.title_orientation_input.setCurrentIndex(
+        dialog.title_orientation_input.findData("horizontal")
+    )
+    assert dialog.title_presentation() == ("horizontal", "center")
+    dialog.close()
+
 def test_masterlog_controller_persists_column_title_presentation() -> None:
     controller = MasterlogTemplateController(ProjectSession())
     template = controller.create("Rotated")

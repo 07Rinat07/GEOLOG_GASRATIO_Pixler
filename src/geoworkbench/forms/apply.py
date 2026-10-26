@@ -17,7 +17,6 @@ from geoworkbench.services.las_parameter_resolver import (
     LasParameterResolver,
 )
 from geoworkbench.tablet.models import (
-    COMPACT_TRACK_KINDS,
     CurveDisplaySettings,
     TabletLayout,
     TrackDefinition,
@@ -247,12 +246,9 @@ class FormApplyEngine:
                         x_min = binding.x_min
                         x_max = binding.x_max
 
-                factory_vertical = (
-                    form.origin is FormTemplateOrigin.FACTORY
-                    and form_track.kind in COMPACT_TRACK_KINDS
-                )
-                is_lba = form_track.kind is TrackKind.LBA
-                is_calcimetry = form_track.kind is TrackKind.CALCIMETRY
+                # Presentation settings belong to the form/track, even when
+                # the source template was factory supplied. Do not overwrite
+                # an explicitly selected caption direction on application.
                 tracks.append(
                     TrackDefinition(
                         track_id=form_track.track_id or new_id(),
@@ -279,23 +275,11 @@ class FormApplyEngine:
                         grid_print=form_track.grid_print,
                         show_x_scale=form_track.show_x_scale,
                         x_axis_label=form_track.x_axis_label,
-                        title_orientation=(
-                            "vertical_top_to_bottom"
-                            if factory_vertical
-                            else form_track.title_orientation
-                        ),
+                        title_orientation=form_track.title_orientation,
                         title_position=form_track.title_position,
                         show_interval_labels=form_track.show_interval_labels,
-                        lba_label_orientation=(
-                            "vertical_top_to_bottom"
-                            if is_lba
-                            else form_track.lba_label_orientation
-                        ),
-                        calcimetry_label_orientation=(
-                            "vertical_top_to_bottom"
-                            if is_calcimetry
-                            else form_track.calcimetry_label_orientation
-                        ),
+                        lba_label_orientation=form_track.lba_label_orientation,
+                        calcimetry_label_orientation=form_track.calcimetry_label_orientation,
                         calcimetry_show_total=(
                             form_track.calcimetry_show_total
                             if form_track.calcimetry_show_total is not None
