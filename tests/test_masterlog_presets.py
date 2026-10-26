@@ -190,7 +190,7 @@ def test_builtin_masterlog_scales_are_linear_except_fixed_ratio_lanes() -> None:
             assert column.x_scale == expected, (preset.preset_id, column.column_id)
 
 
-def test_reference_masterlog_uses_top_to_bottom_text_direction() -> None:
+def test_reference_masterlog_centers_bottom_up_stratigraphy_heading() -> None:
     reference = next(
         item
         for item in BUILTIN_MASTERLOG_FORM_PRESETS
@@ -200,7 +200,8 @@ def test_reference_masterlog_uses_top_to_bottom_text_direction() -> None:
         column for column in reference.template.columns if column.column_type == "stratigraphy"
     )
 
-    assert stratigraphy.properties["title_orientation"] == "vertical_top_to_bottom"
+    assert stratigraphy.properties["title_orientation"] == "vertical_bottom_to_top"
+    assert stratigraphy.properties["title_position"] == "center"
 
 
 def test_curated_a4_forms_and_headers_are_paired_and_fit_both_orientations() -> None:
