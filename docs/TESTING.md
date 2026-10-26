@@ -2511,6 +2511,11 @@ the six-case success does not resolve that separate lifecycle issue (#544).
 
 ### INTERP-GEO-01: LBA text source validation
 
+The same interval-evidence module also checks numeric LBA group/intensity fields:
+boolean, text, arrays and NaN/Inf fail before snapshot creation, including outside
+records. None stays missing and finite recorded values (including zero) keep their
+coverage. Source records remain unchanged; scale interpretation is not modified.
+
 `python scripts/run_tests.py tests/test_interpretation_geology_interval_evidence.py -p no:cacheprovider`
 checks all eleven LBA text fields with malformed scalar/container inputs, including
 records outside the selection. None and blank text remain missing; recorded text

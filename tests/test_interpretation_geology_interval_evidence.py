@@ -29,6 +29,40 @@ _LBA_TEXT_FIELDS = (
 )
 
 
+@pytest.mark.parametrize("field", ("lba_group", "lba_intensity"))
+@pytest.mark.parametrize("value", (True, "2", np.nan, np.inf, -np.inf, [2], {}, np.array([2])))
+@pytest.mark.parametrize("outside", (False, True))
+def test_lba_numeric_fields_reject_malformed_source(field, value, outside):
+    session = _session()
+    sample = session.current_well.cuttings[0]
+    if outside:
+        sample.top_depth, sample.bottom_depth = 1100.0, 1105.0
+    setattr(sample, field, value)
+    before = repr(session.current_well)
+    with pytest.raises(ValueError, match=f"finite numeric LBA {field}"):
+        _intersect(session)
+    assert repr(session.current_well) == before
+
+
+@pytest.mark.parametrize("field", ("lba_group", "lba_intensity"))
+@pytest.mark.parametrize("value", (None, 0, 1, 5, 2.0))
+def test_lba_numeric_fields_preserve_recorded_values(field, value):
+    session = _session()
+    sample = CuttingsSample("numeric-lba", 1004.0, 1009.0, [])
+    setattr(sample, field, value)
+    session.current_well.cuttings[:] = [sample]
+    before = repr(session.current_well)
+    evidence = _intersect(session)
+    observed = [item for item in evidence.intersections if item.kind == "lba"]
+    if value is None:
+        assert observed == []
+        assert evidence.coverage("lba") == 0.0
+    else:
+        assert observed[0].attributes == ((field, value),)
+        assert evidence.coverage("lba") == pytest.approx(5 / 8)
+    assert repr(session.current_well) == before
+
+
 @pytest.mark.parametrize("field", _LBA_TEXT_FIELDS)
 @pytest.mark.parametrize("value", (False, 0, 1.5, np.nan, [], {}, np.array([1])))
 @pytest.mark.parametrize("outside", (False, True))
