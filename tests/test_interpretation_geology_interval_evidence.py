@@ -22,6 +22,48 @@ from geoworkbench.services.interpretation_geology_interval_evidence import (
 from test_report_geology_snapshot import _session
 
 
+_LBA_TEXT_FIELDS = (
+    "lba_type_id", "lba_color", "lba_distribution", "lba_cut",
+    "lba_cut_speed", "lba_cut_color", "lba_residue_type", "lba_residue_color",
+    "lba_odour", "lba_stain", "lba_description",
+)
+
+
+@pytest.mark.parametrize("field", _LBA_TEXT_FIELDS)
+@pytest.mark.parametrize("value", (False, 0, 1.5, np.nan, [], {}, np.array([1])))
+@pytest.mark.parametrize("outside", (False, True))
+def test_lba_text_rejects_nontext_without_mutating_source(field, value, outside):
+    session = _session()
+    sample = session.current_well.cuttings[0]
+    if outside:
+        sample.top_depth, sample.bottom_depth = 1100.0, 1105.0
+    setattr(sample, field, value)
+    before = repr(session.current_well)
+    with pytest.raises(ValueError, match=f"text LBA {field}"):
+        _intersect(session)
+    assert repr(session.current_well) == before
+
+
+@pytest.mark.parametrize("field", _LBA_TEXT_FIELDS)
+@pytest.mark.parametrize("value", (None, "", "   ", "  observed  "))
+def test_lba_text_preserves_missing_and_recorded_observations(field, value):
+    session = _session()
+    sample = CuttingsSample("lba-only", 1004.0, 1009.0, [])
+    setattr(sample, field, value)
+    session.current_well.cuttings[:] = [sample]
+    before = repr(session.current_well)
+    evidence = _intersect(session)
+    observed = [item for item in evidence.intersections if item.kind == "lba"]
+    if value is None or not value.strip():
+        assert observed == []
+        assert evidence.coverage("lba") == 0.0
+    else:
+        assert len(observed) == 1
+        assert observed[0].attributes == ((field, "observed"),)
+        assert evidence.coverage("lba") == pytest.approx(5 / 8)
+    assert repr(session.current_well) == before
+
+
 def _intersect(session, top=1002.0, bottom=1010.0):
     return correlate_gas_interval_with_well_geology(
         session, top_depth=top, bottom_depth=bottom,

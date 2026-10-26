@@ -198,6 +198,14 @@ def correlate_gas_interval_with_well_geology(
     # Explicit measured evidence must not silently discard malformed
     # components from the generic report snapshot or the 0..100 filter.
     for source_sample in well.cuttings:
+        # Snapshot text coercion must not create an LBA observation from
+        # malformed metadata, including records outside the selection.
+        for field in LBA_OBSERVATION_FIELDS:
+            if field in ("lba_group", "lba_intensity"):
+                continue
+            value = getattr(source_sample, field)
+            if value is not None and not isinstance(value, str):
+                raise ValueError(f"Geology correlation requires text LBA {field}")
         for component in source_sample.components:
             _validate_measured_percentage(component.percentage, "cuttings")
         # None means no assay; a present value must survive validation before
