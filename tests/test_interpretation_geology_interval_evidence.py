@@ -30,6 +30,52 @@ _LBA_TEXT_FIELDS = (
 )
 
 
+@pytest.mark.parametrize("kind", ("lithology", "cuttings", "stratigraphy"))
+@pytest.mark.parametrize("outside", (False, True))
+@pytest.mark.parametrize("invalid_id", (None, True, 123, 1.5, "", "  ", ["id"], {"id": "x"}, np.array(["id"])))
+def test_invalid_geology_provenance_id_is_rejected_without_source_mutation(kind, outside, invalid_id):
+    session = _session()
+    well, dataset = session.current_well, session.current_dataset
+    if kind == "stratigraphy":
+        well.stratigraphy.append(StratigraphyInterval(
+            "stratum-in", 1004.0, 1009.0, "C1", "Carboniferous", "stage",
+        ))
+    collection = getattr(well, kind)
+    record = collection[1 if outside and kind != "stratigraphy" else 0]
+    if kind == "stratigraphy" and outside:
+        record.top_depth, record.bottom_depth = 1020.0, 1025.0
+    id_field = "sample_id" if kind == "cuttings" else "interval_id"
+    setattr(record, id_field, invalid_id)
+    before = repr(well)
+    md = dataset.active_index.values.copy()
+    c1 = dataset.curves["curve-c1"].values.copy()
+    with pytest.raises(ValueError, match=f"non-empty text {kind} source ID"):
+        _intersect(session)
+    assert repr(well) == before
+    np.testing.assert_array_equal(dataset.active_index.values, md)
+    np.testing.assert_array_equal(dataset.curves["curve-c1"].values, c1)
+
+
+def test_valid_provenance_ids_keep_original_values_and_coverage():
+    session = _session()
+    well = session.current_well
+    well.lithology[0].interval_id = "лит-001"
+    well.cuttings[0].sample_id = "Шлам-5698"
+    well.stratigraphy.append(StratigraphyInterval(
+        "Стратиграфия-C1", 1004.0, 1009.0, "C1",
+    ))
+    before = repr(well)
+    evidence = _intersect(session)
+    sources = {(item.kind, item.source_id) for item in evidence.intersections}
+    assert ("lithology", "лит-001") in sources
+    assert ("cuttings", "Шлам-5698") in sources
+    assert ("stratigraphy", "Стратиграфия-C1") in sources
+    assert evidence.coverage("lithology") == pytest.approx(6 / 8)
+    assert evidence.coverage("cuttings") == pytest.approx(5 / 8)
+    assert evidence.coverage("stratigraphy") == pytest.approx(5 / 8)
+    assert repr(well) == before
+
+
 @pytest.mark.parametrize("kind", ("lithology", "cuttings"))
 @pytest.mark.parametrize("outside", (False, True))
 @pytest.mark.parametrize("value", (None, True, 123, 1.5, ["sandstone"], {"id": "sandstone"}, np.array(["sandstone"])))

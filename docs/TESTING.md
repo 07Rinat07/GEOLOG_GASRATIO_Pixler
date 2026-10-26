@@ -1,3 +1,14 @@
+## INTERP-GEO-01 — source ID provenance integrity
+
+Measured gas/geology interval evidence requires non-empty text IDs for
+lithology intervals, cuttings samples and stratigraphy records before
+permissive report-snapshot conversion. The regression matrix in
+`tests/test_interpretation_geology_interval_evidence.py` covers 54 bad
+representations (3 source types × in/out MD × 9 values) and a valid Cyrillic
+ID/coverage case. Malformed source IDs are rejected without modifying well,
+MD or gas curves. Full Windows Quality, GUI/HiDPI/PDF and Security gates
+on the exact PR HEAD and post-merge main remain mandatory.
+
 ## INTERP-GEO-01 — lithotype identifier type validation
 
 `tests/test_interpretation_geology_interval_evidence.py` checks 28 source
