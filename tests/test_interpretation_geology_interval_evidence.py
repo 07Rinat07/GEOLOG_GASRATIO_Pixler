@@ -76,6 +76,24 @@ def test_valid_provenance_ids_keep_original_values_and_coverage():
     assert repr(well) == before
 
 
+@pytest.mark.parametrize("source_id", ("0", "проба-Ә-1", " padded-id "))
+def test_text_source_ids_are_preserved_exactly_across_evidence_kinds(source_id):
+    session = _session()
+    well = session.current_well
+    well.lithology = [LithologyInterval(source_id, 1004.0, 1009.0, "sandstone")]
+    well.cuttings = [CuttingsSample(
+        source_id, 1004.0, 1009.0, [CuttingsComponent("sandstone", 100.0)],
+        lba_group=0, calcite_percent=0.0,
+    )]
+    well.stratigraphy = [StratigraphyInterval(source_id, 1004.0, 1009.0, "C1")]
+    before = repr(well)
+    evidence = _intersect(session)
+    assert len(evidence.intersections) == 5
+    assert all(item.source_id == source_id for item in evidence.intersections)
+    assert all(value == pytest.approx(5 / 8) for _, value in evidence.coverage_by_kind)
+    assert repr(well) == before
+
+
 @pytest.mark.parametrize("kind", ("lithology", "cuttings"))
 @pytest.mark.parametrize("outside", (False, True))
 @pytest.mark.parametrize("value", (None, True, 123, 1.5, ["sandstone"], {"id": "sandstone"}, np.array(["sandstone"])))

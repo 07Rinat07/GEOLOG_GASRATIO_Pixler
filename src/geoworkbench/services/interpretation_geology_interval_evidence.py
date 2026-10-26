@@ -160,12 +160,17 @@ def correlate_gas_interval_with_well_geology(
     # measured evidence must not silently turn a corrupt geological record
     # into an apparent gap or incomplete coverage. An invalid bound cannot
     # reliably be classified as inside or outside the requested gas interval.
-    for source_kind, records in (
-        ("lithology", well.lithology),
-        ("cuttings", well.cuttings),
-        ("stratigraphy", well.stratigraphy),
+    for source_kind, records, id_field in (
+        ("lithology", well.lithology, "interval_id"),
+        ("cuttings", well.cuttings, "sample_id"),
+        ("stratigraphy", well.stratigraphy, "interval_id"),
     ):
         for record in records:
+            # Provenance must identify a real source, not a stringified null
+            # or container. Preserve valid IDs exactly; do not invent or trim.
+            source_id = getattr(record, id_field)
+            if not isinstance(source_id, str) or not source_id.strip():
+                raise ValueError(f"Geology correlation requires non-empty text {source_kind} source ID")
             # Validate each source scalar before combining: NumPy would
             # otherwise coerce a boolean + float pair to a numeric array.
             try:

@@ -2566,3 +2566,10 @@ coverage. Source records remain unchanged; scale interpretation is not modified.
 checks all eleven LBA text fields with malformed scalar/container inputs, including
 records outside the selection. None and blank text remain missing; recorded text
 retains its observed coverage. Every case checks unchanged source records.
+## INTERP-GEO-01 — source record identifiers
+
+`tests/test_interpretation_geology_interval_evidence.py` checks non-text and
+blank source IDs across lithology, cuttings and stratigraphy, both inside and
+outside the selected interval. Valid Unicode, numeric-looking and padded text
+IDs remain byte-for-byte unchanged across all five evidence kinds, with the
+same measured coverage. Source well, MD and C1 values must remain unchanged.
