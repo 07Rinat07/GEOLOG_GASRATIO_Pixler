@@ -1,3 +1,13 @@
+## Qt #544 — partial replay result integrity
+
+`results.json` is updated after each child so a killed Windows replay
+can still upload partial evidence. `all_passed` MUST remain `false`
+until `completed == expected` and every child passed. Successful
+early children must not create a false success summary if a subsequent
+child fails or the run is interrupted. `tests/test_replay_windows_qt_native.py`
+exercises interim snapshots, a complete success, and an interruption
+after the first successful child. The mandatory Release Gate is unchanged.
+
 ## Qt #544 — bounded manual replay wall-time budget
 
 With five repetitions and mode=both, the manual diagnostic runs at most
