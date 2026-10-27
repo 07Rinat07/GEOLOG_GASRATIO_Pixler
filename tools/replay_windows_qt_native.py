@@ -124,7 +124,9 @@ def execute_replay(
             "schema_version": 1,
             "mode": mode,
             "repetitions": repetitions,
-            "all_passed": all(item["status"] == "passed" for item in results),
+            "all_passed": len(results) == len(plan) and all(
+                item["status"] == "passed" for item in results
+            ),
             "completed": len(results),
             "expected": len(plan),
             "results": results,
