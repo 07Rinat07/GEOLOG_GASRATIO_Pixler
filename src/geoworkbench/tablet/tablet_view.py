@@ -6581,6 +6581,9 @@ class TabletView(QWidget):
                 axis_descriptor,
             ),
             rollback=self._dispose_rendered_track,
+            on_rollback_error=lambda track_id, exc: log_exception(
+                "tablet.track.rollback.failed", exc, track_id=track_id
+            ),
         )
         for rendered in self._rendered.values():
             self._tracks_layout.addWidget(rendered.widget)

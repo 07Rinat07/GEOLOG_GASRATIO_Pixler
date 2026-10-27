@@ -120,8 +120,13 @@ class TrackLifecycleCoordinator:
         identify: Callable[[D], str],
         create: Callable[[D], T],
         rollback: Callable[[T], None] | None = None,
+        on_rollback_error: Callable[[str, BaseException], None] | None = None,
     ) -> dict[str, T]:
-        """Create an ordered registry and roll back a partial failed build."""
+        """Create entries, fully disposing completed tracks if the build fails.
+
+        Continue rollback even when cleanup fails; keep the original build
+        exception as the caller-visible cause and report per-track failures.
+        """
 
         entries: dict[str, T] = {}
         try:
@@ -133,9 +138,10 @@ class TrackLifecycleCoordinator:
                 entries[track_id] = create(definition)
         except Exception:
             if rollback is not None:
-                for entry in reversed(tuple(entries.values())):
-                    rollback(entry)
-                    self._settle_disposal(entry)
+                # Reuse the same reverse-order, fail-safe settlement path as
+                # normal track removal. A failed rollback must not leak other
+                # created tracks or replace the original creation exception.
+                self.dispose_entries(entries, rollback, on_error=on_rollback_error)
             raise
         return entries
 
@@ -151,18 +157,27 @@ class TrackLifecycleCoordinator:
         Qt widget trees can already be partially destroyed when a queued form
         switch or import-recovery refresh reaches Python.  One stale wrapper must
         not prevent later tracks and registries from being released.  Settlement
-        runs immediately after each successful disposal so an immediate rebuild
-        cannot overlap the old widget tree's native DeferredDelete teardown.
+        runs after each attempted disposal, even when cleanup raises after
+        scheduling deleteLater, so an immediate rebuild cannot overlap the old
+        widget tree's native DeferredDelete teardown.
         """
 
         released = tuple(entries)
         for track_id, entry in reversed(tuple(entries.items())):
             try:
                 dispose(entry)
-                self._settle_disposal(entry)
             except BaseException as exc:
                 if on_error is not None:
                     on_error(track_id, exc)
+            finally:
+                # Disposal may have already queued a Qt DeferredDelete before
+                # failing. Drain it even on that error path, before rebuilding
+                # the next PlotWidget or proceeding to the next old track.
+                try:
+                    self._settle_disposal(entry)
+                except BaseException as exc:
+                    if on_error is not None:
+                        on_error(track_id, exc)
         return released
 
     @staticmethod

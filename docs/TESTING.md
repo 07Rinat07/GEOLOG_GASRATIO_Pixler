@@ -1,3 +1,31 @@
+## Qt #544 — complete rollback for partially created tablet tracks
+
+If creation of one rendered track fails, `TrackLifecycleCoordinator.create_entries`
+now uses the existing `dispose_entries` safety path to release all previously
+created tracks in reverse order. A failed rollback or failed DeferredDelete
+settlement is reported through the optional `on_rollback_error` callback;
+neither suppresses the original render failure or prevents subsequent
+cleanup. The production tablet logs cleanup exceptions under
+`tablet.track.rollback.failed`.
+
+Two independent `tests/test_track_lifecycle.py` regressions cover rollback
+and settlement failures, original exception propagation, reverse order, and
+the per-track report hook. Existing Windows Release Gate criteria stay
+unchanged. This mitigates an additional unhandled cleanup path but does not
+prove the native Qt/pyqtgraph #544 root cause.
+
+## Qt #544 — disposal settlement on failed track cleanup
+
+`TrackLifecycleCoordinator.dispose_entries()` attempts its per-entry
+DeferredDelete settlement even when the preceding `dispose(entry)`
+raises after scheduling Qt deletion. Each settlement runs before the
+next entry's disposal, in reverse track order. Disposal and settlement
+errors are passed to the existing `on_error` callback; other tracks
+must still be cleaned up. `tests/test_track_lifecycle.py` exercises
+both failure paths with injectable settle callbacks, independent of Qt.
+This does not prove that all native access violations are fixed.
+Exact-head Windows Quality, GUI/HiDPI/PDF and Security remain required.
+
 ## Qt #544 — native Windows runtime identity for crash correlation
 
 The Windows Quality job calls `tools/capture_windows_native_runtime.py`
