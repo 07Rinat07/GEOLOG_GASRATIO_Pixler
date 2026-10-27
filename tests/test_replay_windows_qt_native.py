@@ -135,7 +135,7 @@ def test_partial_replay_never_reports_success_while_children_remain(tmp_path) ->
     assert all(report["expected"] == 4 for report in snapshots)
     assert all(report["all_passed"] is False for report in snapshots)
     final = json.loads((tmp_path / "results.json").read_text(encoding="utf-8"))
-    assert final["completed"] == final["expected"] == 3
+    assert final["completed"] == final["expected"] == 4
     assert final["all_passed"] is True
 
 
