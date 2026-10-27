@@ -8,8 +8,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
+import tempfile
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -61,6 +63,35 @@ def _captured_text(value: str | bytes | None) -> str:
     if value is None:
         return ""
     return value.decode("utf-8", errors="replace") if isinstance(value, bytes) else value
+
+
+def _save_results_atomically(path: Path, report: dict[str, Any]) -> None:
+    """Replace the snapshot only after a complete, flushed JSON write.
+
+    An interrupted diagnostic must not truncate the previous valid results.
+    The temporary file lives beside its destination for an atomic rename on
+    Windows and is removed if writing or replacement fails.
+    """
+
+    pending: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=".results-",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            pending = Path(handle.name)
+            json.dump(report, handle, indent=2, ensure_ascii=False)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(pending, path)
+    finally:
+        if pending is not None:
+            pending.unlink(missing_ok=True)
 
 
 def execute_replay(
@@ -131,11 +162,8 @@ def execute_replay(
             "expected": len(plan),
             "results": results,
         }
-        # Keep partial evidence if a subsequent native-heavy child hangs or crashes.
-        report_path.write_text(
-            json.dumps(report, indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
+        # Keep the last complete snapshot intact across interrupted writes.
+        _save_results_atomically(report_path, report)
         print(
             f"Qt replay {iteration}/{repetitions} {label}: {result['status']} "
             f"({result['windows_exit_hex'] or 'timeout'})",

@@ -1,3 +1,14 @@
+## Qt #544 — atomic partial native replay artifacts
+
+The manual `tools/replay_windows_qt_native.py` process now writes every
+partial `results.json` snapshot to a sibling temporary file, flushes and
+fsyncs that file, then atomically replaces the destination. If serialization
+or Windows replacement fails, the previous complete JSON remains intact and
+the diagnostic fails rather than implying success. Temporary files are
+removed on both successful and failed replacements. Regression tests
+verify replacement and a simulated Windows replace failure. No required
+Windows Release Gate job or production application code changes.
+
 ## Qt #544 — partial replay result integrity
 
 `results.json` is updated after each child so a killed Windows replay
