@@ -1,0 +1,117 @@
+name: Windows Qt native replay (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Run standalone selectors, a shared-process sequence, or both"
+        required: true
+        default: both
+        type: choice
+        options:
+          - isolated
+          - sequence
+          - both
+      repetitions:
+        description: "Bounded clean-process repetitions"
+        required: true
+        default: "2"
+        type: choice
+        options:
+          - "1"
+          - "2"
+          - "3"
+          - "5"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qt-native-replay-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHONUTF8: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  qt-native-replay:
+    name: Windows Qt native crash replay
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: "0.11.29"
+          enable-cache: true
+          cache-dependency-glob: requirements/release.lock
+
+      - name: Install the hashed release environment
+        shell: pwsh
+        run: |
+          uv venv .venv --python 3.11
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          uv pip sync requirements/release.lock --python .venv --require-hashes
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          uv pip install --python .venv setuptools==83.0.0 wheel==0.47.0 pytest==9.1.1 pytest-asyncio==1.4.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          uv pip install --python .venv --no-deps --no-build-isolation --editable .
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Enable bounded WER minidumps on the hosted runner
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_ACTIONS -ne "true" -or $env:RUNNER_OS -ne "Windows") {
+            throw "Native dumps require a disposable Windows Actions runner"
+          }
+          $DumpFolder = Join-Path $env:RUNNER_TEMP "geolog-replay-dumps"
+          New-Item -ItemType Directory -Force $DumpFolder | Out-Null
+          $DumpKey = "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\python.exe"
+          New-Item -Path $DumpKey -Force | Out-Null
+          New-ItemProperty -Path $DumpKey -Name DumpFolder -Value $DumpFolder -PropertyType ExpandString -Force | Out-Null
+          New-ItemProperty -Path $DumpKey -Name DumpType -Value 1 -PropertyType DWord -Force | Out-Null
+          New-ItemProperty -Path $DumpKey -Name DumpCount -Value 2 -PropertyType DWord -Force | Out-Null
+
+      - name: Capture native runtime versions
+        shell: pwsh
+        run: |
+          .\.venv\Scripts\python.exe tools/capture_windows_native_runtime.py --output build/ci-artifacts/qt-replay/native-runtime.json --commit "${{ github.sha }}"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Replay known native-heavy Qt selectors
+        shell: pwsh
+        env:
+          GEOLOG_REPLAY_MODE: ${{ inputs.mode }}
+          GEOLOG_REPLAY_REPETITIONS: ${{ inputs.repetitions }}
+        run: |
+          .\.venv\Scripts\python.exe tools/replay_windows_qt_native.py --output-dir build/ci-artifacts/qt-replay --mode $env:GEOLOG_REPLAY_MODE --repetitions $env:GEOLOG_REPLAY_REPETITIONS
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload replay logs and version evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: qt-native-replay-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/ci-artifacts/qt-replay
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload bounded native crash dumps
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: qt-native-dumps-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/geolog-replay-dumps/*.dmp
+          if-no-files-found: ignore
+          retention-days: 3
