@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
+from numbers import Real
 
 import numpy as np
 
@@ -49,11 +50,21 @@ class Wits0DexpCorrectionConfig:
     unit: str
 
     def __post_init__(self) -> None:
-        value = float(self.normal_mud_density)
+        raw = self.normal_mud_density
+        if isinstance(raw, (bool, np.bool_)) or not isinstance(
+            raw, (Real, np.integer, np.floating)
+        ):
+            raise ValueError("normal_mud_density must be a finite positive real scalar")
+        try:
+            value = float(raw)
+        except (ValueError, OverflowError) as exc:
+            raise ValueError(
+                "normal_mud_density must be a finite positive real scalar"
+            ) from exc
         if not np.isfinite(value) or value <= 0.0:
-            raise ValueError("normal_mud_density must be a finite positive value")
-        if not self.unit.strip():
-            raise ValueError("normal mud density unit must be non-empty")
+            raise ValueError("normal_mud_density must be a finite positive real scalar")
+        if not isinstance(self.unit, str) or not self.unit.strip():
+            raise ValueError("normal mud density unit must be a non-empty string")
 
 
 @dataclass(frozen=True, slots=True)
