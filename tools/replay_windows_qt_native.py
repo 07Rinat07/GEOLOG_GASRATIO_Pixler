@@ -28,17 +28,21 @@ SCENARIOS = (
         "tests/test_tablet_plot_close_order.py::"
         "test_repeated_tablet_rebuild_releases_detached_plots_before_replacement",
     ),
+    (
+        "track-x-scale",
+        "tests/test_main_window.py::test_window_applies_selected_track_x_scale",
+    ),
 )
 MODES = ("isolated", "sequence", "both")
 MAX_REPETITIONS = 5
-CHILD_TIMEOUT_SECONDS = 360  # 15 maximum children × 6 minutes = 90 minutes
+CHILD_TIMEOUT_SECONDS = 270  # 20 maximum children × 4.5 minutes = 90 minutes
 
 
 def replay_plan(
     repetitions: int,
     mode: str,
 ) -> tuple[tuple[int, str, tuple[str, ...]], ...]:
-    """Pair clean-process executions with a two-selector shared-process probe."""
+    """Run confirmed native-crash selectors alone and in one shared process."""
 
     if not isinstance(repetitions, int) or isinstance(repetitions, bool):
         raise ValueError("repetitions must be an integer")
