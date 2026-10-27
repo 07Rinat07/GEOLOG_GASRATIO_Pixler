@@ -1,3 +1,39 @@
+## Qt #544 — bounded manual replay wall-time budget
+
+With five repetitions and mode=both, the manual diagnostic runs at most
+15 child processes. Each child has a strict 360-second timeout, so cumulative
+child-process time is bounded to 90 minutes, leaving 30 minutes for Windows
+environment setup and artifact upload under the workflow's 120-minute
+job timeout. A timeout fails the diagnostic, remains in `results.json`,
+and does not prevent subsequent test executions. The workflow contract
+cross-checks these limits so changes cannot silently exceed the job budget.
+The original Release Gate remains unchanged.
+
+## Qt #544 — manual Windows native test replay
+
+Use Actions → Windows Qt native replay (manual) → Run workflow when a
+native PlotItem/ViewBoxMenu 0xC0000005 recurs. Only workflow_dispatch is
+supported; this workflow does not run on push or pull_request and does not
+substitute for the three mandatory Windows Release Gate jobs.
+
+The selector list in tools/replay_windows_qt_native.py is fixed to the
+dataset-merge undo test and the repeated-tablet-rebuild test. Select 1–5
+repetitions and one of: isolated (each selector in a fresh child),
+sequence (both selectors together in one child) or both. Results are
+stored in qt-native-replay-<run_id>-<attempt> for seven days, with
+per-execution logs and results.json (selector, iteration, exit code,
+hex Windows exception and timeouts), plus pinned native-runtime.json.
+A failed child or timeout fails the workflow, never marked as pass merely
+because another iteration succeeded.
+
+The runner-only WER minidumps, if present, are stored separately as
+qt-native-dumps-<run_id>-<attempt> for three days, DumpType=1,
+DumpCount=2. Handle dumps as process memory evidence, do not collect
+production geology data. Version and stack correlation, including actual
+minidump availability, must be established before a root-cause claim.
+The original Release Gate, including native subprocess exit propagation,
+remains unchanged.
+
 ## Qt #544 — complete rollback for partially created tablet tracks
 
 If creation of one rendered track fails, `TrackLifecycleCoordinator.create_entries`
