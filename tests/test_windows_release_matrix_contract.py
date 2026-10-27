@@ -280,7 +280,16 @@ def test_release_workflow_runs_and_uploads_windows_acceptance_artifacts() -> Non
     assert 'foreach ($Scale in @("1.0", "1.25", "1.5", "2.0"))' in text
     assert "build/ci-artifacts/windows-acceptance" in text
     assert "release-windows-acceptance-${{ github.run_id }}" in text
-    assert text.count("actions/upload-artifact@") == 3
+    # The required Windows acceptance artifact is retained; the fourth upload
+    # belongs to the optional, short-lived native crash diagnostics.
+    assert text.count("actions/upload-artifact@") == 4
+    for name in (
+        "release-quality-",
+        "release-windows-acceptance-",
+        "release-security-",
+        "release-native-",
+    ):
+        assert text.count("name: " + name) == 1
 
 
 class _FakePdfDocument:
