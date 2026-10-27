@@ -159,10 +159,18 @@ class TrackLifecycleCoordinator:
         for track_id, entry in reversed(tuple(entries.items())):
             try:
                 dispose(entry)
-                self._settle_disposal(entry)
             except BaseException as exc:
                 if on_error is not None:
                     on_error(track_id, exc)
+            finally:
+                # Disposal may have already queued a Qt DeferredDelete before
+                # failing. Drain it even on that error path, before rebuilding
+                # the next PlotWidget or proceeding to the next old track.
+                try:
+                    self._settle_disposal(entry)
+                except BaseException as exc:
+                    if on_error is not None:
+                        on_error(track_id, exc)
         return released
 
     @staticmethod
