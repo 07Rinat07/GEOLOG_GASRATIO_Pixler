@@ -2689,3 +2689,12 @@ compact geology/depth types, full-cell horizontal centered rock description;
 per-column custom orientation/position must override defaults. Test
 `test_masterlog_heading_unicode.py::test_default_masterlog_column_captions_and_manual_overrides`
 records paint direction via Qt QPdfWriter without modifying geological data.
+
+## INTERP-GEO-01 — unique source provenance
+
+`tests/test_interpretation_geology_interval_evidence.py` rejects duplicate
+source IDs within lithology, cuttings or stratigraphy before snapshot creation,
+including a second record outside the selected interval. The six regressions
+failed before the fix and preserve well contents, MD and C1 values. Existing
+tests retain exact IDs across distinct categories and multiple evidence kinds
+from one cuttings sample. This validation never renames or drops source records.

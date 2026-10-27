@@ -56,6 +56,31 @@ def test_invalid_geology_provenance_id_is_rejected_without_source_mutation(kind,
     np.testing.assert_array_equal(dataset.curves["curve-c1"].values, c1)
 
 
+@pytest.mark.parametrize("kind", ("lithology", "cuttings", "stratigraphy"))
+@pytest.mark.parametrize("bounds", ((1005.0, 1008.0), (1020.0, 1025.0)))
+def test_duplicate_source_ids_are_rejected_without_source_mutation(kind, bounds):
+    session = _session()
+    well, dataset = session.current_well, session.current_dataset
+    records = {
+        "lithology": LithologyInterval("source-1", 1004.0, 1009.0, "sandstone"),
+        "cuttings": CuttingsSample(
+            "source-1", 1004.0, 1009.0, [CuttingsComponent("sandstone", 100.0)],
+        ),
+        "stratigraphy": StratigraphyInterval("source-1", 1004.0, 1009.0, "C1"),
+    }
+    original = records[kind]
+    duplicate = replace(original, top_depth=bounds[0], bottom_depth=bounds[1])
+    setattr(well, kind, [original, duplicate])
+    before = repr(well)
+    md = dataset.active_index.values.copy()
+    c1 = dataset.curves["curve-c1"].values.copy()
+    with pytest.raises(ValueError, match=f"unique {kind} source ID"):
+        _intersect(session)
+    assert repr(well) == before
+    np.testing.assert_array_equal(dataset.active_index.values, md)
+    np.testing.assert_array_equal(dataset.curves["curve-c1"].values, c1)
+
+
 def test_valid_provenance_ids_keep_original_values_and_coverage():
     session = _session()
     well = session.current_well
