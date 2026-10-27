@@ -180,6 +180,22 @@ def test_native_dump_artifact_is_optional_bounded_and_windows_only() -> None:
     assert "if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }" in quality
 
 
+def test_quality_captures_native_qt_versions_before_running_pytest() -> None:
+    workflow = _read(WORKFLOW)
+    quality = workflow.split("\n  quality:\n", 1)[1].split(
+        "\n  windows-acceptance:\n", 1
+    )[0]
+    capture = "      - name: Capture installed native Qt runtime identity\n"
+    run_checks = "      - name: Run quality checks and retain logs\n"
+    assert quality.count(capture) == 1
+    assert quality.index(capture) < quality.index(run_checks)
+    step = quality.split(capture, 1)[1].split("\n      - name: ", 1)[0]
+    assert "tools/capture_windows_native_runtime.py" in step
+    assert "build/ci-artifacts/quality/native-runtime.json" in step
+    assert "github.event.pull_request.head.sha || github.sha" in step
+    assert "if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }" in step
+
+
 def test_security_gate_produces_required_machine_readable_reports() -> None:
     text = _read(SECURITY_GATE)
     for filename in (
