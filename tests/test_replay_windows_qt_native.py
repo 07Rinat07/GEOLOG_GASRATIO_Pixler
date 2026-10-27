@@ -5,6 +5,7 @@ import subprocess
 
 import pytest
 
+import tools.replay_windows_qt_native as replay_module
 from tools.replay_windows_qt_native import (
     CHILD_TIMEOUT_SECONDS,
     SCENARIOS,
@@ -142,3 +143,42 @@ def test_interrupted_replay_keeps_partial_report_failed(tmp_path) -> None:
     assert report["completed"] == 1
     assert report["expected"] == 3
     assert report["all_passed"] is False
+
+
+def test_atomic_results_snapshot_replaces_complete_json(tmp_path) -> None:
+    report_path = tmp_path / "results.json"
+    report_path.write_text('{"previous": true}\n', encoding="utf-8")
+
+    replay_module._save_results_atomically(
+        report_path, {"completed": 2, "expected": 3, "all_passed": False}
+    )
+
+    assert json.loads(report_path.read_text(encoding="utf-8")) == {
+        "completed": 2,
+        "expected": 3,
+        "all_passed": False,
+    }
+    assert list(tmp_path.glob(".results-*.tmp")) == []
+
+
+def test_atomic_result_replace_failure_preserves_last_complete_snapshot(
+    tmp_path, monkeypatch
+) -> None:
+    report_path = tmp_path / "results.json"
+    previous = '{"completed": 1, "expected": 3, "all_passed": false}\n'
+    report_path.write_text(previous, encoding="utf-8")
+
+    def reject_replace(source, destination) -> None:
+        assert destination == report_path
+        assert source != report_path
+        assert report_path.read_text(encoding="utf-8") == previous
+        raise OSError("synthetic Windows file replace failure")
+
+    monkeypatch.setattr(replay_module.os, "replace", reject_replace)
+    with pytest.raises(OSError, match="synthetic Windows file replace failure"):
+        replay_module._save_results_atomically(
+            report_path, {"completed": 2, "expected": 3, "all_passed": False}
+        )
+
+    assert report_path.read_text(encoding="utf-8") == previous
+    assert list(tmp_path.glob(".results-*.tmp")) == []
