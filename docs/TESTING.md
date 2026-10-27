@@ -1,3 +1,19 @@
+## Qt #544 — воспроизведение сбоя при изменении масштаба дорожки (27.10.2026, PR-проверка)
+
+The manual `tools/replay_windows_qt_native.py` now includes the exact
+`tests/test_main_window.py::test_window_applies_selected_track_x_scale`
+selector, previously seen with Windows native `0xC0000005`, in addition to
+the existing dataset-merge/undo and tablet-rebuild selectors. In `both`
+mode, each iteration runs three clean child processes followed by one
+shared-process sequence containing all three selectors. The maximum five
+iterations produce 20 children. Each child is bounded to 270 seconds,
+leaving at least 30 minutes under the 120-minute Actions job timeout.
+The reporter still records failures, timeouts, exit codes and an atomic
+partial `results.json`; it never treats incomplete iterations as success.
+The regression suite checks the exact new selector, full scenario plan,
+partial snapshots and the 20 × 270-second time budget. The three required
+Release Gate jobs are unchanged; native #544 remains open.
+
 ## Qt #544 — atomic partial native replay artifacts
 
 The manual `tools/replay_windows_qt_native.py` process now writes every
