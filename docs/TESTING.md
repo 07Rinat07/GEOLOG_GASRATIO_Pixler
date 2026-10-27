@@ -62,6 +62,11 @@ Successful retries and local replays do not close Qt #544.
 
 ## PRINT-STYLE-01 — manual Masterlog caption override after type changes
 
+The same suite also opens the orientation popup and presses Enter on its
+current item in RU/KK/EN. Both horizontal and bottom-up selections must survive
+a later type change even though the combo-box index did not change. This
+regression failed before connecting the user activation signal.
+
 `tests/test_masterlog_columns_dialog.py` covers RU/KK/EN new-column type
 changes before a user override (automatic bottom-up geology/horizontal text),
 then top-to-bottom and horizontal explicit selections surviving subsequent

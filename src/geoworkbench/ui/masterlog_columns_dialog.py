@@ -127,6 +127,10 @@ class ColumnPropertiesDialog(QDialog):
         self.title_orientation_input.currentIndexChanged.connect(
             self._remember_explicit_title_orientation
         )
+        # Reselecting the current item is also an explicit user choice.
+        self.title_orientation_input.activated.connect(
+            self._remember_explicit_title_orientation
+        )
         self.type_input.currentTextChanged.connect(self._apply_default_title_direction)
         self.title_position_input = QComboBox()
         position_labels = {

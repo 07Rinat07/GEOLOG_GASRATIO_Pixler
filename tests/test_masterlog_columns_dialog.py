@@ -119,6 +119,30 @@ def test_new_masterlog_column_auto_orientation_follows_type_until_user_override(
             dialog.close()
 
 
+def test_new_masterlog_column_reselecting_current_orientation_is_explicit(qapp) -> None:
+    from PySide6.QtTest import QTest
+
+    for language in AppLanguage:
+        for initial_type, next_type, orientation in (
+            ("curves", "depth", "horizontal"),
+            ("depth", "cuttings_description", "vertical_bottom_to_top"),
+        ):
+            dialog = ColumnPropertiesDialog(language=language)
+            try:
+                dialog.type_input.setCurrentText(initial_type)
+                combo = dialog.title_orientation_input
+                original_index = combo.currentIndex()
+                dialog.show()
+                qapp.processEvents()
+                combo.showPopup()
+                QTest.keyClick(combo.view(), Qt.Key.Key_Return)
+                assert combo.currentIndex() == original_index
+                dialog.type_input.setCurrentText(next_type)
+                assert dialog.title_presentation() == (orientation, "center")
+            finally:
+                dialog.close()
+
+
 def test_new_masterlog_column_manual_orientation_survives_later_type_changes(qapp) -> None:
     for language in AppLanguage:
         dialog = ColumnPropertiesDialog(language=language)
