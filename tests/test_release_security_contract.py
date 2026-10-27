@@ -96,7 +96,7 @@ def test_release_lock_is_targeted_fully_pinned_and_hashed() -> None:
     )
 
 
-def test_workflow_syncs_the_lock_and_uploads_three_artifact_groups() -> None:
+def test_workflow_syncs_the_lock_and_uploads_four_artifact_groups() -> None:
     text = _read(WORKFLOW)
     assert text.count('version: "0.11.29"') == 3
     assert text.count(
@@ -132,8 +132,52 @@ def test_workflow_syncs_the_lock_and_uploads_three_artifact_groups() -> None:
     assert "build/ci-artifacts/security" in text
     assert "build/ci-artifacts/windows-acceptance" in text
     assert "tools/windows_release_matrix.py" in text
-    assert text.count("actions/upload-artifact@") == 3
+    # Three mandatory release artifacts plus one optional native-crash diagnostic.
+    # The diagnostic upload is not an extra release gate or a replacement.
+    assert text.count("actions/upload-artifact@") == 4
+    for artifact in (
+        "release-quality-",
+        "release-windows-acceptance-",
+        "release-security-",
+        "release-native-",
+    ):
+        assert text.count("name: " + artifact) == 1
     assert "persist-credentials: false" in text
+
+
+def _quality_workflow_step(workflow: str, name: str) -> str:
+    quality = workflow.split("\n  quality:\n", 1)[1].split(
+        "\n  windows-acceptance:\n", 1
+    )[0]
+    anchor = f"      - name: {name}\n"
+    assert quality.count(anchor) == 1
+    return quality.split(anchor, 1)[1].split("\n      - name: ", 1)[0]
+
+
+def test_native_dump_artifact_is_optional_bounded_and_windows_only() -> None:
+    workflow = _read(WORKFLOW)
+    configure = _quality_workflow_step(
+        workflow, "Enable bounded Python native crash dumps"
+    )
+    upload = _quality_workflow_step(workflow, "Upload native crash diagnostics")
+    quality = _quality_workflow_step(workflow, "Run quality checks and retain logs")
+
+    assert '$env:GITHUB_ACTIONS -ne "true"' in configure
+    assert '$env:RUNNER_OS -ne "Windows"' in configure
+    assert r"LocalDumps\python.exe" in configure
+    assert "DumpType -Value 1 -PropertyType DWord" in configure
+    assert "DumpCount -Value 2 -PropertyType DWord" in configure
+
+    assert "if: always()" in upload
+    assert "actions/upload-artifact@" in upload
+    assert "name: release-native-${{ github.run_id }}-${{ github.run_attempt }}" in upload
+    assert "path: ${{ runner.temp }}/geolog-native-dumps/*.dmp" in upload
+    assert "if-no-files-found: ignore" in upload
+    assert "retention-days: 3" in upload
+
+    # A missing dump cannot turn a failing quality subprocess into success.
+    assert "scripts/run_tests.py -p no:cacheprovider" in quality
+    assert "if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }" in quality
 
 
 def test_security_gate_produces_required_machine_readable_reports() -> None:

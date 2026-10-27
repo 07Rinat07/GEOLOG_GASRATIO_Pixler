@@ -1,3 +1,22 @@
+## Qt #544 — Windows native crash evidence
+
+The Windows quality job configures per-application WER LocalDumps for
+`python.exe` on the disposable Actions runner only. DumpType=1 requests
+minidumps; DumpCount=2 bounds retained files. The separate
+`release-native-<run_id>-<run_attempt>` artifact retains available dumps for
+three days. No dump is expected on a successful run. A missing dump does not
+turn a failed test into a success; original test commands and exit codes remain.
+The configuration follows [Microsoft WER documentation](https://learn.microsoft.com/en-us/windows/win32/wer/collecting-user-mode-dumps).
+
+After a native failure, inspect the artifact with WinDbg and correlate its
+exception stack and module versions with `release-quality-<run_id>/pytest.txt`.
+WER capture is not guaranteed for applications with custom crash reporting or
+automatic debugging; confirm an actual dump before claiming capture works.
+Do not apply the runner registry snippet to a developer or field workstation.
+Minidumps can contain process stack data; these artifacts are diagnostics for
+synthetic CI tests, not a mechanism for collecting user project data.
+Successful retries and local replays do not close Qt #544.
+
 ## PRINT-STYLE-01 — manual Masterlog caption override after type changes
 
 `tests/test_masterlog_columns_dialog.py` covers RU/KK/EN new-column type
