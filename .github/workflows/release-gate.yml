@@ -71,6 +71,14 @@ jobs:
           New-ItemProperty -Path $DumpKey -Name DumpType -Value 1 -PropertyType DWord -Force | Out-Null
           New-ItemProperty -Path $DumpKey -Name DumpCount -Value 2 -PropertyType DWord -Force | Out-Null
 
+      - name: Capture installed native Qt runtime identity
+        shell: pwsh
+        run: |
+          .\.venv\Scripts\python.exe tools/capture_windows_native_runtime.py `
+            --output build/ci-artifacts/quality/native-runtime.json `
+            --commit "${{ github.event.pull_request.head.sha || github.sha }}"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Run quality checks and retain logs
         shell: pwsh
         run: |

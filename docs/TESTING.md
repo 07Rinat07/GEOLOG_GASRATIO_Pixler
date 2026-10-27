@@ -1,3 +1,18 @@
+## Qt #544 — native Windows runtime identity for crash correlation
+
+The Windows Quality job calls `tools/capture_windows_native_runtime.py`
+from a separate venv Python process before pytest, saving
+`build/ci-artifacts/quality/native-runtime.json` to the existing 30-day
+quality artifact. It reports the source PR HEAD SHA (or push SHA), Python,
+OS release/architecture, Qt runtime, PySide6, shiboken6, pyqtgraph and NumPy
+versions. The report contains no absolute paths, operator data or environment
+variables. Missing pinned packages or an invalid commit cause a failed step.
+`tests/test_capture_windows_native_runtime.py` uses injected version sources
+and verifies exact content, SHA rejection and JSON file output; the workflow
+contract pins ordering, output path, source SHA and exit propagation.
+This metadata does not establish the root cause of Qt #544 and does not prove
+a WER dump was collected; leave the original jobs and failure codes intact.
+
 ## Qt #544 — Windows native crash evidence
 
 The Windows quality job configures per-application WER LocalDumps for
