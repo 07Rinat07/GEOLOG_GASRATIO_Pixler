@@ -80,7 +80,7 @@ def test_replay_timeout_is_reported_as_failure_and_other_runs_continue(tmp_path)
     def run(command, **kwargs):
         calls.append(command)
         if len(calls) == 1:
-            raise subprocess.TimeoutExpired(command, 600, output=b"partial output")
+            raise subprocess.TimeoutExpired(command, CHILD_TIMEOUT_SECONDS, output=b"partial output")
         return subprocess.CompletedProcess(command, 0, stdout="passed", stderr="")
 
     assert not execute_replay(

@@ -43,3 +43,14 @@ def test_native_replay_uses_pinned_release_env_and_preserves_failures() -> None:
     ):
         assert mandatory in release
     assert "qt-native-replay" not in release
+
+
+def test_maximum_replay_budget_fits_workflow_timeout_with_headroom() -> None:
+    from tools.replay_windows_qt_native import CHILD_TIMEOUT_SECONDS, replay_plan
+
+    workflow = MANUAL.read_text(encoding="utf-8")
+    assert "timeout-minutes: 120" in workflow
+    maximum_children = len(replay_plan(5, "both"))
+    assert maximum_children == 15
+    # Preserve 30 minutes for checkout, installation, artifact uploads and overhead.
+    assert maximum_children * CHILD_TIMEOUT_SECONDS <= (120 - 30) * 60
