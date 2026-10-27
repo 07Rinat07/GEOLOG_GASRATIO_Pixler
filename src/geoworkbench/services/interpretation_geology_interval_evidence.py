@@ -165,12 +165,18 @@ def correlate_gas_interval_with_well_geology(
         ("cuttings", well.cuttings, "sample_id"),
         ("stratigraphy", well.stratigraphy, "interval_id"),
     ):
+        source_ids: set[str] = set()
         for record in records:
             # Provenance must identify a real source, not a stringified null
             # or container. Preserve valid IDs exactly; do not invent or trim.
             source_id = getattr(record, id_field)
             if not isinstance(source_id, str) or not source_id.strip():
                 raise ValueError(f"Geology correlation requires non-empty text {source_kind} source ID")
+            # One category/ID must resolve to one source record, even when
+            # the other record is outside the selected gas interval.
+            if source_id in source_ids:
+                raise ValueError(f"Geology correlation requires unique {source_kind} source ID")
+            source_ids.add(source_id)
             # Validate each source scalar before combining: NumPy would
             # otherwise coerce a boolean + float pair to a numeric array.
             try:
@@ -188,19 +194,6 @@ def correlate_gas_interval_with_well_geology(
                 raise ValueError(
                     f"Geology correlation requires finite numeric MD bounds in {source_kind}"
                 )
-
-    # Report snapshots turn some source IDs into strings. Reject missing or
-    # malformed provenance before that conversion; otherwise None/True/123
-    # can become plausible-looking origin identifiers in signed evidence.
-    for source_kind, records, id_field in (
-        ("lithology", well.lithology, "interval_id"),
-        ("cuttings", well.cuttings, "sample_id"),
-        ("stratigraphy", well.stratigraphy, "interval_id"),
-    ):
-        for source_record in records:
-            source_id = getattr(source_record, id_field)
-            if not isinstance(source_id, str) or not source_id.strip():
-                raise ValueError(f"Geology correlation requires non-empty text {source_kind} source ID")
 
     # Snapshot coercion can turn a malformed description into an apparent
     # observation, including coverage for a sample without components.
