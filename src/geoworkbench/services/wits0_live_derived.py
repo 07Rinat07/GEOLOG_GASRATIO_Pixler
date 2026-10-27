@@ -348,7 +348,9 @@ class Wits0LiveDerivedChannelService:
         if not provenance.startswith("wits0:"):
             return None
         source_id = provenance.removeprefix("wits0:").split(";", 1)[0]
-        if len(source_id) < 2 or not source_id[:2].isdigit():
+        # WITS0 curve IDs are exactly two ASCII record digits + two item digits.
+        # Never attach a source-record to malformed or non-canonical provenance.
+        if len(source_id) != 4 or not source_id.isascii() or not source_id.isdigit():
             return None
         return int(source_id[:2])
 

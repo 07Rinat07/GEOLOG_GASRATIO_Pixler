@@ -1,3 +1,14 @@
+## WITS-CALC-01 — source channel ID lineage guard (28.10.2026)
+
+WITS-derived formula `source-records` accepts only canonical `wits0:RRII`
+provenance (exactly four ASCII digits, two for record and two for item),
+optionally followed by `;` metadata tags. Malformed/truncated/extra-text
+and non-ASCII IDs must not introduce a fabricated record number into
+formula snapshots or ephemeral virtual-curve provenance.
+`tests/test_wits0_live_derived.py` checks canonical and malformed IDs,
+propagation into WH output and unchanged numerical results/source values.
+The field WITS/alarms acceptance and Qt native #544 remain separate.
+
 ## WITS-CALC-01 — explicit DEXPC density scalar contract (28.10.2026)
 
 `tests/test_wits0_dexp_correction_config.py` covers Python and NumPy
