@@ -1,3 +1,19 @@
+## Qt #544 — complete rollback for partially created tablet tracks
+
+If creation of one rendered track fails, `TrackLifecycleCoordinator.create_entries`
+now uses the existing `dispose_entries` safety path to release all previously
+created tracks in reverse order. A failed rollback or failed DeferredDelete
+settlement is reported through the optional `on_rollback_error` callback;
+neither suppresses the original render failure or prevents subsequent
+cleanup. The production tablet logs cleanup exceptions under
+`tablet.track.rollback.failed`.
+
+Two independent `tests/test_track_lifecycle.py` regressions cover rollback
+and settlement failures, original exception propagation, reverse order, and
+the per-track report hook. Existing Windows Release Gate criteria stay
+unchanged. This mitigates an additional unhandled cleanup path but does not
+prove the native Qt/pyqtgraph #544 root cause.
+
 ## Qt #544 — disposal settlement on failed track cleanup
 
 `TrackLifecycleCoordinator.dispose_entries()` attempts its per-entry

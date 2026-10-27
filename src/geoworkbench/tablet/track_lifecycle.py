@@ -120,8 +120,13 @@ class TrackLifecycleCoordinator:
         identify: Callable[[D], str],
         create: Callable[[D], T],
         rollback: Callable[[T], None] | None = None,
+        on_rollback_error: Callable[[str, BaseException], None] | None = None,
     ) -> dict[str, T]:
-        """Create an ordered registry and roll back a partial failed build."""
+        """Create entries, fully disposing completed tracks if the build fails.
+
+        Continue rollback even when cleanup fails; keep the original build
+        exception as the caller-visible cause and report per-track failures.
+        """
 
         entries: dict[str, T] = {}
         try:
@@ -133,9 +138,10 @@ class TrackLifecycleCoordinator:
                 entries[track_id] = create(definition)
         except Exception:
             if rollback is not None:
-                for entry in reversed(tuple(entries.values())):
-                    rollback(entry)
-                    self._settle_disposal(entry)
+                # Reuse the same reverse-order, fail-safe settlement path as
+                # normal track removal. A failed rollback must not leak other
+                # created tracks or replace the original creation exception.
+                self.dispose_entries(entries, rollback, on_error=on_rollback_error)
             raise
         return entries
 

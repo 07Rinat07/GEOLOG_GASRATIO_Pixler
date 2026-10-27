@@ -197,3 +197,76 @@ def test_failed_settlement_reports_error_without_skipping_remaining_tracks() -> 
         "dispose:depth",
         "settle:depth",
     ]
+
+
+
+def test_partial_create_rollback_failure_keeps_original_error_and_settles_all() -> None:
+    events: list[str] = []
+    errors: list[tuple[str, str]] = []
+
+    def create(track_id: str) -> str:
+        if track_id == "broken":
+            raise RuntimeError("render failed")
+        return track_id
+
+    def rollback(entry: str) -> None:
+        events.append(f"rollback:{entry}")
+        if entry == "gas":
+            raise ValueError("cleanup failed after deleteLater")
+
+    coordinator = TrackLifecycleCoordinator(
+        settle_disposal=lambda entry: events.append(f"settle:{entry}")
+    )
+    with pytest.raises(RuntimeError, match="render failed"):
+        coordinator.create_entries(
+            ("depth", "gas", "broken"),
+            identify=lambda track_id: track_id,
+            create=create,
+            rollback=rollback,
+            on_rollback_error=lambda track_id, exc: errors.append(
+                (track_id, type(exc).__name__)
+            ),
+        )
+
+    assert events == [
+        "rollback:gas",
+        "settle:gas",
+        "rollback:depth",
+        "settle:depth",
+    ]
+    assert errors == [("gas", "ValueError")]
+
+
+def test_partial_create_settlement_failure_still_rolls_back_prior_tracks() -> None:
+    events: list[str] = []
+    errors: list[tuple[str, str]] = []
+
+    def create(track_id: str) -> str:
+        if track_id == "broken":
+            raise RuntimeError("render failed")
+        return track_id
+
+    def settle(entry: object) -> None:
+        events.append(f"settle:{entry}")
+        if entry == "gas":
+            raise ValueError("stale Qt widget wrapper")
+
+    coordinator = TrackLifecycleCoordinator(settle_disposal=settle)
+    with pytest.raises(RuntimeError, match="render failed"):
+        coordinator.create_entries(
+            ("depth", "gas", "broken"),
+            identify=lambda track_id: track_id,
+            create=create,
+            rollback=lambda entry: events.append(f"rollback:{entry}"),
+            on_rollback_error=lambda track_id, exc: errors.append(
+                (track_id, type(exc).__name__)
+            ),
+        )
+
+    assert events == [
+        "rollback:gas",
+        "settle:gas",
+        "rollback:depth",
+        "settle:depth",
+    ]
+    assert errors == [("gas", "ValueError")]
