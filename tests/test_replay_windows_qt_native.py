@@ -118,13 +118,39 @@ def test_partial_replay_never_reports_success_while_children_remain(tmp_path) ->
         return subprocess.CompletedProcess(command, 0, stdout="passed", stderr="")
 
     assert execute_replay(tmp_path, repetitions=1, mode="both", runner=run)
-    assert len(snapshots) == 2
-    assert [report["completed"] for report in snapshots] == [1, 2]
+    assert len(snapshots) == 3
+    assert [report["completed"] for report in snapshots] == [0, 1, 2]
     assert all(report["expected"] == 3 for report in snapshots)
     assert all(report["all_passed"] is False for report in snapshots)
     final = json.loads((tmp_path / "results.json").read_text(encoding="utf-8"))
     assert final["completed"] == final["expected"] == 3
     assert final["all_passed"] is True
+
+
+def test_interruption_before_first_child_result_keeps_initial_failure_snapshot(tmp_path) -> None:
+    calls = 0
+
+    def interrupt(command, **kwargs):
+        nonlocal calls
+        calls += 1
+        snapshot = json.loads((tmp_path / "results.json").read_text("utf-8"))
+        assert snapshot["schema_version"] == 1
+        assert snapshot["mode"] == "both"
+        assert snapshot["repetitions"] == 1
+        assert snapshot["completed"] == 0
+        assert snapshot["expected"] == 3
+        assert snapshot["results"] == []
+        assert snapshot["all_passed"] is False
+        raise RuntimeError("synthetic parent interruption before first result")
+
+    with pytest.raises(RuntimeError, match="before first result"):
+        execute_replay(tmp_path, repetitions=1, mode="both", runner=interrupt)
+
+    assert calls == 1
+    assert not list(tmp_path.glob("iteration-*.txt"))
+    saved = json.loads((tmp_path / "results.json").read_text("utf-8"))
+    assert saved["completed"] == 0
+    assert saved["all_passed"] is False
 
 
 def test_interrupted_replay_keeps_partial_report_failed(tmp_path) -> None:

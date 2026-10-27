@@ -109,6 +109,23 @@ def execute_replay(
     report_path = output_dir / "results.json"
     results: list[dict[str, Any]] = []
 
+    def save_progress() -> None:
+        report = {
+            "schema_version": 1,
+            "mode": mode,
+            "repetitions": repetitions,
+            "all_passed": len(results) == len(plan) and all(
+                item["status"] == "passed" for item in results
+            ),
+            "completed": len(results),
+            "expected": len(plan),
+            "results": results,
+        }
+        _save_results_atomically(report_path, report)
+
+    # Preserve an explicitly incomplete record even if the first child never returns.
+    save_progress()
+
     for iteration, label, selectors in plan:
         log_name = f"iteration-{iteration:02d}-{label}.txt"
         command = (
@@ -151,19 +168,8 @@ def execute_replay(
             "log_file": log_name,
         }
         results.append(result)
-        report = {
-            "schema_version": 1,
-            "mode": mode,
-            "repetitions": repetitions,
-            "all_passed": len(results) == len(plan) and all(
-                item["status"] == "passed" for item in results
-            ),
-            "completed": len(results),
-            "expected": len(plan),
-            "results": results,
-        }
         # Keep the last complete snapshot intact across interrupted writes.
-        _save_results_atomically(report_path, report)
+        save_progress()
         print(
             f"Qt replay {iteration}/{repetitions} {label}: {result['status']} "
             f"({result['windows_exit_hex'] or 'timeout'})",
