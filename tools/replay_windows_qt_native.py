@@ -29,7 +29,7 @@ SCENARIOS = (
 )
 MODES = ("isolated", "sequence", "both")
 MAX_REPETITIONS = 5
-CHILD_TIMEOUT_SECONDS = 600
+CHILD_TIMEOUT_SECONDS = 360  # 15 maximum children × 6 minutes = 90 minutes
 
 
 def replay_plan(

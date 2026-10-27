@@ -1,3 +1,14 @@
+## Qt #544 — bounded manual replay wall-time budget
+
+With five repetitions and mode=both, the manual diagnostic runs at most
+15 child processes. Each child has a strict 360-second timeout, so cumulative
+child-process time is bounded to 90 minutes, leaving 30 minutes for Windows
+environment setup and artifact upload under the workflow's 120-minute
+job timeout. A timeout fails the diagnostic, remains in `results.json`,
+and does not prevent subsequent test executions. The workflow contract
+cross-checks these limits so changes cannot silently exceed the job budget.
+The original Release Gate remains unchanged.
+
 ## Qt #544 — manual Windows native test replay
 
 Use Actions → Windows Qt native replay (manual) → Run workflow when a
