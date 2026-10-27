@@ -47,6 +47,52 @@ def _dataset(*, unit: str = "% abs", omit: set[str] | None = None) -> Dataset:
     return dataset
 
 
+def test_source_record_provenance_requires_canonical_wits0_channel_key() -> None:
+    parse = Wits0LiveDerivedChannelService._record_no_from_provenance
+    assert parse("wits0:0116") == 1
+    assert parse("wits0:9916;source=record") == 99
+    assert parse("wits0:0001") == 0
+    for malformed in (
+        "wits0:01",
+        "wits0:0116extra",
+        "wits0:011",
+        "wits0:011X",
+        "wits0:01 6",
+        "wits0:١١١٦",
+        "wits0:record=01",
+        "wits:test",
+        "wits0:0116extra;source=record",
+    ):
+        assert parse(malformed) is None
+
+
+def test_derived_source_record_lineage_excludes_malformed_wits0_key() -> None:
+    dataset = _dataset()
+    c1 = dataset.curve_by_mnemonic("C1")
+    assert c1 is not None
+    source_values = c1.values.copy()
+
+    c1.metadata = replace(c1.metadata, provenance="wits0:0116invalid")
+    snapshots = Wits0LiveDerivedChannelService().snapshot(dataset)
+    wetness = next(item for item in snapshots if item.mnemonic == "WH")
+    assert wetness.status is Wits0DerivedChannelStatus.AVAILABLE
+    assert wetness.source_record_numbers == ()
+    virtual = Wits0LiveDerivedChannelService().virtual_curves(dataset)
+    assert "source-records=" not in virtual[
+        Wits0LiveDerivedChannelService.virtual_curve_id(wetness)
+    ].metadata.provenance
+
+    c1.metadata = replace(c1.metadata, provenance="wits0:0116;source=record")
+    valid = next(
+        item
+        for item in Wits0LiveDerivedChannelService().snapshot(dataset)
+        if item.mnemonic == "WH"
+    )
+    assert valid.source_record_numbers == (1,)
+    np.testing.assert_array_equal(c1.values, source_values)
+    assert wetness.values == valid.values
+
+
 def test_live_derived_service_projects_sourced_haworth_and_pixler_without_mutation() -> None:
     dataset = _dataset()
     curve_ids_before = tuple(dataset.curves)
