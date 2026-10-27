@@ -1,3 +1,15 @@
+## Qt #544 — disposal settlement on failed track cleanup
+
+`TrackLifecycleCoordinator.dispose_entries()` attempts its per-entry
+DeferredDelete settlement even when the preceding `dispose(entry)`
+raises after scheduling Qt deletion. Each settlement runs before the
+next entry's disposal, in reverse track order. Disposal and settlement
+errors are passed to the existing `on_error` callback; other tracks
+must still be cleaned up. `tests/test_track_lifecycle.py` exercises
+both failure paths with injectable settle callbacks, independent of Qt.
+This does not prove that all native access violations are fixed.
+Exact-head Windows Quality, GUI/HiDPI/PDF and Security remain required.
+
 ## Qt #544 — native Windows runtime identity for crash correlation
 
 The Windows Quality job calls `tools/capture_windows_native_runtime.py`
