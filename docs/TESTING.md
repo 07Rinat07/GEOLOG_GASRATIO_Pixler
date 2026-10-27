@@ -1,3 +1,16 @@
+## WITS-CALC-01 — explicit DEXPC density scalar contract (28.10.2026)
+
+`tests/test_wits0_dexp_correction_config.py` covers Python and NumPy
+positive real scalar inputs; rejects booleans, numeric strings, bytes,
+complex values, NumPy arrays, missing values, NaN/Inf, zero, negative
+values and Python integers that overflow float. Unit must be a nonblank
+string. An unrecognized but nonblank unit remains a configuration value
+and is reported by the existing UOM/QC evaluation path, not silently
+converted to a physical density. No formula or source data changes.
+Run `pytest -q tests/test_wits0_dexp_correction_config.py
+tests/test_wits0_live_derived.py` and all three Windows Release Gate jobs
+on the exact PR SHA; the manual Windows/field acceptance is separate.
+
 ## Qt #544 — воспроизведение сбоя при изменении масштаба дорожки (27.10.2026, PR-проверка)
 
 The manual `tools/replay_windows_qt_native.py` now includes the exact
