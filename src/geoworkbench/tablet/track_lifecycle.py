@@ -151,8 +151,9 @@ class TrackLifecycleCoordinator:
         Qt widget trees can already be partially destroyed when a queued form
         switch or import-recovery refresh reaches Python.  One stale wrapper must
         not prevent later tracks and registries from being released.  Settlement
-        runs immediately after each successful disposal so an immediate rebuild
-        cannot overlap the old widget tree's native DeferredDelete teardown.
+        runs after each attempted disposal, even when cleanup raises after
+        scheduling deleteLater, so an immediate rebuild cannot overlap the old
+        widget tree's native DeferredDelete teardown.
         """
 
         released = tuple(entries)
