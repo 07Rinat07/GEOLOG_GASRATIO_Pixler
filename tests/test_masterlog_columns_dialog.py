@@ -105,6 +105,49 @@ def test_new_geology_column_defaults_to_bottom_up_but_manual_override_survives(q
     dialog.close()
 
 
+def test_new_masterlog_column_auto_orientation_follows_type_until_user_override(qapp) -> None:
+    for language in AppLanguage:
+        dialog = ColumnPropertiesDialog(language=language)
+        try:
+            dialog.type_input.setCurrentText("depth")
+            assert dialog.title_presentation() == ("vertical_bottom_to_top", "center")
+            dialog.type_input.setCurrentText("cuttings_description")
+            assert dialog.title_presentation() == ("horizontal", "center")
+            dialog.type_input.setCurrentText("lba")
+            assert dialog.title_presentation() == ("vertical_bottom_to_top", "center")
+        finally:
+            dialog.close()
+
+
+def test_new_masterlog_column_manual_orientation_survives_later_type_changes(qapp) -> None:
+    for language in AppLanguage:
+        dialog = ColumnPropertiesDialog(language=language)
+        try:
+            dialog.type_input.setCurrentText("lithology")
+            dialog.title_orientation_input.setCurrentIndex(
+                dialog.title_orientation_input.findData("vertical_top_to_bottom")
+            )
+            dialog.title_position_input.setCurrentIndex(
+                dialog.title_position_input.findData("bottom")
+            )
+            dialog.type_input.setCurrentText("cuttings_description")
+            dialog.type_input.setCurrentText("stratigraphy")
+            assert dialog.title_presentation() == ("vertical_top_to_bottom", "bottom")
+        finally:
+            dialog.close()
+
+        horizontal = ColumnPropertiesDialog(language=language)
+        try:
+            horizontal.type_input.setCurrentText("calcimetry")
+            horizontal.title_orientation_input.setCurrentIndex(
+                horizontal.title_orientation_input.findData("horizontal")
+            )
+            horizontal.type_input.setCurrentText("depth")
+            assert horizontal.title_presentation() == ("horizontal", "center")
+        finally:
+            horizontal.close()
+
+
 def test_existing_masterlog_column_uses_render_default_when_orientation_unsaved(qapp) -> None:
     from geoworkbench.domain.models import MasterlogColumnTemplate
 

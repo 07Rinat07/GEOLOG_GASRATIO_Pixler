@@ -122,6 +122,11 @@ class ColumnPropertiesDialog(QDialog):
             max(0, self.title_orientation_input.findData(selected_orientation))
         )
         self._editing_existing_column = column is not None
+        self._setting_default_title_orientation = False
+        self._title_orientation_explicit = False
+        self.title_orientation_input.currentIndexChanged.connect(
+            self._remember_explicit_title_orientation
+        )
         self.type_input.currentTextChanged.connect(self._apply_default_title_direction)
         self.title_position_input = QComboBox()
         position_labels = {
@@ -310,13 +315,22 @@ class ColumnPropertiesDialog(QDialog):
             str(self.line_style_input.currentData()),
         )
 
+    def _remember_explicit_title_orientation(self, _index: int) -> None:
+        if not self._setting_default_title_orientation:
+            self._title_orientation_explicit = True
+
     def _apply_default_title_direction(self, column_type: str) -> None:
-        if self._editing_existing_column:
+        if self._editing_existing_column or self._title_orientation_explicit:
             return
         orientation = _default_heading_orientation(column_type)
         index = self.title_orientation_input.findData(orientation)
         if index >= 0:
-            self.title_orientation_input.setCurrentIndex(index)
+            # Programmatic type defaults must not count as a manual override.
+            self._setting_default_title_orientation = True
+            try:
+                self.title_orientation_input.setCurrentIndex(index)
+            finally:
+                self._setting_default_title_orientation = False
 
     def title_presentation(self) -> tuple[str, str]:
         return (
