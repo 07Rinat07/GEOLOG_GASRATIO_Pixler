@@ -136,9 +136,11 @@ class Wits0ManualGasContextInterval:
     def contains(self, axis: Wits0GasContextAxis, value: float) -> bool:
         if not isinstance(axis, Wits0GasContextAxis):
             raise ValueError("axis must be Wits0GasContextAxis")
+        # A wrong-axis lookup is still a query: reject malformed coordinates
+        # instead of silently reporting no operator-confirmed interval.
+        numeric = _finite_real_coordinate(value, name="value", non_negative=True)
         if axis is not self.axis:
             return False
-        numeric = _finite_real_coordinate(value, name="value", non_negative=True)
         return self.start <= numeric <= self.end
 
 
