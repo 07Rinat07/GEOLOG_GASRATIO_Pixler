@@ -1,3 +1,7 @@
+## WITS — атомарная установка ручных интервалов (29.10.2026)
+
+Проекция проверяет тип каждого ручного интервала при создании и замене списка. Некорректный элемент отклоняется до изменения подтверждённого контекста и до обработки наблюдений, способной обновить автоматический фон. Регрессии проверяют отказ конструктора, сохранение прежних интервалов и baseline при отказе замены, а также последующую классификацию. Формулы и приоритеты сохранены. Qt #544 и полевая приёмка остаются открытыми.
+
 ## WITS-GASCTX-01 — projection query preflight (29.10.2026)
 
 `Wits0GasContextProjection.project` validates MD/elapsed-time axis identity and finite nonnegative numeric coordinates before the stateful automatic classifier observes the sample. An invalid lookup must not increment the automatic baseline, even with no manual intervals or a confirmed QC interval. `tests/test_wits0_gas_context_projection.py::test_invalid_projection_query_does_not_consume_automatic_baseline` checks rejected axes/values, unchanged baseline and the next valid sample. Run `pytest -q tests/test_wits0_gas_context_projection.py tests/test_wits0_manual_gas_context.py` and the three exact-HEAD Windows Release Gate jobs. Source WITS/LAS, gas thresholds and Qt native #544 are unchanged.

@@ -49,7 +49,7 @@ class Wits0GasContextProjection:
     ) -> None:
         self.language = language
         self._classifier = Wits0GasContextClassifier(classifier_config)
-        self._manual_intervals = tuple(manual_intervals)
+        self.set_manual_intervals(manual_intervals)
 
     @property
     def baseline_sample_count(self) -> int:
@@ -63,7 +63,11 @@ class Wits0GasContextProjection:
         self,
         intervals: tuple[Wits0ManualGasContextInterval, ...],
     ) -> None:
-        self._manual_intervals = tuple(intervals)
+        candidate = tuple(intervals)
+        if any(not isinstance(item, Wits0ManualGasContextInterval) for item in candidate):
+            raise TypeError("manual intervals must use Wits0ManualGasContextInterval")
+        # Validate the complete replacement before discarding confirmed context.
+        self._manual_intervals = candidate
 
     def reset(self) -> None:
         self._classifier.reset()
