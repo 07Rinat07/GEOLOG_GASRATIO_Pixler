@@ -76,6 +76,9 @@ class Wits0ManualGasContextInterval:
     confirmed: bool = True
 
     def __post_init__(self) -> None:
+        # Never promote a draft via truthiness (e.g. confirmed="false" or 1).
+        if type(self.confirmed) is not bool:
+            raise ValueError("confirmed must be a boolean")
         if not self.interval_id.strip():
             raise ValueError("interval_id must not be empty")
         if not isinstance(self.kind, Wits0GasOriginKind):
