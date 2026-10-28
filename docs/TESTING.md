@@ -1,3 +1,17 @@
+## WITS-GASCTX-01 — strict manual gas-context lookup coordinates (28.10.2026)
+
+`Wits0ManualGasContextInterval.contains` and
+`resolve_manual_gas_context` now reject invalid query coordinates
+instead of coercing booleans and numeric text to depth/time. Only
+finite nonnegative Python/NumPy numeric scalar coordinates are accepted.
+The resolver validates coordinates even when it receives no intervals or
+draft-only intervals; bad WITS inputs must not silently become automatic
+formation-show context. Existing valid boundaries, exact event provenance,
+manual precedence, source measurements and gas calculations remain intact.
+Run `pytest -q tests/test_wits0_manual_gas_context.py`, plus all three
+Windows Release Gate jobs on exact PR/main HEAD. No Qt native crash or
+field acceptance is claimed.
+
 ## Qt #544 — reproduce normalized-gas tablet native crash (28.10.2026)
 
 The manual `tools/replay_windows_qt_native.py` diagnostic now includes
