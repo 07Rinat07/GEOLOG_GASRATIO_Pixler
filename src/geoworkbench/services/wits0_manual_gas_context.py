@@ -99,8 +99,8 @@ class Wits0ManualGasContextInterval:
         # Never promote a draft via truthiness (e.g. confirmed="false" or 1).
         if type(self.confirmed) is not bool:
             raise ValueError("confirmed must be a boolean")
-        if not self.interval_id.strip():
-            raise ValueError("interval_id must not be empty")
+        if not isinstance(self.interval_id, str) or not self.interval_id.strip():
+            raise ValueError("interval_id must be non-empty text")
         if not isinstance(self.kind, Wits0GasOriginKind):
             raise ValueError("kind must be Wits0GasOriginKind")
         if not isinstance(self.axis, Wits0GasContextAxis):
@@ -113,10 +113,12 @@ class Wits0ManualGasContextInterval:
             _finite_real_coordinate(
                 self.event_value, name="event_value", non_negative=False
             )
-        if self.event_unit is not None and not self.event_unit.strip():
-            raise ValueError("event_unit must be non-empty or None")
-        if not self.source.strip():
-            raise ValueError("source must not be empty")
+        if self.event_unit is not None and (
+            not isinstance(self.event_unit, str) or not self.event_unit.strip()
+        ):
+            raise ValueError("event_unit must be non-empty text or None")
+        if not isinstance(self.source, str) or not self.source.strip():
+            raise ValueError("source must be non-empty text")
 
     @property
     def excludes_formation_interpretation(self) -> bool:
