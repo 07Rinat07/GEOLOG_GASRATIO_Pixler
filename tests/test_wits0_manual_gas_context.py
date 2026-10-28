@@ -470,3 +470,38 @@ def test_manual_interval_preserves_text_and_resolves_equal_priority_ties() -> No
             intervals, axis=Wits0GasContextAxis.DEPTH, value=2502.0
         )
         assert selected is second
+
+
+@pytest.mark.parametrize("axis", tuple(Wits0GasContextAxis))
+@pytest.mark.parametrize(
+    "invalid",
+    (
+        True,
+        np.bool_(False),
+        "150",
+        b"150",
+        None,
+        150 + 0j,
+        np.array(150.0),
+        np.array([150.0]),
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        10**1000,
+        -0.5,
+    ),
+)
+def test_contains_rejects_bad_coordinate_on_nonmatching_axis(
+    axis: Wits0GasContextAxis, invalid: object
+) -> None:
+    interval = _manual_interval(axis=axis, start=100.0, end=200.0)
+    other_axis = (
+        Wits0GasContextAxis.ELAPSED_TIME
+        if axis is Wits0GasContextAxis.DEPTH
+        else Wits0GasContextAxis.DEPTH
+    )
+    with pytest.raises(ValueError, match="value must be a finite real scalar"):
+        interval.contains(other_axis, invalid)
+    # Valid coordinates on a different axis still do not match.
+    assert interval.contains(other_axis, 150.0) is False
+    assert interval.contains(axis, 150.0) is True
