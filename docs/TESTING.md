@@ -1,3 +1,17 @@
+## WITS-GASCTX-01 — strict query-axis identity (28.10.2026)
+
+`Wits0ManualGasContextInterval.contains` and
+`resolve_manual_gas_context` reject untyped query axes, including
+plain strings matching `"depth"`/`"elapsed_time"`, other enums,
+booleans and NumPy strings. Previously, an untyped input could be
+silently treated as no manual match, effectively restoring automatic
+gas-origin classification. An empty/draft-only interval list does not
+bypass the axis check. Actual enum MD/time values retain correct
+matching, foreign-axis nonmatching, manual precedence and provenance.
+`tests/test_wits0_manual_gas_context.py` contains the regression cases.
+All three exact-HEAD Windows Release Gates are required; the diagnostic
+Qt native issue #544 remains open. No raw WITS/LAS or formula changes.
+
 ## WITS-GASCTX-01 — strict manual gas-context lookup coordinates (28.10.2026)
 
 `Wits0ManualGasContextInterval.contains` and

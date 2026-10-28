@@ -253,6 +253,65 @@ def test_manual_gas_lookup_preserves_finite_numeric_scalar_queries(
     assert not interval.contains(Wits0GasContextAxis.ELAPSED_TIME, coordinate)
 
 
+@pytest.mark.parametrize(
+    "invalid_axis",
+    (
+        None,
+        "depth",
+        "elapsed_time",
+        b"depth",
+        True,
+        1,
+        np.str_("depth"),
+        Wits0GasContextResolutionSource.MANUAL,
+    ),
+)
+def test_manual_gas_lookup_rejects_untyped_query_axis(invalid_axis: object) -> None:
+    confirmed = _manual_interval()
+    draft = _manual_interval(confirmed=False)
+    automatic = _automatic_formation_show()
+
+    # Even when no manual events exist, invalid coordinate identity must fail
+    # rather than silently returning an apparent automatic formation event.
+    with pytest.raises(ValueError, match="axis must be Wits0GasContextAxis"):
+        confirmed.contains(invalid_axis, 2504.5)
+    for intervals in ((), (draft,), (confirmed,)):
+        with pytest.raises(ValueError, match="axis must be Wits0GasContextAxis"):
+            resolve_manual_gas_context(intervals, axis=invalid_axis, value=2504.5)
+        with pytest.raises(ValueError, match="axis must be Wits0GasContextAxis"):
+            resolve_effective_gas_context(
+                automatic, intervals, axis=invalid_axis, value=2504.5
+            )
+
+
+@pytest.mark.parametrize("axis", tuple(Wits0GasContextAxis))
+def test_manual_gas_lookup_keeps_enum_axis_selection(axis: Wits0GasContextAxis) -> None:
+    interval = _manual_interval(axis=axis)
+    other_axis = (
+        Wits0GasContextAxis.ELAPSED_TIME
+        if axis is Wits0GasContextAxis.DEPTH
+        else Wits0GasContextAxis.DEPTH
+    )
+    assert interval.contains(axis, 2500.0)
+    assert not interval.contains(other_axis, 2500.0)
+    assert resolve_manual_gas_context(
+        (interval,), axis=axis, value=2500.0
+    ) is interval
+    assert resolve_manual_gas_context(
+        (interval,), axis=other_axis, value=2500.0
+    ) is None
+    automatic = _automatic_formation_show()
+    selected = resolve_effective_gas_context(
+        automatic, (interval,), axis=axis, value=2500.0
+    )
+    assert selected.source is Wits0GasContextResolutionSource.MANUAL
+    skipped = resolve_effective_gas_context(
+        automatic, (interval,), axis=other_axis, value=2500.0
+    )
+    assert skipped.source is Wits0GasContextResolutionSource.AUTOMATIC
+    assert skipped.automatic is automatic
+
+
 def test_confirmed_manual_test_context_overrides_automatic_formation_show() -> None:
     automatic = _automatic_formation_show()
     interval = Wits0ManualGasContextInterval(
