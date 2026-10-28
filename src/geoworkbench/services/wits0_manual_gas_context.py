@@ -3,6 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 from math import isfinite
+from numbers import Real
+
+import numpy as np
 
 from geoworkbench.services.wits0_gas_context import (
     Wits0GasContextAssessment,
@@ -35,6 +38,23 @@ _MANUAL_PRIORITY: dict[Wits0GasOriginKind, int] = {
     Wits0GasOriginKind.INSUFFICIENT_CONTEXT: 0,
 }
 
+
+
+def _finite_real_coordinate(value: object, *, name: str, non_negative: bool) -> float:
+    """Validate operator numeric input without accepting truthy text or booleans."""
+
+    message = f"{name} must be a finite real scalar"
+    if isinstance(value, (bool, np.bool_)) or not isinstance(
+        value, (Real, np.integer, np.floating)
+    ):
+        raise ValueError(message)
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError(message) from exc
+    if not isfinite(numeric) or (non_negative and numeric < 0.0):
+        raise ValueError(message + (" >= 0" if non_negative else ""))
+    return numeric
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,14 +105,14 @@ class Wits0ManualGasContextInterval:
             raise ValueError("kind must be Wits0GasOriginKind")
         if not isinstance(self.axis, Wits0GasContextAxis):
             raise ValueError("axis must be Wits0GasContextAxis")
-        for value, name in ((self.start, "start"), (self.end, "end")):
-            numeric = float(value)
-            if not isfinite(numeric) or numeric < 0.0:
-                raise ValueError(f"{name} must be finite and non-negative")
-        if self.end < self.start:
+        start = _finite_real_coordinate(self.start, name="start", non_negative=True)
+        end = _finite_real_coordinate(self.end, name="end", non_negative=True)
+        if end < start:
             raise ValueError("end must be >= start")
-        if self.event_value is not None and not isfinite(float(self.event_value)):
-            raise ValueError("event_value must be finite or None")
+        if self.event_value is not None:
+            _finite_real_coordinate(
+                self.event_value, name="event_value", non_negative=False
+            )
         if self.event_unit is not None and not self.event_unit.strip():
             raise ValueError("event_unit must be non-empty or None")
         if not self.source.strip():

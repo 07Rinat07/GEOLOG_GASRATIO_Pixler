@@ -1,3 +1,15 @@
+## WITS-GASCTX-01 — strict operator interval numeric boundary (28.10.2026)
+
+Manual gas-context `start` and `end` coordinates accept only finite
+non-negative real scalar Python/NumPy values; optional `event_value`
+accepts finite real scalars. Booleans, numeric strings, complex numbers,
+NumPy arrays, NaN/Inf and overflowing large integers are rejected instead
+of being silently converted. Valid stored coordinates are not normalized
+or rewritten, and confirmed-interval selection/priority remains unchanged.
+`tests/test_wits0_manual_gas_context.py` covers type boundaries and
+unchanged valid selections. No LAS/WITS raw mutation or formula changes;
+physical field acceptance and native Qt #544 remain separate.
+
 ## WITS-GASCTX-01 — strict manual confirmation (28.10.2026)
 
 `tests/test_wits0_manual_gas_context_confirmation.py` verifies that only
