@@ -132,6 +132,8 @@ class Wits0ManualGasContextInterval:
         }
 
     def contains(self, axis: Wits0GasContextAxis, value: float) -> bool:
+        if not isinstance(axis, Wits0GasContextAxis):
+            raise ValueError("axis must be Wits0GasContextAxis")
         if axis is not self.axis:
             return False
         numeric = _finite_real_coordinate(value, name="value", non_negative=True)
@@ -146,6 +148,11 @@ def resolve_manual_gas_context(
 ) -> Wits0ManualGasContextInterval | None:
     """Return the highest-priority confirmed manual context at an axis position."""
 
+    # A plain string such as "depth" is not a verified coordinate axis.
+    # Reject it even for an empty interval list: silently falling back to
+    # automatic formation gas may hide an operator-confirmed test event.
+    if not isinstance(axis, Wits0GasContextAxis):
+        raise ValueError("axis must be Wits0GasContextAxis")
     # Validate even without intervals: invalid WITS query coordinates must never
     # silently fall back to automatic formation-gas classification.
     numeric = _finite_real_coordinate(value, name="value", non_negative=True)
