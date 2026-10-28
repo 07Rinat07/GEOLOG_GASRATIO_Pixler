@@ -253,7 +253,6 @@ def test_manual_gas_lookup_preserves_finite_numeric_scalar_queries(
     assert not interval.contains(Wits0GasContextAxis.ELAPSED_TIME, coordinate)
 
 
-
 @pytest.mark.parametrize(
     "invalid_axis",
     (
