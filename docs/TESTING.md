@@ -1,3 +1,7 @@
+## WITS-GASCTX-01 — projection query preflight (29.10.2026)
+
+`Wits0GasContextProjection.project` validates MD/elapsed-time axis identity and finite nonnegative numeric coordinates before the stateful automatic classifier observes the sample. An invalid lookup must not increment the automatic baseline, even with no manual intervals or a confirmed QC interval. `tests/test_wits0_gas_context_projection.py::test_invalid_projection_query_does_not_consume_automatic_baseline` checks rejected axes/values, unchanged baseline and the next valid sample. Run `pytest -q tests/test_wits0_gas_context_projection.py tests/test_wits0_manual_gas_context.py` and the three exact-HEAD Windows Release Gate jobs. Source WITS/LAS, gas thresholds and Qt native #544 are unchanged.
+
 ## WITS-GASCTX-01 — cross-axis coordinate validation (29.10.2026)
 
 `Wits0ManualGasContextInterval.contains` validates a finite nonnegative numeric scalar query before returning `False` for a different MD/elapsed-time axis. Previously, an invalid value on the other axis silently bypassed the input contract. `tests/test_wits0_manual_gas_context.py::test_contains_rejects_bad_coordinate_on_nonmatching_axis` covers both axis directions, malformed values and valid nonmatching queries. Run `pytest -q tests/test_wits0_manual_gas_context.py` and the three exact-HEAD Windows Release Gate jobs. No source WITS/LAS, geological calculations or Qt native crash #544 behavior is changed.

@@ -57,6 +57,14 @@ def _finite_real_coordinate(value: object, *, name: str, non_negative: bool) -> 
     return numeric
 
 
+def validate_gas_context_query(*, axis: Wits0GasContextAxis, value: float) -> float:
+    """Validate a manual-context lookup before stateful gas screening."""
+
+    if not isinstance(axis, Wits0GasContextAxis):
+        raise ValueError("axis must be Wits0GasContextAxis")
+    return _finite_real_coordinate(value, name="value", non_negative=True)
+
+
 @dataclass(frozen=True, slots=True)
 class Wits0ResolvedGasContext:
     """Effective gas context after deterministic manual-interval precedence."""
@@ -134,11 +142,8 @@ class Wits0ManualGasContextInterval:
         }
 
     def contains(self, axis: Wits0GasContextAxis, value: float) -> bool:
-        if not isinstance(axis, Wits0GasContextAxis):
-            raise ValueError("axis must be Wits0GasContextAxis")
-        # A wrong-axis lookup is still a query: reject malformed coordinates
-        # instead of silently reporting no operator-confirmed interval.
-        numeric = _finite_real_coordinate(value, name="value", non_negative=True)
+        # A wrong-axis lookup still requires a valid numeric coordinate.
+        numeric = validate_gas_context_query(axis=axis, value=value)
         if axis is not self.axis:
             return False
         return self.start <= numeric <= self.end
@@ -155,11 +160,9 @@ def resolve_manual_gas_context(
     # A plain string such as "depth" is not a verified coordinate axis.
     # Reject it even for an empty interval list: silently falling back to
     # automatic formation gas may hide an operator-confirmed test event.
-    if not isinstance(axis, Wits0GasContextAxis):
-        raise ValueError("axis must be Wits0GasContextAxis")
     # Validate even without intervals: invalid WITS query coordinates must never
     # silently fall back to automatic formation-gas classification.
-    numeric = _finite_real_coordinate(value, name="value", non_negative=True)
+    numeric = validate_gas_context_query(axis=axis, value=value)
     matches = tuple(
         interval
         for interval in intervals
@@ -227,6 +230,7 @@ __all__ = [
     "Wits0GasContextResolutionSource",
     "Wits0ResolvedGasContext",
     "Wits0ManualGasContextInterval",
+    "validate_gas_context_query",
     "resolve_manual_gas_context",
     "resolve_effective_gas_context",
 ]

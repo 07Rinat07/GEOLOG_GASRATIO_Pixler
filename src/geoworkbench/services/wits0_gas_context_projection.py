@@ -18,6 +18,7 @@ from geoworkbench.services.wits0_manual_gas_context import (
     Wits0ManualGasContextInterval,
     Wits0ResolvedGasContext,
     resolve_effective_gas_context,
+    validate_gas_context_query,
 )
 
 
@@ -74,6 +75,8 @@ class Wits0GasContextProjection:
         axis: Wits0GasContextAxis,
         value: float,
     ) -> Wits0GasContextProjectionResult:
+        # Reject malformed axis/position before assess() can update its baseline.
+        validate_gas_context_query(axis=axis, value=value)
         automatic = self._classifier.assess(observation)
         resolved = resolve_effective_gas_context(
             automatic,
