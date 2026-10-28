@@ -126,3 +126,12 @@ Saved rules are evaluated by a separate runtime controller. It replays every new
 alarms are highlighted in the current-values table and dashboard indicator card. Acknowledge changes
 the active alarm to acknowledged state without clearing it; clearing still requires a factual
 recovery sample across the hysteresis boundary. Runtime also retains a bounded factual `ACTIVATED/CLEARED` event history with dataset row and acquisition sequence. A factual batch containing one or more audio-enabled activations emits one system audio cue and ordinary refresh does not replay it. Visual-enabled events appear on the live history as threshold markers: red for activation and green for clear. Pause does not stop alarm evaluation or audio; events for rows received after the frozen boundary remain in history and become visible after Resume.
+
+## Manual gas-context confirmation
+
+In the WITS-GASCTX-01 headless contract, only an explicit Python boolean
+`confirmed=True` marks an interval as operator-confirmed. `False` is a
+draft and does not override automatic gas-origin screening. Text values
+such as `"false"/"true"`, numbers and other types are rejected rather than
+coerced by truthiness. This does not complete the operator editor,
+interval persistence or field acceptance.
