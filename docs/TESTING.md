@@ -1,3 +1,7 @@
+## WITS-GASCTX-01 — cross-axis coordinate validation (29.10.2026)
+
+`Wits0ManualGasContextInterval.contains` validates a finite nonnegative numeric scalar query before returning `False` for a different MD/elapsed-time axis. Previously, an invalid value on the other axis silently bypassed the input contract. `tests/test_wits0_manual_gas_context.py::test_contains_rejects_bad_coordinate_on_nonmatching_axis` covers both axis directions, malformed values and valid nonmatching queries. Run `pytest -q tests/test_wits0_manual_gas_context.py` and the three exact-HEAD Windows Release Gate jobs. No source WITS/LAS, geological calculations or Qt native crash #544 behavior is changed.
+
 ## WITS — текстовые метаданные ручного контекста (28.10.2026)
 
 WITS manual context text metadata: tests/test_wits0_manual_gas_context.py rejects bytes, numbers, containers and arrays for interval_id/source/event_unit, rejects missing required text and blank strings, preserves Unicode/whitespace and optional None units, and verifies order-independent tie resolution. All three Windows release gates remain required.
