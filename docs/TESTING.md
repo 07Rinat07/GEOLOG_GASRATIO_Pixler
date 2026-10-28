@@ -1,3 +1,7 @@
+## WITS — текстовые метаданные ручного контекста (28.10.2026)
+
+WITS manual context text metadata: tests/test_wits0_manual_gas_context.py rejects bytes, numbers, containers and arrays for interval_id/source/event_unit, rejects missing required text and blank strings, preserves Unicode/whitespace and optional None units, and verifies order-independent tie resolution. All three Windows release gates remain required.
+
 ## WITS-GASCTX-01 — strict query-axis identity (28.10.2026)
 
 `Wits0ManualGasContextInterval.contains` and

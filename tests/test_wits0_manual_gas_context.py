@@ -437,3 +437,36 @@ def test_automatic_gas_context_presentation_has_no_manual_interval() -> None:
     assert presentation.manual_interval_id is None
     assert presentation.source_label == "Автоматты"
     assert presentation.effective_label == presentation.automatic_label
+
+
+@pytest.mark.parametrize("name", ("interval_id", "source", "event_unit"))
+@pytest.mark.parametrize("invalid", (b"operator", 1, True, [], {}, np.array("operator")))
+def test_manual_interval_rejects_non_text_metadata(name: str, invalid: object) -> None:
+    with pytest.raises(ValueError, match=name):
+        _manual_interval(**{name: invalid})
+
+
+@pytest.mark.parametrize("name", ("interval_id", "source"))
+def test_manual_interval_rejects_missing_required_text(name: str) -> None:
+    with pytest.raises(ValueError, match=name):
+        _manual_interval(**{name: None})
+
+
+@pytest.mark.parametrize("name", ("interval_id", "source", "event_unit"))
+@pytest.mark.parametrize("invalid", ("", " \t\n"))
+def test_manual_interval_rejects_blank_metadata(name: str, invalid: str) -> None:
+    with pytest.raises(ValueError, match=name):
+        _manual_interval(**{name: invalid})
+
+
+def test_manual_interval_preserves_text_and_resolves_equal_priority_ties() -> None:
+    first = _manual_interval(interval_id="operator-a", source=" Оператор ", event_unit=" % ")
+    second = _manual_interval(interval_id="operator-b", event_unit=None)
+    assert first.source == " Оператор "
+    assert first.event_unit == " % "
+    assert second.event_unit is None
+    for intervals in ((first, second), (second, first)):
+        selected = resolve_manual_gas_context(
+            intervals, axis=Wits0GasContextAxis.DEPTH, value=2502.0
+        )
+        assert selected is second
