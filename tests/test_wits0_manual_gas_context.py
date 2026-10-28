@@ -156,6 +156,76 @@ def _automatic_formation_show() -> Wits0GasContextAssessment:
     )
 
 
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        True,
+        np.bool_(False),
+        "2504.5",
+        b"2504.5",
+        None,
+        2504.5 + 0j,
+        np.array(2504.5),
+        np.array([2504.5]),
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        10**1000,
+        -0.5,
+    ],
+)
+def test_manual_gas_lookup_rejects_invalid_query_coordinates(invalid: object) -> None:
+    confirmed = _manual_interval()
+    draft = _manual_interval(confirmed=False)
+    with pytest.raises(ValueError, match="value must be a finite real scalar"):
+        confirmed.contains(Wits0GasContextAxis.DEPTH, invalid)
+
+    # No interval and draft-only intervals must not bypass query validation.
+    for intervals in ((confirmed,), (draft,), ()):
+        with pytest.raises(ValueError, match="value must be a finite real scalar"):
+            resolve_manual_gas_context(
+                intervals, axis=Wits0GasContextAxis.DEPTH, value=invalid
+            )
+    with pytest.raises(ValueError, match="value must be a finite real scalar"):
+        resolve_effective_gas_context(
+            _automatic_formation_show(),
+            (),
+            axis=Wits0GasContextAxis.DEPTH,
+            value=invalid,
+        )
+
+
+@pytest.mark.parametrize(
+    "coordinate",
+    [
+        2500,
+        2500.0,
+        np.int64(2500),
+        np.uint64(2500),
+        np.float32(2500.0),
+        np.float64(2500.0),
+    ],
+)
+def test_manual_gas_lookup_preserves_finite_numeric_scalar_queries(
+    coordinate: object,
+) -> None:
+    interval = _manual_interval()
+    assert interval.contains(Wits0GasContextAxis.DEPTH, coordinate)
+    assert resolve_manual_gas_context(
+        (interval,), axis=Wits0GasContextAxis.DEPTH, value=coordinate
+    ) is interval
+    effective = resolve_effective_gas_context(
+        _automatic_formation_show(),
+        (interval,),
+        axis=Wits0GasContextAxis.DEPTH,
+        value=coordinate,
+    )
+    assert effective.source is Wits0GasContextResolutionSource.MANUAL
+    assert effective.manual_interval_id == interval.interval_id
+    assert not interval.contains(Wits0GasContextAxis.ELAPSED_TIME, coordinate)
+
+
 def test_confirmed_manual_test_context_overrides_automatic_formation_show() -> None:
     automatic = _automatic_formation_show()
     interval = Wits0ManualGasContextInterval(
