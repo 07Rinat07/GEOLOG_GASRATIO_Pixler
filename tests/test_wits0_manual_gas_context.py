@@ -197,6 +197,33 @@ def test_manual_gas_lookup_rejects_invalid_query_coordinates(invalid: object) ->
 
 
 @pytest.mark.parametrize(
+    "invalid", [True, np.bool_(False), "150", np.array(150.0), float("nan"), -1]
+)
+def test_elapsed_time_manual_gas_lookup_rejects_invalid_queries(invalid: object) -> None:
+    interval = _manual_interval(
+        axis=Wits0GasContextAxis.ELAPSED_TIME, start=100.0, end=200.0
+    )
+    with pytest.raises(ValueError, match="value must be a finite real scalar"):
+        interval.contains(Wits0GasContextAxis.ELAPSED_TIME, invalid)
+    with pytest.raises(ValueError, match="value must be a finite real scalar"):
+        resolve_manual_gas_context(
+            (interval,), axis=Wits0GasContextAxis.ELAPSED_TIME, value=invalid
+        )
+
+
+def test_elapsed_time_manual_gas_lookup_preserves_numeric_boundaries() -> None:
+    interval = _manual_interval(
+        axis=Wits0GasContextAxis.ELAPSED_TIME, start=100.0, end=200.0
+    )
+    for coordinate in (100, np.float32(150), np.int64(200)):
+        assert interval.contains(Wits0GasContextAxis.ELAPSED_TIME, coordinate)
+        assert resolve_manual_gas_context(
+            (interval,), axis=Wits0GasContextAxis.ELAPSED_TIME, value=coordinate
+        ) is interval
+    assert not interval.contains(Wits0GasContextAxis.DEPTH, 150.0)
+
+
+@pytest.mark.parametrize(
     "coordinate",
     [
         2500,
