@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import numpy as np
+import pytest
+
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.wits0_gas_context import (
     Wits0GasContextClassifierConfig,
@@ -152,3 +155,47 @@ def test_projection_reset_clears_only_automatic_baseline() -> None:
 
     assert projection.baseline_sample_count == 0
     assert projection.manual_intervals == (interval,)
+
+
+@pytest.mark.parametrize(
+    "axis,value",
+    [
+        ("depth", 2501.0),
+        (None, 2501.0),
+        (Wits0GasContextAxis.DEPTH, "2501"),
+        (Wits0GasContextAxis.ELAPSED_TIME, np.bool_(True)),
+        (Wits0GasContextAxis.DEPTH, float("nan")),
+        (Wits0GasContextAxis.ELAPSED_TIME, -1.0),
+    ],
+)
+@pytest.mark.parametrize("with_manual_interval", [False, True])
+def test_invalid_projection_query_does_not_consume_automatic_baseline(
+    axis: object, value: object, with_manual_interval: bool
+) -> None:
+    manual = Wits0ManualGasContextInterval(
+        interval_id="calibration-1",
+        kind=Wits0GasOriginKind.CHROMATOGRAPH_TEST_GAS,
+        axis=Wits0GasContextAxis.DEPTH,
+        start=2500.0,
+        end=2502.0,
+    )
+    projection = _projection(manual_intervals=(manual,) if with_manual_interval else ())
+    observation = Wits0GasContextObservation(
+        total_gas=10.0,
+        operation=Wits0GasOperation.DRILLING,
+        pumps_on=True,
+        on_bottom=True,
+    )
+    with pytest.raises(ValueError, match="axis must be|value must be"):
+        projection.project(observation, axis=axis, value=value)
+    assert projection.baseline_sample_count == 0
+
+    valid = projection.project(
+        observation, axis=Wits0GasContextAxis.DEPTH, value=2501.0
+    )
+    assert projection.baseline_sample_count == 1
+    if with_manual_interval:
+        assert valid.resolved.kind is Wits0GasOriginKind.CHROMATOGRAPH_TEST_GAS
+        assert valid.resolved.manual_interval_id == "calibration-1"
+    else:
+        assert valid.resolved.kind is valid.automatic.kind
