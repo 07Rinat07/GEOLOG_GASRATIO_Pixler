@@ -1,3 +1,18 @@
+## Qt #544 — reproduce normalized-gas tablet native crash (28.10.2026)
+
+The manual `tools/replay_windows_qt_native.py` diagnostic now includes
+`tests/test_main_window_normalized_gas_tablet.py::test_show_normalized_gas_button_opens_tablet_and_adds_track`
+beside the three existing native-heavy crash selectors. The selector runs
+in its own child and in the combined same-process test sequence. With
+`mode=both`, `repetitions=5` the bound is 25 children × 210 seconds =
+87.5 minutes, reserving 32.5 minutes within the 120-minute manual
+workflow for setup, logs and artifacts. Every child crash, nonzero exit,
+or timeout fails diagnostics. Tests in `tests/test_replay_windows_qt_native.py`
+verify selector ordering, strict failure, maximum time budget and
+partial `results.json` snapshots. This is only an additional diagnostic
+path: the three mandatory Windows Release Gate jobs and their exact-SHA
+post-merge requirement remain unchanged; main Quality is currently red.
+
 ## WITS-GASCTX-01 — strict operator interval numeric boundary (28.10.2026)
 
 Manual gas-context `start` and `end` coordinates accept only finite
