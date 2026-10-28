@@ -1,3 +1,15 @@
+## WITS-GASCTX-01 — strict manual confirmation (28.10.2026)
+
+`tests/test_wits0_manual_gas_context_confirmation.py` verifies that only
+the Python boolean `True` can mark an operator interval as confirmed.
+The boolean `False` remains an ignored draft. Text values such as
+`"false"`/`"true"`, numbers, NumPy booleans, null and containers fail
+closed rather than being interpreted through truthiness. Existing
+precedence and source coordinates are unchanged. Run
+`pytest -q tests/test_wits0_manual_gas_context.py tests/test_wits0_manual_gas_context_confirmation.py`
+and all three exact-head Windows Release Gate jobs. This is a data-only
+contract check, not manual Windows/field acceptance or a fix for Qt #544.
+
 ## WITS-CALC-01 — source channel ID lineage guard (28.10.2026)
 
 WITS-derived formula `source-records` accepts only canonical `wits0:RRII`
