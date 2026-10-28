@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import numpy as np
+import pytest
+
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.wits0_gas_context import (
     Wits0GasContextAssessment,
@@ -13,6 +16,80 @@ from geoworkbench.services.wits0_manual_gas_context import (
     resolve_effective_gas_context,
     resolve_manual_gas_context,
 )
+
+
+def _manual_interval(**changes: object) -> Wits0ManualGasContextInterval:
+    fields = {
+        "interval_id": "operator-gas-test",
+        "kind": Wits0GasOriginKind.CHROMATOGRAPH_TEST_GAS,
+        "axis": Wits0GasContextAxis.DEPTH,
+        "start": 2500.0,
+        "end": 2505.0,
+    }
+    fields.update(changes)
+    return Wits0ManualGasContextInterval(**fields)
+
+
+@pytest.mark.parametrize("name", ("start", "end"))
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        True,
+        np.bool_(True),
+        "2501",
+        b"2501",
+        None,
+        2501 + 0j,
+        np.array(2501.0),
+        np.array([2501.0]),
+        float("nan"),
+        float("inf"),
+        10**1000,
+        -1,
+    ],
+)
+def test_manual_gas_interval_rejects_invalid_axis_coordinates(
+    name: str, invalid: object
+) -> None:
+    with pytest.raises(ValueError, match=rf"{name} must be a finite real scalar"):
+        _manual_interval(**{name: invalid})
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        True,
+        np.bool_(False),
+        "3.5",
+        b"3.5",
+        3 + 0j,
+        np.array(3.5),
+        np.array([3.5]),
+        float("nan"),
+        float("-inf"),
+        10**1000,
+    ],
+)
+def test_manual_gas_interval_rejects_invalid_event_values(
+    invalid: object,
+) -> None:
+    with pytest.raises(ValueError, match="event_value must be a finite real scalar"):
+        _manual_interval(event_value=invalid)
+
+
+@pytest.mark.parametrize(
+    "scalar",
+    [2500, 2500.0, np.int64(2500), np.float32(2500.0), np.float64(2500.0)],
+)
+def test_manual_gas_interval_preserves_valid_coordinates(scalar: object) -> None:
+    interval = _manual_interval(start=scalar, end=2505.0, event_value=np.float32(2.5))
+    assert interval.start is scalar
+    assert interval.end == 2505.0
+    assert interval.event_value == np.float32(2.5)
+    assert interval.contains(Wits0GasContextAxis.DEPTH, 2500.0)
+    assert resolve_manual_gas_context(
+        (interval,), axis=Wits0GasContextAxis.DEPTH, value=2500.0
+    ) is interval
 
 
 def test_manual_test_interval_overrides_overlapping_formation_show() -> None:
