@@ -145,7 +145,9 @@ class Wits0GasContextClassifier:
         self,
         config: Wits0GasContextClassifierConfig | None = None,
     ) -> None:
-        self.config = config or Wits0GasContextClassifierConfig()
+        if config is not None and not isinstance(config, Wits0GasContextClassifierConfig):
+            raise TypeError("config must use Wits0GasContextClassifierConfig or None")
+        self.config = Wits0GasContextClassifierConfig() if config is None else config
         self._baseline: deque[float] = deque(maxlen=self.config.baseline_window)
 
     @property
