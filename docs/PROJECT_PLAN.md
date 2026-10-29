@@ -1,3 +1,7 @@
+## CI branch cleanup — required User-Agent (29.10.2026)
+
+GitHub rejected cleanup requests with HTTP 403 because the HTTP client omitted User-Agent. All requests now identify geolog-branch-cleanup. A read-only live comparison returned 403 without the header and 200 with it. Transport regressions cover GET JSON and DELETE empty responses; existing exact-main and merged-branch guards remain in force. Run `python -m pytest tests/test_prune_merged_branches.py -q`; require all three Windows gates before merge.
+
 ## WITS-GASCTX-01 / P0 — проверка типа источника итогового газового контекста (29.10.2026, PR-проверка)
 
 Результат `Wits0ResolvedGasContext` требует типизированный `Wits0GasContextResolutionSource`: строка `"manual"` или `"automatic"`, неявно похожая на StrEnum, не должна проходить конструктор без проверки. Неверный источник мог обходить ручную ветку и попадать в отчёт как неподтверждённая автоматическая классификация. Добавить проверку до разрешения `manual_interval_id`, regression на строки/числа/Boolean/массивы и оба допустимых enum. Приоритеты, формулы, исходные LAS/WITS, ручные интервалы и UI не менять. Требуются Ruff, mypy, весь pytest и три обязательных Windows Gate на точном HEAD; post-merge main отдельно, Qt #544 и полевая приёмка открыты.

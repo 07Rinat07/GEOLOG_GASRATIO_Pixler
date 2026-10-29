@@ -120,3 +120,28 @@ def test_cleanup_preserves_refs_without_complete_proof(
     api = StubGitHub(**kwargs)
     assert prune(api, repository=REPOSITORY, verified_sha=MAIN_SHA) == expected
     assert api.deleted == []
+
+@pytest.mark.parametrize('method,payload', [('GET', b'{"ok": true}'), ('DELETE', b'')])
+def test_github_transport_supplies_required_user_agent(monkeypatch, method, payload):
+    from scripts import prune_merged_branches as cleanup
+
+    class Connection:
+        closed = False
+
+        def request(self, method, path, headers):
+            self.status = 200 if headers.get('User-Agent') else 403
+
+        def getresponse(self):
+            return self
+
+        def read(self):
+            return payload
+
+        def close(self):
+            self.closed = True
+
+    connection = Connection()
+    monkeypatch.setattr(cleanup, 'HTTPSConnection', lambda *args, **kwargs: connection)
+    result = cleanup.GitHub(REPOSITORY, 'test-token').request(method, '/branches/main')
+    assert result == ({'ok': True} if payload else None)
+    assert connection.closed
