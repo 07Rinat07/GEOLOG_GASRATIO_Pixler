@@ -1,3 +1,7 @@
+## CI/Qt #544 / P0 — безопасная фиксация Qt test platform (29.10.2026, PR-проверка)
+
+`native-runtime.json` для обязательного Windows Quality и ручного Qt replay должен фиксировать тестовую QPA-платформу, чтобы сопоставлять `pyqtgraph.PlotItem` / `ViewBoxMenu` native crashes с окружением. `scripts/run_tests.py` при отсутствии QT_QPA_PLATFORM использует offscreen; снимок, создаваемый до тестов, записывает именно **предполагаемую настройку дочернего test runner**, а не утверждает, что Qt plugin действительно загружен. Не сохранять сырое значение переменной окружения: только фиксированные метки offscreen/windows/minimal, прочее — other (возможны частные пути). Увеличить версию схемы снимка, покрыть выбор/default/sanitization регрессиями. Оставить сбор до QApplication, все текущие Release Gates, WER и failure semantics без изменений; нативную причину #544 это не устраняет. Три Windows jobs на точном PR HEAD и post-merge main обязательны.
+
 ## WITS — validated observation boundary (29.10.2026)
 
 Classifier assess requires Wits0GasContextObservation before reading fields or updating baseline. A duck-typed object carrying string Total Gas previously bypassed observation validation and entered the baseline. Regression rejects that object, preserves sample count and verifies the next valid background sample. Run pytest tests/test_wits0_gas_context.py tests/test_wits0_gas_context_projection.py; require three exact-HEAD Windows gates and post-merge main. Formulas and thresholds are unchanged; Qt #544 and field acceptance remain open.

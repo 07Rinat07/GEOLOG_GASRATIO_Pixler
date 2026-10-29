@@ -1,3 +1,7 @@
+## CI/Qt #544 — sanitized Qt test platform in native runtime snapshot (29.10.2026)
+
+Native runtime evidence now records the test-runner QPA platform under an allowlist (offscreen, windows, minimal, otherwise other) instead of persisting raw environment data that could include private paths. With no override the runner uses offscreen; snapshot schema v2 distinguishes intended runner configuration from actual loaded Qt plugin. Added regression coverage; the mandatory gates, native crash failure handling and WITS/LAS/geological calculations are unchanged. This is diagnostic evidence only, not a root-cause fix.
+
 ## WITS — validated observation boundary (29.10.2026)
 
 Classifier assess requires Wits0GasContextObservation before reading fields or updating baseline. A duck-typed object carrying string Total Gas previously bypassed observation validation and entered the baseline. Regression rejects that object, preserves sample count and verifies the next valid background sample. Run pytest tests/test_wits0_gas_context.py tests/test_wits0_gas_context_projection.py; require three exact-HEAD Windows gates and post-merge main. Formulas and thresholds are unchanged; Qt #544 and field acceptance remain open.

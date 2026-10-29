@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import platform
 import re
 from collections.abc import Callable
@@ -24,6 +25,13 @@ NATIVE_PACKAGES = (
     "numpy",
 )
 
+# Keep this evidence path-free: raw QPA platform settings can contain paths.
+_KNOWN_QT_TEST_PLATFORMS = frozenset({"offscreen", "windows", "minimal"})
+
+
+def _safe_qt_test_platform(setting: str) -> str:
+    return setting if setting in _KNOWN_QT_TEST_PLATFORMS else "other"
+
 
 def runtime_identity(
     commit: str,
@@ -34,6 +42,7 @@ def runtime_identity(
     machine: str | None = None,
     system: str | None = None,
     release: str | None = None,
+    qt_test_platform: str | None = None,
 ) -> dict[str, object]:
     """Gather exact dependency/Qt versions without recording private context."""
 
@@ -43,14 +52,23 @@ def runtime_identity(
         from PySide6.QtCore import qVersion
 
         qt_version = qVersion
+    # scripts/run_tests.py defaults QT_QPA_PLATFORM to offscreen in its children.
+    # The capture process runs first, so this records the test-runner setting,
+    # not a claim about the plugin loaded inside a later QApplication.
+    platform_setting = (
+        os.environ.get("QT_QPA_PLATFORM", "offscreen")
+        if qt_test_platform is None
+        else qt_test_platform
+    )
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "source_commit": commit,
         "python_version": python_version if python_version is not None else platform.python_version(),
         "os": system if system is not None else platform.system(),
         "os_release": release if release is not None else platform.release(),
         "machine": machine if machine is not None else platform.machine(),
         "qt_runtime_version": qt_version(),
+        "qt_test_platform": _safe_qt_test_platform(platform_setting),
         "packages": {package: package_version(package) for package in NATIVE_PACKAGES},
     }
 

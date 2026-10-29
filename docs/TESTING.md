@@ -1,3 +1,7 @@
+## Qt #544 — safe Qt test-platform evidence (29.10.2026)
+
+`python -m pytest tests/test_capture_windows_native_runtime.py -q`. Snapshot schema v2 adds `qt_test_platform`: allowlisted `offscreen/windows/minimal`, unknown/path-like QPA settings => `other`, absent setting => `offscreen` (default in scripts/run_tests.py). This describes the test-runner selection, not measured plugin load; never publish arbitrary environment variables or paths. Verify no QApplication is constructed, no Qt or LAS/WITS inputs/formulas change, and all 3 Windows Release Gate jobs succeed on exact PR HEAD and post-merge main. Qt #544 root cause remains unconfirmed.
+
 ## WITS — validated observation boundary (29.10.2026)
 
 Classifier assess requires Wits0GasContextObservation before reading fields or updating baseline. A duck-typed object carrying string Total Gas previously bypassed observation validation and entered the baseline. Regression rejects that object, preserves sample count and verifies the next valid background sample. Run pytest tests/test_wits0_gas_context.py tests/test_wits0_gas_context_projection.py; require three exact-HEAD Windows gates and post-merge main. Formulas and thresholds are unchanged; Qt #544 and field acceptance remain open.
