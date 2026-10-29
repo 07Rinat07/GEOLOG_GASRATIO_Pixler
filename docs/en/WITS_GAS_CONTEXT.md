@@ -1,3 +1,7 @@
+## Typed observation input
+
+Before automatic gas-origin screening, Total Gas and lag fraction must be finite nonnegative real Python/NumPy scalars. The operation must be `Wits0GasOperation`; optional pumps/on-bottom flags must be Python `bool` or `None`. Numeric text, 0/1 flags and invalid values are rejected rather than silently coerced into a baseline sample. Original WITS/LAS source data are unchanged.
+
 # WITS / Mud-Logging Gas Event Context
 
 ## Purpose
