@@ -146,6 +146,7 @@ def execute_replay(
         )
         returncode: int | None
         timed_out = False
+        launch_error = False
         try:
             completed = runner(
                 command,
@@ -163,13 +164,25 @@ def execute_replay(
             timed_out = True
             output = _captured_text(exc.stdout) + _captured_text(exc.stderr)
             output += f"\nChild exceeded {CHILD_TIMEOUT_SECONDS} seconds\n"
+        except OSError as exc:
+            returncode = None
+            launch_error = True
+            output = f"Replay child launch failed: {type(exc).__name__}: {exc}\n"
 
         (output_dir / log_name).write_text(output, encoding="utf-8")
+        if launch_error:
+            status = "launch_error"
+        elif timed_out:
+            status = "timeout"
+        elif returncode == 0:
+            status = "passed"
+        else:
+            status = "failed"
         result = {
             "iteration": iteration,
             "scenario": label,
             "selectors": list(selectors),
-            "status": "timeout" if timed_out else "passed" if returncode == 0 else "failed",
+            "status": status,
             "exit_code": returncode,
             "windows_exit_hex": (
                 f"0x{returncode & 0xFFFFFFFF:08X}" if returncode is not None else None
@@ -181,7 +194,7 @@ def execute_replay(
         save_progress()
         print(
             f"Qt replay {iteration}/{repetitions} {label}: {result['status']} "
-            f"({result['windows_exit_hex'] or 'timeout'})",
+            f"({result['windows_exit_hex'] or 'no-exit-code'})",
             flush=True,
         )
     return all(item["status"] == "passed" for item in results)

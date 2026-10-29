@@ -1,3 +1,7 @@
+## CI/Qt #544 — machine-readable child launch failures (29.10.2026)
+
+Manual Qt replay records `OSError` while launching a child as `launch_error` with a diagnostic log and no exit status, continues bounded selectors, and retains `all_passed=false`. This distinguishes a launch/environment failure from native `0xC0000005`; required Release Gate, interpretation formulas, and UI stay unchanged. Native root cause remains open.
+
 ## CI branch cleanup — required User-Agent (29.10.2026)
 
 GitHub rejected cleanup requests with HTTP 403 because the HTTP client omitted User-Agent. All requests now identify geolog-branch-cleanup. A read-only live comparison returned 403 without the header and 200 with it. Transport regressions cover GET JSON and DELETE empty responses; existing exact-main and merged-branch guards remain in force. Run `python -m pytest tests/test_prune_merged_branches.py -q`; require all three Windows gates before merge.
