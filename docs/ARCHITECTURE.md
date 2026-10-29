@@ -1,3 +1,7 @@
+## WITS gas-origin observation input boundary
+
+`Wits0GasContextObservation` is a typed, immutable input to the stateful rolling baseline classifier: operation must be `Wits0GasOperation`; optional pump/on-bottom flags must be Python booleans; Total Gas and lag fraction must be finite nonnegative Python/NumPy real scalar values. Invalid source-decoding results fail before calling `assess` rather than silently changing drilling state or learning from an untyped sample. The ingestion adapter must perform any documented source normalization explicitly. No source WITS/LAS arrays or classification thresholds are changed.
+
 
 ## Bounded archival lithology history selection
 
