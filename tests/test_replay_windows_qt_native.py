@@ -129,6 +129,45 @@ def test_replay_timeout_is_reported_as_failure_and_other_runs_continue(tmp_path)
     )
 
 
+def test_replay_child_launch_error_is_recorded_without_masking_other_results(
+    tmp_path,
+) -> None:
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append(command)
+        if len(calls) == 1:
+            raise FileNotFoundError("synthetic missing Python executable")
+        return subprocess.CompletedProcess(command, 0, stdout="passed", stderr="")
+
+    assert not execute_replay(
+        tmp_path,
+        repetitions=1,
+        mode="isolated",
+        runner=run,
+    )
+    report = json.loads((tmp_path / "results.json").read_text(encoding="utf-8"))
+    assert len(calls) == 4
+    assert report["completed"] == report["expected"] == 4
+    assert report["all_passed"] is False
+    assert [item["status"] for item in report["results"]] == [
+        "launch_error",
+        "passed",
+        "passed",
+        "passed",
+    ]
+    first = report["results"][0]
+    assert first["exit_code"] is None
+    assert first["windows_exit_hex"] is None
+    assert "FileNotFoundError" in (
+        tmp_path / first["log_file"]
+    ).read_text(encoding="utf-8")
+    assert "synthetic missing Python executable" in (
+        tmp_path / first["log_file"]
+    ).read_text(encoding="utf-8")
+    assert report["results"][1]["exit_code"] == 0
+
+
 def test_replay_success_returns_success_and_summary(tmp_path) -> None:
     def run(command, **kwargs):
         return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
