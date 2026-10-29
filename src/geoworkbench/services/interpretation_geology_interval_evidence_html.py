@@ -16,6 +16,7 @@ from geoworkbench.services.interpretation_geology_interval_evidence import (
     GasGeologyIntervalEvidence,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.lba_observations import LBA_OBSERVATION_FIELDS
 
 
 _LABELS: dict[AppLanguage, dict[str, str]] = {
@@ -27,6 +28,8 @@ _LABELS: dict[AppLanguage, dict[str, str]] = {
             "сопадение по глубине не доказывает состав флюида или продуктивность."
         ),
         "coverage": "Покрытие исходными наблюдениями",
+        "field_coverage": "Покрытие отдельных измерений (MD)",
+        "field": "Измерение",
         "kind": "Тип данных",
         "measured": "Покрыто, % длины",
         "uncovered": "Интервалы без наблюдений (MD)",
@@ -46,6 +49,8 @@ _LABELS: dict[AppLanguage, dict[str, str]] = {
             "флюид құрамын немесе қабат өнімділігін дәлелдемейді."
         ),
         "coverage": "Бастапқы бақылаулармен қамтылуы",
+        "field_coverage": "Жеке өлшемдердің қамтылуы (MD)",
+        "field": "Өлшем",
         "kind": "Деректер түрі",
         "measured": "Қамтылған ұзындық, %",
         "uncovered": "Бақылаусыз аралықтар (MD)",
@@ -65,6 +70,8 @@ _LABELS: dict[AppLanguage, dict[str, str]] = {
             "does not prove fluid phase or formation productivity."
         ),
         "coverage": "Coverage by source observations",
+        "field_coverage": "Coverage by measured field (MD)",
+        "field": "Measured field",
         "kind": "Evidence type",
         "measured": "Covered length, %",
         "uncovered": "Intervals without observations (MD)",
@@ -134,6 +141,14 @@ _ATTRIBUTE_LABELS = {
 }
 
 
+# Only schema-owned LBA and calcimetry fields may be requested in the opt-in
+# detail. A misspelled field must fail, not masquerade as absent evidence.
+_FIELD_ATTRIBUTES: dict[EvidenceKind, tuple[str, ...]] = {
+    "lba": tuple(LBA_OBSERVATION_FIELDS),
+    "calcimetry": ("calcite_percent", "dolomite_percent", "total_carbonate_percent"),
+}
+
+
 def _measurement_label(key: str, language: AppLanguage) -> str:
     column = {AppLanguage.RU: 0, AppLanguage.KK: 1, AppLanguage.EN: 2}[language]
     if key.startswith("lithotype:"):
@@ -152,11 +167,16 @@ class GeologyEvidenceTable:
     coverage_rows: tuple[tuple[str, ...], ...]
     headings: tuple[str, ...]
     rows: tuple[tuple[str, ...], ...]
+    field_coverage_title: str = ""
+    field_coverage_headings: tuple[str, ...] = ()
+    field_coverage_rows: tuple[tuple[str, ...], ...] = ()
 
 
 def geology_interval_evidence_table(
     evidence: GasGeologyIntervalEvidence,
     language: AppLanguage = AppLanguage.RU,
+    *,
+    fields: tuple[tuple[EvidenceKind, str], ...] = (),
 ) -> GeologyEvidenceTable:
     """Project a bounded, escaped view of one already verified MD snapshot.
 
@@ -190,6 +210,23 @@ def geology_interval_evidence_table(
             (_KINDS[kind][language], result, uncovered)
         )
 
+    # Explicit selection keeps legacy reports unchanged and avoids printing a
+    # large inventory of unrequested LBA measurements. A recorded zero is a
+    # measurement; missing sister fields remain unknown, never negative.
+    field_rows: list[tuple[str, ...]] = []
+    seen_fields: set[tuple[EvidenceKind, str]] = set()
+    for kind, attribute in fields:
+        if attribute not in _FIELD_ATTRIBUTES.get(kind, ()) or (kind, attribute) in seen_fields:
+            raise ValueError("Unknown or repeated measured geology field")
+        seen_fields.add((kind, attribute))
+        fraction = evidence.attribute_coverage(kind, attribute)
+        gaps = evidence.attribute_uncovered_intervals(kind, attribute)
+        field_rows.append((
+            _KINDS[kind][language], _measurement_label(attribute, language),
+            f"{100.0 * fraction:.1f}%" if fraction > 0.0 else words["none"],
+            "; ".join(interval(low, high) for low, high in gaps) if gaps else words["complete"],
+        ))
+
     observed_rows: list[tuple[str, ...]] = []
     for item in evidence.intersections:
         if item.kind not in _KINDS or not (
@@ -210,14 +247,21 @@ def geology_interval_evidence_table(
         words["coverage"], (words["kind"], words["measured"], words["uncovered"]), tuple(coverage_rows),
         tuple(words[name] for name in ("kind", "source", "bounds", "overlap", "observed")),
         tuple(observed_rows),
+        field_coverage_title=words["field_coverage"] if field_rows else "",
+        field_coverage_headings=(
+            words["kind"], words["field"], words["measured"], words["uncovered"],
+        ) if field_rows else (),
+        field_coverage_rows=tuple(field_rows),
     )
 
 
 def geology_interval_evidence_html(
     evidence: GasGeologyIntervalEvidence,
     language: AppLanguage = AppLanguage.RU,
+    *,
+    fields: tuple[tuple[EvidenceKind, str], ...] = (),
 ) -> str:
-    presentation = geology_interval_evidence_table(evidence, language)
+    presentation = geology_interval_evidence_table(evidence, language, fields=fields)
 
     def table(headings: tuple[str, ...], rows: tuple[tuple[str, ...], ...]) -> str:
         return (
@@ -237,9 +281,15 @@ def geology_interval_evidence_html(
         f"<p>{escape(presentation.intro)}</p>"
         f"<p>{escape(presentation.interval)}</p>"
     )
+    field_details = (
+        f"<h3>{escape(presentation.field_coverage_title)}</h3>"
+        + table(presentation.field_coverage_headings, presentation.field_coverage_rows)
+        if presentation.field_coverage_rows else ""
+    )
     return (
         head + f"<h3>{escape(presentation.coverage_title)}</h3>"
         + table(presentation.coverage_headings, presentation.coverage_rows)
+        + field_details
         + table(presentation.headings, presentation.rows) + "</section>"
     )
 
