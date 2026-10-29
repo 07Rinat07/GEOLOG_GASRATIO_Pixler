@@ -1,5 +1,9 @@
 # WITS / Mud-Logging Gas Event Context
 
+## Manual event comment
+
+The operator comment must be text. Empty, whitespace and Unicode text are preserved verbatim; bytes, numbers, arrays and None are rejected rather than coerced. This is an input boundary for the eventual operator UI and report provenance, not a change to gas classification.
+
 ## Automatic background configuration
 
 Rolling-baseline window and minimum-sample counts require Python `int`; NumPy integers and numeric strings are rejected. Thresholds accept finite nonnegative real Python/NumPy scalars only. Booleans, NaN/Inf, arrays and other invalid values fail before baseline initialization. Existing limits, formulas and precedence remain unchanged.
