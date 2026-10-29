@@ -1,3 +1,7 @@
+## WITS-GASCTX-01 — typed operator comment (29.10.2026)
+
+`Wits0ManualGasContextInterval.comment` must be text: numeric/Boolean/bytes/array/dict/None inputs are rejected before report provenance or operator UI. Empty, whitespace, multilingual and newline text are preserved exactly. Regression: `tests/test_wits0_manual_gas_context.py::test_manual_gas_context_rejects_non_text_comment` and `test_manual_gas_context_preserves_operator_comment`. Run focused pytest and all three exact-HEAD Windows gates, then post-merge main. Thresholds, data, priorities and Qt #544 remain unchanged.
+
 ## WITS-GASCTX-01 — typed baseline-classifier configuration (29.10.2026)
 
 `Wits0GasContextClassifierConfig` requires Python `int` window/sample counts (NumPy integers are rejected because `deque(maxlen=np.int64(...))` fails). Numeric threshold inputs must be finite, nonnegative Python/NumPy real scalars; text/booleans/arrays/complex/overflow are rejected before stateful initialization. Existing minimum ratio, lag ordering and sample/window bounds are unchanged. `tests/test_wits0_gas_context.py::test_classifier_config_rejects_untyped_inputs`, `test_classifier_config_preserves_valid_numeric_thresholds` and `test_classifier_config_preserves_existing_bounds` cover invalid values and normal classification. Run `pytest -q tests/test_wits0_gas_context.py tests/test_wits0_gas_context_projection.py`, Ruff, mypy and the three exact-head Windows gates. Main post-merge gates, Qt #544 and FIELD-01 remain separate.
