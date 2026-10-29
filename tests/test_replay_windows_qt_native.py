@@ -98,13 +98,46 @@ def test_replay_collects_all_child_failures_without_masking_windows_crash(tmp_pa
     assert report["all_passed"] is False
     assert [item["status"] for item in report["results"]] == [
         "passed",
-        "failed",
+        "native_crash",
         "passed",
         "passed",
         "passed",
     ]
     assert report["results"][1]["windows_exit_hex"] == "0xC0000005"
     assert (tmp_path / "diagnostics" / "iteration-01-tablet-rebuild.txt").exists()
+
+
+@pytest.mark.parametrize(
+    ("exit_code", "expected_status", "expected_hex"),
+    [
+        (0xC0000005, "native_crash", "0xC0000005"),
+        (-1073741819, "native_crash", "0xC0000005"),
+        (0xC0000374, "native_crash", "0xC0000374"),
+        (1, "failed", "0x00000001"),
+        (5, "failed", "0x00000005"),
+    ],
+)
+def test_replay_classifies_known_windows_native_codes_without_masking_failures(
+    tmp_path, exit_code, expected_status, expected_hex
+) -> None:
+    def run(command, **kwargs):
+        return subprocess.CompletedProcess(
+            command, exit_code, stdout="synthetic child", stderr=""
+        )
+
+    assert not execute_replay(
+        tmp_path, repetitions=1, mode="sequence", runner=run
+    )
+    report = json.loads((tmp_path / "results.json").read_text(encoding="utf-8"))
+    assert report["completed"] == report["expected"] == 1
+    assert report["all_passed"] is False
+    result = report["results"][0]
+    assert result["status"] == expected_status
+    assert result["exit_code"] == exit_code
+    assert result["windows_exit_hex"] == expected_hex
+    assert (tmp_path / result["log_file"]).read_text(
+        encoding="utf-8"
+    ) == "synthetic child"
 
 
 def test_replay_timeout_is_reported_as_failure_and_other_runs_continue(tmp_path) -> None:

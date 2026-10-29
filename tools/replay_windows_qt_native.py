@@ -41,6 +41,8 @@ SCENARIOS = (
 MODES = ("isolated", "sequence", "both")
 MAX_REPETITIONS = 5
 CHILD_TIMEOUT_SECONDS = 210  # 25 maximum children × 3.5 minutes = 87.5 minutes
+# Windows crash statuses previously observed in mandatory Qt/pyqtgraph CI.
+WINDOWS_NATIVE_CRASH_CODES = frozenset({0xC0000005, 0xC0000374})
 
 
 def replay_plan(
@@ -176,6 +178,11 @@ def execute_replay(
             status = "timeout"
         elif returncode == 0:
             status = "passed"
+        elif (
+            returncode is not None
+            and (returncode & 0xFFFFFFFF) in WINDOWS_NATIVE_CRASH_CODES
+        ):
+            status = "native_crash"
         else:
             status = "failed"
         result = {

@@ -1,3 +1,7 @@
+## CI/Qt #544 — distinguish observed Windows native crashes (29.10.2026)
+
+Manual Qt replay classifies observed Windows 0xC0000005 and 0xC0000374 exit codes (including signed results) as native_crash while preserving the raw status, normalized hex and failure semantics. Standard pytest nonzero exits stay failed; timeout, launch_error and interruption paths are unaffected. Added regression matrix, no mandatory Windows Gate/Qt UI/geological calculation changes. This aids investigation but does not resolve native root cause #544.
+
 ## CI/Qt #544 — machine-readable child launch failures (29.10.2026)
 
 Manual Qt replay records `OSError` while launching a child as `launch_error` with a diagnostic log and no exit status, continues bounded selectors, and retains `all_passed=false`. This distinguishes a launch/environment failure from native `0xC0000005`; required Release Gate, interpretation formulas, and UI stay unchanged. Native root cause remains open.
