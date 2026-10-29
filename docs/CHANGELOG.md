@@ -1,3 +1,7 @@
+## WITS — validated observation boundary (29.10.2026)
+
+Classifier assess requires Wits0GasContextObservation before reading fields or updating baseline. A duck-typed object carrying string Total Gas previously bypassed observation validation and entered the baseline. Regression rejects that object, preserves sample count and verifies the next valid background sample. Run pytest tests/test_wits0_gas_context.py tests/test_wits0_gas_context_projection.py; require three exact-HEAD Windows gates and post-merge main. Formulas and thresholds are unchanged; Qt #544 and field acceptance remain open.
+
 ## CI/Qt #544 — distinguish observed Windows native crashes (29.10.2026)
 
 Manual Qt replay classifies observed Windows 0xC0000005 and 0xC0000374 exit codes (including signed results) as native_crash while preserving the raw status, normalized hex and failure semantics. Standard pytest nonzero exits stay failed; timeout, launch_error and interruption paths are unaffected. Added regression matrix, no mandatory Windows Gate/Qt UI/geological calculation changes. This aids investigation but does not resolve native root cause #544.
