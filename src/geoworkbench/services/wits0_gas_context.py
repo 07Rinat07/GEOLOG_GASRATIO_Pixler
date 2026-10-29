@@ -98,19 +98,35 @@ class Wits0GasContextClassifierConfig:
     connection_lag_max_fraction: float = 1.45
 
     def __post_init__(self) -> None:
+        for name in ("baseline_window", "baseline_min_samples"):
+            count = getattr(self, name)
+            if isinstance(count, (bool, np.bool_)) or not isinstance(
+                count, (int, np.integer)
+            ):
+                raise ValueError(f"{name} must be an integer")
         if self.baseline_window < 8:
             raise ValueError("baseline_window must be >= 8")
         if not 3 <= self.baseline_min_samples <= self.baseline_window:
             raise ValueError("baseline_min_samples must fit baseline_window")
-        for value, name in (
-            (self.minimum_absolute_rise, "minimum_absolute_rise"),
-            (self.minimum_ratio_to_background, "minimum_ratio_to_background"),
-            (self.robust_sigma_multiplier, "robust_sigma_multiplier"),
-            (self.connection_lag_min_fraction, "connection_lag_min_fraction"),
-            (self.connection_lag_max_fraction, "connection_lag_max_fraction"),
+        for name in (
+            "minimum_absolute_rise",
+            "minimum_ratio_to_background",
+            "robust_sigma_multiplier",
+            "connection_lag_min_fraction",
+            "connection_lag_max_fraction",
         ):
-            if not isfinite(float(value)) or float(value) < 0.0:
-                raise ValueError(f"{name} must be finite and non-negative")
+            value = getattr(self, name)
+            message = f"{name} must be finite and non-negative"
+            if isinstance(value, (bool, np.bool_)) or not isinstance(
+                value, (Real, np.integer, np.floating)
+            ):
+                raise ValueError(message)
+            try:
+                numeric = float(value)
+            except (TypeError, ValueError, OverflowError) as exc:
+                raise ValueError(message) from exc
+            if not isfinite(numeric) or numeric < 0.0:
+                raise ValueError(message)
         if self.minimum_ratio_to_background < 1.0:
             raise ValueError("minimum_ratio_to_background must be >= 1")
         if self.connection_lag_max_fraction < self.connection_lag_min_fraction:
