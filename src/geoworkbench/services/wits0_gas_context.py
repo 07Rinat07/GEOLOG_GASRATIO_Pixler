@@ -4,6 +4,7 @@ from collections import deque
 from dataclasses import dataclass
 from enum import StrEnum
 from math import isfinite
+from numbers import Real
 
 import numpy as np
 
@@ -48,14 +49,27 @@ class Wits0GasContextObservation:
     connection_lag_fraction: float | None = None
 
     def __post_init__(self) -> None:
-        if self.total_gas is not None:
-            value = float(self.total_gas)
+        if not isinstance(self.operation, Wits0GasOperation):
+            raise ValueError("operation must be Wits0GasOperation")
+        for name in ("pumps_on", "on_bottom"):
+            flag = getattr(self, name)
+            if flag is not None and type(flag) is not bool:
+                raise ValueError(f"{name} must be bool or None")
+        for name in ("total_gas", "connection_lag_fraction"):
+            sample = getattr(self, name)
+            if sample is None:
+                continue
+            message = f"{name} must be finite and non-negative"
+            if isinstance(sample, (bool, np.bool_)) or not isinstance(
+                sample, (Real, np.integer, np.floating)
+            ):
+                raise ValueError(message)
+            try:
+                value = float(sample)
+            except (TypeError, ValueError, OverflowError) as exc:
+                raise ValueError(message) from exc
             if not isfinite(value) or value < 0.0:
-                raise ValueError("total_gas must be finite and non-negative")
-        if self.connection_lag_fraction is not None:
-            value = float(self.connection_lag_fraction)
-            if not isfinite(value) or value < 0.0:
-                raise ValueError("connection_lag_fraction must be finite and non-negative")
+                raise ValueError(message)
 
 
 @dataclass(frozen=True, slots=True)

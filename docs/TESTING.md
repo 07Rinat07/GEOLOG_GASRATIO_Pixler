@@ -1,3 +1,7 @@
+## WITS-GASCTX-01 — typed gas observation boundary (29.10.2026)
+
+`Wits0GasContextObservation` rejects untyped operation, pumps/on-bottom flags, gas samples and lag fractions instead of coercing strings or Booleans into numbers or treating non-Boolean flags as drilling state. Valid Python/NumPy real numeric samples remain unchanged; missing optional readings remain permitted. `tests/test_wits0_gas_context.py::test_observation_rejects_untyped_wits_inputs_before_baseline` checks negative cases and the next valid baseline observation; the companion typed-sample tests cover accepted values. Run `pytest -q tests/test_wits0_gas_context.py tests/test_wits0_gas_context_projection.py tests/test_wits0_manual_gas_context.py`, then require all three Windows Release Gates on the exact PR head and post-merge main. Native Qt #544 and field acceptance remain separate.
+
 ## WITS — атомарная установка ручных интервалов (29.10.2026)
 
 Проекция проверяет тип каждого ручного интервала при создании и замене списка. Некорректный элемент отклоняется до изменения подтверждённого контекста и до обработки наблюдений, способной обновить автоматический фон. Регрессии проверяют отказ конструктора, сохранение прежних интервалов и baseline при отказе замены, а также последующую классификацию. Формулы и приоритеты сохранены. Qt #544 и полевая приёмка остаются открытыми.
