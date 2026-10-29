@@ -1,3 +1,7 @@
+## INTERP-GEO-01 — explicit measured-field selection in report HTML (30.10.2026)
+
+The report HTML service now accepts optional `geology_fields` and forwards it only to verified geology evidence sections. The default report HTML is unchanged. Requests without selected evidence and unknown/duplicate fields fail closed; measured zero and missing sibling assays remain distinct. Added RU/KK/EN, default-compatibility and rejection regressions. This does not enable UI selection, signed PDF, Office exports or printing, and does not alter LAS/WITS or geology calculations.
+
 ## INTERP-GEO-01 — optional field-level coverage in localized evidence HTML (29.10.2026)
 
 Added an explicit `fields` selection to the measured geology evidence HTML/table projection. Localized RU/KK/EN field coverage reports measured MD percentages and uncovered intervals independently for LBA and calcimetry, distinguishing recorded zero from a missing sibling assay. Unknown and duplicate field requests fail closed. Legacy output is unchanged without selection; source LAS/WITS, interpretation formulas and measured observations are not modified. Added regression coverage. Operator-facing selection and Office/PDF handoff remain separate scope.
