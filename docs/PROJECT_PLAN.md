@@ -4677,3 +4677,8 @@ source bytes/SHA-256, VERS/WRAP из импортированного загол
 #### DATA-PETRO-01 — Import Review capabilities (на проверке)
 
 Окно production Import Review показывает source VERS и уровни чтения, правок проекта, raw write и derived export для LAS/CSV/Excel на RU/KK/EN. LAS3 остаётся unverified; исходный файл неизменяем. Stage0 и весь DATA-PETRO не завершены.
+
+## CI/ветки — безопасная очистка после post-merge Release Gate (29.10.2026, PR-проверка)
+
+Для временных веток `codex/*` и `fix/*` добавить отдельный `workflow_run` после успешного полного `Release gate` на `main`. Очистка не меняет три обязательных Windows jobs. До удаления проверить точный зелёный SHA текущей `main`, наличие закрытого merged PR в `main` с неизменённым HEAD ветки, отсутствие открытых PR на ту же ветку, доступность merge commit в истории `main`, отсутствие защиты ветки и неизменность обеих refs непосредственно перед действием. Любая неполная проверка сохраняет ветку. Задачи в работе, release-ветки и `main` не трогать. Сценарии regression: green main, active PR, незамерженная ветка, изменённый HEAD, stale main, не входящий в main merge commit, защищённая ветка. Без автозапуска действий на pull_request и без передачи токена коду PR.
+
