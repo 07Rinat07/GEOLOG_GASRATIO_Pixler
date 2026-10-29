@@ -335,3 +335,24 @@ def test_classifier_preserves_explicit_config_and_none_default() -> None:
         ))
     assert classifier.baseline_sample_count == 8
     assert Wits0GasContextClassifier(None).config == Wits0GasContextClassifierConfig()
+
+
+def test_classifier_rejects_unvalidated_observation_without_mutating_baseline():
+    from types import SimpleNamespace
+
+    classifier = _classifier()
+    _prime_background(classifier)
+    count = classifier.baseline_sample_count
+    unvalidated = SimpleNamespace(
+        total_gas='10.0', operation=Wits0GasOperation.DRILLING,
+        pumps_on=True, on_bottom=True, connection_lag_fraction=None,
+    )
+    with pytest.raises(TypeError, match='Wits0GasContextObservation'):
+        classifier.assess(unvalidated)
+    assert classifier.baseline_sample_count == count
+    result = classifier.assess(Wits0GasContextObservation(
+        total_gas=10.0, operation=Wits0GasOperation.DRILLING,
+        pumps_on=True, on_bottom=True,
+    ))
+    assert result.kind is Wits0GasOriginKind.BACKGROUND
+    assert classifier.baseline_sample_count == count + 1

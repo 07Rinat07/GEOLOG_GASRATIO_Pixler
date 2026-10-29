@@ -161,6 +161,8 @@ class Wits0GasContextClassifier:
         self,
         observation: Wits0GasContextObservation,
     ) -> Wits0GasContextAssessment:
+        if not isinstance(observation, Wits0GasContextObservation):
+            raise TypeError("observation must use Wits0GasContextObservation")
         value = observation.total_gas
         background, threshold = self._background_and_threshold()
         explicit_test = self._explicit_test_assessment(

@@ -1,3 +1,7 @@
+## WITS — validated observation boundary (29.10.2026)
+
+Classifier assess requires Wits0GasContextObservation before reading fields or updating baseline. A duck-typed object carrying string Total Gas previously bypassed observation validation and entered the baseline. Regression rejects that object, preserves sample count and verifies the next valid background sample. Run pytest tests/test_wits0_gas_context.py tests/test_wits0_gas_context_projection.py; require three exact-HEAD Windows gates and post-merge main. Formulas and thresholds are unchanged; Qt #544 and field acceptance remain open.
+
 ## CI/Qt #544 — OSError запуска native replay child (29.10.2026)
 
 `python -m pytest tests/test_replay_windows_qt_native.py -q`: проверить `launch_error` без exit code и Windows hex, журнал, продолжение сценариев, `all_passed=false`, прежние timeout/native-crash/interruption регрессии. Требуются три Windows Release Gate на точном PR HEAD и затем отдельно на post-merge main. Первопричина `0xC0000005` не установлена.
