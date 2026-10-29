@@ -189,3 +189,90 @@ def test_invalid_depth_or_coverage_refused_without_reinterpretation() -> None:
             evidence,
             coverage_by_kind=(("lithology", 1.1),),
         ))
+
+
+@pytest.mark.parametrize(
+    ("language", "title", "field_name", "missing"),
+    (
+        (AppLanguage.RU, "Покрытие отдельных измерений (MD)", "Кальцит, %",
+         "Нет измерений / сведений"),
+        (AppLanguage.KK, "Жеке өлшемдердің қамтылуы (MD)", "Кальцит, %",
+         "Өлшеулер / мәліметтер жоқ"),
+        (AppLanguage.EN, "Coverage by measured field (MD)", "Calcite, %",
+         "No measurement / record"),
+    ),
+)
+def test_selected_field_md_gaps_are_localized_without_imputed_assays(
+    language, title, field_name, missing,
+) -> None:
+    session = _session()
+    sample = session.current_well.cuttings[0]
+    sample.calcite_percent = 0.0
+    sample.dolomite_percent = None
+    sample.lba_group = 2
+    sample.lba_odour = None
+    unchanged = repr(session.current_well)
+    evidence = correlate_gas_interval_with_well_geology(
+        session, top_depth=1002.0, bottom_depth=1010.0,
+    )
+    fields = (
+        ("calcimetry", "calcite_percent"),
+        ("calcimetry", "dolomite_percent"),
+        ("lba", "lba_group"),
+        ("lba", "lba_odour"),
+    )
+    result = geology_interval_evidence_table(evidence, language, fields=fields)
+    assert result.field_coverage_title == title
+    assert result.field_coverage_headings[1] in {"Измерение", "Өлшем", "Measured field"}
+    assert result.field_coverage_rows[0] == (
+        result.coverage_rows[3][0], field_name, "62.5%",
+        "1002.00–1004.00 m; 1009.00–1010.00 m",
+    )
+    assert result.field_coverage_rows[1][2:] == (
+        missing, "1002.00–1010.00 m",
+    )
+    assert result.field_coverage_rows[2][2:] == (
+        "62.5%", "1002.00–1004.00 m; 1009.00–1010.00 m",
+    )
+    assert result.field_coverage_rows[3][2:] == (
+        missing, "1002.00–1010.00 m",
+    )
+    rendered = geology_interval_evidence_html(evidence, language, fields=fields)
+    assert title in rendered
+    assert field_name in rendered
+    assert missing in rendered
+    assert "0.0%" not in rendered
+    assert repr(session.current_well) == unchanged
+
+
+def test_field_coverage_html_is_explicit_opt_in_and_rejects_unknown_columns() -> None:
+    session = _session()
+    evidence = correlate_gas_interval_with_well_geology(
+        session, top_depth=1002.0, bottom_depth=1010.0,
+    )
+    standard = geology_interval_evidence_html(evidence, AppLanguage.EN)
+    assert standard == geology_interval_evidence_html(
+        evidence, AppLanguage.EN, fields=(),
+    )
+    assert "Coverage by measured field (MD)" not in standard
+    assert geology_interval_evidence_table(evidence).field_coverage_rows == ()
+    for fields in (
+        (("calcimetry", "calcite"),),
+        (("lba", "misspelled_field"),),
+        (("lithology", "description"),),
+        (("calcimetry", "calcite_percent"), ("calcimetry", "calcite_percent")),
+    ):
+        with pytest.raises(ValueError, match="Unknown or repeated measured geology field"):
+            geology_interval_evidence_html(evidence, fields=fields)
+
+
+def test_selected_fields_reject_non_md_snapshot_before_rendering() -> None:
+    session = _session()
+    evidence = correlate_gas_interval_with_well_geology(
+        session, top_depth=1002.0, bottom_depth=1010.0,
+    )
+    with pytest.raises(ValueError, match="increasing MD"):
+        geology_interval_evidence_html(
+            replace(evidence, depth_unit="ft"),
+            fields=(("calcimetry", "calcite_percent"),),
+        )

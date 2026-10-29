@@ -1,3 +1,8 @@
+## INTERP-GEO-01 — optional field-level coverage in localized evidence HTML (29.10.2026)
+
+Added an explicit `fields` selection to the measured geology evidence HTML/table projection. Localized RU/KK/EN field coverage reports measured MD percentages and uncovered intervals independently for LBA and calcimetry, distinguishing recorded zero from a missing sibling assay. Unknown and duplicate field requests fail closed. Legacy output is unchanged without selection; source LAS/WITS, interpretation formulas and measured observations are not modified. Added regression coverage. Operator-facing selection and Office/PDF handoff remain separate scope.
+
+
 ## CI — safe cleanup for merged feat-prefixed PR branches (29.10.2026)
 
 Trusted post-merge green-main cleanup accepts feat/ alongside codex/ and fix/ while retaining exact SHA, protected ref, active PR and merge-ancestry safety checks. Added regression tests for eligible and blocked prefixes. This allows safe removal of the temporary INTERP-GEO-01 PR branch after a verified green main, not before.

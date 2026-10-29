@@ -1,3 +1,8 @@
+## INTERP-GEO-01 — opt-in HTML по отдельным измерениям (29.10.2026)
+
+Run `python -m pytest tests/test_interpretation_geology_interval_evidence_html.py tests/test_interpretation_geology_interval_evidence.py -q`, Ruff, mypy and the three exact-HEAD Windows Release Gate jobs; verify post-merge main separately. Request `fields=(("calcimetry", "calcite_percent"), ("calcimetry", "dolomite_percent"))` when rendering verified MD evidence. Expected: a measured zero counts as covered, sibling missing assays show full uncovered MD, overlapping samples are counted by union, IDs and source rows are unchanged. RU/KK/EN labels and field-specific intervals are projected only for explicitly requested schema fields. Reject unknown/duplicate fields and wrong MD units. Empty/default selection must produce byte-for-byte identical prior HTML. UI/Word/PDF operator selection is a separate acceptance task, not claimed by this slice.
+
+
 ## GitHub automatic cleanup of merged feat branches (29.10.2026)
 
 Run `python -m pytest tests/test_prune_merged_branches.py -q` plus `tests/test_interpretation_geology_interval_evidence.py`, then require all three exact PR HEAD Windows jobs. The cleanup accepts codex/fix/feat temporary PR branches **only** when the branch and exact merged PR commit match, no PR remains open, branch is unprotected, and the merge commit is contained in the verified current green main. Confirm post-merge Release Gate SUCCESS before deleting `feat/interp-geo-field-md-gaps-20261029`; verify branch absence rather than assuming the workflow performed deletion.
