@@ -1,3 +1,7 @@
+## WITS rolling gas-baseline configuration boundary
+
+`Wits0GasContextClassifierConfig` validates all parameters before `Wits0GasContextClassifier` allocates its `deque` or screens observations. Window/minimum-sample counts require Python `int`; NumPy integers are not compatible with `collections.deque(maxlen=...)`. Threshold values accept finite nonnegative real Python/NumPy scalars only and preserve the original validated values. Existing ratio/lag/window constraints and gas-classifier formulas are unchanged. An acquisition/settings adapter is responsible for any explicit string/unit conversion before constructing this typed configuration.
+
 ## WITS gas-origin observation input boundary
 
 `Wits0GasContextObservation` is a typed, immutable input to the stateful rolling baseline classifier: operation must be `Wits0GasOperation`; optional pump/on-bottom flags must be Python booleans; Total Gas and lag fraction must be finite nonnegative Python/NumPy real scalar values. Invalid source-decoding results fail before calling `assess` rather than silently changing drilling state or learning from an untyped sample. The ingestion adapter must perform any documented source normalization explicitly. No source WITS/LAS arrays or classification thresholds are changed.
