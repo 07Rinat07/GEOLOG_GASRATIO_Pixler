@@ -22,6 +22,7 @@ from geoworkbench.services.gas_context_report_labels import (
     gas_context_type_text, gas_context_impact_label, gas_context_identity_label,
 )
 from geoworkbench.services.interpretation_geology_interval_evidence import (
+    EvidenceKind,
     GasGeologyIntervalEvidence,
 )
 from geoworkbench.services.interpretation_geology_interval_evidence_html import (
@@ -345,12 +346,16 @@ def hydrocarbon_interpretation_html(
     *,
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
     geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
+    geology_fields: tuple[tuple[EvidenceKind, str], ...] = (),
 ) -> str:
     """Render a report; explicit evidence appends read-only analytical sections.
 
     Legacy HTML/PDF rendering stays unchanged unless the caller supplies the
     already verified structured comparison snapshot from both methodologies.
     """
+
+    if geology_fields and not geology_evidence:
+        raise ValueError("Measured geology fields require selected geology evidence")
 
     html = _base_hydrocarbon_interpretation_html(report, language)
     if report.analysis_depth_interval is not None:
@@ -414,7 +419,9 @@ def hydrocarbon_interpretation_html(
     for evidence in verified_report_geology_evidence(report, geology_evidence):
         html = html.replace(
             "</body>",
-            geology_interval_evidence_html(evidence, language) + "</body>",
+            geology_interval_evidence_html(
+                evidence, language, fields=geology_fields,
+            ) + "</body>",
             1,
         )
     audit = escape(interpretation_classification_audit_json(report), quote=True)
