@@ -2,6 +2,10 @@
 
 Classifier assess requires Wits0GasContextObservation before reading fields or updating baseline. A duck-typed object carrying string Total Gas previously bypassed observation validation and entered the baseline. Regression rejects that object, preserves sample count and verifies the next valid background sample. Run pytest tests/test_wits0_gas_context.py tests/test_wits0_gas_context_projection.py; require three exact-HEAD Windows gates and post-merge main. Formulas and thresholds are unchanged; Qt #544 and field acceptance remain open.
 
+## CI/Qt #544 — distinguish observed Windows native crashes (29.10.2026)
+
+Manual Qt replay classifies observed Windows 0xC0000005 and 0xC0000374 exit codes (including signed results) as native_crash while preserving the raw status, normalized hex and failure semantics. Standard pytest nonzero exits stay failed; timeout, launch_error and interruption paths are unaffected. Added regression matrix, no mandatory Windows Gate/Qt UI/geological calculation changes. This aids investigation but does not resolve native root cause #544.
+
 ## CI/Qt #544 — machine-readable child launch failures (29.10.2026)
 
 Manual Qt replay records `OSError` while launching a child as `launch_error` with a diagnostic log and no exit status, continues bounded selectors, and retains `all_passed=false`. This distinguishes a launch/environment failure from native `0xC0000005`; required Release Gate, interpretation formulas, and UI stay unchanged. Native root cause remains open.
