@@ -235,3 +235,85 @@ def test_observation_allows_missing_numeric_measurements() -> None:
     )
     assert observation.total_gas is None
     assert observation.connection_lag_fraction is None
+
+
+@pytest.mark.parametrize(
+    ("field", "invalid"),
+    [
+        ("baseline_window", True),
+        ("baseline_window", np.bool_(True)),
+        ("baseline_window", np.int64(20)),
+        ("baseline_window", 20.0),
+        ("baseline_window", "20"),
+        ("baseline_window", [20]),
+        ("baseline_min_samples", False),
+        ("baseline_min_samples", np.int64(5)),
+        ("baseline_min_samples", 5.0),
+        ("baseline_min_samples", "5"),
+        ("minimum_absolute_rise", "0.05"),
+        ("minimum_absolute_rise", False),
+        ("minimum_absolute_rise", np.bool_(True)),
+        ("minimum_absolute_rise", np.array(0.05)),
+        ("minimum_absolute_rise", float("nan")),
+        ("minimum_absolute_rise", 10**999),
+        ("minimum_ratio_to_background", "1.5"),
+        ("minimum_ratio_to_background", np.bool_(True)),
+        ("minimum_ratio_to_background", 1j),
+        ("minimum_ratio_to_background", float("inf")),
+        ("robust_sigma_multiplier", "4"),
+        ("robust_sigma_multiplier", np.array([4.0])),
+        ("connection_lag_min_fraction", True),
+        ("connection_lag_min_fraction", float("-inf")),
+        ("connection_lag_max_fraction", b"1.45"),
+        ("connection_lag_max_fraction", float("nan")),
+    ],
+)
+def test_classifier_config_rejects_untyped_inputs(
+    field: str, invalid: object
+) -> None:
+    with pytest.raises(ValueError, match=field):
+        Wits0GasContextClassifierConfig(**{field: invalid})
+
+
+def test_classifier_config_preserves_valid_numeric_thresholds() -> None:
+    threshold = np.float32(1.5)
+    config = Wits0GasContextClassifierConfig(
+        baseline_window=20,
+        baseline_min_samples=5,
+        minimum_absolute_rise=np.float64(1.0),
+        minimum_ratio_to_background=threshold,
+        robust_sigma_multiplier=np.float32(3.0),
+        connection_lag_min_fraction=0.55,
+        connection_lag_max_fraction=1.45,
+    )
+    assert config.minimum_ratio_to_background is threshold
+    classifier = Wits0GasContextClassifier(config)
+    _prime_background(classifier)
+    assert classifier.baseline_sample_count == 5
+    raised = classifier.assess(
+        Wits0GasContextObservation(
+            total_gas=25.0,
+            operation=Wits0GasOperation.DRILLING,
+            pumps_on=True,
+            on_bottom=True,
+        )
+    )
+    assert raised.kind is Wits0GasOriginKind.FORMATION_SHOW
+
+
+@pytest.mark.parametrize(
+    ("field", "invalid", "message"),
+    [
+        ("baseline_window", 7, "baseline_window"),
+        ("baseline_min_samples", 2, "baseline_min_samples"),
+        ("baseline_min_samples", 121, "baseline_min_samples"),
+        ("minimum_ratio_to_background", 0.9, "minimum_ratio_to_background"),
+        ("connection_lag_min_fraction", -0.1, "connection_lag_min_fraction"),
+        ("connection_lag_max_fraction", 0.4, "connection lag maximum"),
+    ],
+)
+def test_classifier_config_preserves_existing_bounds(
+    field: str, invalid: object, message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        Wits0GasContextClassifierConfig(**{field: invalid})
