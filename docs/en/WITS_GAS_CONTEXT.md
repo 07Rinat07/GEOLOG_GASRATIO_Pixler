@@ -1,5 +1,9 @@
 # WITS / Mud-Logging Gas Event Context
 
+## Automatic background configuration
+
+Rolling-baseline window and minimum-sample counts require Python `int`; NumPy integers and numeric strings are rejected. Thresholds accept finite nonnegative real Python/NumPy scalars only. Booleans, NaN/Inf, arrays and other invalid values fail before baseline initialization. Existing limits, formulas and precedence remain unchanged.
+
 ## Typed observation input
 
 Before automatic gas-origin screening, Total Gas and lag fraction must be finite nonnegative real Python/NumPy scalars. The operation must be `Wits0GasOperation`; optional pumps/on-bottom flags must be Python `bool` or `None`. Numeric text, 0/1 flags and invalid values are rejected rather than silently coerced into a baseline sample. Original WITS/LAS source data are unchanged.
