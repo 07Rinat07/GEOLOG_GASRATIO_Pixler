@@ -317,3 +317,21 @@ def test_classifier_config_preserves_existing_bounds(
 ) -> None:
     with pytest.raises(ValueError, match=message):
         Wits0GasContextClassifierConfig(**{field: invalid})
+
+@pytest.mark.parametrize("config", [False, True, 0, 1, "", "default", {}, [], object()])
+def test_classifier_rejects_untyped_config_object(config) -> None:
+    with pytest.raises(TypeError, match="Wits0GasContextClassifierConfig"):
+        Wits0GasContextClassifier(config)
+
+
+def test_classifier_preserves_explicit_config_and_none_default() -> None:
+    config = Wits0GasContextClassifierConfig(baseline_window=8, baseline_min_samples=3)
+    classifier = Wits0GasContextClassifier(config)
+    assert classifier.config is config
+    for _ in range(10):
+        classifier.assess(Wits0GasContextObservation(
+            total_gas=10.0, operation=Wits0GasOperation.DRILLING,
+            pumps_on=True, on_bottom=True,
+        ))
+    assert classifier.baseline_sample_count == 8
+    assert Wits0GasContextClassifier(None).config == Wits0GasContextClassifierConfig()

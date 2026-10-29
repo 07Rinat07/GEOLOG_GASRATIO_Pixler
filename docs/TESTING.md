@@ -1,3 +1,7 @@
+## WITS — явная конфигурация классификатора (29.10.2026)
+
+Конструктор Wits0GasContextClassifier принимает только Wits0GasContextClassifierConfig или None. False, 0 и пустые контейнеры ранее молча выбирали стандартные параметры через truthiness. Проверка типа исключает такую подмену; None сохраняет стандартные настройки, явно переданный объект и размер окна сохраняются. Регрессии: неверные объекты конфигурации, None и ограничение baseline заданным окном. Формулы не меняются; Qt #544 и полевая приёмка остаются открытыми.
+
 ## WITS-GASCTX-01 — typed baseline-classifier configuration (29.10.2026)
 
 `Wits0GasContextClassifierConfig` requires Python `int` window/sample counts (NumPy integers are rejected because `deque(maxlen=np.int64(...))` fails). Numeric threshold inputs must be finite, nonnegative Python/NumPy real scalars; text/booleans/arrays/complex/overflow are rejected before stateful initialization. Existing minimum ratio, lag ordering and sample/window bounds are unchanged. `tests/test_wits0_gas_context.py::test_classifier_config_rejects_untyped_inputs`, `test_classifier_config_preserves_valid_numeric_thresholds` and `test_classifier_config_preserves_existing_bounds` cover invalid values and normal classification. Run `pytest -q tests/test_wits0_gas_context.py tests/test_wits0_gas_context_projection.py`, Ruff, mypy and the three exact-head Windows gates. Main post-merge gates, Qt #544 and FIELD-01 remain separate.
