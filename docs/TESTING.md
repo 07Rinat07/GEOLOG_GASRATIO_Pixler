@@ -1,3 +1,7 @@
+## GitHub automatic cleanup of merged feat branches (29.10.2026)
+
+Run `python -m pytest tests/test_prune_merged_branches.py -q` plus `tests/test_interpretation_geology_interval_evidence.py`, then require all three exact PR HEAD Windows jobs. The cleanup accepts codex/fix/feat temporary PR branches **only** when the branch and exact merged PR commit match, no PR remains open, branch is unprotected, and the merge commit is contained in the verified current green main. Confirm post-merge Release Gate SUCCESS before deleting `feat/interp-geo-field-md-gaps-20261029`; verify branch absence rather than assuming the workflow performed deletion.
+
 ## INTERP-GEO-01 — missing measured fields as MD intervals (29.10.2026)
 
 Run `python -m pytest tests/test_interpretation_geology_interval_evidence.py -q`, then all three exact-HEAD Windows Release Gate jobs and the separate post-merge main gate. `attribute_uncovered_intervals(kind, attribute)` gives only measured-MD gaps for a recorded field (zero is recorded), not a whole LBA/calcimetry category. Tests verify absent sibling fields, overlapping assays, provenance/source immutability and invalid MD units/intervals. No LAS/WITS editing, values synthesis, axis conversion or automated fluid interpretation.

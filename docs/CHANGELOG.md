@@ -1,3 +1,7 @@
+## CI — safe cleanup for merged feat-prefixed PR branches (29.10.2026)
+
+Trusted post-merge green-main cleanup accepts feat/ alongside codex/ and fix/ while retaining exact SHA, protected ref, active PR and merge-ancestry safety checks. Added regression tests for eligible and blocked prefixes. This allows safe removal of the temporary INTERP-GEO-01 PR branch after a verified green main, not before.
+
 ## INTERP-GEO-01 — data-only field-specific MD observation gaps (29.10.2026)
 
 Added read-only GasGeologyIntervalEvidence.attribute_uncovered_intervals for missing intervals of an individual measured field. Recorded zeros remain data; overlapping samples contribute union coverage; unrelated calcimetry or LBA measurements cannot fill absent sibling fields. Fail-closed validated MD bounds, preserved source IDs and data; added regressions. No changes to imported LAS/WITS, UI or geological interpretations.
