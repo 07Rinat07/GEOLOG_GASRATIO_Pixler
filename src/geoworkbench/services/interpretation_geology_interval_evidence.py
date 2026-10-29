@@ -79,6 +79,34 @@ class GasGeologyIntervalEvidence:
         )
         return _union_coverage(observed, self.gas_bottom - self.gas_top)
 
+    def attribute_uncovered_intervals(
+        self, kind: EvidenceKind, attribute: str,
+    ) -> tuple[tuple[float, float], ...]:
+        """Return MD gaps for one observed field, not for the whole kind.
+
+        A measured zero counts as present. Overlaps count once, while an
+        unmeasured sibling assay must not hide a gap.
+        """
+        if not isinstance(attribute, str) or not attribute.strip():
+            raise ValueError("Evidence attribute name must be non-empty")
+        # Validate the metre MD axis and *every* interval of the requested kind,
+        # including records without this particular field.
+        self.uncovered_intervals(kind)
+        cursor = self.gas_top
+        gaps: list[tuple[float, float]] = []
+        for start, stop in sorted(
+            (item.overlap_top, item.overlap_bottom)
+            for item in self.intersections
+            if item.kind == kind
+            and any(name == attribute for name, _ in item.attributes)
+        ):
+            if start > cursor:
+                gaps.append((cursor, start))
+            cursor = max(cursor, stop)
+        if cursor < self.gas_bottom:
+            gaps.append((cursor, self.gas_bottom))
+        return tuple(gaps)
+
     def uncovered_intervals(self, kind: EvidenceKind) -> tuple[tuple[float, float], ...]:
         """Complement of observed depth union, never negative assay intervals."""
 

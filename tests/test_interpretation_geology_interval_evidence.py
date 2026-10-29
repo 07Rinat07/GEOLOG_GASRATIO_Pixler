@@ -462,6 +462,78 @@ def test_individual_fields_use_union_across_partially_overlapping_samples() -> N
     assert repr(well.cuttings) == before
 
 
+def test_field_level_md_gaps_do_not_inherit_other_assays() -> None:
+    session = _session()
+    sample = session.current_well.cuttings[0]
+    sample.calcite_percent = 0.0
+    sample.dolomite_percent = None
+    sample.total_carbonate_percent = None
+    original = repr(session.current_well)
+    evidence = _intersect(session)
+
+    expected_gaps = ((1002.0, 1004.0), (1009.0, 1010.0))
+    assert evidence.attribute_uncovered_intervals("calcimetry", "calcite_percent") == expected_gaps
+    assert evidence.attribute_uncovered_intervals("calcimetry", "dolomite_percent") == (
+        (1002.0, 1010.0),
+    )
+    assert evidence.attribute_uncovered_intervals("lba", "lba_group") == expected_gaps
+    assert evidence.attribute_uncovered_intervals("lba", "lba_odour") == (
+        (1002.0, 1010.0),
+    )
+    assert evidence.attribute_uncovered_intervals("stratigraphy", "code") == (
+        (1002.0, 1010.0),
+    )
+    assert repr(session.current_well) == original
+
+
+def test_field_md_gaps_union_overlapping_sources_without_filling_other_fields() -> None:
+    session = _session()
+    well = session.current_well
+    well.cuttings[0].calcite_percent = 0.0
+    well.cuttings.append(CuttingsSample(
+        "second-assay", 1006.0, 1012.0,
+        [CuttingsComponent("limestone", 100.0)],
+        calcite_percent=20.0, dolomite_percent=10.0,
+        lba_odour="Measured odour",
+    ))
+    original = repr(well.cuttings)
+    evidence = _intersect(session)
+
+    assert evidence.attribute_uncovered_intervals("calcimetry", "calcite_percent") == (
+        (1002.0, 1004.0),
+    )
+    assert evidence.attribute_uncovered_intervals("calcimetry", "dolomite_percent") == (
+        (1002.0, 1006.0),
+    )
+    assert evidence.attribute_uncovered_intervals("lba", "lba_odour") == (
+        (1002.0, 1006.0),
+    )
+    for kind, field in (
+        ("calcimetry", "calcite_percent"),
+        ("calcimetry", "dolomite_percent"),
+        ("lba", "lba_odour"),
+    ):
+        gaps = evidence.attribute_uncovered_intervals(kind, field)
+        missing_depth = sum(bottom - top for top, bottom in gaps)
+        assert missing_depth / 8.0 + evidence.attribute_coverage(kind, field) == pytest.approx(1.0)
+    assert repr(well.cuttings) == original
+
+
+def test_field_level_gaps_fail_closed_for_invalid_metadata_and_intersections() -> None:
+    evidence = _intersect(_session())
+    with pytest.raises(ValueError, match="attribute name"):
+        evidence.attribute_uncovered_intervals("lba", " ")
+    with pytest.raises(ValueError, match="known kind and finite MD bounds"):
+        evidence.attribute_uncovered_intervals("invalid", "lba_group")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="known kind and finite MD bounds"):
+        replace(evidence, depth_unit="ft").attribute_uncovered_intervals("lba", "lba_group")
+    invalid = replace(evidence.intersections[0], overlap_bottom=1011.0)
+    with pytest.raises(ValueError, match="outside the requested"):
+        replace(evidence, intersections=(invalid,)).attribute_uncovered_intervals(
+            invalid.kind, "unrecorded"
+        )
+
+
 def test_field_coverage_rejects_unknown_axis_metadata_and_blank_field() -> None:
     evidence = _intersect(_session())
     with pytest.raises(ValueError, match="attribute name"):
