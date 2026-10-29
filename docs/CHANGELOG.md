@@ -1,3 +1,9 @@
+## WITS-GASCTX-01 — контракт настройки фона газа (29.10.2026, PR-проверка)
+
+- Окно baseline и минимум проб принимают только Python `int`: NumPy int не подходит для `deque(maxlen=...)`, Boolean/text/float запрещены.
+- Пороги отклоняют неподтверждённые типы, NaN/Inf, complex, массивы и переполняющие числа; допустимые real scalars Python/NumPy сохраняются.
+- Добавлены positive/negative/boundary regression-тесты; формулы, пороги, ручные приоритеты, исходные WITS/LAS и Qt без изменений. Требуются три Windows Gate и проверка main после слияния.
+
 ## WITS-GASCTX-01 — проверка типов наблюдений (29.10.2026, PR-проверка)
 
 - WITS gas-origin observation требует typed operation, bool/None для состояний насосов и долота, конечные неотрицательные числовые Total Gas и lag fraction без преобразования строк или Boolean.
