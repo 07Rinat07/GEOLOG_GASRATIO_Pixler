@@ -100,9 +100,7 @@ class Wits0GasContextClassifierConfig:
     def __post_init__(self) -> None:
         for name in ("baseline_window", "baseline_min_samples"):
             count = getattr(self, name)
-            if isinstance(count, (bool, np.bool_)) or not isinstance(
-                count, (int, np.integer)
-            ):
+            if type(count) is not int:
                 raise ValueError(f"{name} must be an integer")
         if self.baseline_window < 8:
             raise ValueError("baseline_window must be >= 8")
