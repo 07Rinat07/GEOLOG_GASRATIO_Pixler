@@ -1,3 +1,7 @@
+## CI/Qt #544 — machine-readable native crash codes (29.10.2026)
+
+Проверка: python -m pytest tests/test_replay_windows_qt_native.py -q, затем полный Windows Release Gate на точном PR HEAD. native_crash только для известных 32-bit Windows статусов 0xC0000005, 0xC0000374 (включая signed returncode). Обычные pytest nonzero -> failed; timeout и launch_error не смешиваются с native. Записанный exit_code и windows_exit_hex не теряются. all_passed=false на ошибках и incomplete snapshots. Не объявлять успешный повтор root-cause fix Qt #544; post-merge main перепроверять отдельно.
+
 ## CI/Qt #544 — OSError запуска native replay child (29.10.2026)
 
 `python -m pytest tests/test_replay_windows_qt_native.py -q`: проверить `launch_error` без exit code и Windows hex, журнал, продолжение сценариев, `all_passed=false`, прежние timeout/native-crash/interruption регрессии. Требуются три Windows Release Gate на точном PR HEAD и затем отдельно на post-merge main. Первопричина `0xC0000005` не установлена.
