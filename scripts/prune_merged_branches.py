@@ -6,11 +6,11 @@ from __future__ import annotations
 
 import json
 import os
+from http.client import HTTPSConnection
 from urllib.parse import quote, urlencode
-from urllib.request import Request, urlopen
 
 _TEMP_PREFIXES = ("codex/", "fix/")
-_API = "https://api.github.com"
+_API_HOST = "api.github.com"
 
 
 def eligible_merged_branch(
@@ -55,21 +55,27 @@ def eligible_merged_branch(
 
 class GitHub:
     def __init__(self, repository: str, token: str) -> None:
-        self.root = f"{_API}/repos/{repository}"
+        self.root = f"/repos/{repository}"
         self.token = token
 
     def request(self, method: str, path: str) -> object:
-        req = Request(
-            self.root + path,
-            method=method,
-            headers={
-                "Authorization": f"Bearer {self.token}",
-                "Accept": "application/vnd.github+json",
-                "X-GitHub-Api-Version": "2022-11-28",
-            },
-        )
-        with urlopen(req, timeout=25) as response:
+        connection = HTTPSConnection(_API_HOST, timeout=25)
+        try:
+            connection.request(
+                method,
+                self.root + path,
+                headers={
+                    "Authorization": f"Bearer {self.token}",
+                    "Accept": "application/vnd.github+json",
+                    "X-GitHub-Api-Version": "2022-11-28",
+                },
+            )
+            response = connection.getresponse()
             payload = response.read()
+            if not 200 <= response.status < 300:
+                raise RuntimeError(f"GitHub API {method} failed: HTTP {response.status}")
+        finally:
+            connection.close()
         return json.loads(payload) if payload else None
 
     def all_pages(self, path: str) -> list[dict[str, object]]:
