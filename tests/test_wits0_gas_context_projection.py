@@ -199,3 +199,32 @@ def test_invalid_projection_query_does_not_consume_automatic_baseline(
         assert valid.resolved.manual_interval_id == "calibration-1"
     else:
         assert valid.resolved.kind is valid.automatic.kind
+
+@pytest.mark.parametrize("invalid", [None, "manual", b"manual", 1, False, {}, object()])
+def test_projection_rejects_invalid_manual_interval_at_construction(invalid) -> None:
+    with pytest.raises(TypeError, match="Wits0ManualGasContextInterval"):
+        _projection(manual_intervals=(invalid,))
+
+
+@pytest.mark.parametrize("invalid", [None, "manual", b"manual", 1, False, {}, object()])
+def test_projection_rejects_interval_update_atomically(invalid) -> None:
+    manual = Wits0ManualGasContextInterval(
+        interval_id="calibration", kind=Wits0GasOriginKind.CALIBRATION_GAS,
+        axis=Wits0GasContextAxis.DEPTH, start=2509.0, end=2511.0,
+    )
+    projection = _projection(manual_intervals=(manual,))
+    _prime_background(projection)
+    before = projection.baseline_sample_count
+    with pytest.raises(TypeError, match="Wits0ManualGasContextInterval"):
+        projection.set_manual_intervals((manual, invalid))
+    assert projection.manual_intervals == (manual,)
+    assert projection.baseline_sample_count == before
+    result = projection.project(
+        Wits0GasContextObservation(
+            total_gas=25.0, operation=Wits0GasOperation.DRILLING,
+            pumps_on=True, on_bottom=True,
+        ),
+        axis=Wits0GasContextAxis.DEPTH, value=2510.0,
+    )
+    assert result.resolved.manual_interval_id == "calibration"
+    assert result.automatic.kind is Wits0GasOriginKind.FORMATION_SHOW
