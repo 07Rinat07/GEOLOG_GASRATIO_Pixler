@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 import pytest
-from PySide6.QtWidgets import QComboBox, QMessageBox, QTextBrowser
+from PySide6.QtWidgets import QComboBox, QMessageBox, QPushButton, QTextBrowser
 
 from geoworkbench.domain.models import DatasetIndex, IndexRole, IndexType
 from geoworkbench.project.interpretation_calculation_controller import (
@@ -208,4 +208,71 @@ def test_mixture_mode_disables_operator_geology_action(qapp, monkeypatch):
     qapp.processEvents()
     assert not workspace.geology_evidence_button.isEnabled()
     assert workspace._geology_evidence_dialog is None
+    workspace.close()
+
+
+@pytest.mark.parametrize(
+    ("language", "field_title", "missing"),
+    (
+        (AppLanguage.RU, "Кальцит, %", "Нет измерений / сведений"),
+        (AppLanguage.KK, "Кальцит, %", "Өлшеулер / мәліметтер жоқ"),
+        (AppLanguage.EN, "Calcite, %", "No measurement / record"),
+    ),
+)
+def test_operator_field_preview_is_explicit_and_revokes_prior_export_approval(
+    qapp, monkeypatch, language, field_title, missing,
+) -> None:
+    workspace, session = _workspace(monkeypatch, language)
+    sample = session.current_well.cuttings[0]
+    sample.calcite_percent = 0.0
+    sample.dolomite_percent = None
+    original = repr(session.current_well)
+
+    workspace.geology_evidence_button.click()
+    qapp.processEvents()
+    dialog = workspace._geology_evidence_dialog
+    assert dialog is not None
+    fields = dialog.findChild(
+        QComboBox, "interpretation-geology-measured-field-preview",
+    )
+    viewer = dialog.findChild(
+        QTextBrowser, "interpretation-geology-evidence-content",
+    )
+    approve = dialog.findChild(
+        QPushButton, "interpretation-geology-include-in-pdf",
+    )
+    assert fields is not None and viewer is not None and approve is not None
+    assert fields.currentData() is None
+    assert "Покрытие отдельных измерений" not in viewer.toPlainText()
+    assert "Coverage by measured field" not in viewer.toPlainText()
+
+    def index_for(field: tuple[str, str]) -> int:
+        return next(
+            index for index in range(fields.count())
+            if fields.itemData(index) == field
+        )
+
+    calcite = index_for(("calcimetry", "calcite_percent"))
+    dolomite = index_for(("calcimetry", "dolomite_percent"))
+    fields.setCurrentIndex(calcite)
+    qapp.processEvents()
+    assert field_title in viewer.toPlainText()
+    assert "62.5%" in viewer.toPlainText()
+    assert "1002.00" in viewer.toPlainText()
+    assert "1009.00" in viewer.toPlainText()
+
+    approve.click()
+    assert len(workspace._geology_pdf_evidence) == 1
+    fields.setCurrentIndex(dolomite)
+    qapp.processEvents()
+    assert workspace._geology_pdf_evidence == ()
+    assert workspace._geology_pdf_source_key is None
+    assert missing in viewer.toPlainText()
+    assert repr(session.current_well) == original
+
+    fields.setCurrentIndex(0)
+    qapp.processEvents()
+    assert fields.currentData() is None
+    assert "Покрытие отдельных измерений" not in viewer.toPlainText()
+    assert "Coverage by measured field" not in viewer.toPlainText()
     workspace.close()
