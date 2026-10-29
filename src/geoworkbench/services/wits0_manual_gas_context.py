@@ -76,6 +76,8 @@ class Wits0ResolvedGasContext:
     excludes_formation_interpretation: bool = False
 
     def __post_init__(self) -> None:
+        if not isinstance(self.source, Wits0GasContextResolutionSource):
+            raise ValueError("source must be Wits0GasContextResolutionSource")
         if self.source is Wits0GasContextResolutionSource.MANUAL:
             if not self.manual_interval_id or not self.manual_interval_id.strip():
                 raise ValueError("manual resolution requires manual_interval_id")
