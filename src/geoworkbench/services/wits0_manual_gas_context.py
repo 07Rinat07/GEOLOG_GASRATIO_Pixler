@@ -127,6 +127,8 @@ class Wits0ManualGasContextInterval:
             raise ValueError("event_unit must be non-empty text or None")
         if not isinstance(self.source, str) or not self.source.strip():
             raise ValueError("source must be non-empty text")
+        if not isinstance(self.comment, str):
+            raise ValueError("comment must be text")
 
     @property
     def excludes_formation_interpretation(self) -> bool:
