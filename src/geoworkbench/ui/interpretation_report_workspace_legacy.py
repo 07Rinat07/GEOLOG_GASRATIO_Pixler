@@ -68,6 +68,7 @@ from geoworkbench.services.interpretation_geology_evidence_export import (
 )
 from geoworkbench.services.interpretation_geology_interval_evidence_html import (
     geology_interval_evidence_html,
+    selectable_geology_evidence_fields,
 )
 from geoworkbench.services.report_geology_snapshot import build_report_geology_snapshot
 
@@ -763,6 +764,23 @@ class InterpretationReportWorkspace(QWidget):
                 index,
             )
         layout.addWidget(selector)
+        # Field-by-field MD detail is an explicitly chosen read-only preview.
+        # Export approvals still refer to the complete verified evidence snapshot.
+        field_choice = QComboBox(dialog)
+        field_choice.setObjectName("interpretation-geology-measured-field-preview")
+        field_choice.addItem(self._text(
+            "Без детализации по отдельным измерениям",
+            "Жеке өлшемдер бойынша егжей-тегжейсіз",
+            "No individual field details",
+        ), None)
+        for title, field in selectable_geology_evidence_fields(self._report_output_language()):
+            field_choice.addItem(title, field)
+        layout.addWidget(field_choice)
+        layout.addWidget(QLabel(self._text(
+            "Детализация полей — только предпросмотр, не отдельный выбор для экспорта.",
+            "Өлшемдер бойынша егжей-тегжей тек алдын ала қарауға арналған, экспортқа бөлек таңдау емес.",
+            "Field details are preview-only; they are not a separate export selection.",
+        ), dialog))
         viewer = QTextBrowser(dialog)
         viewer.setObjectName("interpretation-geology-evidence-content")
         layout.addWidget(viewer)
@@ -837,8 +855,10 @@ class InterpretationReportWorkspace(QWidget):
                     top_depth=candidate.top_depth,
                     bottom_depth=candidate.bottom_depth,
                 )
+                selected_field = field_choice.currentData()
+                preview_fields = () if selected_field is None else (selected_field,)
                 html = geology_interval_evidence_html(
-                    evidence, self._report_output_language(),
+                    evidence, self._report_output_language(), fields=preview_fields,
                 )
             except ValueError as exc:
                 html = f"<p>{escape(str(exc))}</p>"
@@ -919,6 +939,9 @@ class InterpretationReportWorkspace(QWidget):
         include_excel.clicked.connect(lambda: approve_observations("excel"))
         include_print.clicked.connect(lambda: approve_observations("print"))
         selector.currentIndexChanged.connect(update_candidate)
+        field_choice.currentIndexChanged.connect(
+            lambda _index: update_candidate(selector.currentIndex())
+        )
         update_candidate(0)
         if self._geology_evidence_dialog is dialog:
             dialog.resize(960, 580)
