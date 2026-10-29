@@ -9,7 +9,7 @@ import os
 from http.client import HTTPSConnection
 from urllib.parse import quote, urlencode
 
-_TEMP_PREFIXES = ("codex/", "fix/")
+_TEMP_PREFIXES = ("codex/", "fix/", "feat/")
 _API_HOST = "api.github.com"
 
 

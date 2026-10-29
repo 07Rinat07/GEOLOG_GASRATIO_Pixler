@@ -16,18 +16,29 @@ def _branch(name: str = "codex/merged", *, protected: bool = False) -> dict:
     return {"name": name, "commit": {"sha": BRANCH_SHA}, "protected": protected}
 
 
-def _pull() -> dict:
+def _pull(name: str = "codex/merged") -> dict:
     return {
         "state": "closed",
         "merged_at": "2026-10-29T01:00:00Z",
         "merge_commit_sha": MERGE_SHA,
         "head": {
             "sha": BRANCH_SHA,
-            "ref": "codex/merged",
+            "ref": name,
             "repo": {"full_name": REPOSITORY},
         },
         "base": {"ref": "main"},
     }
+
+
+@pytest.mark.parametrize("name", ("codex/merged", "fix/merged", "feat/merged"))
+def test_cleanup_accepts_verified_temporary_pr_prefixes(name: str) -> None:
+    assert eligible_merged_branch(_branch(name), [_pull(name)], REPOSITORY) == MERGE_SHA
+    assert eligible_merged_branch(
+        _branch(name, protected=True), [_pull(name)], REPOSITORY
+    ) is None
+    open_pr = _pull(name)
+    open_pr.update(state="open", merged_at=None)
+    assert eligible_merged_branch(_branch(name), [_pull(name), open_pr], REPOSITORY) is None
 
 
 def test_cleanup_accepts_only_exact_merged_temporary_branch() -> None:
@@ -70,10 +81,12 @@ class StubGitHub:
         main_sha: str = MAIN_SHA,
         ref_sha: str = BRANCH_SHA,
         compare_status: str = "ahead",
+        branch_name: str = "codex/merged",
     ) -> None:
         self.main_sha = main_sha
         self.ref_sha = ref_sha
         self.compare_status = compare_status
+        self.branch_name = branch_name
         self.deleted: list[str] = []
         self.requests: list[tuple[str, str]] = []
 
@@ -84,7 +97,7 @@ class StubGitHub:
             return None
         if path == "/branches/main":
             return {"commit": {"sha": self.main_sha}}
-        if path == "/branches/codex/merged":
+        if path == f"/branches/{self.branch_name}":
             return {"commit": {"sha": self.ref_sha}, "protected": False}
         if path == f"/compare/{MERGE_SHA}...{MAIN_SHA}":
             return {"status": self.compare_status}
@@ -92,11 +105,20 @@ class StubGitHub:
 
     def all_pages(self, path: str) -> list[dict]:
         if path == "/branches":
-            return [_branch()]
+            return [_branch(self.branch_name)]
         if path.startswith("/pulls?"):
             assert "state=all" in path
-            return [_pull()]
+            return [_pull(self.branch_name)]
         raise AssertionError(path)
+
+
+@pytest.mark.parametrize(
+    "name", ("codex/merged", "fix/merged", "feat/merged")
+)
+def test_cleanup_deletes_only_exact_verified_temporary_prefixes(name: str) -> None:
+    api = StubGitHub(branch_name=name)
+    assert prune(api, repository=REPOSITORY, verified_sha=MAIN_SHA) == 1
+    assert api.deleted == [f"/git/refs/heads/{name}"]
 
 
 def test_cleanup_deletes_only_after_green_main_and_merged_commit() -> None:

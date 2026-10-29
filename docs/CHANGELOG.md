@@ -1,3 +1,11 @@
+## CI — safe cleanup for merged feat-prefixed PR branches (29.10.2026)
+
+Trusted post-merge green-main cleanup accepts feat/ alongside codex/ and fix/ while retaining exact SHA, protected ref, active PR and merge-ancestry safety checks. Added regression tests for eligible and blocked prefixes. This allows safe removal of the temporary INTERP-GEO-01 PR branch after a verified green main, not before.
+
+## INTERP-GEO-01 — data-only field-specific MD observation gaps (29.10.2026)
+
+Added read-only GasGeologyIntervalEvidence.attribute_uncovered_intervals for missing intervals of an individual measured field. Recorded zeros remain data; overlapping samples contribute union coverage; unrelated calcimetry or LBA measurements cannot fill absent sibling fields. Fail-closed validated MD bounds, preserved source IDs and data; added regressions. No changes to imported LAS/WITS, UI or geological interpretations.
+
 ## CI/Qt #544 — replay lithology undo native crash (29.10.2026)
 
 Windows Quality #40892588760 encountered 0xC0000005 in pyqtgraph ViewBoxMenu upon MainWindow lithology undo. Manual native replay now includes the exact test as isolated and combined selector; 30 child processes at 180s maximum reserve 30m for setup/artifacts within the existing 120m workflow. All original tests and failure propagation are retained. Native Qt root cause remains unconfirmed; this does not make failed PR CI eligible for merge.

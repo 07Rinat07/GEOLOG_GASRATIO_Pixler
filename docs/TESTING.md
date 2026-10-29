@@ -1,3 +1,11 @@
+## GitHub automatic cleanup of merged feat branches (29.10.2026)
+
+Run `python -m pytest tests/test_prune_merged_branches.py -q` plus `tests/test_interpretation_geology_interval_evidence.py`, then require all three exact PR HEAD Windows jobs. The cleanup accepts codex/fix/feat temporary PR branches **only** when the branch and exact merged PR commit match, no PR remains open, branch is unprotected, and the merge commit is contained in the verified current green main. Confirm post-merge Release Gate SUCCESS before deleting `feat/interp-geo-field-md-gaps-20261029`; verify branch absence rather than assuming the workflow performed deletion.
+
+## INTERP-GEO-01 — missing measured fields as MD intervals (29.10.2026)
+
+Run `python -m pytest tests/test_interpretation_geology_interval_evidence.py -q`, then all three exact-HEAD Windows Release Gate jobs and the separate post-merge main gate. `attribute_uncovered_intervals(kind, attribute)` gives only measured-MD gaps for a recorded field (zero is recorded), not a whole LBA/calcimetry category. Tests verify absent sibling fields, overlapping assays, provenance/source immutability and invalid MD units/intervals. No LAS/WITS editing, values synthesis, axis conversion or automated fluid interpretation.
+
 ## Qt #544 — native replay нового Undo lithology 0xC0000005 (29.10.2026)
 
 Windows Quality #40892588760, batch 334/578: tests/test_main_window.py::test_window_global_undo_routes_lithology_edits crashed 0xC0000005 in pyqtgraph ViewBoxMenu/PlotWidget upon undo lithology. Reproduce exact selector both isolated and alongside existing native-heavy selectors using bounded manual Qt replay. With 5 repetitions, 30 children x 180s <= 90m out of 120m; preserve all original tests and fail hard on nonzero/native/timeout/launch failures. Run python -m pytest tests/test_replay_windows_qt_native.py tests/test_qt_native_replay_workflow_contract.py -q and all three Windows Release Gate jobs on exact PR SHA; post-merge main gate separately. No assertion of Qt #544 root-cause repair.
