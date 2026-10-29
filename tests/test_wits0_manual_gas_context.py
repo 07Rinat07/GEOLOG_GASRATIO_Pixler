@@ -505,3 +505,24 @@ def test_contains_rejects_bad_coordinate_on_nonmatching_axis(
     # Valid coordinates on a different axis still do not match.
     assert interval.contains(other_axis, 150.0) is False
     assert interval.contains(axis, 150.0) is True
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [None, b"test", 3, True, np.bool_(False), [], {}, np.array("operator"), object()],
+)
+def test_manual_gas_context_rejects_non_text_comment(invalid: object) -> None:
+    with pytest.raises(ValueError, match="comment must be text"):
+        _manual_interval(comment=invalid)
+
+
+@pytest.mark.parametrize(
+    "comment",
+    ["", "  ", "Тест газовой линии", "Газ желісі сынағы", "QC: C1-C5\nОператор"],
+)
+def test_manual_gas_context_preserves_operator_comment(comment: str) -> None:
+    interval = _manual_interval(comment=comment)
+    assert interval.comment == comment
+    assert resolve_manual_gas_context(
+        (interval,), axis=Wits0GasContextAxis.DEPTH, value=2502.0
+    ) is interval
