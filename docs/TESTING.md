@@ -1,6 +1,6 @@
-## CI — post-merge temporary branch cleanup (29.10.2026)
+## WITS — явная конфигурация классификатора (29.10.2026)
 
-`scripts/prune_merged_branches.py` executes only from the trusted default-branch `workflow_run` after a successful push-triggered Release gate on exact current main SHA. It prunes only unprotected `codex/*` and `fix/*` branches with an unchanged head, an actually merged PR into main, no open PR on the branch and a merge commit reachable from current main. It rechecks refs immediately before deletion. Network/pagination failures fail closed. `tests/test_prune_merged_branches.py` covers active/merged/diverged/stale/protected cases with an offline fake API. Run `pytest -q tests/test_prune_merged_branches.py` and the existing Windows Release Gate. No changes to the existing three jobs, geological formulas or source WITS/LAS.
+Конструктор Wits0GasContextClassifier принимает только Wits0GasContextClassifierConfig или None. False, 0 и пустые контейнеры ранее молча выбирали стандартные параметры через truthiness. Проверка типа исключает такую подмену; None сохраняет стандартные настройки, явно переданный объект и размер окна сохраняются. Регрессии: неверные объекты конфигурации, None и ограничение baseline заданным окном. Формулы не меняются; Qt #544 и полевая приёмка остаются открытыми.
 
 ## WITS-GASCTX-01 — typed baseline-classifier configuration (29.10.2026)
 
@@ -2890,3 +2890,8 @@ including a second record outside the selected interval. The six regressions
 failed before the fix and preserve well contents, MD and C1 values. Existing
 tests retain exact IDs across distinct categories and multiple evidence kinds
 from one cuttings sample. This validation never renames or drops source records.
+
+## CI — post-merge temporary branch cleanup (29.10.2026)
+
+`scripts/prune_merged_branches.py` executes only from the trusted default-branch `workflow_run` after a successful push-triggered Release gate on exact current main SHA. It prunes only unprotected `codex/*` and `fix/*` branches with an unchanged head, an actually merged PR into main, no open PR on the branch and a merge commit reachable from current main. It rechecks refs immediately before deletion. Network/pagination failures fail closed. `tests/test_prune_merged_branches.py` covers active/merged/diverged/stale/protected cases with an offline fake API. Run `pytest -q tests/test_prune_merged_branches.py` and the existing Windows Release Gate. No changes to the existing three jobs, geological formulas or source WITS/LAS.
+
