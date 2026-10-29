@@ -12,6 +12,7 @@ from geoworkbench.services.wits0_gas_context_presentation import present_resolve
 from geoworkbench.services.wits0_manual_gas_context import (
     Wits0GasContextAxis,
     Wits0GasContextResolutionSource,
+    Wits0ResolvedGasContext,
     Wits0ManualGasContextInterval,
     resolve_effective_gas_context,
     resolve_manual_gas_context,
@@ -526,3 +527,33 @@ def test_manual_gas_context_preserves_operator_comment(comment: str) -> None:
     assert resolve_manual_gas_context(
         (interval,), axis=Wits0GasContextAxis.DEPTH, value=2502.0
     ) is interval
+
+
+
+def _resolved_context(**changes: object) -> Wits0ResolvedGasContext:
+    fields = {
+        "kind": Wits0GasOriginKind.FORMATION_SHOW,
+        "source": Wits0GasContextResolutionSource.AUTOMATIC,
+        "automatic": _automatic_formation_show(),
+    }
+    fields.update(changes)
+    return Wits0ResolvedGasContext(**fields)
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    ("manual", "automatic", "", None, 1, True, b"manual", np.array("manual")),
+)
+def test_resolved_gas_context_rejects_untyped_source(invalid: object) -> None:
+    with pytest.raises(ValueError, match="source must be Wits0GasContextResolutionSource"):
+        _resolved_context(source=invalid)
+
+
+@pytest.mark.parametrize("source", tuple(Wits0GasContextResolutionSource))
+def test_resolved_gas_context_preserves_typed_source(
+    source: Wits0GasContextResolutionSource,
+) -> None:
+    manual_id = "operator-event-1" if source is Wits0GasContextResolutionSource.MANUAL else None
+    context = _resolved_context(source=source, manual_interval_id=manual_id)
+    assert context.source is source
+    assert context.manual_interval_id == manual_id

@@ -1,3 +1,7 @@
+## WITS-GASCTX-01 — typed resolved source (29.10.2026, PR-проверка)
+
+`Wits0ResolvedGasContext.source` принимает только `Wits0GasContextResolutionSource`. Строковые значения `"manual"/"automatic"` не признаются подтверждёнными provenance; другие нетипизированные значения отклоняются до проверки `manual_interval_id`. Тесты: `tests/test_wits0_manual_gas_context.py::test_resolved_gas_context_rejects_untyped_source`, `test_resolved_gas_context_preserves_typed_source`. Проверить Ruff, mypy, полный pytest, три Windows Release Gates на точном PR SHA и снова на `main` после слияния. Исходные WITS/LAS, формулы, приоритеты и Qt не изменены.
+
 ## WITS-GASCTX-01 — typed operator comment (29.10.2026)
 
 `Wits0ManualGasContextInterval.comment` must be text: numeric/Boolean/bytes/array/dict/None inputs are rejected before report provenance or operator UI. Empty, whitespace, multilingual and newline text are preserved exactly. Regression: `tests/test_wits0_manual_gas_context.py::test_manual_gas_context_rejects_non_text_comment` and `test_manual_gas_context_preserves_operator_comment`. Run focused pytest and all three exact-HEAD Windows gates, then post-merge main. Thresholds, data, priorities and Qt #544 remain unchanged.
