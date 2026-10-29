@@ -1,3 +1,7 @@
+## INTERP-GEO-01 — operator's field-level MD preview (30.10.2026)
+
+Added a localized Qt combo box for explicitly previewing the coverage and unmeasured MD gaps of one recorded LBA or calcimetry field in the existing gas/geology dialog. Defaults and legacy unselected HTML remain unchanged; switching field invalidates existing output approvals. A clear RU/KK/EN notice distinguishes preview-only field details from confirmed export selections. Added Qt regression tests. No automatic hydrocarbon interpretation or edits to source LAS/WITS and no new PDF/Office field-specific output.
+
 ## INTERP-GEO-01 — explicit measured-field selection in report HTML (30.10.2026)
 
 The report HTML service now accepts optional `geology_fields` and forwards it only to verified geology evidence sections. The default report HTML is unchanged. Requests without selected evidence and unknown/duplicate fields fail closed; measured zero and missing sibling assays remain distinct. Added RU/KK/EN, default-compatibility and rejection regressions. This does not enable UI selection, signed PDF, Office exports or printing, and does not alter LAS/WITS or geology calculations.
