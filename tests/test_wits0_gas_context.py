@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import numpy as np
+import pytest
+
 from geoworkbench.services.wits0_gas_context import (
     Wits0GasContextClassifier,
     Wits0GasContextClassifierConfig,
@@ -152,3 +155,83 @@ def test_line_test_is_classified_even_without_total_gas_value() -> None:
 
     assert result.kind is Wits0GasOriginKind.GAS_LINE_TEST_GAS
     assert result.confidence == 1.0
+
+
+@pytest.mark.parametrize(
+    ("overrides", "error_field"),
+    [
+        ({"total_gas": "25.0"}, "total_gas"),
+        ({"total_gas": True}, "total_gas"),
+        ({"total_gas": np.bool_(False)}, "total_gas"),
+        ({"total_gas": [25.0]}, "total_gas"),
+        ({"total_gas": np.array(25.0)}, "total_gas"),
+        ({"total_gas": 25.0 + 0j}, "total_gas"),
+        ({"total_gas": float("nan")}, "total_gas"),
+        ({"total_gas": float("inf")}, "total_gas"),
+        ({"total_gas": -0.01}, "total_gas"),
+        ({"total_gas": 10**999}, "total_gas"),
+        ({"connection_lag_fraction": "1.0"}, "connection_lag_fraction"),
+        ({"connection_lag_fraction": np.bool_(True)}, "connection_lag_fraction"),
+        ({"connection_lag_fraction": float("nan")}, "connection_lag_fraction"),
+        ({"connection_lag_fraction": -0.1}, "connection_lag_fraction"),
+        ({"operation": "drilling"}, "operation"),
+        ({"operation": None}, "operation"),
+        ({"operation": Wits0GasOriginKind.BACKGROUND}, "operation"),
+        ({"pumps_on": 0}, "pumps_on"),
+        ({"pumps_on": np.bool_(True)}, "pumps_on"),
+        ({"pumps_on": "false"}, "pumps_on"),
+        ({"on_bottom": 1}, "on_bottom"),
+        ({"on_bottom": np.bool_(False)}, "on_bottom"),
+        ({"on_bottom": []}, "on_bottom"),
+    ],
+)
+def test_observation_rejects_untyped_wits_inputs_before_baseline(
+    overrides: dict[str, object], error_field: str
+) -> None:
+    classifier = _classifier()
+    args: dict[str, object] = {
+        "total_gas": 10.0,
+        "operation": Wits0GasOperation.DRILLING,
+        "pumps_on": True,
+        "on_bottom": True,
+    }
+    args.update(overrides)
+    with pytest.raises(ValueError, match=error_field):
+        Wits0GasContextObservation(**args)
+    assert classifier.baseline_sample_count == 0
+    result = classifier.assess(
+        Wits0GasContextObservation(
+            total_gas=10.0,
+            operation=Wits0GasOperation.DRILLING,
+            pumps_on=True,
+            on_bottom=True,
+        )
+    )
+    assert result.kind is Wits0GasOriginKind.INSUFFICIENT_CONTEXT
+    assert classifier.baseline_sample_count == 1
+
+
+@pytest.mark.parametrize("gas", [0.0, 10.2, np.float32(12.5), np.int64(4)])
+def test_observation_accepts_valid_typed_numeric_samples(gas: object) -> None:
+    observation = Wits0GasContextObservation(
+        total_gas=gas,
+        operation=Wits0GasOperation.DRILLING,
+        pumps_on=False,
+        on_bottom=None,
+        connection_lag_fraction=np.float64(1.0),
+    )
+    assert observation.total_gas is gas
+    assert observation.connection_lag_fraction == 1.0
+    assert observation.pumps_on is False
+
+
+def test_observation_allows_missing_numeric_measurements() -> None:
+    observation = Wits0GasContextObservation(
+        total_gas=None,
+        operation=Wits0GasOperation.UNKNOWN,
+        pumps_on=None,
+        on_bottom=None,
+        connection_lag_fraction=None,
+    )
+    assert observation.total_gas is None
+    assert observation.connection_lag_fraction is None
