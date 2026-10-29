@@ -1,3 +1,7 @@
+## WITS-GASCTX-01 — typed operator comment (29.10.2026)
+
+`Wits0ManualGasContextInterval.comment` must be text: numeric/Boolean/bytes/array/dict/None inputs are rejected before report provenance or operator UI. Empty, whitespace, multilingual and newline text are preserved exactly. Regression: `tests/test_wits0_manual_gas_context.py::test_manual_gas_context_rejects_non_text_comment` and `test_manual_gas_context_preserves_operator_comment`. Run focused pytest and all three exact-HEAD Windows gates, then post-merge main. Thresholds, data, priorities and Qt #544 remain unchanged.
+
 ## WITS — явная конфигурация классификатора (29.10.2026)
 
 Конструктор Wits0GasContextClassifier принимает только Wits0GasContextClassifierConfig или None. False, 0 и пустые контейнеры ранее молча выбирали стандартные параметры через truthiness. Проверка типа исключает такую подмену; None сохраняет стандартные настройки, явно переданный объект и размер окна сохраняются. Регрессии: неверные объекты конфигурации, None и ограничение baseline заданным окном. Формулы не меняются; Qt #544 и полевая приёмка остаются открытыми.
