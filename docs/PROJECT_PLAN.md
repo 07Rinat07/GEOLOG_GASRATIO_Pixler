@@ -1,3 +1,7 @@
+## WITS — явная конфигурация классификатора (29.10.2026)
+
+Конструктор Wits0GasContextClassifier принимает только Wits0GasContextClassifierConfig или None. False, 0 и пустые контейнеры ранее молча выбирали стандартные параметры через truthiness. Проверка типа исключает такую подмену; None сохраняет стандартные настройки, явно переданный объект и размер окна сохраняются. Регрессии: неверные объекты конфигурации, None и ограничение baseline заданным окном. Формулы не меняются; Qt #544 и полевая приёмка остаются открытыми.
+
 ## WITS-GASCTX-01 / P0 — строгое задание параметров автоматического baseline (29.10.2026, PR-проверка)
 
 Параметры `Wits0GasContextClassifierConfig` должны валидироваться до создания stateful baseline classifier. Размер окна и число минимальных проб требуют Python `int` (не Boolean, float, NumPy int или строку: `deque(maxlen=np.int64(...))` не принимает NumPy integer). Числовые пороги принимают только конечные неотрицательные Python/NumPy real scalars, без неявного преобразования строк, Boolean, массивов, complex или переполнений. Существующие границы и зависимости `baseline_window >= 8`, `3 <= min_samples <= window`, ratio >= 1 и lag min <= max сохраняются. Regression matrix проверяет типы и границы, допустимые NumPy float и обычную классификацию после baseline training. Пороги, формулы, приоритеты и исходные WITS/LAS не изменяются. Три Windows Release Gate на точном PR HEAD и после merge в main обязательны; Qt #544 и FIELD-01 отдельно.
