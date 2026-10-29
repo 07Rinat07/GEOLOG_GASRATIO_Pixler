@@ -1,3 +1,11 @@
+## Qt #544 — native replay нового Undo lithology 0xC0000005 (29.10.2026)
+
+Windows Quality #40892588760, batch 334/578: tests/test_main_window.py::test_window_global_undo_routes_lithology_edits crashed 0xC0000005 in pyqtgraph ViewBoxMenu/PlotWidget upon undo lithology. Reproduce exact selector both isolated and alongside existing native-heavy selectors using bounded manual Qt replay. With 5 repetitions, 30 children x 180s <= 90m out of 120m; preserve all original tests and fail hard on nonzero/native/timeout/launch failures. Run python -m pytest tests/test_replay_windows_qt_native.py tests/test_qt_native_replay_workflow_contract.py -q and all three Windows Release Gate jobs on exact PR SHA; post-merge main gate separately. No assertion of Qt #544 root-cause repair.
+
+## Qt #544 — safe Qt test-platform evidence (29.10.2026)
+
+`python -m pytest tests/test_capture_windows_native_runtime.py -q`. Snapshot schema v2 adds `qt_test_platform`: allowlisted `offscreen/windows/minimal`, unknown/path-like QPA settings => `other`, absent setting => `offscreen` (default in scripts/run_tests.py). This describes the test-runner selection, not measured plugin load; never publish arbitrary environment variables or paths. Verify no QApplication is constructed, no Qt or LAS/WITS inputs/formulas change, and all 3 Windows Release Gate jobs succeed on exact PR HEAD and post-merge main. Qt #544 root cause remains unconfirmed.
+
 ## WITS — validated observation boundary (29.10.2026)
 
 Classifier assess requires Wits0GasContextObservation before reading fields or updating baseline. A duck-typed object carrying string Total Gas previously bypassed observation validation and entered the baseline. Regression rejects that object, preserves sample count and verifies the next valid background sample. Run pytest tests/test_wits0_gas_context.py tests/test_wits0_gas_context_projection.py; require three exact-HEAD Windows gates and post-merge main. Formulas and thresholds are unchanged; Qt #544 and field acceptance remain open.

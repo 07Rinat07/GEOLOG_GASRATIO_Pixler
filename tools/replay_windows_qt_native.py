@@ -37,10 +37,14 @@ SCENARIOS = (
         "tests/test_main_window_normalized_gas_tablet.py::"
         "test_show_normalized_gas_button_opens_tablet_and_adds_track",
     ),
+    (
+        "lithology-undo",
+        "tests/test_main_window.py::test_window_global_undo_routes_lithology_edits",
+    ),
 )
 MODES = ("isolated", "sequence", "both")
 MAX_REPETITIONS = 5
-CHILD_TIMEOUT_SECONDS = 210  # 25 maximum children × 3.5 minutes = 87.5 minutes
+CHILD_TIMEOUT_SECONDS = 180  # 30 maximum children × 3 minutes = 90 minutes
 # Windows crash statuses previously observed in mandatory Qt/pyqtgraph CI.
 WINDOWS_NATIVE_CRASH_CODES = frozenset({0xC0000005, 0xC0000374})
 
