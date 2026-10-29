@@ -67,6 +67,7 @@ class GitHub:
                 headers={
                     "Authorization": f"Bearer {self.token}",
                     "Accept": "application/vnd.github+json",
+                    "User-Agent": "geolog-branch-cleanup",
                     "X-GitHub-Api-Version": "2022-11-28",
                 },
             )
