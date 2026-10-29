@@ -1,3 +1,7 @@
+## CI/Qt #544 — replay lithology undo native crash (29.10.2026)
+
+Windows Quality #40892588760 encountered 0xC0000005 in pyqtgraph ViewBoxMenu upon MainWindow lithology undo. Manual native replay now includes the exact test as isolated and combined selector; 30 child processes at 180s maximum reserve 30m for setup/artifacts within the existing 120m workflow. All original tests and failure propagation are retained. Native Qt root cause remains unconfirmed; this does not make failed PR CI eligible for merge.
+
 ## CI/Qt #544 — sanitized Qt test platform in native runtime snapshot (29.10.2026)
 
 Native runtime evidence now records the test-runner QPA platform under an allowlist (offscreen, windows, minimal, otherwise other) instead of persisting raw environment data that could include private paths. With no override the runner uses offscreen; snapshot schema v2 distinguishes intended runner configuration from actual loaded Qt plugin. Added regression coverage; the mandatory gates, native crash failure handling and WITS/LAS/geological calculations are unchanged. This is diagnostic evidence only, not a root-cause fix.
