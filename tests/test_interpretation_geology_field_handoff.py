@@ -73,6 +73,8 @@ def test_confirmed_html_handoff_is_source_bound_and_does_not_impute(
         (("calcimetry", "unknown"),),
         (("lithology", "description"),),
         (("calcimetry", "calcite_percent"), ("calcimetry", "calcite_percent")),
+        (("calcimetry", ["calcite_percent"]),),
+        (("calcimetry", "calcite_percent", "extra"),),
     ),
 )
 def test_confirmation_rejects_empty_unknown_or_duplicate_fields(fields) -> None:
