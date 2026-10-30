@@ -252,7 +252,7 @@ def test_explicit_measured_field_reaches_signed_pdf_and_passport(
     workspace._export_pdf()
     assert target.read_bytes().startswith(b"%PDF")
     with fitz.open(target) as pdf:
-        text = re.sub(r"\\s+", " ", " ".join(page.get_text() for page in pdf))
+        text = re.sub(r"\s+", " ", " ".join(page.get_text() for page in pdf))
     assert "Coverage by measured field (MD)" in text
     assert "Calcite" in text
     assert "62.5%" in text
