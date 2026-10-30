@@ -54,7 +54,9 @@ SCENARIOS = (
 )
 MODES = ("isolated", "sequence", "both")
 MAX_REPETITIONS = 5
-CHILD_TIMEOUT_SECONDS = 150  # 40 maximum children × 150 s = 100 minutes; 20 minutes for setup/artifacts
+CHILD_TIMEOUT_SECONDS = 150
+# Five repetitions × (seven isolated + one combined) = 40 children.
+# Worst-case child timeout budget: 100 of the workflow's 120 minutes.
 # Windows crash statuses previously observed in mandatory Qt/pyqtgraph CI.
 WINDOWS_NATIVE_CRASH_CODES = frozenset({0xC0000005, 0xC0000374})
 
