@@ -46,10 +46,17 @@ SCENARIOS = (
         "tests/test_main_window.py::"
         "test_window_global_undo_routes_header_and_curve_edits_in_chronological_order",
     ),
+    (
+        "tabular-export-language-kk-en",
+        "tests/test_tabular_export_output_language.py::"
+        "test_all_six_outputs_share_language_without_relocalizing_operator_ui[kk-en]",
+    ),
 )
 MODES = ("isolated", "sequence", "both")
 MAX_REPETITIONS = 5
-CHILD_TIMEOUT_SECONDS = 150  # 35 maximum children × 150 s = 87.5 minutes
+CHILD_TIMEOUT_SECONDS = 150
+# Five repetitions × (seven isolated + one combined) = 40 children.
+# Worst-case child timeout budget: 100 of the workflow's 120 minutes.
 # Windows crash statuses previously observed in mandatory Qt/pyqtgraph CI.
 WINDOWS_NATIVE_CRASH_CODES = frozenset({0xC0000005, 0xC0000374})
 
