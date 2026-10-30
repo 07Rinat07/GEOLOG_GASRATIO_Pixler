@@ -312,8 +312,14 @@ def test_operator_confirms_source_bound_field_html_without_other_exports(
     assert not confirm.isEnabled()
     assert workspace._geology_html_field_selection is None
 
-    calcite = fields.findData(("calcimetry", "calcite_percent"))
-    dolomite = fields.findData(("calcimetry", "dolomite_percent"))
+    calcite = next(
+        index for index in range(fields.count())
+        if fields.itemData(index) == ("calcimetry", "calcite_percent")
+    )
+    dolomite = next(
+        index for index in range(fields.count())
+        if fields.itemData(index) == ("calcimetry", "dolomite_percent")
+    )
     assert calcite > 0 and dolomite > 0
     fields.setCurrentIndex(calcite)
     qapp.processEvents()
