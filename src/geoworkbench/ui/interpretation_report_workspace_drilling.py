@@ -198,7 +198,7 @@ class InterpretationReportWorkspace(_FinalInterpretationReportWorkspace):
                     overwrite=target.exists(),
                     orientation=self.word_orientation.currentData() or "portrait",
                 )
-        except (OSError, FileExistsError, HydrocarbonInterpretationExportError) as exc:
+        except (OSError, FileExistsError, ValueError, HydrocarbonInterpretationExportError) as exc:
             self._show_export_error(exc)
             return
         self._show_export_success(exported)
