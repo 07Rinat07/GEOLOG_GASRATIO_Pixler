@@ -219,7 +219,7 @@ def test_replay_child_launch_error_is_recorded_without_masking_other_results(
     )
     report = json.loads((tmp_path / "results.json").read_text(encoding="utf-8"))
     assert len(calls) == 7
-    assert report["completed"] == report["expected"] == 6
+    assert report["completed"] == report["expected"] == 7
     assert report["all_passed"] is False
     assert [item["status"] for item in report["results"]] == [
         "launch_error",
