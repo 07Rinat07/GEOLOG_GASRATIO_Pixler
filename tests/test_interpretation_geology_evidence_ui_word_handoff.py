@@ -143,6 +143,19 @@ def test_explicit_measured_word_field_reaches_real_polished_docx(
     )
     session.current_well.cuttings[0].calcite_percent = 0.0
     session.current_well.cuttings[0].dolomite_percent = None
+    # This test intentionally edits the fixture before operator approval.
+    # Reopen the evidence dialog so its geological fingerprint reflects the
+    # new observations; changing geology while a dialog is open must still
+    # be rejected by the stale-source regression below.
+    workspace._clear_geology_evidence()
+    workspace.geology_evidence_button.click()
+    qapp.processEvents()
+    dialog = workspace._geology_evidence_dialog
+    assert dialog is not None
+    approve_observations = dialog.findChild(
+        QPushButton, "interpretation-geology-include-in-word",
+    )
+    assert approve_observations is not None
     before = repr(session.current_well)
     choice, confirm = _confirm_measured_word_field(workspace, qapp)
     assert choice.currentData() == ("calcimetry", "calcite_percent")
