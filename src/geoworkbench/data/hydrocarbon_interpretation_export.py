@@ -259,15 +259,17 @@ def export_hydrocarbon_interpretation_docx(
         if selected_fields:
             writer = partial(writer, geology_fields=selected_fields)
         writer(temporary, report, dataset, language, orientation=orientation)
-        # Source edits during a progress callback or writer must not commit a
-        # stale field selection over an existing operator-approved document.
+        _notify_export_progress(progress, progress_save, 90, 100)
+        # Progress callbacks and writers can mutate the live project: verify
+        # after both, immediately before committing the completed DOCX.
         if geology_field_selection is not None:
+            if session is None or geology_source_key is None:
+                raise ValueError("Word selected fields require a live session and source key")
             current, current_fields = verified_geology_field_html_handoff(
                 session, report, geology_field_selection, source_key=geology_source_key,
             )
             if current != geology_evidence or current_fields != selected_fields:
                 raise ValueError("Word measured field approval changed during export")
-        _notify_export_progress(progress, progress_save, 90, 100)
         os.replace(temporary, destination)
         _notify_export_progress(progress, progress_ready, 100, 100)
     except Exception as exc:
