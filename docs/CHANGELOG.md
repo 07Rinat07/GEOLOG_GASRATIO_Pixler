@@ -1908,3 +1908,9 @@ Pillow 13 удаляет поддержку Python 3.10 (приложение т
 - Удаляются только подтверждённо объединённые, неизменённые и незащищённые `codex/*`/`fix/*` ветки без активных PR. Сомнительные/рабочие ветки сохраняются.
 - Добавлены отрицательные и положительные offline-regressions на выполнение и отказ удаления. Отдельные исходные WITS/LAS и расчётное ядро не затронуты.
 
+
+
+## INTERP-GEO-01 — optional source-bound measured-field Word evidence (30.10.2026)
+
+Standard and polished DOCX services now support opt-in source-bound measured LBA/calcimetry field selection. Localized Word tables show exact MD coverage and gaps for approved fields, keep recorded zero distinct from absent assay, and revalidate geological identity before overwriting output. Invalid and stale confirmations fail without changing existing documents. Original unselected Word output remains unchanged. Added regression tests; Qt Word UI integration, signed Passport and field/printer acceptance are separate work.
+
