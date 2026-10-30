@@ -276,3 +276,72 @@ def test_operator_field_preview_is_explicit_and_revokes_prior_export_approval(
     assert "Покрытие отдельных измерений" not in viewer.toPlainText()
     assert "Coverage by measured field" not in viewer.toPlainText()
     workspace.close()
+
+
+@pytest.mark.parametrize(
+    ("language", "confirmed_label"),
+    (
+        (AppLanguage.RU, "Поле подтверждено для HTML-предпросмотра"),
+        (AppLanguage.KK, "Өлшем HTML алдын ала қарау үшін расталды"),
+        (AppLanguage.EN, "Field confirmed for HTML preview"),
+    ),
+)
+def test_operator_confirms_source_bound_field_html_without_other_exports(
+    qapp, monkeypatch, language, confirmed_label,
+) -> None:
+    workspace, session = _workspace(monkeypatch, language)
+    sample = session.current_well.cuttings[0]
+    sample.calcite_percent = 0.0
+    sample.dolomite_percent = None
+    original = repr(session.current_well)
+
+    workspace.geology_evidence_button.click()
+    qapp.processEvents()
+    dialog = workspace._geology_evidence_dialog
+    assert dialog is not None
+    fields = dialog.findChild(
+        QComboBox, "interpretation-geology-measured-field-preview",
+    )
+    confirm = dialog.findChild(
+        QPushButton, "interpretation-geology-confirm-field-html",
+    )
+    viewer = dialog.findChild(
+        QTextBrowser, "interpretation-geology-evidence-content",
+    )
+    assert fields is not None and confirm is not None and viewer is not None
+    assert not confirm.isEnabled()
+    assert workspace._geology_html_field_selection is None
+
+    calcite = fields.findData(("calcimetry", "calcite_percent"))
+    dolomite = fields.findData(("calcimetry", "dolomite_percent"))
+    assert calcite > 0 and dolomite > 0
+    fields.setCurrentIndex(calcite)
+    qapp.processEvents()
+    assert confirm.isEnabled()
+    confirm.click()
+    qapp.processEvents()
+    assert confirmed_label in confirm.text()
+    assert workspace._geology_html_field_selection is not None
+    assert "62.5%" in viewer.toPlainText()
+    assert workspace._geology_pdf_evidence == ()
+    assert workspace._geology_word_evidence == ()
+    assert workspace._geology_excel_evidence == ()
+    assert workspace._geology_print_evidence == ()
+    assert repr(session.current_well) == original
+
+    fields.setCurrentIndex(dolomite)
+    qapp.processEvents()
+    assert workspace._geology_html_field_selection is None
+    assert confirmed_label not in confirm.text()
+    confirm.click()
+    qapp.processEvents()
+    assert workspace._geology_html_field_selection is not None
+    assert "1002.00" in viewer.toPlainText()
+
+    sample.description = "Edited after field confirmation"
+    assert workspace.report is not None
+    with pytest.raises(ValueError):
+        workspace._confirmed_geology_field_html_for_handoff(workspace.report)
+    assert workspace._geology_html_field_selection is None
+    assert workspace._geology_evidence_dialog is None
+    workspace.close()
