@@ -22,6 +22,9 @@ from geoworkbench.services.hydrocarbon_interpretation import hydrocarbon_interpr
 from geoworkbench.services.interpretation_geology_interval_evidence import (
     correlate_gas_interval_with_well_geology,
 )
+from geoworkbench.services.interpretation_geology_field_handoff import (
+    confirm_geology_field_selection,
+)
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.report_passport import passport_sidecar_path
 from test_interpretation_geology_evidence_operator_ui import _candidate
@@ -329,3 +332,113 @@ def test_invalid_stratigraphy_metadata_preserves_signed_pdf_and_passport(
     np.testing.assert_array_equal(dataset.depth, before_md)
     for key, values in before_curves.items():
         np.testing.assert_array_equal(dataset.curves[key].values, values)
+
+
+
+def test_signed_pdf_selected_field_uses_verified_source_and_passport(
+    qapp, tmp_path: Path,
+) -> None:
+    session, report, _ = _actual_source()
+    sample = session.current_well.cuttings[0]
+    sample.calcite_percent = 0.0
+    sample.dolomite_percent = None
+    observation = correlate_gas_interval_with_well_geology(
+        session, top_depth=1002.0, bottom_depth=1010.0,
+    )
+    source_key = ("report-source", report.dataset_id, report.depth_axis_id)
+    approval = confirm_geology_field_selection(
+        session, report, (observation,),
+        (("calcimetry", "calcite_percent"), ("calcimetry", "dolomite_percent")),
+        source_key=source_key,
+    )
+    before = repr(session.current_well)
+    output = export_hydrocarbon_interpretation_pdf_with_passport(
+        session, report, tmp_path / "confirmed-fields.pdf",
+        language=AppLanguage.EN,
+        geology_field_selection=approval,
+        geology_source_key=source_key,
+    )
+    assert output.primary_path.read_bytes().startswith(b"%PDF")
+    pdf_text = _pdf_text(output.primary_path)
+    assert "Coverage by measured field (MD)" in pdf_text
+    assert "Calcite" in pdf_text
+    assert "Dolomite" in pdf_text
+    assert "62.5%" in pdf_text
+    assert "1002.00" in pdf_text and "1010.00" in pdf_text
+    passport = json.loads(
+        passport_sidecar_path(output.primary_path).read_text(encoding="utf-8")
+    )
+    options = dict(passport["render"]["options"])
+    assert options["measured_geology_intervals"] == "1"
+    assert options["measured_geology_fields"] == (
+        "calcimetry:calcite_percent,calcimetry:dolomite_percent"
+    )
+    assert repr(session.current_well) == before
+
+
+@pytest.mark.parametrize(
+    "change",
+    (
+        "unconfirmed_key", "missing_key", "edited_source", "foreign_report",
+        "invalid_field", "mismatched_evidence", "bare_source_key",
+    ),
+)
+def test_signed_pdf_selected_field_fails_closed_without_touching_existing_files(
+    qapp, tmp_path: Path, change: str,
+) -> None:
+    session, report, observation = _actual_source()
+    key = ("approved-source", report.dataset_id)
+    approval = confirm_geology_field_selection(
+        session, report, (observation,), (("lba", "lba_group"),),
+        source_key=key,
+    )
+    kwargs: dict[str, object] = {
+        "geology_field_selection": approval,
+        "geology_source_key": key,
+    }
+    if change == "unconfirmed_key":
+        kwargs["geology_source_key"] = ("another-source",)
+    elif change == "missing_key":
+        kwargs.pop("geology_source_key")
+    elif change == "edited_source":
+        session.current_well.cuttings[0].description = "New cuttings"
+    elif change == "foreign_report":
+        report = replace(report)
+    elif change == "invalid_field":
+        kwargs["geology_field_selection"] = replace(
+            approval, fields=(("calcimetry", "invalid_field"),),
+        )
+    elif change == "mismatched_evidence":
+        kwargs["geology_evidence"] = (
+            replace(observation, well_id="foreign-well"),
+        )
+    else:
+        kwargs = {"geology_source_key": key}
+
+    target = tmp_path / "existing.pdf"
+    sidecar = passport_sidecar_path(target)
+    target.write_bytes(b"%PDF-previous")
+    sidecar.write_bytes(b'{"previous":true}')
+    before = {path.name: path.read_bytes() for path in tmp_path.iterdir()}
+    with pytest.raises(HydrocarbonInterpretationPdfError):
+        export_hydrocarbon_interpretation_pdf_with_passport(
+            session, report, target, language=AppLanguage.EN,
+            **kwargs,
+        )
+    assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == before
+
+
+def test_unsigned_pdf_field_without_evidence_is_refused_before_write(
+    qapp, tmp_path: Path,
+) -> None:
+    from geoworkbench.printing.hydrocarbon_interpretation_report import (
+        export_hydrocarbon_interpretation_pdf,
+    )
+
+    _, report, _ = _actual_source()
+    target = tmp_path / "unapproved.pdf"
+    with pytest.raises(HydrocarbonInterpretationPdfError, match="require selected geology evidence"):
+        export_hydrocarbon_interpretation_pdf(
+            report, target, geology_fields=(("calcimetry", "calcite_percent"),),
+        )
+    assert not target.exists()

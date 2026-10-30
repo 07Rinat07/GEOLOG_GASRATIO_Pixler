@@ -1,3 +1,7 @@
+## INTERP-GEO-01 — optional source-bound measured fields for signed PDF (30.10.2026)
+
+Extended the signed PDF service with an opt-in confirmed LBA/calcimetry field selection tied to the existing source key and geological fingerprint. The renderer includes the localized selected-field MD coverage and measured gaps; Report Passport records validated field identifiers. Source and report identity are checked before writing and again before staged rendering; stale selections fail without modifying existing outputs. Added regression tests. Default exports stay unchanged, and no PDF UI approval wiring, Word/Excel or physical print support is claimed.
+
 ## INTERP-GEO-01 — source-bound measured-field HTML confirmation (30.10.2026)
 
 Added an explicit RU/KK/EN operator confirmation for a selected LBA/calcimetry field and a fail-closed, in-memory report-HTML handoff bound to the report identity, source key, SHA-256 geology snapshot and reverified measured MD evidence. Candidate/field/source changes revoke confirmation; zero remains measured and missing assays remain unknown. Added service and Qt regression coverage. This does not enable field-specific PDF/Word/Excel/print export or modify LAS/WITS.

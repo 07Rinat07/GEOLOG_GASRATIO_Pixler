@@ -65,11 +65,19 @@ from geoworkbench.services.report_passport import (
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.interpretation_method_comparison import MethodComparisonInterval
 from geoworkbench.services.interpretation_geology_interval_evidence import (
+    EvidenceKind,
     GasGeologyIntervalEvidence,
 )
 from geoworkbench.services.interpretation_geology_evidence_export import (
     verified_report_geology_evidence,
     verified_session_geology_evidence,
+)
+from geoworkbench.services.interpretation_geology_field_handoff import (
+    ConfirmedGeologyFieldSelection,
+    verified_geology_field_html_handoff,
+)
+from geoworkbench.services.interpretation_geology_interval_evidence_html import (
+    geology_interval_evidence_table,
 )
 from geoworkbench.printing.report_preview_overlays import write_annotated_preview_pdf
 from geoworkbench.services.report_preview_marks import (
@@ -108,12 +116,34 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
     include_preview_marks: bool = False,
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
     geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
+    geology_field_selection: ConfirmedGeologyFieldSelection | None = None,
+    geology_source_key: tuple[object, ...] | None = None,
     overwrite: bool = False,
 ) -> ReportOutputTransactionResult:
     labels = hydrocarbon_report_print_labels(language)
     dataset = session.current_dataset
     if dataset is None:
         raise HydrocarbonInterpretationPdfError(labels.pdf_passport_dataset_required)
+    # Signed field-specific output requires an explicit, source-bound operator
+    # confirmation. Plain geology evidence retains its existing separate path.
+    selected_fields: tuple[tuple[EvidenceKind, str], ...] = ()
+    if geology_field_selection is not None:
+        try:
+            if geology_source_key is None:
+                raise ValueError("Selected PDF fields require a confirmed report source key")
+            confirmed_evidence, selected_fields = verified_geology_field_html_handoff(
+                session, report, geology_field_selection,
+                source_key=geology_source_key,
+            )
+            if geology_evidence and geology_evidence != confirmed_evidence:
+                raise ValueError("PDF measured fields and evidence belong to different selections")
+            geology_evidence = confirmed_evidence
+        except ValueError as exc:
+            raise HydrocarbonInterpretationPdfError(str(exc)) from exc
+    elif geology_source_key is not None:
+        raise HydrocarbonInterpretationPdfError(
+            "PDF field source key requires operator-confirmed measured fields"
+        )
     try:
         verified_session_geology_evidence(session, report, geology_evidence)
     except ValueError as exc:
@@ -186,6 +216,11 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
         render_options = (*render_options, ("method_comparison_intervals", str(len(method_comparisons))))
     if geology_evidence:
         render_options = (*render_options, ("measured_geology_intervals", str(len(geology_evidence))))
+    if selected_fields:
+        render_options = (*render_options, (
+            "measured_geology_fields",
+            ",".join(f"{kind}:{attribute}" for kind, attribute in selected_fields),
+        ))
     if annotations:
         render_options = (*render_options, ("report_annotations", str(len(annotations))))
     if preview_marks:
@@ -218,6 +253,17 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
     )
 
     def produce_staged_pdf(staged: Path) -> Path:
+        # Prevent stale confirmed fields from entering the signed staged output.
+        if geology_field_selection is not None:
+            try:
+                current_evidence, current_fields = verified_geology_field_html_handoff(
+                    session, report, geology_field_selection,
+                    source_key=geology_source_key if geology_source_key is not None else (),
+                )
+                if current_evidence != geology_evidence or current_fields != selected_fields:
+                    raise ValueError("Selected PDF measured geology fields changed")
+            except ValueError as exc:
+                raise HydrocarbonInterpretationPdfError(str(exc)) from exc
         # Compose page marks before the recoverable transaction signs and
         # fingerprints the output, including the optional passport sidecar.
         unmarked = staged.with_name(f".unmarked-{staged.name}") if preview_marks else staged
@@ -241,6 +287,8 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
                 )
             else:
                 export_pdf = export_hydrocarbon_interpretation_pdf
+            if selected_fields:
+                export_pdf = partial(export_pdf, geology_fields=selected_fields)
             export_pdf(
                 report,
                 unmarked,
@@ -316,11 +364,19 @@ def export_hydrocarbon_interpretation_pdf(
     target_depth_per_page: float = 100.0,
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
     geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
+    geology_fields: tuple[tuple[EvidenceKind, str], ...] = (),
     overwrite: bool = False,
 ) -> Path:
     labels = hydrocarbon_report_print_labels(language)
     try:
         verified_report_geology_evidence(report, geology_evidence)
+        if geology_fields:
+            if not geology_evidence:
+                raise ValueError("Measured PDF fields require selected geology evidence")
+            for observation in geology_evidence:
+                geology_interval_evidence_table(
+                    observation, AppLanguage.EN, fields=geology_fields,
+                )
     except ValueError as exc:
         raise HydrocarbonInterpretationPdfError(str(exc)) from exc
     if geology_evidence and dataset is not None and (
@@ -379,7 +435,14 @@ def export_hydrocarbon_interpretation_pdf(
         writer.setTitle(details.report_title)
         writer.setCreator(REPORT_BRAND_WORDMARK)
 
-        if method_comparisons and geology_evidence:
+        if geology_fields:
+            html = hydrocarbon_interpretation_html(
+                effective_report, language,
+                method_comparisons=method_comparisons,
+                geology_evidence=geology_evidence,
+                geology_fields=geology_fields,
+            )
+        elif method_comparisons and geology_evidence:
             html = hydrocarbon_interpretation_html(
                 effective_report, language,
                 method_comparisons=method_comparisons, geology_evidence=geology_evidence,
@@ -441,7 +504,14 @@ def export_hydrocarbon_interpretation_pdf(
             )
 
         pdf_renderer: Callable[..., None]
-        if method_comparisons and geology_evidence:
+        if geology_fields:
+            pdf_renderer = partial(
+                render_hydrocarbon_interpretation_report,
+                method_comparisons=method_comparisons,
+                geology_evidence=geology_evidence,
+                geology_fields=geology_fields,
+            )
+        elif method_comparisons and geology_evidence:
             pdf_renderer = partial(
                 render_hydrocarbon_interpretation_report,
                 method_comparisons=method_comparisons,
