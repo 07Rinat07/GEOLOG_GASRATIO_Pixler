@@ -68,6 +68,7 @@ from geoworkbench.services.hydrocarbon_interpretation_gas_html import (
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.interpretation_method_comparison import MethodComparisonInterval
 from geoworkbench.services.interpretation_geology_interval_evidence import (
+    EvidenceKind,
     GasGeologyIntervalEvidence,
 )
 
@@ -105,11 +106,21 @@ def render_hydrocarbon_interpretation_report(
     target_depth_per_page: float = 100.0,
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
     geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
+    geology_fields: tuple[tuple[EvidenceKind, str], ...] = (),
 ) -> None:
     """Render one controlled multi-page report to QPdfWriter or QPrinter."""
 
     presentation_report = report_with_presentation_identity(report, identity)
-    if method_comparisons and geology_evidence:
+    if geology_fields:
+        # Signed exporters validate this opt-in selection before rendering.
+        # Never infer missing fields from source observations.
+        html = hydrocarbon_interpretation_html(
+            presentation_report, language,
+            method_comparisons=method_comparisons,
+            geology_evidence=geology_evidence,
+            geology_fields=geology_fields,
+        )
+    elif method_comparisons and geology_evidence:
         html = hydrocarbon_interpretation_html(
             presentation_report, language,
             method_comparisons=method_comparisons, geology_evidence=geology_evidence,
