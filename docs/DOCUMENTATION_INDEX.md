@@ -143,5 +143,7 @@ artifacts workflow `.github/workflows/release-gate.yml`.
   [ETP12_ACQUISITION.md](ETP12_ACQUISITION.md).
 - WITS/WITSML: [WITS0_LIVE_VIEW.md](WITS0_LIVE_VIEW.md),
   [WITS0_WINDOWS_FIELD_GATE.md](WITS0_WINDOWS_FIELD_GATE.md),
+  [WITS_INTERP_SCREENING.md](WITS_INTERP_SCREENING.md) — preliminary
+  WITS fluid-screening projection (headless; not field-accepted),
   [WITSML_1411_SOAP.md](WITSML_1411_SOAP.md).
 - Платформа: [BRANDING.md](BRANDING.md), [I18N.md](I18N.md).
