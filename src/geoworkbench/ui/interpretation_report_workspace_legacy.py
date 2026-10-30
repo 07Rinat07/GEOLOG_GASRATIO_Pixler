@@ -66,6 +66,11 @@ from geoworkbench.services.interpretation_geology_interval_evidence import (
 from geoworkbench.services.interpretation_geology_evidence_export import (
     verified_session_geology_evidence,
 )
+from geoworkbench.services.interpretation_geology_field_handoff import (
+    ConfirmedGeologyFieldSelection,
+    confirm_geology_field_selection,
+    confirmed_geology_field_report_html,
+)
 from geoworkbench.services.interpretation_geology_interval_evidence_html import (
     geology_interval_evidence_html,
     selectable_geology_evidence_fields,
@@ -94,6 +99,7 @@ class InterpretationReportWorkspace(QWidget):
         self._comparison_source_key: tuple[object, ...] | None = None
         self._comparison_dialog: QDialog | None = None
         self._geology_evidence_dialog: QDialog | None = None
+        self._geology_html_field_selection: ConfirmedGeologyFieldSelection | None = None
         self._geology_pdf_evidence: tuple[GasGeologyIntervalEvidence, ...] = ()
         self._geology_pdf_source_key: tuple[object, ...] | None = None
         self._geology_word_evidence: tuple[GasGeologyIntervalEvidence, ...] = ()
@@ -563,6 +569,7 @@ class InterpretationReportWorkspace(QWidget):
 
         self._geology_pdf_evidence = ()
         self._geology_pdf_source_key = None
+        self._geology_html_field_selection = None
         self._geology_word_evidence = ()
         self._geology_word_source_key = None
         self._geology_excel_evidence = ()
@@ -601,6 +608,30 @@ class InterpretationReportWorkspace(QWidget):
             self._clear_geology_evidence()
             raise
         return selected
+
+    def _confirmed_geology_field_html_for_handoff(
+        self, report: HydrocarbonInterpretationReport,
+    ) -> str:
+        """Validate source identity again before any selected-field HTML handoff."""
+
+        selection = self._geology_html_field_selection
+        if selection is None:
+            raise ValueError("No confirmed measured geology fields for HTML")
+        source_key = self._method_comparison_source_key(report)
+        if source_key is None:
+            self._clear_geology_evidence()
+            raise ValueError("Confirmed measured geology source changed")
+        try:
+            return confirmed_geology_field_report_html(
+                self.controller.session,
+                report,
+                selection,
+                self._report_output_language(),
+                source_key=source_key,
+            )
+        except ValueError:
+            self._clear_geology_evidence()
+            raise
 
     def _method_comparison_source_key(
         self, report: HydrocarbonInterpretationReport,
@@ -784,6 +815,15 @@ class InterpretationReportWorkspace(QWidget):
         viewer = QTextBrowser(dialog)
         viewer.setObjectName("interpretation-geology-evidence-content")
         layout.addWidget(viewer)
+        confirm_field_caption = self._text(
+            "Подтвердить поле для HTML-отчёта",
+            "Өлшемді HTML есебі үшін растау",
+            "Confirm field for report HTML",
+        )
+        confirm_field = QPushButton(confirm_field_caption, dialog)
+        confirm_field.setObjectName("interpretation-geology-confirm-field-html")
+        confirm_field.setEnabled(False)
+        layout.addWidget(confirm_field)
         include_pdf = QPushButton(
             self._text(
                 "Включить выбранные наблюдения в PDF",
@@ -822,6 +862,9 @@ class InterpretationReportWorkspace(QWidget):
 
         def update_candidate(index: int) -> None:
             # Each output requires its own approval of this exact interval.
+            self._geology_html_field_selection = None
+            confirm_field.setText(confirm_field_caption)
+            confirm_field.setEnabled(field_choice.currentData() is not None)
             self._geology_word_evidence = ()
             self._geology_word_source_key = None
             include_word.setText(word_caption)
@@ -934,6 +977,51 @@ class InterpretationReportWorkspace(QWidget):
                 "Observations selected for next PDF",
             ))
 
+        def confirm_field_html() -> None:
+            # This only confirms the field for source-bound report HTML preview.
+            # PDF/Word/Excel/print approvals remain separate and unchanged.
+            if self._geology_evidence_dialog is not dialog:
+                return
+            field = field_choice.currentData()
+            index = selector.currentIndex()
+            if field is None or not 0 <= index < len(report.candidates):
+                return
+            if (
+                session.current_well is not well
+                or session.current_dataset is not dataset
+                or self._method_comparison_source_key(report) != source_key
+                or build_report_geology_snapshot(session).geology_sha256 != geology_digest
+            ):
+                self._clear_geology_evidence()
+                return
+            candidate = report.candidates[index]
+            try:
+                observed = correlate_gas_interval_with_well_geology(
+                    session,
+                    top_depth=candidate.top_depth,
+                    bottom_depth=candidate.bottom_depth,
+                )
+                self._geology_html_field_selection = confirm_geology_field_selection(
+                    session,
+                    report,
+                    (observed,),
+                    (field,),
+                    source_key=source_key,
+                )
+                html = self._confirmed_geology_field_html_for_handoff(report)
+            except ValueError as exc:
+                self._geology_html_field_selection = None
+                if self._geology_evidence_dialog is dialog:
+                    viewer.setHtml(f"<p>{escape(str(exc))}</p>")
+                return
+            viewer.setHtml(html)
+            confirm_field.setText(self._text(
+                "Поле подтверждено для HTML-предпросмотра",
+                "Өлшем HTML алдын ала қарау үшін расталды",
+                "Field confirmed for HTML preview",
+            ))
+
+        confirm_field.clicked.connect(confirm_field_html)
         include_pdf.clicked.connect(lambda: approve_observations())
         include_word.clicked.connect(lambda: approve_observations("word"))
         include_excel.clicked.connect(lambda: approve_observations("excel"))

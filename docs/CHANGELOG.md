@@ -1,3 +1,7 @@
+## INTERP-GEO-01 — source-bound measured-field HTML confirmation (30.10.2026)
+
+Added an explicit RU/KK/EN operator confirmation for a selected LBA/calcimetry field and a fail-closed, in-memory report-HTML handoff bound to the report identity, source key, SHA-256 geology snapshot and reverified measured MD evidence. Candidate/field/source changes revoke confirmation; zero remains measured and missing assays remain unknown. Added service and Qt regression coverage. This does not enable field-specific PDF/Word/Excel/print export or modify LAS/WITS.
+
 ## INTERP-GEO-01 — operator's field-level MD preview (30.10.2026)
 
 Added a localized Qt combo box for explicitly previewing the coverage and unmeasured MD gaps of one recorded LBA or calcimetry field in the existing gas/geology dialog. Defaults and legacy unselected HTML remain unchanged; switching field invalidates existing output approvals. A clear RU/KK/EN notice distinguishes preview-only field details from confirmed export selections. Added Qt regression tests. No automatic hydrocarbon interpretation or edits to source LAS/WITS and no new PDF/Office field-specific output.
