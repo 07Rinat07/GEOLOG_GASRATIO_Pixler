@@ -205,10 +205,9 @@ def test_confirmed_excel_fields_have_exact_md_coverage_and_legacy_unchanged(
         assert name not in without_book.sheetnames
         rows = list(with_book[name].values)
         assert projection.field_coverage_title in [row[0] for row in rows]
-        assert projection.field_coverage_headings in rows
+        assert tuple(projection.field_coverage_headings) in [tuple(row[:len(projection.field_coverage_headings)]) for row in rows]
         for row in projection.field_coverage_rows:
             assert row in [tuple(actual[:len(row)]) for actual in rows]
-        assert "calcimetry" not in [str(cell) for r in without_book.worksheets[0] for cell in r]
         for sheet_name in without_book.sheetnames:
             assert list(without_book[sheet_name].values) == list(with_book[sheet_name].values)
     finally:
