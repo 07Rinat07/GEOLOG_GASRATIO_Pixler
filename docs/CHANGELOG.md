@@ -1,3 +1,7 @@
+## INTERP-GEO-01 — operator-selected measured fields to Word (30.10.2026, CI pending)
+
+Added a separate operator approval control for one measured LBA/calcimetry field in the gas/geology dialog and source-bound handoff to the polished Word exporter. Explicit Word field approval is rechecked after UI dialogs; the Word service verifies the current report, geological snapshot and MD observations before committing output. Changed candidate, field, source or report identity revokes the approval; HTML/PDF and old Word observation approval do not silently opt into field coverage. New RU/KK/EN UI and real DOCX regressions; legacy documents unaffected without selection. Excel and physical printing remain separate.
+
 ## INTERP-GEO-01 — operator-confirmed measured field for signed PDF (30.10.2026, pending CI)
 
 Proposed separate operator action for one measured LBA/calcimetry field in the gas/geology dialog. The exact confirmed report/source/fingerprint is revalidated after export dialogs and handed to the existing signed PDF + Report Passport service. Candidate/field changes and stale geology revoke approval. Added UI-to-signed-PDF regression coverage for real field output, Passport provenance, revocation and unchanged HTML-only export. This is not Word/Excel/physical printer support; Windows CI and field acceptance remain required, and Qt #544 stays open.
