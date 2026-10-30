@@ -65,7 +65,7 @@ def test_lithology_undo_native_crash_selector_is_replayed_alone_and_in_sequence(
     assert selector in plan[6][2]
 
 
-def test_header_curve_redo_native_crash_selector_is_replayed_alone_and_in_sequence() -> None:
+def test_header_redo_native_crash_replayed_alone_and_in_sequence() -> None:
     selector = (
         "tests/test_main_window.py::"
         "test_window_global_undo_routes_header_and_curve_edits_in_chronological_order"
