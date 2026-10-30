@@ -41,10 +41,15 @@ SCENARIOS = (
         "lithology-undo",
         "tests/test_main_window.py::test_window_global_undo_routes_lithology_edits",
     ),
+    (
+        "header-curve-redo",
+        "tests/test_main_window.py::"
+        "test_window_global_undo_routes_header_and_curve_edits_in_chronological_order",
+    ),
 )
 MODES = ("isolated", "sequence", "both")
 MAX_REPETITIONS = 5
-CHILD_TIMEOUT_SECONDS = 180  # 30 maximum children × 3 minutes = 90 minutes
+CHILD_TIMEOUT_SECONDS = 150  # 35 maximum children × 150 s = 87.5 minutes
 # Windows crash statuses previously observed in mandatory Qt/pyqtgraph CI.
 WINDOWS_NATIVE_CRASH_CODES = frozenset({0xC0000005, 0xC0000374})
 
