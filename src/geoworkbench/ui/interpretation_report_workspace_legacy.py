@@ -102,6 +102,7 @@ class InterpretationReportWorkspace(QWidget):
         self._geology_evidence_dialog: QDialog | None = None
         self._geology_html_field_selection: ConfirmedGeologyFieldSelection | None = None
         self._geology_pdf_field_selection: ConfirmedGeologyFieldSelection | None = None
+        self._geology_excel_field_selection: ConfirmedGeologyFieldSelection | None = None
         self._geology_pdf_evidence: tuple[GasGeologyIntervalEvidence, ...] = ()
         self._geology_pdf_source_key: tuple[object, ...] | None = None
         self._geology_word_evidence: tuple[GasGeologyIntervalEvidence, ...] = ()
@@ -573,6 +574,7 @@ class InterpretationReportWorkspace(QWidget):
         self._geology_pdf_source_key = None
         self._geology_html_field_selection = None
         self._geology_pdf_field_selection = None
+        self._geology_excel_field_selection = None
         self._geology_word_evidence = ()
         self._geology_word_source_key = None
         self._geology_excel_evidence = ()
@@ -650,6 +652,26 @@ class InterpretationReportWorkspace(QWidget):
         ):
             self._clear_geology_evidence()
             raise ValueError("Confirmed PDF measured-field selection was revoked")
+        try:
+            verified_geology_field_html_handoff(
+                self.controller.session, report, expected, source_key=source_key,
+            )
+        except ValueError:
+            self._clear_geology_evidence()
+            raise
+        return expected, source_key
+
+    def _confirmed_geology_field_excel_for_handoff(
+        self,
+        report: HydrocarbonInterpretationReport,
+        expected: ConfirmedGeologyFieldSelection,
+    ) -> tuple[ConfirmedGeologyFieldSelection, tuple[object, ...]]:
+        """Recheck the exact Excel field confirmation before any output."""
+
+        source_key = self._method_comparison_source_key(report)
+        if self._geology_excel_field_selection is not expected or source_key is None:
+            self._clear_geology_evidence()
+            raise ValueError("Confirmed Excel measured-field selection was revoked")
         try:
             verified_geology_field_html_handoff(
                 self.controller.session, report, expected, source_key=source_key,
@@ -885,6 +907,15 @@ class InterpretationReportWorkspace(QWidget):
         include_excel = QPushButton(excel_caption, dialog)
         include_excel.setObjectName("interpretation-geology-include-in-excel")
         layout.addWidget(include_excel)
+        excel_field_caption = self._text(
+            "Подтвердить измеренное поле для Excel",
+            "Excel үшін өлшенген өрісті растау",
+            "Confirm measured field for Excel",
+        )
+        confirm_excel_field = QPushButton(excel_field_caption, dialog)
+        confirm_excel_field.setObjectName("interpretation-geology-confirm-field-excel")
+        confirm_excel_field.setEnabled(False)
+        layout.addWidget(confirm_excel_field)
         print_caption = self._text(
             "Включить выбранные наблюдения в печать",
             "Таңдалған бақылауларды басып шығаруға енгізу",
@@ -899,6 +930,7 @@ class InterpretationReportWorkspace(QWidget):
             # Each output requires its own approval of this exact interval.
             self._geology_html_field_selection = None
             self._geology_pdf_field_selection = None
+            self._geology_excel_field_selection = None
             confirm_field.setText(confirm_field_caption)
             confirm_field.setEnabled(field_choice.currentData() is not None)
             confirm_pdf_field.setText(pdf_field_caption)
@@ -909,6 +941,8 @@ class InterpretationReportWorkspace(QWidget):
             self._geology_excel_evidence = ()
             self._geology_excel_source_key = None
             include_excel.setText(excel_caption)
+            confirm_excel_field.setText(excel_field_caption)
+            confirm_excel_field.setEnabled(field_choice.currentData() is not None)
             self._geology_print_evidence = ()
             self._geology_print_source_key = None
             include_print.setText(print_caption)
@@ -976,6 +1010,7 @@ class InterpretationReportWorkspace(QWidget):
                 self._geology_pdf_field_selection = None
                 self._geology_word_evidence = ()
                 self._geology_word_source_key = None
+                self._geology_excel_field_selection = None
                 self._geology_excel_evidence = ()
                 self._geology_excel_source_key = None
                 self._geology_print_evidence = ()
@@ -991,6 +1026,8 @@ class InterpretationReportWorkspace(QWidget):
                 ))
                 return
             if output == "excel":
+                self._geology_excel_field_selection = None
+                confirm_excel_field.setText(excel_field_caption)
                 self._geology_excel_evidence = (observed,)
                 self._geology_excel_source_key = source_key
                 include_excel.setText(self._text(
@@ -1110,8 +1147,53 @@ class InterpretationReportWorkspace(QWidget):
                 "Field confirmed for next signed PDF",
             ))
 
+        def confirm_field_excel() -> None:
+            # Excel field opt-in is separate from PDF, Word and observations.
+            if self._geology_evidence_dialog is not dialog:
+                return
+            field = field_choice.currentData()
+            index = selector.currentIndex()
+            if field is None or not 0 <= index < len(report.candidates):
+                return
+            if (
+                session.current_well is not well
+                or session.current_dataset is not dataset
+                or self._method_comparison_source_key(report) != source_key
+                or build_report_geology_snapshot(session).geology_sha256 != geology_digest
+            ):
+                self._clear_geology_evidence()
+                return
+            candidate = report.candidates[index]
+            try:
+                observed = correlate_gas_interval_with_well_geology(
+                    session,
+                    top_depth=candidate.top_depth,
+                    bottom_depth=candidate.bottom_depth,
+                )
+                approved = confirm_geology_field_selection(
+                    session, report, (observed,), (field,), source_key=source_key,
+                )
+                verified_geology_field_html_handoff(
+                    session, report, approved, source_key=source_key,
+                )
+            except ValueError as exc:
+                self._geology_excel_field_selection = None
+                if self._geology_evidence_dialog is dialog:
+                    viewer.setHtml(f"<p>{escape(str(exc))}</p>")
+                return
+            self._geology_excel_evidence = ()
+            self._geology_excel_source_key = None
+            include_excel.setText(excel_caption)
+            self._geology_excel_field_selection = approved
+            confirm_excel_field.setText(self._text(
+                "Поле подтверждено для следующего Excel",
+                "Өріс келесі Excel үшін расталды",
+                "Field confirmed for next Excel",
+            ))
+
         confirm_field.clicked.connect(confirm_field_html)
         confirm_pdf_field.clicked.connect(confirm_field_pdf)
+        confirm_excel_field.clicked.connect(confirm_field_excel)
         include_pdf.clicked.connect(lambda: approve_observations())
         include_word.clicked.connect(lambda: approve_observations("word"))
         include_excel.clicked.connect(lambda: approve_observations("excel"))

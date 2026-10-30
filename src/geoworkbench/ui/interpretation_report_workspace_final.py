@@ -1151,6 +1151,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         original_well_id = self.controller.session.current_well_id
         original_active_report = self.report
         confirmed_geology = self._geology_excel_evidence
+        confirmed_field_selection = self._geology_excel_field_selection
         target = self._choose_target(".xlsx", "Excel (*.xlsx)")
         if target is None:
             return
@@ -1213,8 +1214,22 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
 
                 if confirmed_geology:
                     selected_geology = verify_geology()
+                field_source_key: tuple[object, ...] | None = None
+                if confirmed_field_selection is not None:
+                    if selected_geology:
+                        raise HydrocarbonInterpretationExportError(
+                            "Excel field and observation approvals must be separate"
+                        )
+                    try:
+                        _, field_source_key = self._confirmed_geology_field_excel_for_handoff(
+                            report, confirmed_field_selection,
+                        )
+                    except ValueError as exc:
+                        raise HydrocarbonInterpretationExportError(
+                            "Operator-confirmed Excel measured fields changed"
+                        ) from exc
                 progress_callback = self._update_report_export_progress
-                if comparisons or selected_geology:
+                if comparisons or selected_geology or confirmed_field_selection is not None:
                     # A large XLSX export also pumps Qt events between stages.
                     # Fail before the atomic file replacement when the operator
                     # changes the verified source mid-export.
@@ -1238,6 +1253,15 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
 
                         if selected_geology:
                             verify_geology()
+                        if confirmed_field_selection is not None:
+                            try:
+                                self._confirmed_geology_field_excel_for_handoff(
+                                    report, confirmed_field_selection,
+                                )
+                            except ValueError as exc:
+                                raise HydrocarbonInterpretationExportError(
+                                    "Excel measured fields changed during export"
+                                ) from exc
 
                     progress_callback = checked_progress
                 workbook_exporter: Callable[..., Path] = (
@@ -1249,6 +1273,12 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 )
                 if selected_geology:
                     workbook_exporter = partial(workbook_exporter, geology_evidence=selected_geology)
+                if confirmed_field_selection is not None:
+                    workbook_exporter = partial(
+                        workbook_exporter, session=self.controller.session,
+                        geology_field_selection=confirmed_field_selection,
+                        geology_source_key=field_source_key,
+                    )
                 exported = workbook_exporter(
                     report,
                     dataset,
@@ -1258,7 +1288,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     progress=progress_callback,
                     identity=saved_identity,
                 )
-        except (OSError, FileExistsError, HydrocarbonInterpretationExportError) as exc:
+        except (OSError, FileExistsError, ValueError, HydrocarbonInterpretationExportError) as exc:
             self._show_export_error(exc)
             return
         self._show_export_success(exported)
