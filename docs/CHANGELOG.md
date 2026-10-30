@@ -1,3 +1,7 @@
+## INTERP-GEO-01 — operator selected-field confirmation to Excel (30.10.2026, CI pending)
+
+Added a distinct RU/KK/EN operator control for choosing one measured LBA/calcimetry field for the existing Excel export. The Qt handler forwards only an explicitly confirmed source-bound selection and verifies its geological fingerprint before and throughout workbook preparation. Field, candidate, report or source changes revoke consent; HTML/PDF and unfiltered Excel observation approvals do not implicitly opt in. Added end-to-end real XLSX UI tests, legacy output isolation and stale-source protection. Physical printer and native Windows field acceptance remain separate work.
+
 ## INTERP-GEO-01 — explicit measured fields in source-bound Excel exports (30.10.2026, CI pending)
 
 Added opt-in verified selected-field coverage to the two existing Excel export entry points. LBA/calcimetry measurements are tied to live report identity and geological fingerprint, validated before output and again after progress callbacks and immediately before replacing files. Only approved measurement fields receive localized MD coverage rows; missing fields are not zeros. The legacy workbook layout is unchanged when no field is confirmed. Added regression tests for all languages, validation and preservation of existing files. Qt Excel operator approval and real-world Windows acceptance remain separate.
