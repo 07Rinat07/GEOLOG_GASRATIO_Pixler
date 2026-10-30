@@ -12,7 +12,6 @@ from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.interpretation_geology_interval_evidence_html import (
     geology_interval_evidence_table,
 )
-from geoworkbench.ui import interpretation_report_workspace_final as final
 from test_interpretation_geology_evidence_operator_ui import _workspace
 from test_interpretation_geology_evidence_ui_pdf_handoff import (
     _bounded_native_qt as _bounded_native_qt,
@@ -125,8 +124,6 @@ def test_excel_field_change_revokes_approval_before_export(
         calls.append(kwargs)
         return Path(file_path)
 
-    monkeypatch.setattr(final, "export_readable_hydrocarbon_interpretation_xlsx", capture, raising=False)
-    # Exporter is imported into the handler; also patch its source module.
     from geoworkbench.data import hydrocarbon_interpretation_export_readable as readable
     monkeypatch.setattr(readable, "export_readable_hydrocarbon_interpretation_xlsx", capture)
     workspace._export_xlsx()
