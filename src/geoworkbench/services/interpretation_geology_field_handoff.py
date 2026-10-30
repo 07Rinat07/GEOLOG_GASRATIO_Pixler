@@ -42,7 +42,13 @@ def _validate_fields(fields: tuple[tuple[EvidenceKind, str], ...]) -> None:
     if (
         not isinstance(fields, tuple)
         or not fields
-        or any(not isinstance(field, tuple) or field not in allowed for field in fields)
+        or any(
+            not isinstance(field, tuple)
+            or len(field) != 2
+            or not all(isinstance(value, str) for value in field)
+            or field not in allowed
+            for field in fields
+        )
         or len(set(fields)) != len(fields)
     ):
         raise ValueError("HTML handoff requires unique schema-owned measured fields")
