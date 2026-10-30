@@ -181,6 +181,9 @@ def test_wits0_live_view_constructs_offscreen(monkeypatch: pytest.MonkeyPatch) -
         assert widget.alarm_summary_label.isVisible()
         assert widget.acknowledge_alarms_button.isVisible()
         assert not widget.acknowledge_alarms_button.isEnabled()
+        assert widget.mute_alarm_audio_check.isVisible()
+        assert widget.mute_alarm_audio_check.text() == "Отключить звук тревог"
+        assert not widget.mute_alarm_audio_check.isChecked()
         assert widget.values_table.isVisible()
         for section in range(widget.values_table.columnCount()):
             assert (
@@ -624,6 +627,48 @@ def test_preview_to_persistent_handoff_preserves_unsaved_workspace_state(
         app.processEvents()
 
 
+@pytest.mark.parametrize(
+    ("language_name", "label"),
+    [
+        ("RU", "Отключить звук тревог"),
+        ("KK", "Дабыл дыбысын өшіру"),
+        ("EN", "Mute alarm sound"),
+    ],
+)
+@pytest.mark.skipif(
+    importlib.util.find_spec("PySide6") is None
+    or importlib.util.find_spec("pyqtgraph") is None,
+    reason="PySide6/pyqtgraph are not installed in the headless test environment",
+)
+def test_alarm_global_mute_is_localized_and_survives_runtime_clear(
+    monkeypatch: pytest.MonkeyPatch,
+    language_name: str,
+    label: str,
+) -> None:
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+
+    from geoworkbench.services.localization import AppLanguage
+    from geoworkbench.ui.wits0_live_view import Wits0LiveViewWidget
+
+    app = QApplication.instance() or QApplication([])
+    widget = Wits0LiveViewWidget(language=getattr(AppLanguage, language_name))
+    try:
+        mute = widget.mute_alarm_audio_check
+        assert mute.objectName() == "wits0AlarmMuteAudio"
+        assert mute.text() == label
+        assert mute.isEnabled()
+        assert not mute.isChecked()
+
+        mute.setChecked(True)
+        widget.clear_runtime()
+        assert mute.isEnabled()
+        assert mute.isChecked()
+    finally:
+        widget.close()
+        app.processEvents()
+
+
 @pytest.mark.skipif(
     importlib.util.find_spec("PySide6") is None
     or importlib.util.find_spec("pyqtgraph") is None,
@@ -693,8 +738,15 @@ def test_alarm_audio_coalesces_factual_activation_batch(
         widget._emit_alarm_audio((audible, audible, cleared))
         assert beeps == ["beep"]
 
+        widget.mute_alarm_audio_check.setChecked(True)
+        widget._emit_alarm_audio((audible, audible))
+        assert beeps == ["beep"]
+
+        widget.mute_alarm_audio_check.setChecked(False)
         widget._emit_alarm_audio(())
         assert beeps == ["beep"]
+        widget._emit_alarm_audio((audible,))
+        assert beeps == ["beep", "beep"]
     finally:
         widget.close()
         app.processEvents()
@@ -786,6 +838,7 @@ def test_alarm_markers_use_visible_axis_and_respect_visual_policy(
     )
 
     try:
+        widget.mute_alarm_audio_check.setChecked(True)
         markers = widget._alarm_markers(snapshot)
 
         assert len(markers) == 2

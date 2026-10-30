@@ -1,3 +1,7 @@
+## WITS-ALARM-01 — operator global audio mute (31.10.2026, CI pending)
+
+Added a RU/KK/EN runtime-only mute checkbox to the WITS alarm panel. It suppresses only new system beeps, without altering factual threshold events, visual markers, acknowledgement, saved per-channel alarm rules, or source data. Unmuting does not replay already consumed activations. Added localized Qt and audio/visual regression coverage; physical Windows audio acceptance and native Qt #544 diagnosis remain separate.
+
 ## INTERP-GEO-01 — explicit measured field for system printing (30.10.2026, CI pending)
 
 Added independent RU/KK/EN print-only opt-in for one operator-confirmed LBA/calcimetry measurement. A source-bound verification gates temporary print PDF generation and the native printer handoff, with checked revocation during spooling; unchanged observations-only and plain print behavior remains available. New native Qt regression cases exercise real temporary PDF rendering and simulated spooler, source changes during output dialogs, candidate/field revocation and cross-output permission isolation. Physical printing and Qt #544 root cause remain unverified.

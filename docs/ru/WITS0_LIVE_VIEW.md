@@ -96,8 +96,10 @@ read-only каналы. Используется тот же versioned formula r
 hysteresis, debounce/minimum-duration и acknowledgement через единый state contract. Live-form
 settings schema v4 сохраняет правила по mnemonic канала: min/max, hysteresis, debounce, visual-enabled и audio-enabled;
 schema v1–v3 мигрируют с пустым набором alarm rules. Runtime acknowledgement и active state
-не сохраняются как конфигурация. Visual/audio alarm, global mute и графические маркеры
-подключаются поверх этого контракта отдельными инкрементами.
+не сохраняются как конфигурация. Visual/audio alarm и графические маркеры работают
+поверх этого контракта. Глобальный флажок «Отключить звук тревог» подавляет только
+новые системные звуковые сигналы в текущем окне WITS. Визуальные события и
+сохранённые per-channel alarm rules не меняются.
 
 ## Ограничения и приёмка
 

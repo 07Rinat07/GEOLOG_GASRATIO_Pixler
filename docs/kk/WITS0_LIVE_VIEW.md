@@ -92,8 +92,9 @@ WITS-ALARM-01 әр арнаға optional min/max, hysteresis, debounce/minimum-d
 acknowledgement үшін бірыңғай state contract береді. Live-form settings schema v4 alarm rules-ты
 арна mnemonic-і бойынша сақтайды: min/max, hysteresis, debounce, visual-enabled және audio-enabled; schema v1–v3 бос alarm
 жиынымен қауіпсіз көшіріледі. Runtime acknowledgement және active state конфигурация ретінде
-сақталмайды. Visual/audio policy, global mute және график маркерлері кейінгі бөлек инкременттерде
-осы contract үстіне қосылады.
+сақталмайды. Visual/audio policy және график маркерлері осы contract арқылы жұмыс
+істейді. «Дабыл дыбысын өшіру» жалаушасы ағымдағы WITS терезесінде тек жаңа
+жүйелік дыбысты басады; көрнекі оқиғалар мен сақталған арна ережелері өзгермейді.
 
 ## Шектеулер және қабылдау
 
