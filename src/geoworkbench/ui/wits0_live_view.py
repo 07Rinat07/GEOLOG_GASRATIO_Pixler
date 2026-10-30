@@ -394,6 +394,12 @@ class Wits0LiveViewWidget(QWidget):
         self.alarm_summary_label.setObjectName("wits0AlarmRuntimeSummary")
         self.alarm_summary_label.setWordWrap(True)
         alarm_runtime_layout.addWidget(self.alarm_summary_label)
+        self.mute_alarm_audio_check = QCheckBox(
+            _operator_text(self._language, "alarm_mute_audio"),
+            alarm_runtime_group,
+        )
+        self.mute_alarm_audio_check.setObjectName("wits0AlarmMuteAudio")
+        alarm_runtime_layout.addWidget(self.mute_alarm_audio_check)
         self.acknowledge_alarms_button = QPushButton(
             _operator_text(self._language, "alarm_ack_all"),
             alarm_runtime_group,
@@ -1300,6 +1306,8 @@ class Wits0LiveViewWidget(QWidget):
         self,
         events: tuple[Wits0LiveAlarmEvent, ...],
     ) -> None:
+        if self.mute_alarm_audio_check.isChecked():
+            return
         if any(
             event.transition is AlarmTransition.ACTIVATED
             and event.audio_enabled
@@ -1729,6 +1737,7 @@ def _operator_text(language: AppLanguage, key: str) -> str:
             "alarm_none": "Активных тревог нет.",
             "alarm_active": "Активные тревоги: {items}",
             "alarm_ack_all": "Подтвердить активные тревоги",
+            "alarm_mute_audio": "Отключить звук тревог",
             "alarm_ack": "подтверждено",
             "alarm_high": "выше максимума",
             "alarm_low": "ниже минимума",
@@ -1766,6 +1775,7 @@ def _operator_text(language: AppLanguage, key: str) -> str:
             "alarm_none": "Белсенді дабылдар жоқ.",
             "alarm_active": "Белсенді дабылдар: {items}",
             "alarm_ack_all": "Белсенді дабылдарды растау",
+            "alarm_mute_audio": "Дабыл дыбысын өшіру",
             "alarm_ack": "расталды",
             "alarm_high": "максимумнан жоғары",
             "alarm_low": "минимумнан төмен",
@@ -1803,6 +1813,7 @@ def _operator_text(language: AppLanguage, key: str) -> str:
             "alarm_none": "No active alarms.",
             "alarm_active": "Active alarms: {items}",
             "alarm_ack_all": "Acknowledge active alarms",
+            "alarm_mute_audio": "Mute alarm sound",
             "alarm_ack": "acknowledged",
             "alarm_high": "above maximum",
             "alarm_low": "below minimum",

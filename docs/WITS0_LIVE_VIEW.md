@@ -88,7 +88,9 @@ debounce/minimum-duration и acknowledgement являются частью об�
 settings schema v4 сохраняет per-channel правила по mnemonic: min/max, hysteresis, debounce, visual-enabled и audio-enabled;
 schema v1–v3 мигрируют с пустым набором alarm rules. Runtime acknowledgement/active state не
 сохраняются как настройки. Alarm является контролем параметра, а не геологическим заключением.
-Visual/audio policy и маркеры графика подключаются поверх этого контракта отдельными slices.
+Visual/audio policy и маркеры графика работают поверх этого контракта. Глобальный
+флажок mute подавляет только системный звук новых тревог в текущем окне WITS:
+визуальные события и сохранённые правила по каналам не меняются.
 
 ## Ограничения и приёмка
 
