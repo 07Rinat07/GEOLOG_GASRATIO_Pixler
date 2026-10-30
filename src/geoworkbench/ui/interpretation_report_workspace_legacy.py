@@ -70,6 +70,7 @@ from geoworkbench.services.interpretation_geology_field_handoff import (
     ConfirmedGeologyFieldSelection,
     confirm_geology_field_selection,
     confirmed_geology_field_report_html,
+    verified_geology_field_html_handoff,
 )
 from geoworkbench.services.interpretation_geology_interval_evidence_html import (
     geology_interval_evidence_html,
@@ -100,6 +101,7 @@ class InterpretationReportWorkspace(QWidget):
         self._comparison_dialog: QDialog | None = None
         self._geology_evidence_dialog: QDialog | None = None
         self._geology_html_field_selection: ConfirmedGeologyFieldSelection | None = None
+        self._geology_pdf_field_selection: ConfirmedGeologyFieldSelection | None = None
         self._geology_pdf_evidence: tuple[GasGeologyIntervalEvidence, ...] = ()
         self._geology_pdf_source_key: tuple[object, ...] | None = None
         self._geology_word_evidence: tuple[GasGeologyIntervalEvidence, ...] = ()
@@ -570,6 +572,7 @@ class InterpretationReportWorkspace(QWidget):
         self._geology_pdf_evidence = ()
         self._geology_pdf_source_key = None
         self._geology_html_field_selection = None
+        self._geology_pdf_field_selection = None
         self._geology_word_evidence = ()
         self._geology_word_source_key = None
         self._geology_excel_evidence = ()
@@ -632,6 +635,29 @@ class InterpretationReportWorkspace(QWidget):
         except ValueError:
             self._clear_geology_evidence()
             raise
+
+    def _confirmed_geology_field_pdf_for_handoff(
+        self,
+        report: HydrocarbonInterpretationReport,
+        expected: ConfirmedGeologyFieldSelection,
+    ) -> tuple[ConfirmedGeologyFieldSelection, tuple[object, ...]]:
+        """Recheck the exact operator approval before a signed PDF export."""
+
+        source_key = self._method_comparison_source_key(report)
+        if (
+            self._geology_pdf_field_selection is not expected
+            or source_key is None
+        ):
+            self._clear_geology_evidence()
+            raise ValueError("Confirmed PDF measured-field selection was revoked")
+        try:
+            verified_geology_field_html_handoff(
+                self.controller.session, report, expected, source_key=source_key,
+            )
+        except ValueError:
+            self._clear_geology_evidence()
+            raise
+        return expected, source_key
 
     def _method_comparison_source_key(
         self, report: HydrocarbonInterpretationReport,
@@ -834,6 +860,15 @@ class InterpretationReportWorkspace(QWidget):
         )
         include_pdf.setObjectName("interpretation-geology-include-in-pdf")
         layout.addWidget(include_pdf)
+        pdf_field_caption = self._text(
+            "Подтвердить измеренное поле для подписанного PDF",
+            "Қол қойылған PDF үшін өлшенген өрісті растау",
+            "Confirm measured field for signed PDF",
+        )
+        confirm_pdf_field = QPushButton(pdf_field_caption, dialog)
+        confirm_pdf_field.setObjectName("interpretation-geology-confirm-field-pdf")
+        confirm_pdf_field.setEnabled(False)
+        layout.addWidget(confirm_pdf_field)
         word_caption = self._text(
             "Включить выбранные наблюдения в Word",
             "Таңдалған бақылауларды Word-қа енгізу",
@@ -863,8 +898,11 @@ class InterpretationReportWorkspace(QWidget):
         def update_candidate(index: int) -> None:
             # Each output requires its own approval of this exact interval.
             self._geology_html_field_selection = None
+            self._geology_pdf_field_selection = None
             confirm_field.setText(confirm_field_caption)
             confirm_field.setEnabled(field_choice.currentData() is not None)
+            confirm_pdf_field.setText(pdf_field_caption)
+            confirm_pdf_field.setEnabled(field_choice.currentData() is not None)
             self._geology_word_evidence = ()
             self._geology_word_source_key = None
             include_word.setText(word_caption)
@@ -935,6 +973,7 @@ class InterpretationReportWorkspace(QWidget):
                 viewer.setHtml(f"<p>{escape(str(exc))}</p>")
                 self._geology_pdf_evidence = ()
                 self._geology_pdf_source_key = None
+                self._geology_pdf_field_selection = None
                 self._geology_word_evidence = ()
                 self._geology_word_source_key = None
                 self._geology_excel_evidence = ()
@@ -969,6 +1008,7 @@ class InterpretationReportWorkspace(QWidget):
                     "Observations selected for Word",
                 ))
                 return
+            self._geology_pdf_field_selection = None
             self._geology_pdf_evidence = (observed,)
             self._geology_pdf_source_key = source_key
             include_pdf.setText(self._text(
@@ -1021,7 +1061,51 @@ class InterpretationReportWorkspace(QWidget):
                 "Field confirmed for HTML preview",
             ))
 
+        def confirm_field_pdf() -> None:
+            # Separate opt-in from observation-only PDF and HTML approval.
+            if self._geology_evidence_dialog is not dialog:
+                return
+            field = field_choice.currentData()
+            index = selector.currentIndex()
+            if field is None or not 0 <= index < len(report.candidates):
+                return
+            if (
+                session.current_well is not well
+                or session.current_dataset is not dataset
+                or self._method_comparison_source_key(report) != source_key
+                or build_report_geology_snapshot(session).geology_sha256 != geology_digest
+            ):
+                self._clear_geology_evidence()
+                return
+            candidate = report.candidates[index]
+            try:
+                observed = correlate_gas_interval_with_well_geology(
+                    session,
+                    top_depth=candidate.top_depth,
+                    bottom_depth=candidate.bottom_depth,
+                )
+                approved = confirm_geology_field_selection(
+                    session, report, (observed,), (field,), source_key=source_key,
+                )
+                verified_geology_field_html_handoff(
+                    session, report, approved, source_key=source_key,
+                )
+            except ValueError as exc:
+                self._geology_pdf_field_selection = None
+                if self._geology_evidence_dialog is dialog:
+                    viewer.setHtml(f"<p>{escape(str(exc))}</p>")
+                return
+            self._geology_pdf_evidence = ()
+            self._geology_pdf_source_key = None
+            self._geology_pdf_field_selection = approved
+            confirm_pdf_field.setText(self._text(
+                "Поле подтверждено для следующего подписанного PDF",
+                "Өріс келесі қол қойылған PDF үшін расталды",
+                "Field confirmed for next signed PDF",
+            ))
+
         confirm_field.clicked.connect(confirm_field_html)
+        confirm_pdf_field.clicked.connect(confirm_field_pdf)
         include_pdf.clicked.connect(lambda: approve_observations())
         include_word.clicked.connect(lambda: approve_observations("word"))
         include_excel.clicked.connect(lambda: approve_observations("excel"))
