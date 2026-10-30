@@ -184,6 +184,9 @@ def export_hydrocarbon_interpretation_xlsx(
     progress: Callable[[str, int, int], None] | None = None,
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
     geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
+    session: ProjectSession | None = None,
+    geology_field_selection: ConfirmedGeologyFieldSelection | None = None,
+    geology_source_key: tuple[object, ...] | None = None,
 ) -> Path:
     """Export the single readable workbook used by every interpretation workflow."""
 
@@ -197,6 +200,12 @@ def export_hydrocarbon_interpretation_xlsx(
     )
     if geology_evidence:
         exporter = partial(exporter, geology_evidence=geology_evidence)
+    if geology_field_selection is not None or geology_source_key is not None:
+        exporter = partial(
+            exporter, session=session,
+            geology_field_selection=geology_field_selection,
+            geology_source_key=geology_source_key,
+        )
     return exporter(
         report,
         dataset,
