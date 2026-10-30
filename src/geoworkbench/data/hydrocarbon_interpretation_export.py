@@ -35,7 +35,14 @@ from geoworkbench.services.interval_gas_statistics import (
 )
 from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
 from geoworkbench.services.localization import AppLanguage
-from geoworkbench.services.interpretation_geology_interval_evidence import GasGeologyIntervalEvidence
+from geoworkbench.services.interpretation_geology_interval_evidence import (
+    EvidenceKind, GasGeologyIntervalEvidence,
+)
+from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.interpretation_geology_field_handoff import (
+    ConfirmedGeologyFieldSelection,
+    verified_geology_field_html_handoff,
+)
 from geoworkbench.services.interpretation_geology_evidence_export import verified_report_geology_evidence
 from geoworkbench.services.interpretation_geology_interval_evidence_html import geology_interval_evidence_table
 from geoworkbench.services.interpretation_method_comparison import MethodComparisonInterval
@@ -211,9 +218,26 @@ def export_hydrocarbon_interpretation_docx(
     progress: Callable[[str, int, int], None] | None = None,
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
     geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
+    session: ProjectSession | None = None,
+    geology_field_selection: ConfirmedGeologyFieldSelection | None = None,
+    geology_source_key: tuple[object, ...] | None = None,
 ) -> Path:
     if orientation not in ("landscape", "portrait"):
         raise ValueError("Word page orientation must be landscape or portrait")
+    # Explicit field approval is independent of the older observation-only
+    # Word export. Reverify the same source before committing the output.
+    selected_fields: tuple[tuple[EvidenceKind, str], ...] = ()
+    if geology_field_selection is not None:
+        if session is None or geology_source_key is None:
+            raise ValueError("Word selected fields require a live session and source key")
+        confirmed, selected_fields = verified_geology_field_html_handoff(
+            session, report, geology_field_selection, source_key=geology_source_key,
+        )
+        if geology_evidence and geology_evidence != confirmed:
+            raise ValueError("Word fields and observations use different selections")
+        geology_evidence = confirmed
+    elif geology_source_key is not None:
+        raise ValueError("Word source key requires confirmed measured fields")
     verified_report_geology_evidence(report, geology_evidence)
     progress_prepare, progress_statistics, progress_save, progress_ready, error_export = (
         _DOCX_PROGRESS[language]
@@ -232,8 +256,20 @@ def export_hydrocarbon_interpretation_docx(
         )
         if geology_evidence:
             writer = partial(writer, geology_evidence=geology_evidence)
+        if selected_fields:
+            writer = partial(writer, geology_fields=selected_fields)
         writer(temporary, report, dataset, language, orientation=orientation)
         _notify_export_progress(progress, progress_save, 90, 100)
+        # Progress callbacks and writers can mutate the live project: verify
+        # after both, immediately before committing the completed DOCX.
+        if geology_field_selection is not None:
+            if session is None or geology_source_key is None:
+                raise ValueError("Word selected fields require a live session and source key")
+            current, current_fields = verified_geology_field_html_handoff(
+                session, report, geology_field_selection, source_key=geology_source_key,
+            )
+            if current != geology_evidence or current_fields != selected_fields:
+                raise ValueError("Word measured field approval changed during export")
         os.replace(temporary, destination)
         _notify_export_progress(progress, progress_ready, 100, 100)
     except Exception as exc:
@@ -264,6 +300,7 @@ def _write_docx(
     *,
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
     geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
+    geology_fields: tuple[tuple[EvidenceKind, str], ...] = (),
     orientation: Literal["landscape", "portrait"] = "portrait",
 ) -> None:
     interval = getattr(report, "analysis_depth_interval", None)
@@ -320,15 +357,27 @@ def _write_docx(
     if method_comparisons:
         body.extend(_method_comparisons_docx(method_comparisons, language, report.depth_unit))
     for evidence in geology_evidence:
-        presentation = geology_interval_evidence_table(evidence, language)
+        presentation = geology_interval_evidence_table(
+            evidence, language, fields=geology_fields,
+        )
         body.extend((
             _paragraph(presentation.title, style="Heading1"),
             _paragraph(presentation.intro),
             _paragraph(presentation.interval),
             _paragraph(presentation.coverage_title),
             _table(presentation.coverage_headings, presentation.coverage_rows, widths=(4000, 3500, 6500)),
-            _table(presentation.headings, presentation.rows, widths=(1800, 2200, 2500, 2500, 5000)),
         ))
+        if presentation.field_coverage_rows:
+            body.extend((
+                _paragraph(presentation.field_coverage_title, style="Heading1"),
+                _table(
+                    presentation.field_coverage_headings, presentation.field_coverage_rows,
+                    widths=(2800, 3600, 2600, 5000),
+                ),
+            ))
+        body.append(
+            _table(presentation.headings, presentation.rows, widths=(1800, 2200, 2500, 2500, 5000))
+        )
     body.append(_paragraph(labels.prospective_heading, style="Heading1"))
     if report.candidates:
         body.append(

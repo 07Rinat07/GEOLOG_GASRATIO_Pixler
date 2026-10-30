@@ -2960,3 +2960,9 @@ from one cuttings sample. This validation never renames or drops source records.
 
 `scripts/prune_merged_branches.py` executes only from the trusted default-branch `workflow_run` after a successful push-triggered Release gate on exact current main SHA. It prunes only unprotected `codex/*` and `fix/*` branches with an unchanged head, an actually merged PR into main, no open PR on the branch and a merge commit reachable from current main. It rechecks refs immediately before deletion. Network/pagination failures fail closed. `tests/test_prune_merged_branches.py` covers active/merged/diverged/stale/protected cases with an offline fake API. Run `pytest -q tests/test_prune_merged_branches.py` and the existing Windows Release Gate. No changes to the existing three jobs, geological formulas or source WITS/LAS.
 
+
+
+## INTERP-GEO-01 — explicit measured fields in Word (30.10.2026)
+
+Run `python -m pytest tests/test_interpretation_geology_evidence_docx.py tests/test_interpretation_geology_field_handoff.py -q` plus Ruff and mypy; require all three exact-HEAD Windows Release Gate jobs and a separate post-merge main gate. For both standard and polished Word exporters and RU/KK/EN, confirm selected calcite=0 counts as measured while absent dolomite remains unmeasured; verify selected-field MD coverage rows appear only with approved session/source-key handoff. Reject missing/foreign source, changed report/geology, malformed fields, or conflicting evidence without replacing an existing DOCX. A mutating progress callback must not allow a stale confirmation to commit. UI Word button and Word document control are not given new approval semantics in this slice.
+

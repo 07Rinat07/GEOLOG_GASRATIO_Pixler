@@ -31,6 +31,11 @@ from geoworkbench.services.hydrocarbon_interpretation import (
 )
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.interpretation_geology_interval_evidence import GasGeologyIntervalEvidence
+from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.interpretation_geology_field_handoff import (
+    ConfirmedGeologyFieldSelection,
+    verified_geology_field_html_handoff,
+)
 from geoworkbench.services.interpretation_geology_evidence_export import verified_report_geology_evidence
 from geoworkbench.services.interpretation_method_comparison import MethodComparisonInterval
 
@@ -51,11 +56,25 @@ def export_polished_hydrocarbon_interpretation_docx(
     overwrite: bool = False,
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
     geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
+    session: ProjectSession | None = None,
+    geology_field_selection: ConfirmedGeologyFieldSelection | None = None,
+    geology_source_key: tuple[object, ...] | None = None,
 ) -> Path:
     """Export Word with its existing cover and optional preverified comparison."""
 
     if orientation not in ("landscape", "portrait"):
         raise ValueError("Word page orientation must be landscape or portrait")
+    if geology_field_selection is not None:
+        if session is None or geology_source_key is None:
+            raise ValueError("Word selected fields require a live session and source key")
+        confirmed, _fields = verified_geology_field_html_handoff(
+            session, report, geology_field_selection, source_key=geology_source_key,
+        )
+        if geology_evidence and geology_evidence != confirmed:
+            raise ValueError("Word fields and observations use different selections")
+        geology_evidence = confirmed
+    elif geology_source_key is not None:
+        raise ValueError("Word source key requires confirmed measured fields")
     verified_report_geology_evidence(report, geology_evidence)
     destination = Path(target)
     if destination.suffix.casefold() != ".docx":
@@ -74,6 +93,12 @@ def export_polished_hydrocarbon_interpretation_docx(
         )
         if geology_evidence:
             export_writer = partial(export_writer, geology_evidence=geology_evidence)
+        if geology_field_selection is not None:
+            export_writer = partial(
+                export_writer, session=session,
+                geology_field_selection=geology_field_selection,
+                geology_source_key=geology_source_key,
+            )
         export_writer(
             report,
             source,
@@ -83,6 +108,14 @@ def export_polished_hydrocarbon_interpretation_docx(
             orientation=orientation,
         )
         _rewrite_cover(source, rewritten, report, details, language, orientation=orientation)
+        if geology_field_selection is not None:
+            if session is None or geology_source_key is None:
+                raise ValueError("Word selected fields require a live session and source key")
+            current, _fields = verified_geology_field_html_handoff(
+                session, report, geology_field_selection, source_key=geology_source_key,
+            )
+            if current != geology_evidence:
+                raise ValueError("Word field source changed during cover rewrite")
         os.replace(rewritten, destination)
     finally:
         source.unlink(missing_ok=True)
