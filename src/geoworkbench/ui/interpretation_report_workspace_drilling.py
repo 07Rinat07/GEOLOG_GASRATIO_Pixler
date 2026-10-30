@@ -118,6 +118,7 @@ class InterpretationReportWorkspace(_FinalInterpretationReportWorkspace):
             return
         original_well_id = self.controller.session.current_well_id
         confirmed_geology = self._geology_word_evidence
+        confirmed_field_selection = self._geology_word_field_selection
         identity = self._select_report_identity(report)
         if identity is None:
             return
@@ -167,6 +168,27 @@ class InterpretationReportWorkspace(_FinalInterpretationReportWorkspace):
                     word_exporter = partial(word_exporter, method_comparisons=comparisons)
                 if selected_geology:
                     word_exporter = partial(word_exporter, geology_evidence=selected_geology)
+                if confirmed_field_selection is not None:
+                    if selected_geology:
+                        raise HydrocarbonInterpretationExportError(
+                            "Word measured-field and observation approvals must be separate"
+                        )
+                    try:
+                        approved_fields, field_source_key = (
+                            self._confirmed_geology_field_word_for_handoff(
+                                report, confirmed_field_selection,
+                            )
+                        )
+                    except ValueError as exc:
+                        raise HydrocarbonInterpretationExportError(
+                            "Operator-confirmed Word measured fields changed during preparation"
+                        ) from exc
+                    word_exporter = partial(
+                        word_exporter,
+                        session=self.controller.session,
+                        geology_field_selection=approved_fields,
+                        geology_source_key=field_source_key,
+                    )
                 exported = word_exporter(
                     report,
                     target,
