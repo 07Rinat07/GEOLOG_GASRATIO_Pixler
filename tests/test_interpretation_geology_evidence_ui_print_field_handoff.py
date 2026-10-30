@@ -3,7 +3,6 @@
 These Qt tests are process-isolated by the Windows quality gate (#544).
 No physical printer is required: a simulated spooler reads the real PDF.
 """
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
