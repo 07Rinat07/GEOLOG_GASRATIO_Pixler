@@ -203,3 +203,162 @@ def test_report_refresh_revokes_pdf_approval(qapp, monkeypatch: pytest.MonkeyPat
     assert workspace._geology_pdf_source_key is None
     assert workspace._geology_evidence_dialog is None
     workspace.close()
+
+
+def _confirm_pdf_field(workspace, qapp, field=("calcimetry", "calcite_percent")):
+    _open_geology(workspace, qapp)
+    dialog = workspace._geology_evidence_dialog
+    assert dialog is not None
+    field_choice = dialog.findChild(
+        QComboBox, "interpretation-geology-measured-field-preview",
+    )
+    confirm = dialog.findChild(
+        QPushButton, "interpretation-geology-confirm-field-pdf",
+    )
+    assert field_choice is not None and confirm is not None
+    assert not confirm.isEnabled()
+    field_index = next(
+        index for index in range(field_choice.count())
+        if field_choice.itemData(index) == field
+    )
+    field_choice.setCurrentIndex(field_index)
+    qapp.processEvents()
+    assert confirm.isEnabled()
+    confirm.click()
+    qapp.processEvents()
+    assert workspace._geology_pdf_field_selection is not None
+    assert workspace._geology_pdf_evidence == ()
+    return field_choice, confirm
+
+
+def test_explicit_measured_field_reaches_signed_pdf_and_passport(
+    qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace, session = _workspace(monkeypatch)
+    sample = session.current_well.cuttings[0]
+    sample.calcite_percent = 0.0
+    sample.dolomite_percent = None
+    before = repr(session.current_well)
+    _prepare_dialogs(monkeypatch, workspace)
+    target = tmp_path / "source-bound-operator.pdf"
+    _choose_and_capture(monkeypatch, workspace, target)
+    _, confirm = _confirm_pdf_field(workspace, qapp)
+    assert "signed PDF" in confirm.text()
+    assert workspace._geology_html_field_selection is None
+    assert workspace._geology_word_evidence == ()
+    assert workspace._geology_excel_evidence == ()
+    assert workspace._geology_print_evidence == ()
+
+    workspace._export_pdf()
+    assert target.read_bytes().startswith(b"%PDF")
+    with fitz.open(target) as pdf:
+        text = re.sub(r"\s+", " ", " ".join(page.get_text() for page in pdf))
+    assert "Coverage by measured field (MD)" in text
+    assert "Calcite" in text
+    assert "62.5%" in text
+    assert "1002.00" in text and "1010.00" in text
+    sidecar = json.loads(passport_sidecar_path(target).read_text(encoding="utf-8"))
+    options = dict(sidecar["render"]["options"])
+    assert options["measured_geology_intervals"] == "1"
+    assert options["measured_geology_fields"] == "calcimetry:calcite_percent"
+    assert repr(session.current_well) == before
+    workspace.close()
+
+
+@pytest.mark.parametrize("change", ("field", "candidate", "threshold"))
+def test_changed_operator_field_approval_is_revoked_before_pdf(
+    qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, change: str,
+) -> None:
+    workspace, _ = _workspace(monkeypatch)
+    _prepare_dialogs(monkeypatch, workspace)
+    target = tmp_path / "revoked-field.pdf"
+    _choose_and_capture(monkeypatch, workspace, target)
+    fields, _ = _confirm_pdf_field(workspace, qapp)
+    if change == "field":
+        index = next(
+            index for index in range(fields.count())
+            if fields.itemData(index) == ("calcimetry", "dolomite_percent")
+        )
+        fields.setCurrentIndex(index)
+    elif change == "candidate":
+        selector = workspace._geology_evidence_dialog.findChild(
+            QComboBox, "interpretation-geology-evidence-select",
+        )
+        assert selector is not None
+        selector.setCurrentIndex(1)
+    else:
+        workspace.threshold.setValue(workspace.threshold.value() + 0.5)
+    qapp.processEvents()
+    assert workspace._geology_pdf_field_selection is None
+    calls = []
+
+    def capture(_session, _report, file_path, **kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(primary_path=file_path)
+
+    monkeypatch.setattr(final, "export_hydrocarbon_interpretation_pdf_with_passport", capture)
+    workspace._export_pdf()
+    assert len(calls) == 1
+    assert "geology_field_selection" not in calls[0]
+    assert "geology_source_key" not in calls[0]
+    workspace.close()
+
+
+def test_edited_source_during_identity_dialog_blocks_confirmed_field_pdf(
+    qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace, session = _workspace(monkeypatch)
+    _prepare_dialogs(monkeypatch, workspace)
+    target = tmp_path / "stale-field.pdf"
+    _choose_and_capture(monkeypatch, workspace, target)
+    _confirm_pdf_field(workspace, qapp)
+    original_picker = workspace._select_report_identity
+
+    def mutate(report):
+        session.current_well.cuttings[0].description = "Edited after field approval"
+        return original_picker(report)
+
+    monkeypatch.setattr(workspace, "_select_report_identity", mutate)
+    errors = []
+    monkeypatch.setattr(workspace, "_show_export_error", errors.append)
+    workspace._export_pdf()
+    assert len(errors) == 1
+    assert "measured fields changed" in str(errors[0])
+    assert not target.exists()
+    assert not passport_sidecar_path(target).exists()
+    assert workspace._geology_pdf_field_selection is None
+    workspace.close()
+
+
+def test_html_field_confirmation_does_not_enable_signed_pdf_fields(
+    qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace, _ = _workspace(monkeypatch)
+    _prepare_dialogs(monkeypatch, workspace)
+    target = tmp_path / "html-only.pdf"
+    _choose_and_capture(monkeypatch, workspace, target)
+    _open_geology(workspace, qapp)
+    dialog = workspace._geology_evidence_dialog
+    fields = dialog.findChild(QComboBox, "interpretation-geology-measured-field-preview")
+    html_confirm = dialog.findChild(QPushButton, "interpretation-geology-confirm-field-html")
+    assert fields is not None and html_confirm is not None
+    index = next(
+        index for index in range(fields.count())
+        if fields.itemData(index) == ("calcimetry", "calcite_percent")
+    )
+    fields.setCurrentIndex(index)
+    qapp.processEvents()
+    html_confirm.click()
+    assert workspace._geology_html_field_selection is not None
+    assert workspace._geology_pdf_field_selection is None
+    calls = []
+
+    def capture(_session, _report, file_path, **kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(primary_path=file_path)
+
+    monkeypatch.setattr(final, "export_hydrocarbon_interpretation_pdf_with_passport", capture)
+    workspace._export_pdf()
+    assert len(calls) == 1
+    assert "geology_field_selection" not in calls[0]
+    workspace.close()

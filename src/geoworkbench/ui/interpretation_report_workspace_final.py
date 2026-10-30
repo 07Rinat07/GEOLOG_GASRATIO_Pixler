@@ -626,6 +626,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         original_active_report = self.report
         # Capture operator consent before any dialogs can dispatch Qt events.
         confirmed_geology = self._geology_pdf_evidence
+        confirmed_field_selection = self._geology_pdf_field_selection
         geology = interpretation_geology_snapshot(self.controller.session)
 
         identity = self._select_report_identity(report)
@@ -713,6 +714,26 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     )
                 else:
                     pdf_exporter = export_hydrocarbon_interpretation_pdf_with_passport
+                if confirmed_field_selection is not None:
+                    if selected_geology:
+                        raise HydrocarbonInterpretationPdfError(
+                            "PDF field and observation approvals must be separate"
+                        )
+                    try:
+                        approved_fields, field_source_key = (
+                            self._confirmed_geology_field_pdf_for_handoff(
+                                report, confirmed_field_selection,
+                            )
+                        )
+                    except ValueError as exc:
+                        raise HydrocarbonInterpretationPdfError(
+                            "Operator-confirmed PDF measured fields changed during preparation"
+                        ) from exc
+                    pdf_exporter = partial(
+                        pdf_exporter,
+                        geology_field_selection=approved_fields,
+                        geology_source_key=field_source_key,
+                    )
                 export_result = pdf_exporter(
                     self.controller.session,
                     report,
