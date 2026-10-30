@@ -50,7 +50,14 @@ from geoworkbench.services.gas_context_report_labels import (
 )
 
 from geoworkbench.services.localization import AppLanguage
-from geoworkbench.services.interpretation_geology_interval_evidence import GasGeologyIntervalEvidence
+from geoworkbench.services.interpretation_geology_interval_evidence import (
+    EvidenceKind, GasGeologyIntervalEvidence,
+)
+from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.interpretation_geology_field_handoff import (
+    ConfirmedGeologyFieldSelection,
+    verified_geology_field_html_handoff,
+)
 from geoworkbench.services.interpretation_geology_evidence_export import verified_report_geology_evidence
 from geoworkbench.services.interpretation_geology_interval_evidence_html import (
     GeologyEvidenceTable, geology_interval_evidence_table,
@@ -90,7 +97,22 @@ def export_readable_hydrocarbon_interpretation_xlsx(
     identity: InterpretationReportIdentity | None = None,
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
     geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
+    session: ProjectSession | None = None,
+    geology_field_selection: ConfirmedGeologyFieldSelection | None = None,
+    geology_source_key: tuple[object, ...] | None = None,
 ) -> Path:
+    selected_fields: tuple[tuple[EvidenceKind, str], ...] = ()
+    if geology_field_selection is not None:
+        if session is None or geology_source_key is None:
+            raise ValueError("Excel selected fields require a live session and source key")
+        confirmed, selected_fields = verified_geology_field_html_handoff(
+            session, report, geology_field_selection, source_key=geology_source_key,
+        )
+        if geology_evidence and geology_evidence != confirmed:
+            raise ValueError("Excel measured fields and observations differ")
+        geology_evidence = confirmed
+    elif geology_source_key is not None:
+        raise ValueError("Excel source key requires confirmed measured fields")
     labels = hydrocarbon_report_labels(language)
     if dataset.dataset_id != report.dataset_id:
         raise HydrocarbonInterpretationExportError(labels.xlsx_dataset_mismatch)
@@ -120,10 +142,16 @@ def export_readable_hydrocarbon_interpretation_xlsx(
         )
     verified_report_geology_evidence(report, geology_evidence)
     geology_tables = tuple(
-        geology_interval_evidence_table(item, language) for item in geology_evidence
+        geology_interval_evidence_table(item, language, fields=selected_fields)
+        for item in geology_evidence
     )
-    # Each interval contributes four labels, two headers and a separating row.
-    geology_rows = sum(7 + len(item.coverage_rows) + len(item.rows) for item in geology_tables)
+    # Legacy intervals contribute seven structural rows; measured-field
+    # detail adds a section title, headings and one row per selected field.
+    geology_rows = sum(
+        7 + len(item.coverage_rows) + len(item.rows)
+        + (2 + len(item.field_coverage_rows) if item.field_coverage_rows else 0)
+        for item in geology_tables
+    )
     if geology_rows > _EXCEL_MAX_ROWS:
         raise HydrocarbonInterpretationExportError("Geology evidence exceeds the Excel row limit")
     for row in _geology_evidence_rows(geology_tables):
@@ -173,6 +201,16 @@ def export_readable_hydrocarbon_interpretation_xlsx(
         _write_document_control_sheet(workbook, details, language)
         _write_classification_audit_sheet(workbook, report)
         _notify(progress, labels.progress_save, 95, 100)
+        # Check after progress callbacks, which may dispatch events and mutate
+        # the current well or report while a workbook is in preparation.
+        if geology_field_selection is not None:
+            if session is None or geology_source_key is None:
+                raise ValueError("Excel selected fields require a live session and source key")
+            current, fields = verified_geology_field_html_handoff(
+                session, report, geology_field_selection, source_key=geology_source_key,
+            )
+            if current != geology_evidence or fields != selected_fields:
+                raise ValueError("Excel measured field approval changed during export")
 
         descriptor, temporary_name = tempfile.mkstemp(
             prefix=f".{destination.stem}-",
@@ -183,6 +221,14 @@ def export_readable_hydrocarbon_interpretation_xlsx(
         temporary = Path(temporary_name)
         try:
             workbook.save(temporary)
+            if geology_field_selection is not None:
+                if session is None or geology_source_key is None:
+                    raise ValueError("Excel selected fields require a live session and source key")
+                current, fields = verified_geology_field_html_handoff(
+                    session, report, geology_field_selection, source_key=geology_source_key,
+                )
+                if current != geology_evidence or fields != selected_fields:
+                    raise ValueError("Excel measured field approval changed before commit")
             os.replace(temporary, destination)
             _notify(progress, labels.progress_ready, 100, 100)
         except Exception as exc:
@@ -214,6 +260,10 @@ def _geology_evidence_rows(
             item.coverage_headings,
         )
         yield from item.coverage_rows
+        if item.field_coverage_rows:
+            yield (item.field_coverage_title,)
+            yield item.field_coverage_headings
+            yield from item.field_coverage_rows
         yield item.headings
         yield from item.rows
         yield ()
