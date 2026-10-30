@@ -834,9 +834,9 @@ class InterpretationReportWorkspace(QWidget):
             field_choice.addItem(title, field)
         layout.addWidget(field_choice)
         layout.addWidget(QLabel(self._text(
-            "Детализация полей — только предпросмотр, не отдельный выбор для экспорта.",
-            "Өлшемдер бойынша егжей-тегжей тек алдын ала қарауға арналған, экспортқа бөлек таңдау емес.",
-            "Field details are preview-only; they are not a separate export selection.",
+            "Детализация — предпросмотр; для подписанного PDF поле подтверждается отдельно.",
+            "Өлшемдер — алдын ала қарау; қол қойылған PDF үшін өріс бөлек расталады.",
+            "Field details are preview-only until separately confirmed for signed PDF.",
         ), dialog))
         viewer = QTextBrowser(dialog)
         viewer.setObjectName("interpretation-geology-evidence-content")
@@ -1009,6 +1009,7 @@ class InterpretationReportWorkspace(QWidget):
                 ))
                 return
             self._geology_pdf_field_selection = None
+            confirm_pdf_field.setText(pdf_field_caption)
             self._geology_pdf_evidence = (observed,)
             self._geology_pdf_source_key = source_key
             include_pdf.setText(self._text(
@@ -1097,6 +1098,11 @@ class InterpretationReportWorkspace(QWidget):
                 return
             self._geology_pdf_evidence = ()
             self._geology_pdf_source_key = None
+            include_pdf.setText(self._text(
+                "Включить выбранные наблюдения в PDF",
+                "Таңдалған бақылауларды PDF-ке енгізу",
+                "Include selected observations in PDF",
+            ))
             self._geology_pdf_field_selection = approved
             confirm_pdf_field.setText(self._text(
                 "Поле подтверждено для следующего подписанного PDF",
