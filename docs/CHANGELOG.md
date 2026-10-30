@@ -1,3 +1,7 @@
+## INTERP-GEO-01 — explicit measured field for system printing (30.10.2026, CI pending)
+
+Added independent RU/KK/EN print-only opt-in for one operator-confirmed LBA/calcimetry measurement. A source-bound verification gates temporary print PDF generation and the native printer handoff, with checked revocation during spooling; unchanged observations-only and plain print behavior remains available. New native Qt regression cases exercise real temporary PDF rendering and simulated spooler, source changes during output dialogs, candidate/field revocation and cross-output permission isolation. Physical printing and Qt #544 root cause remain unverified.
+
 ## INTERP-GEO-01 — operator-selected measured fields to Word (30.10.2026, CI pending)
 
 Added a separate operator approval control for one measured LBA/calcimetry field in the gas/geology dialog and source-bound handoff to the polished Word exporter. Explicit Word field approval is rechecked after UI dialogs; the Word service verifies the current report, geological snapshot and MD observations before committing output. Changed candidate, field, source or report identity revokes the approval; HTML/PDF and old Word observation approval do not silently opt into field coverage. New RU/KK/EN UI and real DOCX regressions; legacy documents unaffected without selection. Excel and physical printing remain separate.

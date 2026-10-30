@@ -772,6 +772,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         original_well_id = self.controller.session.current_well_id
         original_active_report = self.report
         confirmed_geology = self._geology_print_evidence
+        confirmed_field_selection = self._geology_print_field_selection
         geology = interpretation_geology_snapshot(self.controller.session)
 
         def verify_print_geology() -> None:
@@ -779,6 +780,10 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 selected = self._geology_evidence_for_export(report, output="print")
                 if selected != confirmed_geology:
                     raise ValueError("Confirmed geology was revoked during print preparation")
+            if confirmed_field_selection is not None:
+                self._confirmed_geology_field_print_for_handoff(
+                    report, confirmed_field_selection,
+                )
 
         identity = self._select_report_identity(report)
         if identity is None:
@@ -848,6 +853,14 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 )
                 if confirmed_geology:
                     print_pdf_exporter = partial(print_pdf_exporter, geology_evidence=confirmed_geology)
+                if confirmed_field_selection is not None:
+                    if confirmed_geology:
+                        raise ValueError("Separate print field and observation approvals required")
+                    print_pdf_exporter = partial(
+                        print_pdf_exporter,
+                        geology_evidence=confirmed_field_selection.evidence,
+                        geology_fields=confirmed_field_selection.fields,
+                    )
                 print_pdf_exporter(
                     report,
                     prepared_pdf,
@@ -866,6 +879,9 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     **chart_panel_render_options(composition.chart_panels),
                     overwrite=True,
                 )
+                # Rendering Qt pages may deliver queued edits. Never spool a
+                # measured field that changed after preparing the temporary PDF.
+                verify_print_geology()
                 if composition.preview_marks:
                     marked_pdf = Path(folder) / "interpretation-report-marked.pdf"
                     # Only the selected dataset's composition is permitted;
@@ -1002,16 +1018,20 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             def cancel_requested() -> bool:
                 nonlocal first_page_pending
                 QApplication.processEvents()
-                if confirmed_geology or comparisons:
+                if confirmed_geology or confirmed_field_selection is not None or comparisons:
                     if (
                         self._method_comparison_source_key(report) != print_source_key
                         or (confirmed_geology and self._geology_print_evidence != confirmed_geology)
+                        or (
+                            confirmed_field_selection is not None
+                            and self._geology_print_field_selection is not confirmed_field_selection
+                        )
                         or (comparisons and self._method_comparisons_for_export(report) != comparisons)
                     ):
                         self._clear_geology_evidence()
                         self._clear_method_comparison()
                         return True
-                    if confirmed_geology and first_page_pending:
+                    if confirmed_field_selection is not None or (confirmed_geology and first_page_pending):
                         try:
                             verify_print_geology()
                         except ValueError:

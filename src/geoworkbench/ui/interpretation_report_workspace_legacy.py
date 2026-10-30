@@ -102,6 +102,7 @@ class InterpretationReportWorkspace(QWidget):
         self._geology_evidence_dialog: QDialog | None = None
         self._geology_html_field_selection: ConfirmedGeologyFieldSelection | None = None
         self._geology_pdf_field_selection: ConfirmedGeologyFieldSelection | None = None
+        self._geology_print_field_selection: ConfirmedGeologyFieldSelection | None = None
         self._geology_word_field_selection: ConfirmedGeologyFieldSelection | None = None
         self._geology_excel_field_selection: ConfirmedGeologyFieldSelection | None = None
         self._geology_pdf_evidence: tuple[GasGeologyIntervalEvidence, ...] = ()
@@ -577,6 +578,7 @@ class InterpretationReportWorkspace(QWidget):
         self._geology_pdf_field_selection = None
         self._geology_word_field_selection = None
         self._geology_excel_field_selection = None
+        self._geology_print_field_selection = None
         self._geology_word_evidence = ()
         self._geology_word_source_key = None
         self._geology_excel_evidence = ()
@@ -697,6 +699,26 @@ class InterpretationReportWorkspace(QWidget):
         if self._geology_excel_field_selection is not expected or source_key is None:
             self._clear_geology_evidence()
             raise ValueError("Confirmed Excel measured-field selection was revoked")
+        try:
+            verified_geology_field_html_handoff(
+                self.controller.session, report, expected, source_key=source_key,
+            )
+        except ValueError:
+            self._clear_geology_evidence()
+            raise
+        return expected, source_key
+
+    def _confirmed_geology_field_print_for_handoff(
+        self,
+        report: HydrocarbonInterpretationReport,
+        expected: ConfirmedGeologyFieldSelection,
+    ) -> tuple[ConfirmedGeologyFieldSelection, tuple[object, ...]]:
+        """Fail closed if the operator's print-only measured field became stale."""
+
+        source_key = self._method_comparison_source_key(report)
+        if self._geology_print_field_selection is not expected or source_key is None:
+            self._clear_geology_evidence()
+            raise ValueError("Confirmed print measured-field selection was revoked")
         try:
             verified_geology_field_html_handoff(
                 self.controller.session, report, expected, source_key=source_key,
@@ -958,6 +980,15 @@ class InterpretationReportWorkspace(QWidget):
         include_print = QPushButton(print_caption, dialog)
         include_print.setObjectName("interpretation-geology-include-in-print")
         layout.addWidget(include_print)
+        print_field_caption = self._text(
+            "Подтвердить измеренное поле для печати",
+            "Басып шығару үшін өлшенген өрісті растау",
+            "Confirm measured field for printing",
+        )
+        confirm_print_field = QPushButton(print_field_caption, dialog)
+        confirm_print_field.setObjectName("interpretation-geology-confirm-field-print")
+        confirm_print_field.setEnabled(False)
+        layout.addWidget(confirm_print_field)
         self._geology_evidence_dialog = dialog
 
         def update_candidate(index: int) -> None:
@@ -966,6 +997,7 @@ class InterpretationReportWorkspace(QWidget):
             self._geology_pdf_field_selection = None
             self._geology_word_field_selection = None
             self._geology_excel_field_selection = None
+            self._geology_print_field_selection = None
             confirm_field.setText(confirm_field_caption)
             confirm_field.setEnabled(field_choice.currentData() is not None)
             confirm_pdf_field.setText(pdf_field_caption)
@@ -983,6 +1015,8 @@ class InterpretationReportWorkspace(QWidget):
             self._geology_print_evidence = ()
             self._geology_print_source_key = None
             include_print.setText(print_caption)
+            confirm_print_field.setText(print_field_caption)
+            confirm_print_field.setEnabled(field_choice.currentData() is not None)
             self._geology_pdf_evidence = ()
             self._geology_pdf_source_key = None
             include_pdf.setText(self._text(
@@ -1051,10 +1085,13 @@ class InterpretationReportWorkspace(QWidget):
                 self._geology_excel_field_selection = None
                 self._geology_excel_evidence = ()
                 self._geology_excel_source_key = None
+                self._geology_print_field_selection = None
                 self._geology_print_evidence = ()
                 self._geology_print_source_key = None
                 return
             if output == "print":
+                self._geology_print_field_selection = None
+                confirm_print_field.setText(print_field_caption)
                 self._geology_print_evidence = (observed,)
                 self._geology_print_source_key = source_key
                 include_print.setText(self._text(
@@ -1275,10 +1312,55 @@ class InterpretationReportWorkspace(QWidget):
                 "Field confirmed for next Excel",
             ))
 
+        def confirm_field_print() -> None:
+            # Physical printing is an independent explicit approval.
+            if self._geology_evidence_dialog is not dialog:
+                return
+            field = field_choice.currentData()
+            index = selector.currentIndex()
+            if field is None or not 0 <= index < len(report.candidates):
+                return
+            if (
+                session.current_well is not well
+                or session.current_dataset is not dataset
+                or self._method_comparison_source_key(report) != source_key
+                or build_report_geology_snapshot(session).geology_sha256 != geology_digest
+            ):
+                self._clear_geology_evidence()
+                return
+            candidate = report.candidates[index]
+            try:
+                observed = correlate_gas_interval_with_well_geology(
+                    session,
+                    top_depth=candidate.top_depth,
+                    bottom_depth=candidate.bottom_depth,
+                )
+                approved = confirm_geology_field_selection(
+                    session, report, (observed,), (field,), source_key=source_key,
+                )
+                verified_geology_field_html_handoff(
+                    session, report, approved, source_key=source_key,
+                )
+            except ValueError as exc:
+                self._geology_print_field_selection = None
+                if self._geology_evidence_dialog is dialog:
+                    viewer.setHtml(f"<p>{escape(str(exc))}</p>")
+                return
+            self._geology_print_evidence = ()
+            self._geology_print_source_key = None
+            include_print.setText(print_caption)
+            self._geology_print_field_selection = approved
+            confirm_print_field.setText(self._text(
+                "Поле подтверждено для следующей печати",
+                "Өріс келесі басып шығару үшін расталды",
+                "Field confirmed for next print",
+            ))
+
         confirm_field.clicked.connect(confirm_field_html)
         confirm_pdf_field.clicked.connect(confirm_field_pdf)
         confirm_word_field.clicked.connect(confirm_field_word)
         confirm_excel_field.clicked.connect(confirm_field_excel)
+        confirm_print_field.clicked.connect(confirm_field_print)
         include_pdf.clicked.connect(lambda: approve_observations())
         include_word.clicked.connect(lambda: approve_observations("word"))
         include_excel.clicked.connect(lambda: approve_observations("excel"))
