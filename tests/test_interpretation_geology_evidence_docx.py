@@ -5,7 +5,10 @@ from xml.etree import ElementTree as ET
 
 import pytest
 
-from geoworkbench.data.hydrocarbon_interpretation_export import export_hydrocarbon_interpretation_docx
+from geoworkbench.data.hydrocarbon_interpretation_export import (
+    HydrocarbonInterpretationExportError,
+    export_hydrocarbon_interpretation_docx,
+)
 from geoworkbench.data.hydrocarbon_interpretation_export_docx_polished import export_polished_hydrocarbon_interpretation_docx
 from geoworkbench.services.interpretation_geology_interval_evidence_html import geology_interval_evidence_table
 from geoworkbench.services.interpretation_geology_interval_evidence import (
@@ -110,7 +113,7 @@ def test_confirmed_measured_fields_reach_both_word_exporters(
     )
     text = _docx_text(selected)
     assert field_heading in text
-    assert "Кальцит" in text if language != AppLanguage.EN else "Calcite" in text
+    assert ("Calcite" if language == AppLanguage.EN else "Кальцит") in text
     assert "62.5%" in text
     assert "1002.00" in text and "1010.00" in text
     assert field_heading not in _docx_text(plain)
@@ -175,7 +178,7 @@ def test_word_source_change_inside_progress_callback_cannot_replace_file(tmp_pat
         if step == 90:
             session.current_well.cuttings[0].description = "mutated during export"
 
-    with pytest.raises(Exception, match="Word|отчёт|export"):
+    with pytest.raises(HydrocarbonInterpretationExportError):
         export_hydrocarbon_interpretation_docx(
             report, target, overwrite=True, session=session,
             geology_field_selection=approved, geology_source_key=source_key,
