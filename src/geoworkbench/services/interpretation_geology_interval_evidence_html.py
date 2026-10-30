@@ -157,6 +157,24 @@ def _measurement_label(key: str, language: AppLanguage) -> str:
     return labels[column] if labels is not None else key
 
 
+
+def selectable_geology_evidence_fields(
+    language: AppLanguage,
+) -> tuple[tuple[str, tuple[EvidenceKind, str]], ...]:
+    """Localized, schema-owned field options for explicit read-only preview.
+
+    The list is stable and does not inspect or modify any geological source.
+    """
+    return tuple(
+        (
+            f"{_KINDS[kind][language]} · {_measurement_label(attribute, language)}",
+            (kind, attribute),
+        )
+        for kind, attributes in _FIELD_ATTRIBUTES.items()
+        for attribute in attributes
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class GeologyEvidenceTable:
     title: str
@@ -294,4 +312,8 @@ def geology_interval_evidence_html(
     )
 
 
-__all__ = ["geology_interval_evidence_html", "geology_interval_evidence_table"]
+__all__ = [
+    "geology_interval_evidence_html",
+    "geology_interval_evidence_table",
+    "selectable_geology_evidence_fields",
+]
