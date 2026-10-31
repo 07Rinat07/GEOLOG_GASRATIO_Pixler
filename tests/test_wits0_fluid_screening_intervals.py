@@ -1,6 +1,6 @@
 """WITS-INTERP-01: no invented coverage or mixed-source fluid intervals."""
 
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, replace
 
 import pytest
 
@@ -20,6 +20,7 @@ from geoworkbench.services.wits0_fluid_screening_intervals import (
     Wits0FluidScreeningPoint,
     Wits0FluidScreeningSample,
     bind_wits0_fluid_screening_point,
+    verify_wits0_fluid_screening_point,
     coalesce_wits0_fluid_screening,
 )
 from geoworkbench.services.wits0_gas_context import Wits0GasOriginKind
@@ -335,3 +336,99 @@ def test_source_point_binding_rejects_foreign_and_non_wits_rows() -> None:
         bind_wits0_fluid_screening_point(
             session, record, axis=AXIS, screening="oil"
         )
+
+
+def _record_bound_point() -> tuple[AcquisitionSession, Wits0FluidScreeningPoint]:
+    session, record = _source_session()
+    point = bind_wits0_fluid_screening_point(
+        session, record, axis=AXIS, screening=_projection()
+    )
+    return session, point
+
+
+def test_acquisition_bound_point_stays_valid_when_its_row_is_unchanged() -> None:
+    session, point = _record_bound_point()
+    assert verify_wits0_fluid_screening_point(session, point) is None
+    assert verify_wits0_fluid_screening_point(session, point) is None
+    assert point.position == 2500.5
+    assert not hasattr(point, "end")
+
+
+def test_acquisition_bound_point_rejects_changed_coordinate() -> None:
+    session, point = _record_bound_point()
+    record = session.records[0]
+    session.records[0] = replace(
+        record,
+        payload=AcquisitionDataRowPayload(
+            index_values=(("verified-index", 2501.0),),
+            curve_values=(),
+        ),
+    )
+    with pytest.raises(ValueError, match="no longer matches"):
+        verify_wits0_fluid_screening_point(session, point)
+
+
+def test_acquisition_bound_point_rejects_changed_raw_audit_reference() -> None:
+    session, point = _record_bound_point()
+    record = session.records[0]
+    session.records[0] = replace(
+        record,
+        source="wits0:record=02;raw-sha256=" + "b" * 64,
+    )
+    with pytest.raises(ValueError, match="no longer matches"):
+        verify_wits0_fluid_screening_point(session, point)
+
+
+@pytest.mark.parametrize(
+    "record_change,reason",
+    [
+        ({"record_id": "replacement-row"}, "missing or duplicated"),
+        ({"sequence": 2}, "no longer matches"),
+        ({"source": "etp12:record=02"}, "WITS0"),
+    ],
+)
+def test_acquisition_bound_point_rejects_replaced_record(
+    record_change: dict[str, object], reason: str
+) -> None:
+    session, point = _record_bound_point()
+    session.records[0] = replace(session.records[0], **record_change)
+    with pytest.raises(ValueError, match=reason):
+        verify_wits0_fluid_screening_point(session, point)
+
+
+def test_acquisition_bound_point_rejects_missing_or_duplicate_rows() -> None:
+    session, point = _record_bound_point()
+    session.records.clear()
+    with pytest.raises(ValueError, match="missing or duplicated"):
+        verify_wits0_fluid_screening_point(session, point)
+
+    session, point = _record_bound_point()
+    session.records.append(session.records[0])
+    with pytest.raises(ValueError, match="missing or duplicated"):
+        verify_wits0_fluid_screening_point(session, point)
+
+
+def test_acquisition_bound_point_rejects_foreign_source_and_axis_change() -> None:
+    session, point = _record_bound_point()
+    foreign, _record = _source_session(session_id="other-session")
+    with pytest.raises(ValueError, match="another acquisition source"):
+        verify_wits0_fluid_screening_point(foreign, point)
+    with pytest.raises(ValueError, match="axis/unit"):
+        verify_wits0_fluid_screening_point(
+            session, replace(point, axis=Wits0GasContextAxis.ELAPSED_TIME)
+        )
+    with pytest.raises(TypeError, match="point"):
+        verify_wits0_fluid_screening_point(session, "not-a-point")
+    with pytest.raises(TypeError, match="session"):
+        verify_wits0_fluid_screening_point("not-a-session", point)
+
+
+def test_acquisition_bound_point_rejects_changed_active_index_unit() -> None:
+    session, point = _record_bound_point()
+    index = session.dataset_schema.indexes[0]
+    session.dataset_schema = replace(
+        session.dataset_schema,
+        indexes=(replace(index, unit="ft"),),
+    )
+    with pytest.raises(ValueError, match="axis/unit"):
+        verify_wits0_fluid_screening_point(session, point)
