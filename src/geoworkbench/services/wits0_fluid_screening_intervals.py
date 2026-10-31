@@ -9,6 +9,13 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
 
+from geoworkbench.domain.acquisition import (
+    AcquisitionDataRowPayload,
+    AcquisitionRecord,
+    AcquisitionRecordKind,
+    AcquisitionSession,
+)
+from geoworkbench.domain.models import DepthDomain, IndexRole, IndexType
 from geoworkbench.services.wits0_fluid_screening import Wits0FluidScreeningProjection
 from geoworkbench.services.wits0_manual_gas_context import (
     Wits0GasContextAxis,
@@ -21,6 +28,109 @@ def _validate_source_axis(source_key: str, axis: Wits0GasContextAxis) -> None:
         raise ValueError("source_key must be non-empty text")
     if not isinstance(axis, Wits0GasContextAxis):
         raise ValueError("axis must be Wits0GasContextAxis")
+
+
+@dataclass(frozen=True, slots=True)
+class Wits0FluidScreeningPoint:
+    """One verified WITS0 acquisition row, NOT an inferred coverage interval."""
+
+    source_identity: tuple[str, str, str]  # well, session, dataset
+    record_id: str
+    record_source: str
+    sequence: int
+    axis: Wits0GasContextAxis
+    position: float
+    screening: Wits0FluidScreeningProjection
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.source_identity, tuple)
+            or len(self.source_identity) != 3
+            or any(not isinstance(item, str) or not item.strip() for item in self.source_identity)
+        ):
+            raise ValueError("source_identity must identify the well, session and dataset")
+        if not isinstance(self.record_id, str) or not self.record_id.strip():
+            raise ValueError("record_id must be non-empty text")
+        if not isinstance(self.record_source, str) or not self.record_source.startswith(
+            "wits0:record="
+        ):
+            raise ValueError("record_source must identify a WITS0 acquisition row")
+        if type(self.sequence) is not int or self.sequence < 1:
+            raise ValueError("sequence must be a positive Python integer")
+        validate_gas_context_query(axis=self.axis, value=self.position)
+        if not isinstance(self.screening, Wits0FluidScreeningProjection):
+            raise TypeError("screening must use Wits0FluidScreeningProjection")
+
+
+def bind_wits0_fluid_screening_point(
+    session: AcquisitionSession,
+    record: AcquisitionRecord,
+    *,
+    axis: Wits0GasContextAxis,
+    screening: Wits0FluidScreeningProjection,
+) -> Wits0FluidScreeningPoint:
+    """Bind a provisional label to an actual stored WITS0 row and its typed index.
+
+    Only the selected record's existing coordinate is exposed. A single WITS0
+    row does not prove a start/end coverage span; callers must not coalesce
+    these points into intervals without independently verified coverage.
+    """
+
+    if not isinstance(session, AcquisitionSession) or not isinstance(
+        record, AcquisitionRecord
+    ):
+        raise TypeError("session and record must use acquisition domain types")
+    if not isinstance(axis, Wits0GasContextAxis):
+        raise ValueError("axis must be Wits0GasContextAxis")
+    if not isinstance(screening, Wits0FluidScreeningProjection):
+        raise TypeError("screening must use Wits0FluidScreeningProjection")
+    if not any(item is record for item in session.records):
+        raise ValueError("record must belong to the supplied acquisition session")
+    if record.kind is not AcquisitionRecordKind.DATA_ROW or not isinstance(
+        record.payload, AcquisitionDataRowPayload
+    ):
+        raise ValueError("screening requires an acquisition data row")
+    if not record.source.startswith("wits0:record="):
+        raise ValueError("screening requires a WITS0 acquisition row")
+
+    schema = session.dataset_schema
+    index = next(
+        (item for item in schema.indexes if item.index_id == schema.active_index_id),
+        None,
+    )
+    if index is None:
+        raise ValueError("active acquisition index is missing")
+    if axis is Wits0GasContextAxis.DEPTH:
+        compatible = (
+            schema.depth_domain is DepthDomain.MD
+            and index.index_type is IndexType.MD
+            and index.role is IndexRole.DEPTH
+            and index.unit == "m"
+        )
+    else:
+        compatible = (
+            schema.depth_domain is DepthDomain.TIME
+            and index.index_type is IndexType.RELATIVE_TIME
+            and index.role is IndexRole.TIME
+            and index.unit == "s"
+        )
+    if not compatible:
+        raise ValueError("acquisition index is not verified for the requested axis/unit")
+    values = record.payload.indexes_dict()
+    if schema.active_index_id not in values:
+        raise ValueError("record is missing the verified active index")
+    position = validate_gas_context_query(
+        axis=axis, value=values[schema.active_index_id]
+    )
+    return Wits0FluidScreeningPoint(
+        source_identity=(session.well_id, session.session_id, schema.dataset_id),
+        record_id=record.record_id,
+        record_source=record.source,
+        sequence=record.sequence,
+        axis=axis,
+        position=position,
+        screening=screening,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,6 +232,8 @@ def coalesce_wits0_fluid_screening(
 
 __all__ = [
     "Wits0FluidScreeningInterval",
+    "Wits0FluidScreeningPoint",
+    "bind_wits0_fluid_screening_point",
     "Wits0FluidScreeningSample",
     "coalesce_wits0_fluid_screening",
 ]
