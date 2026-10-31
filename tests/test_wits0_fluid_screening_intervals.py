@@ -286,8 +286,20 @@ def test_source_point_binding_supports_only_verified_relative_seconds() -> None:
     [
         (DepthDomain.MD, IndexType.MD, IndexRole.DEPTH, "ft", Wits0GasContextAxis.DEPTH),
         (DepthDomain.TVD, IndexType.TVD, IndexRole.DEPTH, "m", Wits0GasContextAxis.DEPTH),
-        (DepthDomain.TIME, IndexType.DATETIME, IndexRole.TIME, "s", Wits0GasContextAxis.ELAPSED_TIME),
-        (DepthDomain.TIME, IndexType.RELATIVE_TIME, IndexRole.TIME, "ms", Wits0GasContextAxis.ELAPSED_TIME),
+        (
+            DepthDomain.TIME,
+            IndexType.DATETIME,
+            IndexRole.TIME,
+            "s",
+            Wits0GasContextAxis.ELAPSED_TIME,
+        ),
+        (
+            DepthDomain.TIME,
+            IndexType.RELATIVE_TIME,
+            IndexRole.TIME,
+            "ms",
+            Wits0GasContextAxis.ELAPSED_TIME,
+        ),
         (DepthDomain.TIME, IndexType.RELATIVE_TIME, IndexRole.TIME, "s", Wits0GasContextAxis.DEPTH),
     ],
 )
