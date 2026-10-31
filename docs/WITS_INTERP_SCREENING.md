@@ -27,6 +27,31 @@ The initial projection alone does **not** draw notifications, assign physical
 colours, create geological interpretations, claim reservoir productivity, or
 pass field acceptance.
 
+## Acquisition-backed point attribution (third headless P0 slice)
+
+`bind_wits0_fluid_screening_point(session, record, axis=..., screening=...)`
+accepts only a row **already held in the supplied acquisition session**.
+The result stores the exact well/session/dataset identity, record ID and
+sequence, unchanged acquisition source audit text, the existing index value
+and the already calculated immutable screening projection. It never writes
+back to WITS or LAS. The provenance text is retained, not cryptographically
+reverified by this adapter.
+
+The **active** acquisition index must explicitly be MD (`IndexType.MD`,
+`IndexRole.DEPTH`, `DepthDomain.MD`, unit `m`) or relative time
+(`IndexType.RELATIVE_TIME`, `IndexRole.TIME`, `DepthDomain.TIME`, unit
+`s`). Other depth domains, timestamp indexes, mismatched axes and
+unverified units are rejected. Foreign session records, non-WITS0 records
+and missing measured coordinates are rejected before publishing a point.
+
+**One data-row coordinate is not an observed coverage span.** This
+source-backed point is deliberately *not* a `Wits0FluidScreeningSample`
+and cannot be coalesced into intervals. Before showing an interval, a later
+source-span adapter must separately verify explicit start/end coverage and
+continuity against actual source observations. No interpolation, point-to-
+interval expansion, formation-show inference, UI stripe or physical
+acceptance is performed in this step.
+
 ## Source-bound observed-coverage intervals (second headless P0 slice)
 
 `Wits0FluidScreeningSample` carries an explicit exact source key, a typed
