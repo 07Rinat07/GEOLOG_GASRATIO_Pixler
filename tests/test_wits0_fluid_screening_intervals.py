@@ -1,11 +1,13 @@
 """WITS-INTERP-01: no invented coverage or mixed-source fluid intervals."""
 
 from dataclasses import FrozenInstanceError, replace
+from pathlib import Path
 from hashlib import sha256
 
 import pytest
 
 from geoworkbench.acquisition import (
+    Wits0RawCaptureWriter,
     Wits0StreamProcessor,
     load_builtin_wits0_profile,
 )
@@ -27,6 +29,8 @@ from geoworkbench.services.wits0_fluid_screening_intervals import (
     Wits0FluidScreeningPoint,
     Wits0FluidScreeningAuditAnchor,
     Wits0FluidScreeningRawFrameMatch,
+    Wits0FluidScreeningCaptureEvidence,
+    verify_wits0_fluid_screening_capture,
     match_wits0_fluid_screening_raw_frame,
     inspect_wits0_fluid_screening_audit,
     Wits0FluidScreeningSample,
@@ -35,6 +39,7 @@ from geoworkbench.services.wits0_fluid_screening_intervals import (
     snapshot_wits0_fluid_screening_points,
     coalesce_wits0_fluid_screening,
 )
+from geoworkbench.services.wits0_raw_replay import Wits0RawReplayError
 from geoworkbench.services.wits0_gas_context import Wits0GasOriginKind
 from geoworkbench.services.wits0_manual_gas_context import Wits0GasContextAxis
 
@@ -761,3 +766,147 @@ def test_raw_frame_rejects_stale_or_foreign_acquisition_point() -> None:
     )
     with pytest.raises(ValueError, match="no longer matches"):
         match_wits0_fluid_screening_raw_frame(session, point, frame)
+
+
+def _indexed_screening_capture(
+    tmp_path: Path,
+    *,
+    source_name: str = "screening-test-rig",
+) -> tuple[AcquisitionSession, Wits0FluidScreeningPoint, bytes]:
+    session, point, parsed = _real_wits_audited_point()
+    assert parsed.received_at is not None
+    session.records[0] = replace(session.records[0], received_at=parsed.received_at)
+    point = bind_wits0_fluid_screening_point(
+        session, session.records[0], axis=AXIS, screening=point.screening
+    )
+    writer = Wits0RawCaptureWriter(
+        tmp_path,
+        source_name=source_name,
+        connection_id="capture-session-1",
+        segment_bytes=10000,
+    )
+    raw = parsed.raw_frame
+    writer.write(raw[:19], received_at="2026-10-31T11:59:59Z")
+    writer.write(raw[19:], received_at=parsed.received_at)
+    writer.close()
+    return session, point, raw
+
+
+def test_wits_screening_capture_finds_real_split_frame_in_indexed_raw(
+    tmp_path: Path,
+) -> None:
+    session, point, raw = _indexed_screening_capture(tmp_path)
+    evidence = verify_wits0_fluid_screening_capture(
+        session,
+        point,
+        profile=load_builtin_wits0_profile(),
+        raw_directory=tmp_path,
+        source_name="screening-test-rig",
+    )
+    assert isinstance(evidence, Wits0FluidScreeningCaptureEvidence)
+    assert evidence.record_id == point.record_id
+    assert evidence.source_identity == point.source_identity
+    assert evidence.connection_id == "capture-session-1"
+    assert evidence.raw_segment.is_file()
+    assert evidence.raw_sha256 == sha256(raw).hexdigest()
+    assert evidence.received_at == session.records[0].received_at
+    assert not hasattr(evidence, "start")
+    assert not hasattr(evidence, "end")
+
+
+def test_wits_screening_capture_rejects_missing_source_or_changed_timestamp(
+    tmp_path: Path,
+) -> None:
+    session, point, _raw = _indexed_screening_capture(tmp_path)
+    kwargs = dict(
+        profile=load_builtin_wits0_profile(),
+        raw_directory=tmp_path,
+        source_name="wrong-rig",
+    )
+    with pytest.raises(Wits0RawReplayError, match="No indexed"):
+        verify_wits0_fluid_screening_capture(session, point, **kwargs)
+
+    session.records[0] = replace(
+        session.records[0], received_at="2026-10-31T12:00:10Z"
+    )
+    kwargs["source_name"] = "screening-test-rig"
+    with pytest.raises(Wits0RawReplayError, match="No captured"):
+        verify_wits0_fluid_screening_capture(session, point, **kwargs)
+
+
+def test_wits_screening_capture_rejects_changed_original_raw_bytes(
+    tmp_path: Path,
+) -> None:
+    session, point, raw = _indexed_screening_capture(tmp_path)
+    segment = next(tmp_path.rglob("*.wits"))
+    altered = raw.replace(b"0208123.4", b"0208123.5")
+    assert len(altered) == len(raw)
+    payload = segment.read_bytes()
+    assert payload.endswith(raw)
+    segment.write_bytes(payload[: -len(raw)] + altered)
+    with pytest.raises(Wits0RawReplayError, match="No captured"):
+        verify_wits0_fluid_screening_capture(
+            session,
+            point,
+            profile=load_builtin_wits0_profile(),
+            raw_directory=tmp_path,
+            source_name="screening-test-rig",
+        )
+
+
+def test_wits_screening_capture_bounds_raw_scan_and_rejects_bad_budget(
+    tmp_path: Path,
+) -> None:
+    session, point, _raw = _indexed_screening_capture(tmp_path)
+    args = dict(
+        profile=load_builtin_wits0_profile(),
+        raw_directory=tmp_path,
+        source_name="screening-test-rig",
+    )
+    with pytest.raises(Wits0RawReplayError, match="bounded byte budget"):
+        verify_wits0_fluid_screening_capture(
+            session, point, max_bytes=3, **args
+        )
+    with pytest.raises(ValueError, match="max_bytes"):
+        verify_wits0_fluid_screening_capture(
+            session, point, max_bytes=0, **args
+        )
+    with pytest.raises(TypeError, match="Wits0Profile"):
+        verify_wits0_fluid_screening_capture(
+            session,
+            point,
+            profile=None,
+            raw_directory=tmp_path,
+            source_name="screening-test-rig",
+        )
+
+
+def test_wits_screening_capture_rejects_stale_source_and_corrupt_sidecar(
+    tmp_path: Path,
+) -> None:
+    session, point, _raw = _indexed_screening_capture(tmp_path)
+    session.records[0] = replace(
+        session.records[0],
+        source=session.records[0].source.replace(
+            "sequence-status=first", "sequence-status=gap"
+        ),
+    )
+    with pytest.raises(ValueError, match="no longer matches"):
+        verify_wits0_fluid_screening_capture(
+            session,
+            point,
+            profile=load_builtin_wits0_profile(),
+            raw_directory=tmp_path,
+            source_name="screening-test-rig",
+        )
+    session, point, _raw = _indexed_screening_capture(tmp_path / "new")
+    sidecar = next((tmp_path / "new").rglob("*.chunks.jsonl"))
+    sidecar.write_text('{"offset":1,"size":1}', encoding="utf-8")
+    with pytest.raises(Wits0RawReplayError):
+        verify_wits0_fluid_screening_capture(
+            session,
+            point,
+            profile=load_builtin_wits0_profile(),
+            raw_directory=tmp_path / "new",
+            source_name="screening-test-rig",
+        )
