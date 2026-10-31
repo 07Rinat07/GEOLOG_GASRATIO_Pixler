@@ -23,17 +23,40 @@ The returned immutable projection exposes:
   already says `FORMATION_SHOW`. Connection, trip, circulated and unknown
   gas never become formation shows solely because of fluid composition.
 
-This service does **not** join adjacent samples into intervals, draw
-notifications, assign physical colours, create geological interpretations,
-claim reservoir productivity, or pass field acceptance. The next independent
-WITS-INTERP-01 slices must use validated axis/source provenance before
-interval coalescing and UI plotting, and must test synthetic partial evidence
-and real operator/Windows acceptance separately.
+The initial projection alone does **not** draw notifications, assign physical
+colours, create geological interpretations, claim reservoir productivity, or
+pass field acceptance.
+
+## Source-bound observed-coverage intervals (second headless P0 slice)
+
+`Wits0FluidScreeningSample` carries an explicit exact source key, a typed
+`Wits0GasContextAxis`, observed start/end coverage, an increasing source
+sequence, and the existing immutable provisional screening projection.
+Depth means **measured depth in metres**, elapsed time means **seconds from
+session start**. The caller must verify those units and coverage against the
+actual acquisition source; this API does not calculate lag, infer a sample
+width, or convert TVD/TIME/feet into MD.
+
+`coalesce_wits0_fluid_screening(samples, source_key=..., axis=...)` accepts
+only samples matching the requested source and axis. It joins spans only when
+their boundaries touch **exactly**, source sequences are consecutive, and
+the complete projection (fluid hypothesis, profile IDs, operational origin)
+is equal. Real coverage gaps, missing sequences, changed provisional class
+or changed gas origin remain separate. Overlap, reordering, malformed
+coordinates and mixed sources/axes raise errors rather than fabricating
+continuity. A formation-show marker still derives only from the separate
+origin classifier, never from the fluid composition. Original observations
+and Haworth/Pixler calculations are not modified.
+
+This is an **in-memory headless interval boundary**, not a persisted WITS
+field, notification badge, plot stripe, physical palette or accepted
+formation interval. Live UI wiring, colour/stripe parity, operator Windows
+validation and actual source-span attribution remain separate slices.
 
 Regression command:
 
 ```bash
-python -m pytest tests/test_wits0_fluid_screening.py tests/test_gas_ratio_interpretation.py -q
+python -m pytest tests/test_wits0_fluid_screening.py tests/test_wits0_fluid_screening_intervals.py tests/test_gas_ratio_interpretation.py -q
 ```
 
 Before merging, require Ruff, mypy and the three mandatory Windows Release Gate
