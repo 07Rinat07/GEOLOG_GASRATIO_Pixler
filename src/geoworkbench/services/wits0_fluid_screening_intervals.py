@@ -46,9 +46,14 @@ class Wits0FluidScreeningPoint:
         if (
             not isinstance(self.source_identity, tuple)
             or len(self.source_identity) != 3
-            or any(not isinstance(item, str) or not item.strip() for item in self.source_identity)
+            or any(
+                not isinstance(item, str) or not item.strip()
+                for item in self.source_identity
+            )
         ):
-            raise ValueError("source_identity must identify the well, session and dataset")
+            raise ValueError(
+                "source_identity must identify the well, session and dataset"
+            )
         if not isinstance(self.record_id, str) or not self.record_id.strip():
             raise ValueError("record_id must be non-empty text")
         if not isinstance(self.record_source, str) or not self.record_source.startswith(
