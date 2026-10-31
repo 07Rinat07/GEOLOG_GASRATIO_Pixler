@@ -830,7 +830,8 @@ def test_wits_screening_capture_rejects_missing_source_or_changed_timestamp(
         session.records[0], received_at="2026-10-31T12:00:10Z"
     )
     kwargs["source_name"] = "screening-test-rig"
-    with pytest.raises(Wits0RawReplayError, match="No captured"):
+    # A changed acquisition receipt time invalidates the bound point before raw lookup.
+    with pytest.raises(ValueError, match="no longer matches"):
         verify_wits0_fluid_screening_capture(session, point, **kwargs)
 
 
