@@ -1,8 +1,14 @@
 """WITS-INTERP-01: no invented coverage or mixed-source fluid intervals."""
 
 from dataclasses import FrozenInstanceError, replace
+from hashlib import sha256
 
 import pytest
+
+from geoworkbench.acquisition import (
+    Wits0StreamProcessor,
+    load_builtin_wits0_profile,
+)
 
 from geoworkbench.services.gas_ratio_interpretation import classify_gas_ratio
 from geoworkbench.services.localization import AppLanguage
@@ -20,6 +26,8 @@ from geoworkbench.acquisition.wits0_parser import Wits0SequenceStatus
 from geoworkbench.services.wits0_fluid_screening_intervals import (
     Wits0FluidScreeningPoint,
     Wits0FluidScreeningAuditAnchor,
+    Wits0FluidScreeningRawFrameMatch,
+    match_wits0_fluid_screening_raw_frame,
     inspect_wits0_fluid_screening_audit,
     Wits0FluidScreeningSample,
     bind_wits0_fluid_screening_point,
@@ -649,3 +657,107 @@ def test_wits_source_audit_cannot_be_claimed_for_foreign_session() -> None:
     foreign, _record = _source_session(session_id="unrelated-session")
     with pytest.raises(ValueError, match="another acquisition source"):
         inspect_wits0_fluid_screening_audit(foreign, point)
+
+
+def _real_wits_audited_point():
+    """Build the digest from real parsed fixture bytes, never a pretend hash."""
+    raw = "\r\n".join(
+        (
+            "&&",
+            "0201SG-8",
+            "020201",
+            "02032",
+            "020441",
+            "0205261031",
+            "0206120000",
+            "02070",
+            "0208123.4",
+            "021011.2",
+            "!!",
+        )
+    ).encode("ascii")
+    processor = Wits0StreamProcessor(load_builtin_wits0_profile())
+    frames = processor.append(
+        raw,
+        received_at="2026-10-31T12:00:00Z",
+        source_ref="fixture.wits",
+    )
+    assert len(frames) == 1
+    frame = frames[0]
+    assert frame.record_no == 2
+    assert frame.sequence_no == 41
+    assert frame.sequence_status is Wits0SequenceStatus.FIRST
+    source = (
+        "wits0:record=02;sequence-status=first;raw-sha256="
+        + sha256(raw).hexdigest()
+        + ";source-sequence=41;ref=fixture.wits"
+    )
+    session, point = _audit_bound_point(source)
+    return session, point, frame
+
+
+def test_raw_frame_matches_actual_parsed_bytes_without_claiming_coverage() -> None:
+    session, point, frame = _real_wits_audited_point()
+    result = match_wits0_fluid_screening_raw_frame(session, point, frame)
+    assert isinstance(result, Wits0FluidScreeningRawFrameMatch)
+    assert result.source_identity == point.source_identity
+    assert result.record_id == point.record_id
+    assert result.record_no == 2
+    assert result.source_sequence_no == 41
+    assert result.raw_sha256 == sha256(frame.raw_frame).hexdigest()
+    assert not hasattr(result, "start")
+    assert not hasattr(result, "end")
+    assert session.records[0].source == point.record_source
+
+
+def test_raw_frame_rejects_byte_tampering() -> None:
+    session, point, frame = _real_wits_audited_point()
+    with pytest.raises(ValueError, match="SHA-256"):
+        match_wits0_fluid_screening_raw_frame(
+            session, point, replace(frame, raw_frame=frame.raw_frame + b"x")
+        )
+
+
+@pytest.mark.parametrize(
+    "changed,expected",
+    [
+        ({"record_no": 3}, "record number"),
+        ({"sequence_no": 42}, "source sequence"),
+        ({"sequence_status": Wits0SequenceStatus.GAP}, "sequence status"),
+    ],
+)
+def test_raw_frame_rejects_mismatched_parsed_identity(
+    changed: dict[str, object], expected: str
+) -> None:
+    session, point, frame = _real_wits_audited_point()
+    with pytest.raises(ValueError, match=expected):
+        match_wits0_fluid_screening_raw_frame(
+            session, point, replace(frame, **changed)
+        )
+
+
+def test_raw_frame_rejects_nonbytes_and_missing_payload() -> None:
+    session, point, frame = _real_wits_audited_point()
+    with pytest.raises(ValueError, match="non-empty bytes"):
+        match_wits0_fluid_screening_raw_frame(
+            session, point, replace(frame, raw_frame=b"")
+        )
+    with pytest.raises(ValueError, match="non-empty bytes"):
+        match_wits0_fluid_screening_raw_frame(
+            session, point, replace(frame, raw_frame="not bytes")
+        )
+    with pytest.raises(TypeError, match="Wits0ParsedFrame"):
+        match_wits0_fluid_screening_raw_frame(session, point, b"not parsed")
+
+
+def test_raw_frame_rejects_stale_or_foreign_acquisition_point() -> None:
+    session, point, frame = _real_wits_audited_point()
+    foreign, _record = _source_session(session_id="other-session")
+    with pytest.raises(ValueError, match="another acquisition source"):
+        match_wits0_fluid_screening_raw_frame(foreign, point, frame)
+    session.records[0] = replace(
+        session.records[0],
+        source=session.records[0].source.replace("raw-sha256=", "raw-sha256=0"),
+    )
+    with pytest.raises(ValueError, match="no longer matches"):
+        match_wits0_fluid_screening_raw_frame(session, point, frame)
