@@ -21,6 +21,7 @@ from geoworkbench.services.wits0_fluid_screening_intervals import (
     Wits0FluidScreeningSample,
     bind_wits0_fluid_screening_point,
     verify_wits0_fluid_screening_point,
+    snapshot_wits0_fluid_screening_points,
     coalesce_wits0_fluid_screening,
 )
 from geoworkbench.services.wits0_gas_context import Wits0GasOriginKind
@@ -432,3 +433,110 @@ def test_acquisition_bound_point_rejects_changed_active_index_unit() -> None:
     )
     with pytest.raises(ValueError, match="axis/unit"):
         verify_wits0_fluid_screening_point(session, point)
+
+
+def _screening_point_sequence(
+) -> tuple[AcquisitionSession, tuple[Wits0FluidScreeningPoint, ...]]:
+    session, first = _source_session()
+    second = replace(
+        first,
+        record_id="wits0-row-2",
+        sequence=2,
+        payload=AcquisitionDataRowPayload(
+            index_values=(("verified-index", 2501.0),), curve_values=()
+        ),
+    )
+    third = replace(
+        first,
+        record_id="wits0-row-3",
+        sequence=3,
+        payload=AcquisitionDataRowPayload(
+            index_values=(("verified-index", 2498.5),), curve_values=()
+        ),
+    )
+    session.records.extend((second, third))
+    screening = _projection()
+    points = tuple(
+        bind_wits0_fluid_screening_point(
+            session, record, axis=AXIS, screening=screening
+        )
+        for record in session.records
+    )
+    return session, points
+
+
+def test_source_point_snapshot_preserves_observed_gaps_and_reverse_md() -> None:
+    session, points = _screening_point_sequence()
+    # Sequence 2 is intentionally absent from the requested point selection;
+    # no measurement width or interval can be inferred from sequence numbers.
+    selected = (points[0], points[2])
+    result = snapshot_wits0_fluid_screening_points(session, iter(selected))
+    assert result == selected
+    assert tuple(point.position for point in result) == (2500.5, 2498.5)
+    assert tuple(point.sequence for point in result) == (1, 3)
+    assert all(not hasattr(point, "end") for point in result)
+    assert snapshot_wits0_fluid_screening_points(session, ()) == ()
+
+
+def test_source_point_snapshot_rejects_changed_row_before_publishing() -> None:
+    session, points = _screening_point_sequence()
+    second = session.records[1]
+    session.records[1] = replace(
+        second,
+        payload=AcquisitionDataRowPayload(
+            index_values=(("verified-index", 2600.0),),
+            curve_values=(),
+        ),
+    )
+    with pytest.raises(ValueError, match="no longer matches"):
+        snapshot_wits0_fluid_screening_points(session, points)
+    session, points = _screening_point_sequence()
+    third = session.records[2]
+    session.records[2] = replace(
+        third,
+        source="wits0:record=02;raw-sha256=" + "b" * 64,
+    )
+    with pytest.raises(ValueError, match="no longer matches"):
+        snapshot_wits0_fluid_screening_points(session, points)
+
+
+def test_source_point_snapshot_rejects_unordered_or_repeated_samples() -> None:
+    session, points = _screening_point_sequence()
+    with pytest.raises(ValueError, match="increase strictly"):
+        snapshot_wits0_fluid_screening_points(session, (points[2], points[0]))
+    with pytest.raises(ValueError, match="must not repeat"):
+        snapshot_wits0_fluid_screening_points(session, (points[0], points[0]))
+    with pytest.raises(TypeError, match="points"):
+        snapshot_wits0_fluid_screening_points(session, (points[0], object()))
+
+
+def test_source_point_snapshot_rejects_foreign_missing_and_duplicate_rows() -> None:
+    session, points = _screening_point_sequence()
+    foreign, _row = _source_session(session_id="foreign-session")
+    with pytest.raises(ValueError, match="another acquisition source"):
+        snapshot_wits0_fluid_screening_points(foreign, points)
+    session.records.pop()
+    with pytest.raises(ValueError, match="missing or duplicated"):
+        snapshot_wits0_fluid_screening_points(session, points)
+    session, points = _screening_point_sequence()
+    session.records.append(session.records[2])
+    with pytest.raises(ValueError, match="missing or duplicated"):
+        snapshot_wits0_fluid_screening_points(session, points)
+
+
+def test_source_point_snapshot_rejects_mixed_axes_and_units() -> None:
+    session, points = _screening_point_sequence()
+    with pytest.raises(ValueError, match="cannot mix"):
+        snapshot_wits0_fluid_screening_points(
+            session,
+            (points[0], replace(points[1], axis=Wits0GasContextAxis.ELAPSED_TIME)),
+        )
+    index = session.dataset_schema.indexes[0]
+    session.dataset_schema = replace(
+        session.dataset_schema,
+        indexes=(replace(index, unit="ft"),),
+    )
+    with pytest.raises(ValueError, match="axis/unit"):
+        snapshot_wits0_fluid_screening_points(session, points)
+    with pytest.raises(TypeError, match="session"):
+        snapshot_wits0_fluid_screening_points("not-a-session", points)
