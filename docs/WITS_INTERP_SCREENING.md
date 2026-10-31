@@ -83,6 +83,25 @@ continuity against actual source observations. No interpolation, point-to-
 interval expansion, formation-show inference, UI stripe or physical
 acceptance is performed in this step.
 
+## Audit-header evidence for verified WITS0 points (fifth headless P0 slice)
+
+`inspect_wits0_fluid_screening_audit(session, point)` first rechecks that the
+same exact source acquisition row is still present and unchanged. Only then
+does it parse the fixed **first three header fields** emitted by
+`Wits0MeasurementBatch.to_acquisition_record`: two-digit WITS record number,
+typed sequence status and a 64-digit hex `raw-sha256`. If present, a
+non-negative integer `source-sequence` is also extracted. Remaining
+`ref`/quality text is left untouched, since a source reference may contain
+semicolons. Malformed or duplicate canonical header values, ambiguous source
+sequence, foreign sessions and stale acquisition rows fail closed.
+
+The returned immutable `Wits0FluidScreeningAuditAnchor` describes *what the
+stored audit text declares*, not independent proof that the raw frame bytes
+match its SHA-256. It does **not** read source files, alter WITS/LAS, assign a
+fluid class, authenticate a provider, establish `start/end` or automatically
+promote any measured point to a continuous interval. Independent source
+coverage evidence and real-field/Windows validation remain separate.
+
 ## Source-bound observed-coverage intervals (second headless P0 slice)
 
 `Wits0FluidScreeningSample` carries an explicit exact source key, a typed
