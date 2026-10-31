@@ -435,8 +435,9 @@ def test_acquisition_bound_point_rejects_changed_active_index_unit() -> None:
         verify_wits0_fluid_screening_point(session, point)
 
 
-def _screening_point_sequence(
-) -> tuple[AcquisitionSession, tuple[Wits0FluidScreeningPoint, ...]]:
+def _screening_point_sequence() -> tuple[
+    AcquisitionSession, tuple[Wits0FluidScreeningPoint, ...]
+]:
     session, first = _source_session()
     second = replace(
         first,
