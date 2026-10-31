@@ -910,3 +910,49 @@ def test_wits_screening_capture_rejects_stale_source_and_corrupt_sidecar(
             raw_directory=tmp_path / "new",
             source_name="screening-test-rig",
         )
+
+def test_screening_point_receipt_time_is_bound_to_original_acquisition_row() -> None:
+    session, point = _record_bound_point()
+    assert point.received_at == session.records[0].received_at
+    session.records[0] = replace(
+        session.records[0], received_at="2026-10-31T00:00:01Z"
+    )
+    with pytest.raises(ValueError, match="no longer matches"):
+        verify_wits0_fluid_screening_point(session, point)
+    with pytest.raises(ValueError, match="no longer matches"):
+        snapshot_wits0_fluid_screening_points(session, (point,))
+
+
+def test_screening_audit_rejects_retimestamped_source_row() -> None:
+    session, point = _audit_bound_point()
+    session.records[0] = replace(
+        session.records[0], received_at="2026-10-31T00:00:01Z"
+    )
+    with pytest.raises(ValueError, match="no longer matches"):
+        inspect_wits0_fluid_screening_audit(session, point)
+
+
+def test_screening_capture_rejects_timestamp_replaced_mid_scan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import geoworkbench.services.wits0_fluid_screening_intervals as module
+
+    session, point, _raw = _indexed_screening_capture(tmp_path)
+    original_locator = module.locate_wits0_raw_frame
+
+    def locate_then_retimestamp(*args, **kwargs):
+        location = original_locator(*args, **kwargs)
+        session.records[0] = replace(
+            session.records[0], received_at="2026-10-31T12:00:01Z"
+        )
+        return location
+
+    monkeypatch.setattr(module, "locate_wits0_raw_frame", locate_then_retimestamp)
+    with pytest.raises(ValueError, match="no longer matches"):
+        verify_wits0_fluid_screening_capture(
+            session,
+            point,
+            profile=load_builtin_wits0_profile(),
+            raw_directory=tmp_path,
+            source_name="screening-test-rig",
+        )
