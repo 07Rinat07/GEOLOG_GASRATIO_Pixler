@@ -102,6 +102,27 @@ fluid class, authenticate a provider, establish `start/end` or automatically
 promote any measured point to a continuous interval. Independent source
 coverage evidence and real-field/Windows validation remain separate.
 
+## Supplied raw-frame digest matching (sixth headless P0 slice)
+
+`match_wits0_fluid_screening_raw_frame(session, point, frame)` first
+revalidates the stored source row and its canonical WITS0 audit header, then
+computes SHA-256 from the **actual bytes supplied in**
+`Wits0ParsedFrame.raw_frame`. It requires an exact match to the stored
+`raw-sha256`, and checks that the supplied parsed record number,
+sequence-status and source-sequence fields agree with that audit. A changed
+byte or conflicting frame metadata causes an error. The immutable returned
+`Wits0FluidScreeningRawFrameMatch` carries only source identity and
+matched record metadata. Regressions use bytes passed through the existing
+WITS0 stream parser, plus changed-byte and altered-metadata cases.
+
+**Evidence boundary:** The caller supplies an already parsed frame. This API
+does not independently parse or authenticate those metadata fields against
+the bytes, search the capture directory for the original raw frame, or
+establish its original acquisition time/connection. Even a matching digest
+does not establish measured start/end coverage, continuous formation
+intervals or fluid productivity. Verified capture-location attribution
+and field/Windows acceptance remain separate work.
+
 ## Source-bound observed-coverage intervals (second headless P0 slice)
 
 `Wits0FluidScreeningSample` carries an explicit exact source key, a typed
