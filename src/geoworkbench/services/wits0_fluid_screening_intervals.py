@@ -91,6 +91,20 @@ def bind_wits0_fluid_screening_point(
         raise TypeError("screening must use Wits0FluidScreeningProjection")
     if not any(item is record for item in session.records):
         raise ValueError("record must belong to the supplied acquisition session")
+    return _bind_verified_wits0_screening_row(
+        session, record, axis=axis, screening=screening
+    )
+
+
+def _bind_verified_wits0_screening_row(
+    session: AcquisitionSession,
+    record: AcquisitionRecord,
+    *,
+    axis: Wits0GasContextAxis,
+    screening: Wits0FluidScreeningProjection,
+) -> Wits0FluidScreeningPoint:
+    """Bind an already matched session row without a second list scan."""
+
     if record.kind is not AcquisitionRecordKind.DATA_ROW or not isinstance(
         record.payload, AcquisitionDataRowPayload
     ):
@@ -165,11 +179,66 @@ def verify_wits0_fluid_screening_point(
     ]
     if len(matches) != 1:
         raise ValueError("screening source row is missing or duplicated")
-    current = bind_wits0_fluid_screening_point(
+    current = _bind_verified_wits0_screening_row(
         session, matches[0], axis=point.axis, screening=point.screening
     )
     if current != point:
         raise ValueError("screening point no longer matches its acquisition row")
+
+
+def snapshot_wits0_fluid_screening_points(
+    session: AcquisitionSession,
+    points: Iterable[Wits0FluidScreeningPoint],
+) -> tuple[Wits0FluidScreeningPoint, ...]:
+    """Validate ordered observed points against one current acquisition session.
+
+    Source record identity, typed coordinates and audit text must still match.
+    Gaps in acquisition sequence and reverse MD travel remain measured facts;
+    this function never invents a coverage span or continuity between points.
+    The result is a point-only snapshot, not an atomic acquisition transaction.
+    """
+
+    if not isinstance(session, AcquisitionSession):
+        raise TypeError("session must use AcquisitionSession")
+    records_by_id: dict[str, AcquisitionRecord] = {}
+    duplicate_record_ids: set[str] = set()
+    for record in session.records:
+        if record.record_id in records_by_id:
+            duplicate_record_ids.add(record.record_id)
+        else:
+            records_by_id[record.record_id] = record
+
+    identity = (session.well_id, session.session_id, session.dataset_schema.dataset_id)
+    observed: list[Wits0FluidScreeningPoint] = []
+    record_ids: set[str] = set()
+    last_sequence = 0
+    selected_axis: Wits0GasContextAxis | None = None
+    for point in points:
+        if not isinstance(point, Wits0FluidScreeningPoint):
+            raise TypeError("points must use Wits0FluidScreeningPoint")
+        if point.source_identity != identity:
+            raise ValueError("screening point belongs to another acquisition source")
+        if selected_axis is not None and point.axis is not selected_axis:
+            raise ValueError("screening points cannot mix depth and elapsed-time axes")
+        if point.record_id in record_ids:
+            raise ValueError("screening point record IDs must not repeat")
+        if point.sequence <= last_sequence:
+            raise ValueError("screening point source sequence must increase strictly")
+        if point.record_id in duplicate_record_ids or point.record_id not in records_by_id:
+            raise ValueError("screening source row is missing or duplicated")
+        current = _bind_verified_wits0_screening_row(
+            session,
+            records_by_id[point.record_id],
+            axis=point.axis,
+            screening=point.screening,
+        )
+        if current != point:
+            raise ValueError("screening point no longer matches its acquisition row")
+        record_ids.add(point.record_id)
+        observed.append(point)
+        last_sequence = point.sequence
+        selected_axis = point.axis
+    return tuple(observed)
 
 
 @dataclass(frozen=True, slots=True)
@@ -274,6 +343,7 @@ __all__ = [
     "Wits0FluidScreeningPoint",
     "bind_wits0_fluid_screening_point",
     "verify_wits0_fluid_screening_point",
+    "snapshot_wits0_fluid_screening_points",
     "Wits0FluidScreeningSample",
     "coalesce_wits0_fluid_screening",
 ]
