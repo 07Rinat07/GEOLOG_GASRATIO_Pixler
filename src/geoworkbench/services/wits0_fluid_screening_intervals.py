@@ -8,10 +8,12 @@ from __future__ import annotations
 
 import re
 from hashlib import sha256
+from pathlib import Path
 
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
 
+from geoworkbench.acquisition.wits0 import Wits0Profile
 from geoworkbench.acquisition.wits0_parser import (
     Wits0ParsedFrame,
     Wits0SequenceStatus,
@@ -24,6 +26,7 @@ from geoworkbench.domain.acquisition import (
 )
 from geoworkbench.domain.models import DepthDomain, IndexRole, IndexType
 from geoworkbench.services.wits0_fluid_screening import Wits0FluidScreeningProjection
+from geoworkbench.services.wits0_raw_replay import locate_wits0_raw_frame
 from geoworkbench.services.wits0_manual_gas_context import (
     Wits0GasContextAxis,
     validate_gas_context_query,
@@ -368,6 +371,55 @@ def match_wits0_fluid_screening_raw_frame(
 
 
 @dataclass(frozen=True, slots=True)
+class Wits0FluidScreeningCaptureEvidence:
+    """Matched WITS0 acquisition row and exact indexed raw-capture frame."""
+
+    source_identity: tuple[str, str, str]
+    record_id: str
+    raw_segment: Path
+    connection_id: str
+    received_at: str
+    raw_sha256: str
+
+
+def verify_wits0_fluid_screening_capture(
+    session: AcquisitionSession,
+    point: Wits0FluidScreeningPoint,
+    *,
+    profile: Wits0Profile,
+    raw_directory: str | Path,
+    source_name: str,
+    max_bytes: int = 64 * 1024 * 1024,
+) -> Wits0FluidScreeningCaptureEvidence:
+    """Recover matching bytes from indexed capture and verify recorded WITS0 row.
+
+    Timestamp and SHA are taken from the current stored acquisition record,
+    not supplied as independent untrusted overrides. Real WITS0 capture
+    provides a frame, but does not establish measured depth/time coverage.
+    """
+
+    anchor = inspect_wits0_fluid_screening_audit(session, point)
+    record = next(item for item in session.records if item.record_id == point.record_id)
+    location = locate_wits0_raw_frame(
+        raw_directory,
+        profile=profile,
+        source_name=source_name,
+        received_at=record.received_at,
+        raw_sha256=anchor.raw_sha256,
+        max_bytes=max_bytes,
+    )
+    matched = match_wits0_fluid_screening_raw_frame(session, point, location.frame)
+    return Wits0FluidScreeningCaptureEvidence(
+        source_identity=matched.source_identity,
+        record_id=matched.record_id,
+        raw_segment=location.raw_segment,
+        connection_id=location.connection_id,
+        received_at=location.received_at,
+        raw_sha256=matched.raw_sha256,
+    )
+
+
+@dataclass(frozen=True, slots=True)
 class Wits0FluidScreeningSample:
     """One measured coverage span; depth is MD metres, elapsed time is seconds."""
 
@@ -474,6 +526,8 @@ __all__ = [
     "inspect_wits0_fluid_screening_audit",
     "Wits0FluidScreeningRawFrameMatch",
     "match_wits0_fluid_screening_raw_frame",
+    "Wits0FluidScreeningCaptureEvidence",
+    "verify_wits0_fluid_screening_capture",
     "Wits0FluidScreeningSample",
     "coalesce_wits0_fluid_screening",
 ]
