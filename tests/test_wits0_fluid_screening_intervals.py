@@ -7,8 +7,19 @@ import pytest
 from geoworkbench.services.gas_ratio_interpretation import classify_gas_ratio
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.wits0_fluid_screening import project_wits0_fluid_screening
+from geoworkbench.domain.acquisition import (
+    AcquisitionDataRowPayload,
+    AcquisitionDatasetSchema,
+    AcquisitionIndexSchema,
+    AcquisitionRecord,
+    AcquisitionRecordKind,
+    AcquisitionSession,
+)
+from geoworkbench.domain.models import DatasetKind, DepthDomain, IndexRole, IndexType
 from geoworkbench.services.wits0_fluid_screening_intervals import (
+    Wits0FluidScreeningPoint,
     Wits0FluidScreeningSample,
+    bind_wits0_fluid_screening_point,
     coalesce_wits0_fluid_screening,
 )
 from geoworkbench.services.wits0_gas_context import Wits0GasOriginKind
@@ -178,3 +189,137 @@ def test_empty_input_and_immutable_observations() -> None:
     interval = _coalesce(sample)[0]
     with pytest.raises(FrozenInstanceError):
         interval.end = 2.0
+
+
+def _source_session(
+    *,
+    session_id: str = "session-1",
+    domain: DepthDomain = DepthDomain.MD,
+    kind: IndexType = IndexType.MD,
+    role: IndexRole = IndexRole.DEPTH,
+    unit: str = "m",
+    position: float = 2500.5,
+    source: str = "wits0:record=02;raw-sha256=" + "a" * 64,
+) -> tuple[AcquisitionSession, AcquisitionRecord]:
+    index = AcquisitionIndexSchema(
+        index_id="verified-index",
+        mnemonic="MD" if domain is DepthDomain.MD else "ELAPSED",
+        index_type=kind,
+        role=role,
+        unit=unit,
+    )
+    schema = AcquisitionDatasetSchema(
+        dataset_id="wits-dataset",
+        name="WITS",
+        kind=DatasetKind.GTI,
+        depth_domain=domain,
+        indexes=(index,),
+        active_index_id="verified-index",
+        curves=(),
+    )
+    record = AcquisitionRecord(
+        record_id="wits0-row-1",
+        sequence=1,
+        kind=AcquisitionRecordKind.DATA_ROW,
+        payload=AcquisitionDataRowPayload(
+            index_values=(("verified-index", position),), curve_values=()
+        ),
+        received_at="2026-10-31T00:00:00Z",
+        source=source,
+    )
+    return (
+        AcquisitionSession(
+            session_id=session_id,
+            well_id="well-1",
+            dataset_schema=schema,
+            records=[record],
+        ),
+        record,
+    )
+
+
+def test_source_point_binding_reads_exact_wits_md_row_without_fabricating_interval() -> None:
+    session, record = _source_session()
+    screening = _projection()
+    point = bind_wits0_fluid_screening_point(
+        session, record, axis=Wits0GasContextAxis.DEPTH, screening=screening
+    )
+    assert isinstance(point, Wits0FluidScreeningPoint)
+    assert point.source_identity == ("well-1", "session-1", "wits-dataset")
+    assert (point.record_id, point.sequence, point.position) == (
+        "wits0-row-1", 1, 2500.5
+    )
+    assert point.record_source == record.source
+    assert point.screening is screening
+    assert point.axis is Wits0GasContextAxis.DEPTH
+    # Point data does not contain an invented coverage end or yield intervals.
+    assert not hasattr(point, "end")
+    with pytest.raises(TypeError, match="samples"):
+        coalesce_wits0_fluid_screening(
+            (point,), source_key=SOURCE, axis=AXIS
+        )
+    with pytest.raises(FrozenInstanceError):
+        point.position = 2501.0
+
+
+def test_source_point_binding_supports_only_verified_relative_seconds() -> None:
+    session, record = _source_session(
+        domain=DepthDomain.TIME,
+        kind=IndexType.RELATIVE_TIME,
+        role=IndexRole.TIME,
+        unit="s",
+        position=90.0,
+    )
+    point = bind_wits0_fluid_screening_point(
+        session,
+        record,
+        axis=Wits0GasContextAxis.ELAPSED_TIME,
+        screening=_projection(),
+    )
+    assert point.position == 90.0
+    assert point.axis is Wits0GasContextAxis.ELAPSED_TIME
+    assert point.source_identity[1] == session.session_id
+
+
+@pytest.mark.parametrize(
+    "domain,kind,role,unit,axis",
+    [
+        (DepthDomain.MD, IndexType.MD, IndexRole.DEPTH, "ft", Wits0GasContextAxis.DEPTH),
+        (DepthDomain.TVD, IndexType.TVD, IndexRole.DEPTH, "m", Wits0GasContextAxis.DEPTH),
+        (DepthDomain.TIME, IndexType.DATETIME, IndexRole.TIME, "s", Wits0GasContextAxis.ELAPSED_TIME),
+        (DepthDomain.TIME, IndexType.RELATIVE_TIME, IndexRole.TIME, "ms", Wits0GasContextAxis.ELAPSED_TIME),
+        (DepthDomain.TIME, IndexType.RELATIVE_TIME, IndexRole.TIME, "s", Wits0GasContextAxis.DEPTH),
+    ],
+)
+def test_source_point_binding_rejects_unverified_axis_and_units(
+    domain: DepthDomain,
+    kind: IndexType,
+    role: IndexRole,
+    unit: str,
+    axis: Wits0GasContextAxis,
+) -> None:
+    session, record = _source_session(
+        domain=domain, kind=kind, role=role, unit=unit
+    )
+    with pytest.raises(ValueError, match="axis/unit"):
+        bind_wits0_fluid_screening_point(
+            session, record, axis=axis, screening=_projection()
+        )
+
+
+def test_source_point_binding_rejects_foreign_and_non_wits_rows() -> None:
+    session, record = _source_session()
+    foreign, _ = _source_session(session_id="other-session")
+    with pytest.raises(ValueError, match="belong"):
+        bind_wits0_fluid_screening_point(
+            foreign, record, axis=AXIS, screening=_projection()
+        )
+    other, other_row = _source_session(source="etp12:record=02")
+    with pytest.raises(ValueError, match="WITS0"):
+        bind_wits0_fluid_screening_point(
+            other, other_row, axis=AXIS, screening=_projection()
+        )
+    with pytest.raises(TypeError, match="screening"):
+        bind_wits0_fluid_screening_point(
+            session, record, axis=AXIS, screening="oil"
+        )
