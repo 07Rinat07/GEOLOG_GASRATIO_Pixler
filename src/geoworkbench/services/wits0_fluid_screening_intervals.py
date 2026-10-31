@@ -7,11 +7,15 @@ takes place here. Callers supply actual coverage spans on one verified axis.
 from __future__ import annotations
 
 import re
+from hashlib import sha256
 
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
 
-from geoworkbench.acquisition.wits0_parser import Wits0SequenceStatus
+from geoworkbench.acquisition.wits0_parser import (
+    Wits0ParsedFrame,
+    Wits0SequenceStatus,
+)
 from geoworkbench.domain.acquisition import (
     AcquisitionDataRowPayload,
     AcquisitionRecord,
@@ -317,6 +321,53 @@ def inspect_wits0_fluid_screening_audit(
 
 
 @dataclass(frozen=True, slots=True)
+class Wits0FluidScreeningRawFrameMatch:
+    """Observed raw bytes matched against one persisted WITS0 audit digest."""
+
+    source_identity: tuple[str, str, str]
+    record_id: str
+    record_no: int
+    raw_sha256: str
+    source_sequence_no: int | None
+
+
+def match_wits0_fluid_screening_raw_frame(
+    session: AcquisitionSession,
+    point: Wits0FluidScreeningPoint,
+    frame: Wits0ParsedFrame,
+) -> Wits0FluidScreeningRawFrameMatch:
+    """Compare supplied frame bytes and parser metadata with stored WITS0 audit.
+
+    This verifies the *supplied* frame bytes against the stored digest, but
+    does not locate them in an original capture directory or independently
+    authenticate the parsed metadata. It cannot establish coverage start/end.
+    """
+
+    anchor = inspect_wits0_fluid_screening_audit(session, point)
+    if not isinstance(frame, Wits0ParsedFrame):
+        raise TypeError("frame must use Wits0ParsedFrame")
+    if not isinstance(frame.raw_frame, bytes) or not frame.raw_frame:
+        raise ValueError("raw_frame must be non-empty bytes")
+    digest = sha256(frame.raw_frame).hexdigest()
+    if digest != anchor.raw_sha256.lower():
+        raise ValueError("WITS0 raw frame SHA-256 differs from acquisition audit")
+    if frame.record_no != anchor.record_no:
+        raise ValueError("WITS0 raw frame record number differs from audit")
+    if frame.sequence_status is not anchor.sequence_status:
+        raise ValueError("WITS0 raw frame sequence status differs from audit")
+    if frame.sequence_no != anchor.source_sequence_no:
+        raise ValueError("WITS0 raw frame source sequence differs from audit")
+
+    return Wits0FluidScreeningRawFrameMatch(
+        source_identity=anchor.source_identity,
+        record_id=anchor.record_id,
+        record_no=anchor.record_no,
+        raw_sha256=digest,
+        source_sequence_no=anchor.source_sequence_no,
+    )
+
+
+@dataclass(frozen=True, slots=True)
 class Wits0FluidScreeningSample:
     """One measured coverage span; depth is MD metres, elapsed time is seconds."""
 
@@ -421,6 +472,8 @@ __all__ = [
     "snapshot_wits0_fluid_screening_points",
     "Wits0FluidScreeningAuditAnchor",
     "inspect_wits0_fluid_screening_audit",
+    "Wits0FluidScreeningRawFrameMatch",
+    "match_wits0_fluid_screening_raw_frame",
     "Wits0FluidScreeningSample",
     "coalesce_wits0_fluid_screening",
 ]
