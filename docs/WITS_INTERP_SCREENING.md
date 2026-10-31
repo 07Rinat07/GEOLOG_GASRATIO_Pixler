@@ -55,6 +55,26 @@ This is a synchronous **current-state check**, not an atomic acquisition
 lock, independent proof of the source bytes, re-execution of fluid-screening
 calculations, or confirmation of an observed coverage interval.
 
+A fourth headless step, `snapshot_wits0_fluid_screening_points(session,
+points)`, verifies a selected series of existing immutable point projections
+against the same current acquisition session. It first indexes stored rows
+once, rejects missing/duplicated record IDs, and checks each selected row's
+exact identity, audit text, sequence and typed coordinate. The selected
+points must have strictly increasing acquisition sequence numbers and must
+all belong to the same session and axis. No missing source sequence is
+fabricated; a selection can omit existing rows without claiming continuous
+coverage. **Reverse measured-depth travel is permitted**, since a WITS
+recorded MD during trips is not necessarily increasing; no depth-based sort
+or interpolation occurs.
+
+The result is a tuple of existing, point-only observations, not a
+`Wits0FluidScreeningSample` or verified coverage interval. This check is
+synchronous, not an acquisition lock; it does not independently recompute
+the existing fluid classification or validate raw WITS bytes. A separate
+trusted source-span evidence adapter must establish genuine coverage
+boundaries before the interval coalescer is connected to persisted WITS
+or a UI track.
+
 **One data-row coordinate is not an observed coverage span.** This
 source-backed point is deliberately *not* a `Wits0FluidScreeningSample`
 and cannot be coalesced into intervals. Before showing an interval, a later
