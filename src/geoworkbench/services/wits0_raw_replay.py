@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import json
 import re
+from hashlib import sha256
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
 
 from geoworkbench.acquisition.wits0 import Wits0Profile
-from geoworkbench.acquisition.wits0_parser import Wits0StreamProcessor
+from geoworkbench.acquisition.wits0_parser import Wits0ParsedFrame, Wits0StreamProcessor
 from geoworkbench.domain.acquisition import (
     acquisition_timestamp_to_ns,
     canonical_acquisition_timestamp,
@@ -258,6 +259,105 @@ def replay_wits0_raw_interval(
     )
 
 
+@dataclass(frozen=True, slots=True)
+class Wits0RawFrameLocation:
+    """A unique parsed frame recovered from indexed raw capture bytes."""
+
+    frame: Wits0ParsedFrame
+    raw_segment: Path
+    connection_id: str
+    received_at: str
+    bytes_scanned: int
+
+
+def locate_wits0_raw_frame(
+    raw_directory: str | Path,
+    *,
+    profile: Wits0Profile,
+    source_name: str,
+    received_at: str,
+    raw_sha256: str,
+    max_bytes: int = 64 * 1024 * 1024,
+) -> Wits0RawFrameLocation:
+    """Locate one matching raw frame by timestamp and SHA-256 in saved capture.
+
+    Replay the existing stream parser from the start of each connection so
+    frames split across chunks retain their original boundaries and sequence
+    QC. The indexed scan is bounded; no matched frame means fail closed.
+    A valid indexed capture is not a tamper-proof provenance signature or an
+    assertion of measured formation coverage.
+    """
+
+    if not isinstance(profile, Wits0Profile):
+        raise TypeError("profile must use Wits0Profile")
+    if not isinstance(source_name, str) or not source_name.strip():
+        raise ValueError("source_name must be non-empty")
+    if not isinstance(raw_sha256, str) or re.fullmatch(
+        r"[0-9a-fA-F]{64}", raw_sha256
+    ) is None:
+        raise ValueError("raw_sha256 must be a 64-digit hexadecimal digest")
+    if type(max_bytes) is not int or max_bytes < 1:
+        raise ValueError("max_bytes must be a positive integer")
+    timestamp = canonical_acquisition_timestamp(received_at)
+    target_ns = acquisition_timestamp_to_ns(timestamp)
+    digest = raw_sha256.lower()
+    segments = _segment_indexes(raw_directory, source_name=source_name)
+    if not segments:
+        raise Wits0RawReplayError("No indexed WITS0 raw capture segments exist")
+
+    processors: dict[str, Wits0StreamProcessor] = {}
+    bytes_scanned = 0
+    matched: tuple[Wits0ParsedFrame, Path, str] | None = None
+    for segment in segments:
+        if segment.first_received_ns > target_ns:
+            break
+        processor = processors.setdefault(
+            segment.connection_id, Wits0StreamProcessor(profile)
+        )
+        with segment.raw_path.open("rb") as stream:
+            for entry in _iter_chunk_index(segment.raw_path, segment.sidecar_path):
+                if entry.received_ns > target_ns:
+                    break
+                if entry.size > max_bytes - bytes_scanned:
+                    raise Wits0RawReplayError(
+                        "WITS0 capture scan exceeded the bounded byte budget"
+                    )
+                stream.seek(entry.offset)
+                chunk = stream.read(entry.size)
+                if len(chunk) != entry.size:
+                    raise Wits0RawReplayError("WITS0 capture segment changed during scan")
+                bytes_scanned += len(chunk)
+                for frame in processor.append(
+                    chunk,
+                    received_at=entry.received_at,
+                    source_ref=str(segment.raw_path),
+                ):
+                    if frame.received_at is None:
+                        continue
+                    if acquisition_timestamp_to_ns(frame.received_at) != target_ns:
+                        continue
+                    if sha256(frame.raw_frame).hexdigest() != digest:
+                        continue
+                    if matched is not None:
+                        raise Wits0RawReplayError(
+                            "Multiple captured WITS0 frames share the requested timestamp and SHA"
+                        )
+                    matched = (frame, segment.raw_path, segment.connection_id)
+
+    if matched is None:
+        raise Wits0RawReplayError(
+            "No captured WITS0 frame matches both the exact timestamp and SHA-256"
+        )
+    frame, raw_segment, connection_id = matched
+    return Wits0RawFrameLocation(
+        frame=frame,
+        raw_segment=raw_segment,
+        connection_id=connection_id,
+        received_at=timestamp,
+        bytes_scanned=bytes_scanned,
+    )
+
+
 def _segment_indexes(
     raw_directory: str | Path,
     *,
@@ -404,6 +504,8 @@ def _safe_component(value: str) -> str:
 
 
 __all__ = [
+    "Wits0RawFrameLocation",
+    "locate_wits0_raw_frame",
     "Wits0RawReplayAvailability",
     "Wits0RawReplayError",
     "Wits0RawReplayResult",

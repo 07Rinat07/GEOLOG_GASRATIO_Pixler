@@ -123,6 +123,34 @@ does not establish measured start/end coverage, continuous formation
 intervals or fluid productivity. Verified capture-location attribution
 and field/Windows acceptance remain separate work.
 
+## Indexed raw capture evidence (seventh headless P0 slice)
+
+`verify_wits0_fluid_screening_capture(session, point, profile=...,
+raw_directory=..., source_name=...)` first rechecks the actual stored WITS0
+acquisition row, including its canonical audit header. It takes the original
+record's **received timestamp and SHA-256** from the current acquisition
+session, not from a caller-provided range. It then invokes
+`locate_wits0_raw_frame`, which reads the existing indexed `.wits` capture
+segments through their validated `.chunks.jsonl` sidecars and feeds saved
+chunks through the normal `Wits0StreamProcessor` to reconstruct frames
+that may span several TCP chunks. Processing is connection-scoped and
+bounded to 64 MiB by default; no matching frame, duplicate matches, invalid
+index, truncated segment, timestamp or digest mismatch fails closed.
+
+The recovered frame's SHA-256, WITS record number, sequence status and
+source-sequence are compared with the current acquisition audit. A successful
+immutable `Wits0FluidScreeningCaptureEvidence` reports the matching raw
+segment path, connection ID, receipt timestamp, record identity and digest.
+
+This proves a **match within the selected current indexed capture files**,
+not cryptographic authentication of the capture directory or an unchanged
+physical recording device. Files/sidecars are not signed and may change
+during reading. The parser profile is supplied by the caller and must
+match the original WITS profile. In particular, capture timestamps are
+not measured MD coverage or geological interval bounds. The adapter
+does not create start/end intervals, infer fluid presence, change LAS/WITS,
+alter calculations, or declare Windows field acceptance.
+
 ## Source-bound observed-coverage intervals (second headless P0 slice)
 
 `Wits0FluidScreeningSample` carries an explicit exact source key, a typed
