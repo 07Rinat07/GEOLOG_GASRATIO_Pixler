@@ -1,3 +1,7 @@
+## WITS-INTERP-01 — immutable acquisition receipt-time provenance (01.11.2026, PR review)
+
+WITS0 source-bound screening points now retain the exact original acquisition receipt timestamp. Current-row verification, ordered snapshots and audit inspection reject retimestamped rows even when the ID, raw digest, source audit and measured coordinate are unchanged. Indexed raw-capture verification rechecks the bound timestamp after lookup and rejects source changes during the scan. Added regressions for stale points, stale audit and in-flight retimestamping. No WITS/LAS inputs, fluid calculations, UI, interval boundaries or release gates changed. Native Qt #544 and physical Windows acceptance remain unverified.
+
 ## WITS-ALARM-01 — operator global audio mute (31.10.2026, CI pending)
 
 Added a RU/KK/EN runtime-only mute checkbox to the WITS alarm panel. It suppresses only new system beeps, without altering factual threshold events, visual markers, acknowledgement, saved per-channel alarm rules, or source data. Unmuting does not replay already consumed activations. Added localized Qt and audio/visual regression coverage; physical Windows audio acceptance and native Qt #544 diagnosis remain separate.
