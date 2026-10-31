@@ -32,8 +32,9 @@ pass field acceptance.
 `bind_wits0_fluid_screening_point(session, record, axis=..., screening=...)`
 accepts only a row **already held in the supplied acquisition session**.
 The result stores the exact well/session/dataset identity, record ID and
-sequence, unchanged acquisition source audit text, the existing index value
-and the already calculated immutable screening projection. It never writes
+sequence, **original acquisition receipt timestamp**, unchanged acquisition
+source audit text, the existing index value and the already calculated
+immutable screening projection. It never writes
 back to WITS or LAS. The provenance text is retained, not cryptographically
 reverified by this adapter.
 
@@ -48,8 +49,9 @@ The same immutable point may outlive its source row in a mutable
 `AcquisitionSession`. Before displaying or reusing it,
 `verify_wits0_fluid_screening_point(session, point)` fails closed unless the
 well/session/dataset identity and the unique stored record ID still match,
-the record's original audit source and sequence are unchanged, and the
-active index still has the identical verified type, units and coordinate.
+the record's original audit source, **receipt timestamp** and sequence are
+unchanged, and the active index still has the identical verified type, units
+and coordinate.
 Changed, duplicated, missing or foreign rows invalidate the point.
 This is a synchronous **current-state check**, not an atomic acquisition
 lock, independent proof of the source bytes, re-execution of fluid-screening
@@ -138,7 +140,11 @@ bounded to 64 MiB by default; no matching frame, duplicate matches, invalid
 index, truncated segment, timestamp or digest mismatch fails closed.
 
 The recovered frame's SHA-256, WITS record number, sequence status and
-source-sequence are compared with the current acquisition audit. A successful
+source-sequence are compared with the current acquisition audit. The point's
+bound receipt timestamp is rechecked against the current acquisition row
+before and after the indexed lookup, so a retimestamped source row cannot
+silently inherit an earlier frame match. This is a synchronous state check,
+not an atomic lock on a concurrently edited session. A successful
 immutable `Wits0FluidScreeningCaptureEvidence` reports the matching raw
 segment path, connection ID, receipt timestamp, record identity and digest.
 

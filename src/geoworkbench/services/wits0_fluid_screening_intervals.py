@@ -47,6 +47,7 @@ class Wits0FluidScreeningPoint:
     source_identity: tuple[str, str, str]  # well, session, dataset
     record_id: str
     record_source: str
+    received_at: str
     sequence: int
     axis: Wits0GasContextAxis
     position: float
@@ -70,6 +71,8 @@ class Wits0FluidScreeningPoint:
             "wits0:record="
         ):
             raise ValueError("record_source must identify a WITS0 acquisition row")
+        if not isinstance(self.received_at, str) or not self.received_at.strip():
+            raise ValueError("received_at must be a non-empty acquisition timestamp")
         if type(self.sequence) is not int or self.sequence < 1:
             raise ValueError("sequence must be a positive Python integer")
         validate_gas_context_query(axis=self.axis, value=self.position)
@@ -155,6 +158,7 @@ def _bind_verified_wits0_screening_row(
         source_identity=(session.well_id, session.session_id, schema.dataset_id),
         record_id=record.record_id,
         record_source=record.source,
+        received_at=record.received_at,
         sequence=record.sequence,
         axis=axis,
         position=position,
