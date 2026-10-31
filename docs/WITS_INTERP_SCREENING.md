@@ -44,6 +44,17 @@ The **active** acquisition index must explicitly be MD (`IndexType.MD`,
 unverified units are rejected. Foreign session records, non-WITS0 records
 and missing measured coordinates are rejected before publishing a point.
 
+The same immutable point may outlive its source row in a mutable
+`AcquisitionSession`. Before displaying or reusing it,
+`verify_wits0_fluid_screening_point(session, point)` fails closed unless the
+well/session/dataset identity and the unique stored record ID still match,
+the record's original audit source and sequence are unchanged, and the
+active index still has the identical verified type, units and coordinate.
+Changed, duplicated, missing or foreign rows invalidate the point.
+This is a synchronous **current-state check**, not an atomic acquisition
+lock, independent proof of the source bytes, re-execution of fluid-screening
+calculations, or confirmation of an observed coverage interval.
+
 **One data-row coordinate is not an observed coverage span.** This
 source-backed point is deliberately *not* a `Wits0FluidScreeningSample`
 and cannot be coalesced into intervals. Before showing an interval, a later
