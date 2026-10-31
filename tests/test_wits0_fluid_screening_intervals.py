@@ -16,8 +16,11 @@ from geoworkbench.domain.acquisition import (
     AcquisitionSession,
 )
 from geoworkbench.domain.models import DatasetKind, DepthDomain, IndexRole, IndexType
+from geoworkbench.acquisition.wits0_parser import Wits0SequenceStatus
 from geoworkbench.services.wits0_fluid_screening_intervals import (
     Wits0FluidScreeningPoint,
+    Wits0FluidScreeningAuditAnchor,
+    inspect_wits0_fluid_screening_audit,
     Wits0FluidScreeningSample,
     bind_wits0_fluid_screening_point,
     verify_wits0_fluid_screening_point,
@@ -541,3 +544,108 @@ def test_source_point_snapshot_rejects_mixed_axes_and_units() -> None:
         snapshot_wits0_fluid_screening_points(session, points)
     with pytest.raises(TypeError, match="session"):
         snapshot_wits0_fluid_screening_points("not-a-session", points)
+
+
+def _audit_bound_point(
+    source: str = "wits0:record=02;sequence-status=gap;raw-sha256="
+    + "a" * 64
+    + ";source-sequence=41;ref=fixture.wits;quality=0210:missing_curve_value",
+) -> tuple[AcquisitionSession, Wits0FluidScreeningPoint]:
+    session, record = _source_session(source=source)
+    point = bind_wits0_fluid_screening_point(
+        session, record, axis=AXIS, screening=_projection()
+    )
+    return session, point
+
+
+def test_wits_source_audit_reads_canonical_fields_without_inventing_coverage() -> None:
+    session, point = _audit_bound_point()
+    anchor = inspect_wits0_fluid_screening_audit(session, point)
+    assert isinstance(anchor, Wits0FluidScreeningAuditAnchor)
+    assert anchor.source_identity == point.source_identity
+    assert anchor.record_id == point.record_id
+    assert anchor.acquisition_sequence == 1
+    assert anchor.record_no == 2
+    assert anchor.sequence_status is Wits0SequenceStatus.GAP
+    assert anchor.raw_sha256 == "a" * 64
+    assert anchor.source_sequence_no == 41
+    assert not hasattr(anchor, "start")
+    assert not hasattr(anchor, "end")
+    assert session.records[0].source == point.record_source
+
+
+def test_wits_source_audit_optional_sequence_and_metadata() -> None:
+    session, point = _audit_bound_point(
+        "wits0:record=99;sequence-status=unavailable;raw-sha256="
+        + "ABCDEF12" * 8
+        + ";ref=trace;with;semicolons;frame-quality=missing_index"
+    )
+    anchor = inspect_wits0_fluid_screening_audit(session, point)
+    assert anchor.record_no == 99
+    assert anchor.sequence_status is Wits0SequenceStatus.UNAVAILABLE
+    assert anchor.raw_sha256 == "ABCDEF12" * 8
+    assert anchor.source_sequence_no is None
+
+
+@pytest.mark.parametrize(
+    "source,reason",
+    [
+        ("wits0:record=02;raw-sha256=" + "a" * 64, "requires"),
+        ("wits0:record=x2;sequence-status=first;raw-sha256=" + "a" * 64, "record number"),
+        ("wits0:record=02;sequence-status=typo;raw-sha256=" + "a" * 64, "sequence-status"),
+        ("wits0:record=02;sequence-status=first;raw-sha256=xyz", "raw-sha256"),
+        (
+            "wits0:record=02;sequence-status=first;raw-sha256="
+            + "a" * 64
+            + ";raw-sha256="
+            + "b" * 64,
+            "duplicate",
+        ),
+        (
+            "wits0:record=02;sequence-status=first;raw-sha256="
+            + "a" * 64
+            + ";source-sequence=1;source-sequence=2",
+            "unique",
+        ),
+        (
+            "wits0:record=02;sequence-status=first;raw-sha256="
+            + "a" * 64
+            + ";source-sequence=unknown",
+            "integer",
+        ),
+    ],
+)
+def test_wits_source_audit_rejects_malformed_or_ambiguous_source(
+    source: str, reason: str
+) -> None:
+    session, point = _audit_bound_point(source)
+    with pytest.raises(ValueError, match=reason):
+        inspect_wits0_fluid_screening_audit(session, point)
+
+
+def test_wits_source_audit_rejects_stale_row_before_reading_header() -> None:
+    session, point = _audit_bound_point()
+    record = session.records[0]
+    session.records[0] = replace(
+        record,
+        payload=AcquisitionDataRowPayload(
+            index_values=(("verified-index", 2600.0),), curve_values=()
+        ),
+    )
+    with pytest.raises(ValueError, match="no longer matches"):
+        inspect_wits0_fluid_screening_audit(session, point)
+
+    session, point = _audit_bound_point()
+    session.records[0] = replace(
+        session.records[0],
+        source="wits0:record=02;sequence-status=first;raw-sha256=" + "b" * 64,
+    )
+    with pytest.raises(ValueError, match="no longer matches"):
+        inspect_wits0_fluid_screening_audit(session, point)
+
+
+def test_wits_source_audit_cannot_be_claimed_for_foreign_session() -> None:
+    session, point = _audit_bound_point()
+    foreign, _record = _source_session(session_id="unrelated-session")
+    with pytest.raises(ValueError, match="another acquisition source"):
+        inspect_wits0_fluid_screening_audit(foreign, point)
