@@ -138,6 +138,40 @@ def bind_wits0_fluid_screening_point(
     )
 
 
+def verify_wits0_fluid_screening_point(
+    session: AcquisitionSession,
+    point: Wits0FluidScreeningPoint,
+) -> None:
+    """Fail closed when the recorded WITS0 point no longer matches its source.
+
+    This validates source-row identity, audit text and the active coordinate at
+    the moment of the call. It does NOT certify the caller-supplied fluid label,
+    acquire an atomic source snapshot or establish any coverage start/end.
+    """
+
+    if not isinstance(session, AcquisitionSession):
+        raise TypeError("session must use AcquisitionSession")
+    if not isinstance(point, Wits0FluidScreeningPoint):
+        raise TypeError("point must use Wits0FluidScreeningPoint")
+    current_identity = (
+        session.well_id,
+        session.session_id,
+        session.dataset_schema.dataset_id,
+    )
+    if point.source_identity != current_identity:
+        raise ValueError("screening point belongs to another acquisition source")
+    matches = [
+        record for record in session.records if record.record_id == point.record_id
+    ]
+    if len(matches) != 1:
+        raise ValueError("screening source row is missing or duplicated")
+    current = bind_wits0_fluid_screening_point(
+        session, matches[0], axis=point.axis, screening=point.screening
+    )
+    if current != point:
+        raise ValueError("screening point no longer matches its acquisition row")
+
+
 @dataclass(frozen=True, slots=True)
 class Wits0FluidScreeningSample:
     """One measured coverage span; depth is MD metres, elapsed time is seconds."""
@@ -239,6 +273,7 @@ __all__ = [
     "Wits0FluidScreeningInterval",
     "Wits0FluidScreeningPoint",
     "bind_wits0_fluid_screening_point",
+    "verify_wits0_fluid_screening_point",
     "Wits0FluidScreeningSample",
     "coalesce_wits0_fluid_screening",
 ]
