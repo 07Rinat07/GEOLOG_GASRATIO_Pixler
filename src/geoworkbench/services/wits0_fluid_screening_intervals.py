@@ -6,9 +6,12 @@ takes place here. Callers supply actual coverage spans on one verified axis.
 
 from __future__ import annotations
 
+import re
+
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
 
+from geoworkbench.acquisition.wits0_parser import Wits0SequenceStatus
 from geoworkbench.domain.acquisition import (
     AcquisitionDataRowPayload,
     AcquisitionRecord,
@@ -242,6 +245,78 @@ def snapshot_wits0_fluid_screening_points(
 
 
 @dataclass(frozen=True, slots=True)
+class Wits0FluidScreeningAuditAnchor:
+    """Typed metadata declared by a stored WITS0 acquisition row's audit text."""
+
+    source_identity: tuple[str, str, str]
+    record_id: str
+    acquisition_sequence: int
+    record_no: int
+    sequence_status: Wits0SequenceStatus
+    raw_sha256: str
+    source_sequence_no: int | None
+
+
+def inspect_wits0_fluid_screening_audit(
+    session: AcquisitionSession,
+    point: Wits0FluidScreeningPoint,
+) -> Wits0FluidScreeningAuditAnchor:
+    """Read a current row's canonical audit header, not its raw WITS bytes.
+
+    A digest written in the acquisition audit text is only a *claimed* source
+    hash. No source file is opened or hashed here; an audit header does not
+    establish measured interval coverage or prove the fluid assessment.
+    """
+
+    verify_wits0_fluid_screening_point(session, point)
+    fields = point.record_source.split(";")
+    if len(fields) < 3:
+        raise ValueError("WITS0 audit requires record, sequence-status and raw-sha256")
+    record_match = re.fullmatch(r"wits0:record=([0-9]{2})", fields[0])
+    if record_match is None:
+        raise ValueError("WITS0 audit record number is malformed")
+    status_text = fields[1].removeprefix("sequence-status=")
+    if status_text == fields[1]:
+        raise ValueError("WITS0 audit sequence-status is missing")
+    try:
+        sequence_status = Wits0SequenceStatus(status_text)
+    except ValueError as exc:
+        raise ValueError("WITS0 audit sequence-status is invalid") from exc
+    hash_text = fields[2].removeprefix("raw-sha256=")
+    if hash_text == fields[2] or re.fullmatch(r"[0-9a-fA-F]{64}", hash_text) is None:
+        raise ValueError("WITS0 audit raw-sha256 must be a 64-digit hex digest")
+
+    # The acquisition writer may append source-sequence, ref or QC metadata.
+    # Never let extra fields override the three canonical header fields.
+    reserved = ("wits0:record=", "sequence-status=", "raw-sha256=")
+    if any(part.startswith(reserved) for part in fields[3:]):
+        raise ValueError("WITS0 audit contains a duplicate canonical field")
+    source_sequences = [
+        part.removeprefix("source-sequence=")
+        for part in fields[3:]
+        if part.startswith("source-sequence=")
+    ]
+    if len(source_sequences) > 1:
+        raise ValueError("WITS0 audit source-sequence must be unique")
+    source_sequence_no: int | None = None
+    if source_sequences:
+        value = source_sequences[0]
+        if re.fullmatch(r"[0-9]+", value) is None:
+            raise ValueError("WITS0 audit source-sequence must be an integer")
+        source_sequence_no = int(value)
+
+    return Wits0FluidScreeningAuditAnchor(
+        source_identity=point.source_identity,
+        record_id=point.record_id,
+        acquisition_sequence=point.sequence,
+        record_no=int(record_match.group(1)),
+        sequence_status=sequence_status,
+        raw_sha256=hash_text,
+        source_sequence_no=source_sequence_no,
+    )
+
+
+@dataclass(frozen=True, slots=True)
 class Wits0FluidScreeningSample:
     """One measured coverage span; depth is MD metres, elapsed time is seconds."""
 
@@ -344,6 +419,8 @@ __all__ = [
     "bind_wits0_fluid_screening_point",
     "verify_wits0_fluid_screening_point",
     "snapshot_wits0_fluid_screening_points",
+    "Wits0FluidScreeningAuditAnchor",
+    "inspect_wits0_fluid_screening_audit",
     "Wits0FluidScreeningSample",
     "coalesce_wits0_fluid_screening",
 ]
