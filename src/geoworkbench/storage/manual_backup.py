@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from hashlib import sha256
 import json
 import os
+import stat
 from pathlib import Path
 import tempfile
 from typing import IO
@@ -47,6 +48,25 @@ class BackupPlan:
         if not sources:
             raise BackupError("Select at least one project or the settings snapshot")
         return cls(tuple(sources), sum(source.path.stat().st_size for source in sources))
+
+
+@dataclass(frozen=True, slots=True)
+class VerifiedBackupEntry:
+    """An archive member whose saved bytes match the manifest."""
+
+    path: str
+    name: str
+    size: int
+    sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class VerifiedBackup:
+    """Read-only inventory; does not authorize extraction or restoration."""
+
+    created_at: str
+    entries: tuple[VerifiedBackupEntry, ...]
+    total_bytes: int
 
 
 class ManualBackupService:
@@ -118,3 +138,101 @@ class ManualBackupService:
             if target is not None:
                 target.write(block)
         return digest.hexdigest(), size
+
+
+    def inspect(self, source: Path, *, max_total_bytes: int = 64 * 1024**3) -> VerifiedBackup:
+        """Verify a v1 manual ZIP without extracting, writing, or trusting its names.
+
+        The limit bounds total uncompressed payload bytes; the writer uses ZIP_STORED.
+        This is an integrity check of the supplied archive, not source authentication
+        or a restore operation. It does not lock the archive against concurrent edits.
+        """
+        if type(max_total_bytes) is not int or max_total_bytes <= 0:
+            raise BackupError("Invalid backup inspection byte limit")
+        source = Path(source)
+        try:
+            with source.open("rb") as stream:
+                before = os.fstat(stream.fileno())
+                with ZipFile(stream, "r") as archive:
+                    members = archive.infolist()
+                    if not 2 <= len(members) <= 1001:
+                        raise BackupError("Invalid backup entry count")
+                    names = [member.filename for member in members]
+                    if len(names) != len(set(names)) or names.count("manifest.json") != 1:
+                        raise BackupError("Duplicate or missing backup manifest/member")
+                    for member in members:
+                        if (member.is_dir() or member.compress_type != ZIP_STORED
+                                or member.flag_bits & 1
+                                or stat.S_IFMT(member.external_attr >> 16) == stat.S_IFLNK
+                                or member.file_size < 0):
+                            raise BackupError("Unsupported or unsafe backup member")
+                    manifest_info = archive.getinfo("manifest.json")
+                    if manifest_info.file_size > 1024 * 1024:
+                        raise BackupError("Backup manifest exceeds size limit")
+
+                    def unique_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+                        result: dict[str, object] = {}
+                        for key, value in pairs:
+                            if key in result:
+                                raise BackupError("Duplicate backup manifest key")
+                            result[key] = value
+                        return result
+
+                    manifest = json.loads(
+                        archive.read(manifest_info).decode("utf-8"),
+                        object_pairs_hook=unique_keys,
+                    )
+                    if (not isinstance(manifest, dict)
+                            or set(manifest) != {"format", "version", "created_at", "entries"}
+                            or manifest["format"] != "geolog-manual-backup"
+                            or type(manifest["version"]) is not int or manifest["version"] != 1
+                            or not isinstance(manifest["created_at"], str)
+                            or not isinstance(manifest["entries"], list)):
+                        raise BackupError("Unsupported backup manifest")
+                    timestamp = datetime.fromisoformat(manifest["created_at"])
+                    if timestamp.tzinfo is None:
+                        raise BackupError("Backup timestamp must have a timezone")
+                    rows = manifest["entries"]
+                    if not 1 <= len(rows) <= 1000 or len(rows) != len(members) - 1:
+                        raise BackupError("Backup inventory does not match archive")
+                    verified: list[VerifiedBackupEntry] = []
+                    total = 0
+                    paths: set[str] = set()
+                    for row in rows:
+                        if not isinstance(row, dict) or set(row) != {"path", "name", "size", "sha256"}:
+                            raise BackupError("Invalid backup inventory row")
+                        path, name, size, digest = (row["path"], row["name"],
+                                                    row["size"], row["sha256"])
+                        if (not isinstance(path, str) or not isinstance(name, str)
+                                or not name or len(name) > 255 or "/" in name or "\\" in name
+                                or type(size) is not int or size < 0
+                                or not isinstance(digest, str) or len(digest) != 64
+                                or any(c not in "0123456789abcdef" for c in digest)):
+                            raise BackupError("Invalid backup member metadata")
+                        project = (path.startswith("projects/")
+                                   and len(path) == len("projects/0001.geologpkg")
+                                   and path[9:13].isdigit()
+                                   and path.endswith(".geologpkg")
+                                   and name.casefold().endswith(".geologpkg"))
+                        if not (project or path == "settings/preferences.ini"):
+                            raise BackupError("Unexpected backup member path")
+                        if path in paths or path not in names:
+                            raise BackupError("Duplicate or missing backup member")
+                        paths.add(path)
+                        member = archive.getinfo(path)
+                        total += member.file_size
+                        if total > max_total_bytes or size != member.file_size:
+                            raise BackupError("Backup exceeds byte limit or manifest size differs")
+                        with archive.open(member, "r") as payload:
+                            actual_digest, actual_size = self._copy(payload, None)
+                        if actual_digest != digest or actual_size != size:
+                            raise BackupError("Backup member checksum mismatch")
+                        verified.append(VerifiedBackupEntry(path, name, size, digest))
+                    if paths != set(names) - {"manifest.json"}:
+                        raise BackupError("Unlisted backup member")
+                after = os.fstat(stream.fileno())
+            if self._identity(before) != self._identity(after) or self._identity(before) != self._identity(source.stat()):
+                raise BackupError("Backup changed during inspection")
+            return VerifiedBackup(manifest["created_at"], tuple(verified), total)
+        except (OSError, BadZipFile, ValueError, TypeError, KeyError, UnicodeError) as exc:
+            raise BackupError(f"Cannot inspect backup: {exc}") from exc

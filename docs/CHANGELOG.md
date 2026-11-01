@@ -1,3 +1,7 @@
+## BACKUP-01 — read-only integrity inspection of manual ZIP archives (01.11.2026, PR review)
+
+Added a bounded, streaming verification API for existing v1 manual backup ZIPs: manifest schema and timestamp, allowlisted member paths, uniqueness, per-file size/SHA-256, and detection of tampered, compressed, encrypted or link-like entries. Returns an immutable verified inventory without extracting, restoring, modifying source projects/settings or changing automatic backup policy. Added tamper/format/size regressions. This does not authenticate externally supplied archives, provide an atomic source lock, enable UI restore or complete physical Windows acceptance. Three exact-head Windows gates and separate post-merge verification remain required; Qt #544 is not fixed.
+
 ## WITS-INTERP-01 — immutable acquisition receipt-time provenance (01.11.2026, PR review)
 
 WITS0 source-bound screening points now retain the exact original acquisition receipt timestamp. Current-row verification, ordered snapshots and audit inspection reject retimestamped rows even when the ID, raw digest, source audit and measured coordinate are unchanged. Indexed raw-capture verification rechecks the bound timestamp after lookup and rejects source changes during the scan. Added regressions for stale points, stale audit and in-flight retimestamping. No WITS/LAS inputs, fluid calculations, UI, interval boundaries or release gates changed. Native Qt #544 and physical Windows acceptance remain unverified.
