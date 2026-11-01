@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from geoworkbench.ui.manual_backup_dialog import ManualBackupDialog
+from geoworkbench.ui.manual_backup_restore_preview_dialog import ManualBackupRestorePreviewDialog
 
 from copy import deepcopy
 from concurrent.futures import ThreadPoolExecutor
@@ -1577,6 +1578,14 @@ class MainWindow(QMainWindow):
         self.create_manual_backup_action = self._localized_action("backup.manual.title")
         self.create_manual_backup_action.triggered.connect(self.create_manual_backup)
         file_menu.addAction(self.create_manual_backup_action)
+
+        self.preview_manual_restore_action = self._localized_action(
+            "backup.restore_review.title"
+        )
+        self.preview_manual_restore_action.triggered.connect(
+            self.preview_manual_restore
+        )
+        file_menu.addAction(self.preview_manual_restore_action)
 
         self.restore_project_backup_action = self._localized_action(
             "shell.restore_project_backup"
@@ -9619,6 +9628,11 @@ class MainWindow(QMainWindow):
 
     def create_manual_backup(self) -> None:
         ManualBackupDialog(self.project_path, self, language=self.language).exec()
+
+    def preview_manual_restore(self) -> None:
+        ManualBackupRestorePreviewDialog(
+            self, language=self.language
+        ).exec()
 
     def restore_project_backup(self) -> None:
         source = self.project_path
