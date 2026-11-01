@@ -186,3 +186,33 @@ def test_inspection_rejects_invalid_zip_and_does_not_restore(tmp_path):
     with pytest.raises(BackupError):
         ManualBackupService().inspect(output)
     assert list(tmp_path.iterdir()) == [output]
+
+
+
+def test_inspection_rejects_symlink_zip_member(inspected_archive):
+    import stat
+    from zipfile import ZipInfo
+
+    with ZipFile(inspected_archive) as archive:
+        payload = archive.read("projects/0001.geologpkg")
+        manifest = archive.read("manifest.json")
+    with ZipFile(inspected_archive, "w") as archive:
+        link = ZipInfo("projects/0001.geologpkg")
+        link.create_system = 3
+        link.external_attr = (stat.S_IFLNK | 0o777) << 16
+        archive.writestr(link, payload)
+        archive.writestr("manifest.json", manifest)
+    with pytest.raises(BackupError, match="Unsupported"):
+        ManualBackupService().inspect(inspected_archive)
+
+
+def test_inspection_rejects_duplicate_json_manifest_keys(inspected_archive):
+    with ZipFile(inspected_archive) as archive:
+        payload = archive.read("projects/0001.geologpkg")
+        manifest = archive.read("manifest.json")
+    duplicated = manifest.replace(b'"format":', b'"format":"wrong","format":', 1)
+    with ZipFile(inspected_archive, "w") as archive:
+        archive.writestr("projects/0001.geologpkg", payload)
+        archive.writestr("manifest.json", duplicated)
+    with pytest.raises(BackupError, match="Duplicate backup manifest key"):
+        ManualBackupService().inspect(inspected_archive)
