@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from hashlib import sha256
 import json
 import os
+import stat
 from pathlib import Path
 import tempfile
 from typing import IO
@@ -162,6 +163,7 @@ class ManualBackupService:
                     for member in members:
                         if (member.is_dir() or member.compress_type != ZIP_STORED
                                 or member.flag_bits & 1
+                                or stat.S_IFMT(member.external_attr >> 16) == stat.S_IFLNK
                                 or member.file_size < 0):
                             raise BackupError("Unsupported or unsafe backup member")
                     manifest_info = archive.getinfo("manifest.json")
