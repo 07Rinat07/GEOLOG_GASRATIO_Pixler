@@ -222,7 +222,7 @@ def test_restore_preflight_maps_verified_files_without_creating_destination(tmp_
     project = tmp_path / "well.geologpkg"
     project.write_bytes(b"saved project")
     settings = tmp_path / "preferences.ini"
-    settings.write_bytes(b"[General]\\nlanguage=ru\\n")
+    settings.write_bytes(b"settings snapshot")
     service = ManualBackupService()
     archive = service.create(
         BackupPlan.build((project,), settings), tmp_path / "backup.zip"
