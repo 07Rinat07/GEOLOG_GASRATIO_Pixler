@@ -9,6 +9,7 @@ import os
 import stat
 from pathlib import Path
 import tempfile
+from unicodedata import normalize
 from typing import IO
 from zipfile import ZIP_STORED, BadZipFile, ZipFile
 
@@ -66,6 +67,26 @@ class VerifiedBackup:
 
     created_at: str
     entries: tuple[VerifiedBackupEntry, ...]
+    total_bytes: int
+
+
+@dataclass(frozen=True, slots=True)
+class BackupRestoreItem:
+    """A verified archive member mapped to a relative, safe output path."""
+
+    archive_path: str
+    relative_path: str
+    size: int
+    sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class BackupRestorePlan:
+    """Read-only preflight, NOT permission to write or a reserved destination."""
+
+    archive: Path
+    destination: Path
+    items: tuple[BackupRestoreItem, ...]
     total_bytes: int
 
 
@@ -236,3 +257,60 @@ class ManualBackupService:
             return VerifiedBackup(manifest["created_at"], tuple(verified), total)
         except (OSError, BadZipFile, ValueError, TypeError, KeyError, UnicodeError) as exc:
             raise BackupError(f"Cannot inspect backup: {exc}") from exc
+
+    @staticmethod
+    def _check_restore_component(name: str) -> None:
+        """Reject filenames that are unsafe on Windows or POSIX."""
+        reserved = {"con", "prn", "aux", "nul"}
+        reserved.update(f"com{number}" for number in range(1, 10))
+        reserved.update(f"lpt{number}" for number in range(1, 10))
+        if (
+            not name
+            or name in {".", ".."}
+            or name.rstrip(" .") != name
+            or any(ord(char) < 32 or char in '<>:"/\\|?*' for char in name)
+            or name.split(".", 1)[0].casefold() in reserved
+        ):
+            raise BackupError(f"Unsafe restore filename: {name!r}")
+
+    def plan_restore(
+        self, source: Path, destination: Path, *, max_total_bytes: int = 64 * 1024**3
+    ) -> BackupRestorePlan:
+        """Inspect a manual ZIP and preview output paths under a NEW directory.
+
+        This never creates files or directories, reserves the target, or restores
+        content. A later writer must re-inspect the archive and exclusively create
+        the destination before writing anything.
+        """
+        try:
+            archive_path = Path(source).resolve(strict=True)
+            requested = Path(destination)
+            parent = requested.parent.resolve(strict=True)
+        except (OSError, RuntimeError) as exc:
+            raise BackupError(f"Cannot prepare restore paths: {exc}") from exc
+        if not parent.is_dir():
+            raise BackupError("Restore destination parent must be a directory")
+        self._check_restore_component(requested.name)
+        target = parent / requested.name
+        if os.path.lexists(target):
+            raise BackupError(f"Restore destination already exists: {target}")
+
+        inventory = self.inspect(archive_path, max_total_bytes=max_total_bytes)
+        items: list[BackupRestoreItem] = []
+        seen_names: set[str] = set()
+        for entry in inventory.entries:
+            if entry.path == "settings/preferences.ini":
+                relative_path = "settings/preferences.ini"
+            else:
+                self._check_restore_component(entry.name)
+                folded = normalize("NFC", entry.name).casefold()
+                if folded in seen_names:
+                    raise BackupError("Project filenames collide on a case-insensitive filesystem")
+                seen_names.add(folded)
+                relative_path = f"projects/{entry.name}"
+            items.append(BackupRestoreItem(
+                entry.path, relative_path, entry.size, entry.sha256
+            ))
+        return BackupRestorePlan(
+            archive_path, target, tuple(items), inventory.total_bytes
+        )
