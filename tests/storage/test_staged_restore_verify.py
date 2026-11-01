@@ -1,10 +1,8 @@
 """Headless staging verification: no archive extraction or publication."""
-from pathlib import Path
-
 import pytest
 
 from geoworkbench.storage.manual_backup import (
-    BackupError, BackupPlan, BackupRestoreItem, BackupRestorePlan, ManualBackupService,
+    BackupError, BackupPlan, BackupRestorePlan, ManualBackupService,
 )
 from geoworkbench.storage.staged_restore_verify import verify_staged_restore
 
