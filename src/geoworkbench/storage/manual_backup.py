@@ -278,7 +278,7 @@ class ManualBackupService:
         """Filesystem object identity without following a replaced symlink."""
         try:
             info = path.lstat()
-        except FileNotFoundError:
+        except OSError:
             return None
         return (info.st_dev, info.st_ino, stat.S_IFMT(info.st_mode))
 
