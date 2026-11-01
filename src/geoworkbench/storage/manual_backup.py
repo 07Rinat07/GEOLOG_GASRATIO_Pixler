@@ -273,6 +273,106 @@ class ManualBackupService:
         ):
             raise BackupError(f"Unsafe restore filename: {name!r}")
 
+    def restore(
+        self, source: Path, destination: Path, *, max_total_bytes: int = 64 * 1024**3
+    ) -> Path:
+        """Restore verified files only under an exclusively created NEW folder.
+
+        Re-runs the read-only preflight, claims the destination with mkdir
+        (exist_ok=False), then streams only allowlisted ZIP entries. Each
+        output is opened exclusively and checked against its manifest SHA/size.
+        On a handled failure, clean up only files/directories this call made.
+        An abrupt process crash can leave a partial restore; no active project
+        or application settings are modified and no UI is invoked.
+        """
+
+        plan = self.plan_restore(
+            source, destination, max_total_bytes=max_total_bytes
+        )
+        target = plan.destination
+        created_files: list[Path] = []
+        created_dirs: list[Path] = []
+        claimed = False
+        completed = False
+        try:
+            # Atomic exclusive claim: another process may have taken the name
+            # since preflight. Never fall back to an existing destination.
+            target.mkdir()
+            claimed = True
+            for dirname in ("projects", "settings"):
+                if any(item.relative_path.startswith(dirname + "/") for item in plan.items):
+                    folder = target / dirname
+                    folder.mkdir()
+                    created_dirs.append(folder)
+
+            with plan.archive.open("rb") as raw:
+                before = os.fstat(raw.fileno())
+                with ZipFile(raw, "r") as archive:
+                    infos = archive.infolist()
+                    names = [info.filename for info in infos]
+                    expected = {item.archive_path for item in plan.items}
+                    expected.add("manifest.json")
+                    if len(names) != len(expected) or set(names) != expected:
+                        raise BackupError("Backup inventory changed before restore")
+                    written = 0
+                    for item in plan.items:
+                        info = archive.getinfo(item.archive_path)
+                        if (
+                            info.compress_type != ZIP_STORED
+                            or info.flag_bits & 1
+                            or info.is_dir()
+                            or stat.S_IFMT(info.external_attr >> 16) == stat.S_IFLNK
+                            or info.file_size != item.size
+                            or item.size > max_total_bytes - written
+                        ):
+                            raise BackupError("Unsafe or changed backup member")
+                        # These paths were validated by plan_restore; do not
+                        # interpret ZIP member paths as filesystem destinations.
+                        relative = item.relative_path.split("/")
+                        if len(relative) != 2 or relative[0] not in {
+                            "projects", "settings"
+                        }:
+                            raise BackupError("Invalid planned restore path")
+                        output_path = target / relative[0] / relative[1]
+                        with archive.open(info, "r") as original:
+                            with output_path.open("xb") as output:
+                                created_files.append(output_path)
+                                digest, size = self._copy(original, output)
+                                output.flush()
+                                os.fsync(output.fileno())
+                        if size != item.size or digest != item.sha256:
+                            raise BackupError("Restored member checksum mismatch")
+                        written += size
+                    if written != plan.total_bytes:
+                        raise BackupError("Restored byte total differs from preflight")
+                after = os.fstat(raw.fileno())
+            if (
+                self._identity(before) != self._identity(after)
+                or self._identity(before) != self._identity(plan.archive.stat())
+            ):
+                raise BackupError("Backup changed during restore")
+            completed = True
+            return target
+        except (OSError, BadZipFile, ValueError, KeyError) as exc:
+            raise BackupError(f"Cannot restore backup: {exc}") from exc
+        finally:
+            if claimed and not completed:
+                # Refuse to recursively delete anything not created here.
+                for file in reversed(created_files):
+                    try:
+                        file.unlink(missing_ok=True)
+                    except OSError:
+                        pass
+                for directory in reversed(created_dirs):
+                    try:
+                        directory.rmdir()
+                    except OSError:
+                        pass
+                try:
+                    target.rmdir()
+                except OSError:
+                    pass
+
     def plan_restore(
         self, source: Path, destination: Path, *, max_total_bytes: int = 64 * 1024**3
     ) -> BackupRestorePlan:
