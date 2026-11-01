@@ -147,7 +147,8 @@ class ManualBackupRestorePreviewDialog(QDialog):
             widget.setEnabled(not busy)
         self.inspect_button.setText(self._t("checking" if busy else "inspect"))
         self.restore_button.setEnabled(not busy and self.verified_plan is not None)
-        self.restore_button.setText(self._t("restoring" if busy and self._operation == "restore" else "restore"))
+        restore_key = "restoring" if busy and self._operation == "restore" else "restore"
+        self.restore_button.setText(self._t(restore_key))
 
     def _inspect(self) -> None:
         if self._pending is not None:
