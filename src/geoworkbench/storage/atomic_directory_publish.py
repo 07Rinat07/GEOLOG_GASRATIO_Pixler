@@ -28,7 +28,10 @@ def _linux_rename_noreplace(staged: Path, destination: Path) -> None:
         ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint
     )
     renameat2.restype = ctypes.c_int
-    descriptor = os.open(staged.parent, os.O_RDONLY | os.O_DIRECTORY)
+    directory_flag = getattr(os, "O_DIRECTORY", None)
+    if directory_flag is None:
+        raise AtomicDirectoryPublicationUnsupported("Directory-only open is unavailable")
+    descriptor = os.open(staged.parent, os.O_RDONLY | directory_flag)
     try:
         result = renameat2(
             descriptor, os.fsencode(staged.name),
