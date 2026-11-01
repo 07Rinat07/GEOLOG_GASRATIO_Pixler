@@ -49,7 +49,7 @@ def test_staging_rejects_missing_extra_or_changed_content(staged, mutation):
     elif mutation == "extra_directory":
         (stage / "foreign").mkdir()
     else:
-        project.write_bytes(b"wrong" * 128)
+        project.write_bytes(b"tamper!" * 128)
     with pytest.raises(BackupError):
         verify_staged_restore(plan, stage)
     assert not plan.destination.exists()
