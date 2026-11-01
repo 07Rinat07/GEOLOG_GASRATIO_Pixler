@@ -1,4 +1,4 @@
-"""Operator-selected read-only verification of a manual backup restore plan."""
+"""Operator-confirmed restore from a previously inspected manual backup ZIP."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class ManualBackupRestorePreviewDialog(QDialog):
-    """Review verified archive contents without creating any output files."""
+    """Inspect a ZIP, then restore only after separate operator confirmation."""
 
     def __init__(
         self,
@@ -42,8 +42,10 @@ class ManualBackupRestorePreviewDialog(QDialog):
         self.localizer = Localizer.create(language)
         self.setWindowTitle(self._t("title"))
         self._worker: ThreadPoolExecutor | None = None
-        self._pending: Future[BackupRestorePlan] | None = None
+        self._pending: Future[BackupRestorePlan | Path] | None = None
         self._request: tuple[str, str, str] | None = None
+        self._verified_request: tuple[str, str, str] | None = None
+        self._operation: str | None = None
         self.verified_plan: BackupRestorePlan | None = None
         self._timer = QTimer(self)
         self._timer.setInterval(50)
@@ -87,9 +89,13 @@ class ManualBackupRestorePreviewDialog(QDialog):
         button_row = QHBoxLayout()
         self.inspect_button = QPushButton(self._t("inspect"))
         self.inspect_button.clicked.connect(self._inspect)
+        self.restore_button = QPushButton(self._t("restore"))
+        self.restore_button.setEnabled(False)
+        self.restore_button.clicked.connect(self._restore)
         self.close_button = QPushButton(self._t("close"))
         self.close_button.clicked.connect(self.reject)
         button_row.addWidget(self.inspect_button)
+        button_row.addWidget(self.restore_button)
         button_row.addWidget(self.close_button)
         layout.addLayout(button_row)
 
@@ -126,6 +132,8 @@ class ManualBackupRestorePreviewDialog(QDialog):
 
     def _invalidate(self) -> None:
         self.verified_plan = None
+        self._verified_request = None
+        self.restore_button.setEnabled(False)
         self.preview_text.setPlainText(self._t("empty"))
 
     def _set_busy(self, busy: bool) -> None:
@@ -138,6 +146,8 @@ class ManualBackupRestorePreviewDialog(QDialog):
         ):
             widget.setEnabled(not busy)
         self.inspect_button.setText(self._t("checking" if busy else "inspect"))
+        self.restore_button.setEnabled(not busy and self.verified_plan is not None)
+        self.restore_button.setText(self._t("restoring" if busy and self._operation == "restore" else "restore"))
 
     def _inspect(self) -> None:
         if self._pending is not None:
@@ -167,6 +177,7 @@ class ManualBackupRestorePreviewDialog(QDialog):
                 Path(archive),
                 destination,
             )
+            self._operation = "inspect"
             self._set_busy(True)
             self._timer.start()
         except (OSError, BackupError, RuntimeError, ValueError) as exc:
@@ -175,34 +186,102 @@ class ManualBackupRestorePreviewDialog(QDialog):
                 self, self._t("title"), self._t("failed", error=str(exc))
             )
 
+    @staticmethod
+    def _restore_verified(plan: BackupRestorePlan) -> Path:
+        """Reject a stale preview before the service's own exclusive restore."""
+        service = ManualBackupService()
+        fresh = service.plan_restore(plan.archive, plan.destination)
+        if fresh != plan:
+            raise BackupError("Backup contents or destination changed after preview")
+        # restore() independently re-inspects and exclusively claims a new folder.
+        return service.restore(plan.archive, plan.destination)
+
+    def _restore(self) -> None:
+        if self._pending is not None or self.verified_plan is None:
+            return
+        plan = self.verified_plan
+        if self._selection() != self._verified_request:
+            self._invalidate()
+            return
+        answer = QMessageBox.question(
+            self,
+            self._t("title"),
+            self._t(
+                "confirm", target=str(plan.destination),
+                count=len(plan.items), size=plan.total_bytes,
+            ),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        # The confirmation dialog must not authorize a different selection.
+        if self._selection() != self._verified_request:
+            self._invalidate()
+            return
+        try:
+            self._request = self._selection()
+            self.verified_plan = None
+            self._verified_request = None
+            self._worker = ThreadPoolExecutor(
+                max_workers=1, thread_name_prefix="backup-restore-write"
+            )
+            self._pending = self._worker.submit(self._restore_verified, plan)
+            self._operation = "restore"
+            self._set_busy(True)
+            self._timer.start()
+        except (OSError, BackupError, RuntimeError, ValueError) as exc:
+            self._cleanup()
+            self._invalidate()
+            QMessageBox.warning(
+                self, self._t("title"), self._t("restore_failed", error=str(exc))
+            )
+
     def _poll(self) -> None:
         if self._pending is None or not self._pending.done():
             return
         self._timer.stop()
+        operation = self._operation
         try:
-            plan = self._pending.result()
+            result = self._pending.result()
             if self._selection() != self._request:
                 raise BackupError(self._t("changed"))
         except Exception as exc:
             self._invalidate()
+            key = "restore_failed" if operation == "restore" else "failed"
             QMessageBox.warning(
-                self, self._t("title"), self._t("failed", error=str(exc))
+                self, self._t("title"), self._t(key, error=str(exc))
             )
         else:
-            self.verified_plan = plan
-            lines = [
-                self._t(
-                    "summary",
-                    target=str(plan.destination),
-                    count=len(plan.items),
-                    size=plan.total_bytes,
+            if operation == "inspect":
+                if not isinstance(result, BackupRestorePlan):
+                    raise RuntimeError("Unexpected restore preview result")
+                self.verified_plan = result
+                self._verified_request = self._request
+                lines = [
+                    self._t(
+                        "summary",
+                        target=str(result.destination),
+                        count=len(result.items),
+                        size=result.total_bytes,
+                    )
+                ]
+                lines.extend(
+                    self._t("entry", name=item.relative_path, size=item.size)
+                    for item in result.items
                 )
-            ]
-            lines.extend(
-                self._t("entry", name=item.relative_path, size=item.size)
-                for item in plan.items
-            )
-            self.preview_text.setPlainText("\n".join(lines))
+                self.preview_text.setPlainText("\n".join(lines))
+            elif operation == "restore":
+                if not isinstance(result, Path):
+                    raise RuntimeError("Unexpected restore result")
+                self._invalidate()
+                self.preview_text.setPlainText(
+                    self._t("restored", target=str(result))
+                )
+                QMessageBox.information(
+                    self, self._t("title"),
+                    self._t("restored", target=str(result)),
+                )
         finally:
             self._cleanup()
             self._set_busy(False)
@@ -214,6 +293,7 @@ class ManualBackupRestorePreviewDialog(QDialog):
         self._pending = None
         self._worker = None
         self._request = None
+        self._operation = None
 
     def reject(self) -> None:
         if self._pending is None:
