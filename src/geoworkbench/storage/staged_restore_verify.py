@@ -55,7 +55,7 @@ def verify_staged_restore(plan: BackupRestorePlan, staging: Path) -> None:
                 or (parts[0] == "settings" and parts[1] != "preferences.ini")
                 or (parts[0] == "projects" and not parts[1].casefold().endswith(".geologpkg"))
                 or type(item.size) is not int or item.size < 0
-                or len(item.sha256) != 64
+                or not isinstance(item.sha256, str) or len(item.sha256) != 64
                 or any(char not in "0123456789abcdef" for char in item.sha256)
             ):
                 raise BackupError("Invalid staged restore plan")
