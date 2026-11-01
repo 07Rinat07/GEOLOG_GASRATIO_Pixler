@@ -434,3 +434,87 @@ def test_restore_with_settings_only_omits_projects_folder(tmp_path):
     service.restore(archive, destination)
     assert (destination / "settings" / "preferences.ini").read_bytes() == b"settings"
     assert not (destination / "projects").exists()
+
+
+def test_restore_preserves_file_replaced_by_another_writer_before_validation(
+    tmp_path, monkeypatch
+):
+    project = tmp_path / "well.geologpkg"
+    project.write_bytes(b"saved backup payload")
+    service = ManualBackupService()
+    archive = service.create(
+        BackupPlan.build((project,)), tmp_path / "backup.zip"
+    )
+    destination = tmp_path / "restored"
+    restored_file = destination / "projects" / project.name
+    original_match = service._same_restore_path
+    replaced = False
+
+    def replace_at_final_check(path, identity):
+        nonlocal replaced
+        # The output file has already been closed when final validation runs.
+        if path == restored_file and not replaced:
+            replaced = True
+            restored_file.unlink()
+            restored_file.write_bytes(b"another writer's data")
+        return original_match(path, identity)
+
+    monkeypatch.setattr(service, "_same_restore_path", replace_at_final_check)
+    with pytest.raises(BackupError, match="output path changed"):
+        service.restore(archive, destination)
+
+    assert replaced
+    assert restored_file.read_bytes() == b"another writer's data"
+    assert archive.is_file()
+    assert project.read_bytes() == b"saved backup payload"
+
+
+def test_restore_rejects_replaced_new_project_directory_before_writing(
+    inspected_archive, tmp_path, monkeypatch
+):
+    destination = tmp_path / "restored"
+    project_directory = destination / "projects"
+    service = ManualBackupService()
+    original_match = service._same_restore_path
+    replaced = False
+
+    def replace_directory(path, identity):
+        nonlocal replaced
+        # Simulate another process replacing the empty created directory.
+        if path == project_directory and not replaced:
+            replaced = True
+            project_directory.rmdir()
+            project_directory.mkdir()
+            (project_directory / "foreign.txt").write_bytes(b"keep")
+        return original_match(path, identity)
+
+    monkeypatch.setattr(service, "_same_restore_path", replace_directory)
+    with pytest.raises(BackupError, match="directory changed"):
+        service.restore(inspected_archive, destination)
+
+    assert replaced
+    assert (project_directory / "foreign.txt").read_bytes() == b"keep"
+    assert not (project_directory / "well.geologpkg").exists()
+
+
+def test_restore_identity_guard_handles_missing_output_without_deleting_other_data(
+    inspected_archive, tmp_path, monkeypatch
+):
+    destination = tmp_path / "restored"
+    output = destination / "projects" / "well.geologpkg"
+    service = ManualBackupService()
+    original_match = service._same_restore_path
+    removed = False
+
+    def remove_during_validation(path, identity):
+        nonlocal removed
+        if path == output and not removed:
+            removed = True
+            output.unlink()
+        return original_match(path, identity)
+
+    monkeypatch.setattr(service, "_same_restore_path", remove_during_validation)
+    with pytest.raises(BackupError, match="output path changed"):
+        service.restore(inspected_archive, destination)
+    assert removed
+    assert not destination.exists()
