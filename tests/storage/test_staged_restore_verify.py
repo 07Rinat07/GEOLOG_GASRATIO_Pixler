@@ -90,26 +90,29 @@ def test_staging_rejects_duplicate_planned_output(staged):
         verify_staged_restore(bad, stage)
 
 
-def test_staging_rejects_replaced_file_during_hash(staged, monkeypatch):
+def test_staging_rejects_replaced_file_before_final_validation(staged, monkeypatch):
+    from geoworkbench.storage import staged_restore_verify as verifier
+
     plan, stage = staged
     project = stage / "projects" / "well.geologpkg"
-    original = ManualBackupService._copy
-    replaced = False
+    original = verifier._snapshot
+    file_checks = 0
 
-    def replace_after_hash(self, source, target):
-        nonlocal replaced
-        result = original(self, source, target)
-        if not replaced:
-            replaced = True
-            content = project.read_bytes()
-            project.unlink()
-            project.write_bytes(content)
-        return result
+    def replace_after_close(path, *, directory):
+        nonlocal file_checks
+        if path == project and not directory:
+            file_checks += 1
+            if file_checks == 2:
+                # The verification stream is now closed; works on Windows too.
+                content = project.read_bytes()
+                project.unlink()
+                project.write_bytes(content)
+        return original(path, directory=directory)
 
-    monkeypatch.setattr(ManualBackupService, "_copy", replace_after_hash)
+    monkeypatch.setattr(verifier, "_snapshot", replace_after_close)
     with pytest.raises(BackupError, match="replaced"):
         verify_staged_restore(plan, stage)
-    assert replaced
+    assert file_checks == 2
 
 
 def test_staging_rejects_new_file_added_during_hash(staged, monkeypatch):
