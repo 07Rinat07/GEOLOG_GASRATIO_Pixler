@@ -216,3 +216,97 @@ def test_inspection_rejects_duplicate_json_manifest_keys(inspected_archive):
         archive.writestr("manifest.json", duplicated)
     with pytest.raises(BackupError, match="Duplicate backup manifest key"):
         ManualBackupService().inspect(inspected_archive)
+
+
+def test_restore_preflight_maps_verified_files_without_creating_destination(tmp_path):
+    project = tmp_path / "well.geologpkg"
+    project.write_bytes(b"saved project")
+    settings = tmp_path / "preferences.ini"
+    settings.write_bytes(b"settings snapshot")
+    service = ManualBackupService()
+    archive = service.create(
+        BackupPlan.build((project,), settings), tmp_path / "backup.zip"
+    )
+    target = tmp_path / "restored"
+    before = archive.read_bytes()
+
+    plan = service.plan_restore(archive, target)
+    assert plan.archive == archive.resolve()
+    assert plan.destination == target
+    assert plan.total_bytes == project.stat().st_size + settings.stat().st_size
+    assert [(item.archive_path, item.relative_path) for item in plan.items] == [
+        ("projects/0001.geologpkg", "projects/well.geologpkg"),
+        ("settings/preferences.ini", "settings/preferences.ini"),
+    ]
+    assert all(len(item.sha256) == 64 for item in plan.items)
+    assert not target.exists()
+    assert archive.read_bytes() == before
+    assert project.read_bytes() == b"saved project"
+
+
+def test_restore_preflight_rejects_existing_destination_without_writing(
+    tmp_path, inspected_archive
+):
+    target = tmp_path / "restored"
+    target.mkdir()
+    marker = target / "existing.geologpkg"
+    marker.write_bytes(b"keep")
+    with pytest.raises(BackupError, match="already exists"):
+        ManualBackupService().plan_restore(inspected_archive, target)
+    assert marker.read_bytes() == b"keep"
+
+
+@pytest.mark.parametrize("name", ["CON.geologpkg", "bad?.geologpkg", "NUL.geologpkg"])
+def test_restore_preflight_rejects_windows_unsafe_project_names(
+    inspected_archive, tmp_path, name
+):
+    _rewrite_backup(
+        inspected_archive,
+        manifest_change=lambda manifest: manifest["entries"][0].update(name=name),
+    )
+    with pytest.raises(BackupError, match="Unsafe restore filename"):
+        ManualBackupService().plan_restore(inspected_archive, tmp_path / "new")
+    assert not (tmp_path / "new").exists()
+
+
+def test_restore_preflight_rejects_casefold_colliding_project_names(tmp_path):
+    first_dir = tmp_path / "first"
+    second_dir = tmp_path / "second"
+    first_dir.mkdir()
+    second_dir.mkdir()
+    first = first_dir / "Well.geologpkg"
+    second = second_dir / "well.geologpkg"
+    first.write_bytes(b"one")
+    second.write_bytes(b"two")
+    service = ManualBackupService()
+    archive = service.create(
+        BackupPlan.build((first, second)), tmp_path / "backup.zip"
+    )
+    with pytest.raises(BackupError, match="collide"):
+        service.plan_restore(archive, tmp_path / "restored")
+    assert not (tmp_path / "restored").exists()
+
+
+def test_restore_preflight_rejects_tampered_archive_without_writing(
+    inspected_archive, tmp_path
+):
+    _rewrite_backup(
+        inspected_archive,
+        payload_change=lambda contents: contents.update(
+            {"projects/0001.geologpkg": b"tamper" * 100}
+        ),
+    )
+    with pytest.raises(BackupError, match="checksum mismatch"):
+        ManualBackupService().plan_restore(inspected_archive, tmp_path / "restored")
+    assert not (tmp_path / "restored").exists()
+
+
+def test_restore_preflight_rejects_unsafe_target_name_and_byte_limit(
+    inspected_archive, tmp_path
+):
+    service = ManualBackupService()
+    with pytest.raises(BackupError, match="Unsafe restore filename"):
+        service.plan_restore(inspected_archive, tmp_path / "CON")
+    with pytest.raises(BackupError, match="byte limit"):
+        service.plan_restore(inspected_archive, tmp_path / "restored", max_total_bytes=1)
+    assert not (tmp_path / "restored").exists()
