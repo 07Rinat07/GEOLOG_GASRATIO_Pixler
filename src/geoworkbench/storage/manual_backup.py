@@ -273,6 +273,21 @@ class ManualBackupService:
         ):
             raise BackupError(f"Unsafe restore filename: {name!r}")
 
+    @staticmethod
+    def _restore_path_identity(path: Path) -> tuple[int, int, int] | None:
+        """Filesystem object identity without following a replaced symlink."""
+        try:
+            info = path.lstat()
+        except OSError:
+            return None
+        return (info.st_dev, info.st_ino, stat.S_IFMT(info.st_mode))
+
+    @classmethod
+    def _same_restore_path(
+        cls, path: Path, identity: tuple[int, int, int] | None
+    ) -> bool:
+        return identity is not None and cls._restore_path_identity(path) == identity
+
     def restore(
         self, source: Path, destination: Path, *, max_total_bytes: int = 64 * 1024**3
     ) -> Path:
@@ -282,16 +297,18 @@ class ManualBackupService:
         (exist_ok=False), then streams only allowlisted ZIP entries. Each
         output is opened exclusively and checked against its manifest SHA/size.
         On a handled failure, clean up only files/directories this call made.
-        An abrupt process crash can leave a partial restore; no active project
-        or application settings are modified and no UI is invoked.
+        Cleanup checks filesystem identities before removing its own outputs,
+        but cannot atomically exclude other writers. An abrupt process crash
+        can leave a partial restore; no active project or settings are modified.
         """
 
         plan = self.plan_restore(
             source, destination, max_total_bytes=max_total_bytes
         )
         target = plan.destination
-        created_files: list[Path] = []
-        created_dirs: list[Path] = []
+        created_files: list[tuple[Path, tuple[int, int, int]]] = []
+        created_dirs: list[tuple[Path, tuple[int, int, int]]] = []
+        root_identity: tuple[int, int, int] | None = None
         claimed = False
         completed = False
         try:
@@ -299,11 +316,17 @@ class ManualBackupService:
             # since preflight. Never fall back to an existing destination.
             target.mkdir()
             claimed = True
+            root_identity = self._restore_path_identity(target)
+            if root_identity is None:
+                raise BackupError("Restore destination disappeared after creation")
             for dirname in ("projects", "settings"):
                 if any(item.relative_path.startswith(dirname + "/") for item in plan.items):
                     folder = target / dirname
                     folder.mkdir()
-                    created_dirs.append(folder)
+                    identity = self._restore_path_identity(folder)
+                    if identity is None:
+                        raise BackupError("Restore subdirectory disappeared")
+                    created_dirs.append((folder, identity))
 
             with plan.archive.open("rb") as raw:
                 before = os.fstat(raw.fileno())
@@ -334,9 +357,24 @@ class ManualBackupService:
                         }:
                             raise BackupError("Invalid planned restore path")
                         output_path = target / relative[0] / relative[1]
+                        if (
+                            not self._same_restore_path(target, root_identity)
+                            or not any(
+                                folder == output_path.parent
+                                and self._same_restore_path(folder, identity)
+                                for folder, identity in created_dirs
+                            )
+                        ):
+                            raise BackupError("Restore directory changed during write")
                         with archive.open(info, "r") as original:
                             with output_path.open("xb") as output:
-                                created_files.append(output_path)
+                                file_info = os.fstat(output.fileno())
+                                file_identity = (
+                                    file_info.st_dev,
+                                    file_info.st_ino,
+                                    stat.S_IFMT(file_info.st_mode),
+                                )
+                                created_files.append((output_path, file_identity))
                                 digest, size = self._copy(original, output)
                                 output.flush()
                                 os.fsync(output.fileno())
@@ -351,25 +389,41 @@ class ManualBackupService:
                 or self._identity(before) != self._identity(plan.archive.stat())
             ):
                 raise BackupError("Backup changed during restore")
+            if (
+                not self._same_restore_path(target, root_identity)
+                or any(
+                    not self._same_restore_path(path, identity)
+                    for path, identity in (*created_dirs, *created_files)
+                )
+            ):
+                raise BackupError("Restore output path changed during write")
             completed = True
             return target
         except (OSError, BadZipFile, ValueError, KeyError) as exc:
             raise BackupError(f"Cannot restore backup: {exc}") from exc
         finally:
-            if claimed and not completed:
-                # Refuse to recursively delete anything not created here.
-                for file in reversed(created_files):
+            if (
+                claimed
+                and not completed
+                and self._same_restore_path(target, root_identity)
+            ):
+                # An external process may replace any path before cleanup.
+                # Do not unlink by name unless it is still our filesystem object.
+                for file, identity in reversed(created_files):
                     try:
-                        file.unlink(missing_ok=True)
+                        if self._same_restore_path(file, identity):
+                            file.unlink()
                     except OSError:
                         pass
-                for directory in reversed(created_dirs):
+                for directory, identity in reversed(created_dirs):
                     try:
-                        directory.rmdir()
+                        if self._same_restore_path(directory, identity):
+                            directory.rmdir()
                     except OSError:
                         pass
                 try:
-                    target.rmdir()
+                    if self._same_restore_path(target, root_identity):
+                        target.rmdir()
                 except OSError:
                     pass
 
