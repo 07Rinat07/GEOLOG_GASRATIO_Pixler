@@ -244,7 +244,9 @@ def test_restore_preflight_maps_verified_files_without_creating_destination(tmp_
     assert project.read_bytes() == b"saved project"
 
 
-def test_restore_preflight_rejects_existing_destination_without_writing(tmp_path, inspected_archive):
+def test_restore_preflight_rejects_existing_destination_without_writing(
+    tmp_path, inspected_archive
+):
     target = tmp_path / "restored"
     target.mkdir()
     marker = target / "existing.geologpkg"
