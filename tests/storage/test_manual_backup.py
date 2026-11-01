@@ -293,7 +293,7 @@ def test_restore_preflight_rejects_tampered_archive_without_writing(
     _rewrite_backup(
         inspected_archive,
         payload_change=lambda contents: contents.update(
-            {"projects/0001.geologpkg": b"modified"}
+            {"projects/0001.geologpkg": b"tamper" * 100}
         ),
     )
     with pytest.raises(BackupError, match="checksum mismatch"):
