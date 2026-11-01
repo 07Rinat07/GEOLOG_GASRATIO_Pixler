@@ -310,3 +310,127 @@ def test_restore_preflight_rejects_unsafe_target_name_and_byte_limit(
     with pytest.raises(BackupError, match="byte limit"):
         service.plan_restore(inspected_archive, tmp_path / "restored", max_total_bytes=1)
     assert not (tmp_path / "restored").exists()
+
+
+def test_restore_streams_verified_files_only_into_new_directory(tmp_path):
+    project = tmp_path / "original.geologpkg"
+    content = b"actual geology package" * 140000
+    project.write_bytes(content)
+    settings = tmp_path / "settings.ini"
+    settings.write_bytes(b"[General]\\nlanguage=ru\\n")
+    service = ManualBackupService()
+    archive = service.create(
+        BackupPlan.build((project,), settings), tmp_path / "backup.zip"
+    )
+    original_zip = archive.read_bytes()
+    destination = tmp_path / "restored"
+    assert service.restore(archive, destination) == destination
+    assert (destination / "projects" / project.name).read_bytes() == content
+    assert (
+        destination / "settings" / "preferences.ini"
+    ).read_bytes() == settings.read_bytes()
+    assert archive.read_bytes() == original_zip
+    assert project.read_bytes() == content
+    assert list((destination / "projects").iterdir()) == [
+        destination / "projects" / project.name
+    ]
+
+
+def test_restore_rejects_existing_directory_and_preserves_its_files(
+    inspected_archive, tmp_path
+):
+    destination = tmp_path / "restored"
+    destination.mkdir()
+    previous = destination / "keep.txt"
+    previous.write_bytes(b"do not overwrite")
+    service = ManualBackupService()
+    with pytest.raises(BackupError, match="already exists"):
+        service.restore(inspected_archive, destination)
+    assert previous.read_bytes() == b"do not overwrite"
+    assert list(destination.iterdir()) == [previous]
+
+
+def test_restore_fails_closed_if_destination_claimed_after_preflight(
+    inspected_archive, tmp_path, monkeypatch
+):
+    destination = tmp_path / "restored"
+    service = ManualBackupService()
+    original = service.plan_restore
+
+    def race(*args, **kwargs):
+        plan = original(*args, **kwargs)
+        destination.mkdir()
+        (destination / "someone-else.txt").write_bytes(b"keep")
+        return plan
+
+    monkeypatch.setattr(service, "plan_restore", race)
+    with pytest.raises(BackupError, match="File exists|exist"):
+        service.restore(inspected_archive, destination)
+    assert (destination / "someone-else.txt").read_bytes() == b"keep"
+
+
+def test_restore_rolls_back_its_own_partial_output_on_write_failure(
+    inspected_archive, tmp_path, monkeypatch
+):
+    service = ManualBackupService()
+    original = service._copy
+
+    def fail_during_write(source, target):
+        if target is not None:
+            target.write(b"partial data")
+            raise OSError("disk full during restore")
+        return original(source, target)
+
+    monkeypatch.setattr(service, "_copy", fail_during_write)
+    destination = tmp_path / "restored"
+    with pytest.raises(BackupError, match="disk full during restore"):
+        service.restore(inspected_archive, destination)
+    assert not destination.exists()
+    assert inspected_archive.is_file()
+
+
+def test_restore_rejects_modified_zip_after_readonly_preflight(
+    inspected_archive, tmp_path, monkeypatch
+):
+    service = ManualBackupService()
+    original = service.plan_restore
+    destination = tmp_path / "restored"
+
+    def rewrite_after_plan(*args, **kwargs):
+        plan = original(*args, **kwargs)
+        _rewrite_backup(
+            inspected_archive,
+            payload_change=lambda contents: contents.update(
+                {"projects/0001.geologpkg": b"damage" * 100}
+            ),
+        )
+        return plan
+
+    monkeypatch.setattr(service, "plan_restore", rewrite_after_plan)
+    with pytest.raises(BackupError, match="checksum mismatch"):
+        service.restore(inspected_archive, destination)
+    assert not destination.exists()
+
+
+def test_restore_rejects_over_budget_before_creating_destination(
+    inspected_archive, tmp_path
+):
+    destination = tmp_path / "restored"
+    with pytest.raises(BackupError, match="byte limit"):
+        ManualBackupService().restore(
+            inspected_archive, destination, max_total_bytes=2
+        )
+    assert not destination.exists()
+
+
+def test_restore_with_settings_only_omits_projects_folder(tmp_path):
+    settings = tmp_path / "prefs.ini"
+    settings.write_bytes(b"settings")
+    service = ManualBackupService()
+    archive = service.create(
+        BackupPlan.build((), settings), tmp_path / "backup.zip"
+    )
+    destination = tmp_path / "restored"
+    service.restore(archive, destination)
+    assert (destination / "settings" / "preferences.ini").read_bytes() == b"settings"
+    assert not (destination / "projects").exists()
