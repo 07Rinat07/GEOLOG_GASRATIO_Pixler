@@ -288,6 +288,52 @@ class ManualBackupService:
     ) -> bool:
         return identity is not None and cls._restore_path_identity(path) == identity
 
+    def restore_staged(
+        self, source: Path, destination: Path, *, max_total_bytes: int = 64 * 1024**3
+    ) -> Path:
+        """Opt-in restore: prepare privately, verify and publish without replace.
+
+        Unlike the existing restore(), the final directory is not visible
+        during extraction. A fully verified stage is published with an OS
+        no-replace primitive. This method does not modify application state.
+
+        On handled errors after capturing a stage ownership receipt, clean up
+        only still-identical staged files and empty folders. If receipt
+        capture itself fails, preserve the stage rather than risk deleting
+        another writer's objects. Crash recovery, directory fsync and external
+        writer isolation are NOT guaranteed; the GUI still uses restore().
+        """
+        # Keep dependencies local: the staging helpers depend on this module.
+        from geoworkbench.storage.staged_restore_cleanup import (
+            capture_owned_staging_receipt,
+            cleanup_owned_staging,
+        )
+        from geoworkbench.storage.staged_restore_prepare import prepare_staged_restore
+        from geoworkbench.storage.staged_restore_publish import (
+            publish_verified_staged_restore,
+        )
+
+        plan = self.plan_restore(
+            source, destination, max_total_bytes=max_total_bytes
+        )
+        stage = prepare_staged_restore(plan, max_total_bytes=max_total_bytes)
+        receipt = None
+        try:
+            receipt = capture_owned_staging_receipt(plan, stage)
+            return publish_verified_staged_restore(
+                plan, stage, max_total_bytes=max_total_bytes
+            )
+        except BaseException:
+            if receipt is not None:
+                # Cleanup is deliberately conservative: false means an owned
+                # tree could not be fully removed, e.g. foreign additions.
+                # Never replace the original failure with a cleanup failure.
+                try:
+                    cleanup_owned_staging(receipt)
+                except OSError:
+                    pass
+            raise
+
     def restore(
         self, source: Path, destination: Path, *, max_total_bytes: int = 64 * 1024**3
     ) -> Path:
