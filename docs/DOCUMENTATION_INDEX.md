@@ -146,4 +146,6 @@ artifacts workflow `.github/workflows/release-gate.yml`.
   [WITS_INTERP_SCREENING.md](WITS_INTERP_SCREENING.md) — preliminary
   WITS fluid-screening projection (headless; not field-accepted),
   [WITSML_1411_SOAP.md](WITSML_1411_SOAP.md).
+- Восстановление из резервной копии: [BACKUP_STAGING_VERIFICATION.md](BACKUP_STAGING_VERIFICATION.md) —
+  read-only проверка подготовленного staging-каталога, без публикации.
 - Платформа: [BRANDING.md](BRANDING.md), [I18N.md](I18N.md).
