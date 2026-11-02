@@ -29,6 +29,17 @@ class StagingCandidate:
     parent_inode: int
 
 
+def _is_real_directory(info: os.stat_result) -> bool:
+    """Reject symlinks and Windows junctions/reparse-point directories.
+
+    On Windows, lstat() may report a junction as a directory; the reparse
+    attribute is required to avoid treating it as an ordinary directory.
+    """
+    return stat.S_ISDIR(info.st_mode) and not (
+        getattr(info, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
+    )
+
+
 def list_staging_candidates(parent: Path) -> tuple[StagingCandidate, ...]:
     """List possible staging leftovers without following links or writing data.
 
@@ -40,7 +51,7 @@ def list_staging_candidates(parent: Path) -> tuple[StagingCandidate, ...]:
     root = Path(parent)
     try:
         before = root.lstat()
-        if not stat.S_ISDIR(before.st_mode):
+        if not _is_real_directory(before):
             raise BackupError("Staging parent must be a real directory")
         found: list[StagingCandidate] = []
         with os.scandir(root) as directory:
@@ -61,7 +72,7 @@ def list_staging_candidates(parent: Path) -> tuple[StagingCandidate, ...]:
                     # Distinguish a replaced parent from a vanished child.
                     current_parent = root.lstat()
                     if (
-                        not stat.S_ISDIR(current_parent.st_mode)
+                        not _is_real_directory(current_parent)
                         or (before.st_dev, before.st_ino)
                         != (current_parent.st_dev, current_parent.st_ino)
                     ):
@@ -69,7 +80,7 @@ def list_staging_candidates(parent: Path) -> tuple[StagingCandidate, ...]:
                             "Staging parent changed during inventory"
                         ) from None
                     raise
-                if not stat.S_ISDIR(info.st_mode):
+                if not _is_real_directory(info):
                     continue
                 found.append(
                     StagingCandidate(
@@ -83,7 +94,7 @@ def list_staging_candidates(parent: Path) -> tuple[StagingCandidate, ...]:
                 )
         after = root.lstat()
         if (
-            not stat.S_ISDIR(after.st_mode)
+            not _is_real_directory(after)
             or (before.st_dev, before.st_ino) != (after.st_dev, after.st_ino)
         ):
             raise BackupError("Staging parent changed during inventory")
@@ -116,13 +127,13 @@ def recheck_staging_candidate(candidate: StagingCandidate) -> bool:
     try:
         parent_before = path.parent.lstat()
         if (
-            not stat.S_ISDIR(parent_before.st_mode)
+            not _is_real_directory(parent_before)
             or (parent_before.st_dev, parent_before.st_ino) != expected_parent
         ):
             return False
         child_before = path.lstat()
         if (
-            not stat.S_ISDIR(child_before.st_mode)
+            not _is_real_directory(child_before)
             or (child_before.st_dev, child_before.st_ino, child_before.st_mtime_ns)
             != expected_child
         ):
@@ -132,9 +143,9 @@ def recheck_staging_candidate(candidate: StagingCandidate) -> bool:
     except OSError:
         return False
     return (
-        stat.S_ISDIR(child_after.st_mode)
+        _is_real_directory(child_after)
         and (child_after.st_dev, child_after.st_ino, child_after.st_mtime_ns)
         == expected_child
-        and stat.S_ISDIR(parent_after.st_mode)
+        and _is_real_directory(parent_after)
         and (parent_after.st_dev, parent_after.st_ino) == expected_parent
     )
