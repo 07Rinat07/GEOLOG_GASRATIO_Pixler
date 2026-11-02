@@ -25,6 +25,8 @@ class StagingCandidate:
     device: int
     inode: int
     modified_ns: int
+    parent_device: int
+    parent_inode: int
 
 
 def list_staging_candidates(parent: Path) -> tuple[StagingCandidate, ...]:
@@ -75,6 +77,8 @@ def list_staging_candidates(parent: Path) -> tuple[StagingCandidate, ...]:
                         info.st_dev,
                         info.st_ino,
                         info.st_mtime_ns,
+                        before.st_dev,
+                        before.st_ino,
                     )
                 )
         after = root.lstat()
@@ -86,3 +90,51 @@ def list_staging_candidates(parent: Path) -> tuple[StagingCandidate, ...]:
     except OSError as exc:
         raise BackupError(f"Cannot inspect staging candidates: {exc}") from exc
     return tuple(sorted(found, key=lambda item: item.path.name))
+
+
+def recheck_staging_candidate(candidate: StagingCandidate) -> bool:
+    """Check whether a prior read-only observation still matches the path.
+
+    Return False if the parent or child was replaced, changed, removed, or
+    became a symlink. Never inspect the candidate's contents or mutate it.
+    A matching snapshot is NOT ownership proof or permission to delete; a
+    concurrent writer can change the filesystem immediately after this call.
+    """
+    if not isinstance(candidate, StagingCandidate):
+        raise TypeError("Expected a staging candidate")
+    path = candidate.path
+    if (
+        not isinstance(path, Path)
+        or ".." in path.parts
+        or not path.name.startswith(_STAGE_PREFIX)
+        or len(path.name) <= len(_STAGE_PREFIX)
+    ):
+        return False
+
+    expected_parent = (candidate.parent_device, candidate.parent_inode)
+    expected_child = (candidate.device, candidate.inode, candidate.modified_ns)
+    try:
+        parent_before = path.parent.lstat()
+        if (
+            not stat.S_ISDIR(parent_before.st_mode)
+            or (parent_before.st_dev, parent_before.st_ino) != expected_parent
+        ):
+            return False
+        child_before = path.lstat()
+        if (
+            not stat.S_ISDIR(child_before.st_mode)
+            or (child_before.st_dev, child_before.st_ino, child_before.st_mtime_ns)
+            != expected_child
+        ):
+            return False
+        child_after = path.lstat()
+        parent_after = path.parent.lstat()
+    except OSError:
+        return False
+    return (
+        stat.S_ISDIR(child_after.st_mode)
+        and (child_after.st_dev, child_after.st_ino, child_after.st_mtime_ns)
+        == expected_child
+        and stat.S_ISDIR(parent_after.st_mode)
+        and (parent_after.st_dev, parent_after.st_ino) == expected_parent
+    )
