@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import stat
+from types import SimpleNamespace
 
 import pytest
 
@@ -230,4 +232,66 @@ def test_recheck_rejects_replacement_between_identity_reads(tmp_path, monkeypatc
         patch.setattr(Path, "lstat", swap_on_second_read)
         assert not recheck_staging_candidate(snapshot)
     assert (tmp_path / "original").is_dir()
+    assert stage.is_dir()
+
+
+def _as_windows_reparse_point(info):
+    """Simulate lstat() for a Windows junction with directory st_mode."""
+    return SimpleNamespace(
+        st_mode=info.st_mode,
+        st_dev=info.st_dev,
+        st_ino=info.st_ino,
+        st_mtime_ns=info.st_mtime_ns,
+        st_file_attributes=stat.FILE_ATTRIBUTE_REPARSE_POINT,
+    )
+
+
+def test_inventory_excludes_windows_reparse_directory_without_reading_it(tmp_path, monkeypatch):
+    stage = tmp_path / ".geolog-restore-junction"
+    stage.mkdir()
+    foreign = stage / "foreign.bin"
+    foreign.write_bytes(b"keep")
+    original_lstat = Path.lstat
+
+    def reparse_child(path):
+        info = original_lstat(path)
+        return _as_windows_reparse_point(info) if path == stage else info
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "lstat", reparse_child)
+        assert list_staging_candidates(tmp_path) == ()
+    assert foreign.read_bytes() == b"keep"
+
+
+def test_inventory_rejects_windows_reparse_parent(tmp_path, monkeypatch):
+    stage = tmp_path / ".geolog-restore-a"
+    stage.mkdir()
+    original_lstat = Path.lstat
+
+    def reparse_parent(path):
+        info = original_lstat(path)
+        return _as_windows_reparse_point(info) if path == tmp_path else info
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "lstat", reparse_parent)
+        with pytest.raises(BackupError, match="real directory"):
+            list_staging_candidates(tmp_path)
+    assert stage.is_dir()
+
+
+@pytest.mark.parametrize("target", ["parent", "candidate"])
+def test_recheck_rejects_windows_reparse_directory(tmp_path, monkeypatch, target):
+    stage = tmp_path / ".geolog-restore-a"
+    stage.mkdir()
+    snapshot = list_staging_candidates(tmp_path)[0]
+    original_lstat = Path.lstat
+    replaced = tmp_path if target == "parent" else stage
+
+    def reparse_path(path):
+        info = original_lstat(path)
+        return _as_windows_reparse_point(info) if path == replaced else info
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "lstat", reparse_path)
+        assert not recheck_staging_candidate(snapshot)
     assert stage.is_dir()
