@@ -48,12 +48,15 @@ def list_staging_candidates(parent: Path) -> tuple[StagingCandidate, ...]:
                     or len(entry.name) <= len(_STAGE_PREFIX)
                 ):
                     continue
-                info = entry.stat(follow_symlinks=False)
+                # Windows DirEntry.stat may return zero st_dev/st_ino from
+                # cached directory enumeration data; lstat gets real identity.
+                candidate_path = root / entry.name
+                info = candidate_path.lstat()
                 if not stat.S_ISDIR(info.st_mode):
                     continue
                 found.append(
                     StagingCandidate(
-                        root / entry.name,
+                        candidate_path,
                         info.st_dev,
                         info.st_ino,
                         info.st_mtime_ns,
