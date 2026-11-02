@@ -51,7 +51,22 @@ def list_staging_candidates(parent: Path) -> tuple[StagingCandidate, ...]:
                 # Windows DirEntry.stat may return zero st_dev/st_ino from
                 # cached directory enumeration data; lstat gets real identity.
                 candidate_path = root / entry.name
-                info = candidate_path.lstat()
+                try:
+                    info = candidate_path.lstat()
+                except FileNotFoundError:
+                    # Windows can invalidate an enumerated child's old path
+                    # when another process replaces the parent mid-scan.
+                    # Distinguish a replaced parent from a vanished child.
+                    current_parent = root.lstat()
+                    if (
+                        not stat.S_ISDIR(current_parent.st_mode)
+                        or (before.st_dev, before.st_ino)
+                        != (current_parent.st_dev, current_parent.st_ino)
+                    ):
+                        raise BackupError(
+                            "Staging parent changed during inventory"
+                        ) from None
+                    raise
                 if not stat.S_ISDIR(info.st_mode):
                     continue
                 found.append(
