@@ -108,7 +108,12 @@ def test_staged_restore_destination_appears_after_preparation(
     with pytest.raises(BackupError):
         service.restore_staged(archive, destination)
     assert (destination / "keep").read_bytes() == b"foreign"
-    assert _stages(tmp_path) == []
+    # The receipt cannot be captured after an occupied destination is seen;
+    # preserve the stage rather than unlinking it without an ownership proof.
+    stages = _stages(tmp_path)
+    assert len(stages) == 1
+    for stage in stages:
+        shutil.rmtree(stage)
 
 
 def test_staged_restore_destination_appears_during_atomic_publish(
