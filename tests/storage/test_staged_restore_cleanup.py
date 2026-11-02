@@ -1,7 +1,6 @@
 """Cleanup receipts preserve replaced and unknown files in restore stages."""
 from __future__ import annotations
 
-import os
 import shutil
 
 import pytest
