@@ -2,11 +2,16 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pytest
 
 from geoworkbench.storage.manual_backup import BackupError
-from geoworkbench.storage.staging_candidate_audit import list_staging_candidates
+from geoworkbench.storage.staging_candidate_audit import (
+    StagingCandidate,
+    list_staging_candidates,
+    recheck_staging_candidate,
+)
 
 
 def test_lists_only_immediate_real_staging_directories_without_writing(tmp_path):
@@ -114,3 +119,115 @@ def test_parent_replacement_during_scan_fails_closed(tmp_path, monkeypatch):
             list_staging_candidates(tmp_path)
     finally:
         monkeypatch.undo()
+
+
+def test_recheck_matches_unchanged_candidate_without_reading_contents(tmp_path, monkeypatch):
+    stage = tmp_path / ".geolog-restore-a"
+    stage.mkdir()
+    (stage / "foreign.bin").write_bytes(b"preserve")
+    snapshot = list_staging_candidates(tmp_path)[0]
+    assert (snapshot.parent_device, snapshot.parent_inode) == (
+        tmp_path.lstat().st_dev, tmp_path.lstat().st_ino
+    )
+
+    def forbid_scan(_path):
+        raise AssertionError("Recheck must not enumerate directory contents")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(os, "scandir", forbid_scan)
+        assert recheck_staging_candidate(snapshot)
+    assert (stage / "foreign.bin").read_bytes() == b"preserve"
+
+
+def test_recheck_rejects_changed_directory_mtime(tmp_path):
+    stage = tmp_path / ".geolog-restore-a"
+    stage.mkdir()
+    snapshot = list_staging_candidates(tmp_path)[0]
+    new_time = snapshot.modified_ns + 10_000_000_000
+    os.utime(stage, ns=(new_time, new_time))
+    assert not recheck_staging_candidate(snapshot)
+    assert stage.is_dir()
+
+
+def test_recheck_rejects_replaced_candidate_even_with_same_name(tmp_path):
+    stage = tmp_path / ".geolog-restore-a"
+    stage.mkdir()
+    snapshot = list_staging_candidates(tmp_path)[0]
+    original = tmp_path / "original-stage"
+    stage.rename(original)
+    stage.mkdir()
+    assert not recheck_staging_candidate(snapshot)
+    assert original.is_dir() and stage.is_dir()
+
+
+def test_recheck_rejects_replaced_parent_even_if_child_inode_survives(tmp_path):
+    parent = tmp_path / "parent"
+    parent.mkdir()
+    stage = parent / ".geolog-restore-a"
+    stage.mkdir()
+    snapshot = list_staging_candidates(parent)[0]
+    old_parent = tmp_path / "original-parent"
+    parent.rename(old_parent)
+    parent.mkdir()
+    (parent / stage.name).mkdir()
+    assert not recheck_staging_candidate(snapshot)
+    assert (old_parent / stage.name).is_dir()
+
+
+def test_recheck_rejects_symlink_replacements(tmp_path):
+    parent = tmp_path / "parent"
+    parent.mkdir()
+    stage = parent / ".geolog-restore-a"
+    stage.mkdir()
+    snapshot = list_staging_candidates(parent)[0]
+    old = tmp_path / "old"
+    try:
+        stage.rename(old)
+        stage.symlink_to(old, target_is_directory=True)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"Symlinks unavailable on this platform: {exc}")
+    assert not recheck_staging_candidate(snapshot)
+    stage.unlink()
+    parent.rename(tmp_path / "old-parent")
+    parent.symlink_to(tmp_path / "old-parent", target_is_directory=True)
+    assert not recheck_staging_candidate(snapshot)
+    assert old.is_dir()
+
+
+def test_recheck_rejects_missing_and_invalid_snapshots(tmp_path):
+    stage = tmp_path / ".geolog-restore-a"
+    stage.mkdir()
+    snapshot = list_staging_candidates(tmp_path)[0]
+    stage.rmdir()
+    assert not recheck_staging_candidate(snapshot)
+    assert not recheck_staging_candidate(
+        StagingCandidate(tmp_path / "unrelated", 1, 2, 3, 4, 5)
+    )
+    assert not recheck_staging_candidate(
+        StagingCandidate(tmp_path / ".." / ".geolog-restore-a", 1, 2, 3, 4, 5)
+    )
+    with pytest.raises(TypeError, match="staging candidate"):
+        recheck_staging_candidate(None)  # type: ignore[arg-type]
+
+
+def test_recheck_rejects_replacement_between_identity_reads(tmp_path, monkeypatch):
+    stage = tmp_path / ".geolog-restore-a"
+    stage.mkdir()
+    snapshot = list_staging_candidates(tmp_path)[0]
+    original_lstat = Path.lstat
+    seen = 0
+
+    def swap_on_second_read(path):
+        nonlocal seen
+        if path == stage:
+            seen += 1
+            if seen == 2:
+                stage.rename(tmp_path / "original")
+                stage.mkdir()
+        return original_lstat(path)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "lstat", swap_on_second_read)
+        assert not recheck_staging_candidate(snapshot)
+    assert (tmp_path / "original").is_dir()
+    assert stage.is_dir()
