@@ -101,7 +101,7 @@ def test_parent_replacement_during_scan_fails_closed(tmp_path, monkeypatch):
     original_scandir = os.scandir
 
     def replace_root(path):
-        root = tmp_path / "moved"
+        root = tmp_path.with_name(tmp_path.name + "-moved")
         tmp_path.rename(root)
         tmp_path.mkdir()
         return original_scandir(root)
