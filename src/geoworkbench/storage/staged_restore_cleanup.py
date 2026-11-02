@@ -99,22 +99,22 @@ def cleanup_owned_staging(receipt: OwnedStagingReceipt) -> bool:
         return False
 
     owned_dirs = dict(receipt.directories)
-    for path, identity in reversed(receipt.files):
+    for path, file_identity in reversed(receipt.files):
         if (
             not _same_directory(stage, receipt.root)
             or not _same_directory(path.parent, owned_dirs.get(path.parent, (-1, -1, -1)))
         ):
             continue
-        if _identity(path) == identity:
+        if _identity(path) == file_identity:
             try:
                 path.unlink()
             except OSError:
                 pass
 
-    for folder, identity in reversed(receipt.directories):
+    for folder, directory_identity in reversed(receipt.directories):
         if not _same_directory(stage, receipt.root):
             return False
-        if _same_directory(folder, identity):
+        if _same_directory(folder, directory_identity):
             try:
                 folder.rmdir()  # Fails if a foreign entry is present.
             except OSError:
