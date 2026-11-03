@@ -155,3 +155,57 @@ def test_malformed_unhashable_status_fails_closed(tmp_path):
     path.write_text(json.dumps(data), encoding="utf-8")
     with pytest.raises(ValueError, match="trusted plan"):
         check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
+
+
+def test_redirected_results_json_is_rejected(tmp_path, monkeypatch):
+    """A JSON link must not be followed even if its target looks valid."""
+    import stat
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    _write_artifacts(tmp_path)
+    real_lstat = Path.lstat
+    target = tmp_path / "results.json"
+
+    def pretend_json_symlink(path):
+        if path == target:
+            return SimpleNamespace(st_mode=stat.S_IFLNK | 0o777)
+        return real_lstat(path)
+
+    monkeypatch.setattr(Path, "lstat", pretend_json_symlink)
+    with pytest.raises(ValueError, match="redirected replay artifact"):
+        check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
+
+
+def test_reparse_log_file_is_rejected_on_any_runner(tmp_path, monkeypatch):
+    """Model a Windows reparse-point file without requiring admin symlink rights."""
+    import stat
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    _write_artifacts(tmp_path)
+    real_lstat = Path.lstat
+    target = tmp_path / "iteration-01-combined.txt"
+
+    def pretend_windows_reparse(path):
+        if path == target:
+            return SimpleNamespace(
+                st_mode=stat.S_IFREG | 0o644,
+                st_file_attributes=stat.FILE_ATTRIBUTE_REPARSE_POINT,
+            )
+        return real_lstat(path)
+
+    monkeypatch.setattr(Path, "lstat", pretend_windows_reparse)
+    with pytest.raises(ValueError, match="trusted plan"):
+        check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
+
+
+def test_missing_results_file_rejected_without_partial_report(tmp_path, capsys):
+    _write_artifacts(tmp_path)
+    (tmp_path / "results.json").unlink()
+    assert check_qt_replay_evidence.main([
+        "--artifact-dir", str(tmp_path), "--commit", SHA,
+    ]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "Missing or redirected" in captured.err
