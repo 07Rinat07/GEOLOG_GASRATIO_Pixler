@@ -10,6 +10,7 @@ import argparse
 import json
 from pathlib import Path
 import re
+import stat
 import sys
 from typing import Any
 
@@ -34,7 +35,24 @@ def _integer(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)
 
 
+def _is_plain_file(path: Path) -> bool:
+    """Reject links and Windows reparse points rather than following them.
+
+    These artifacts are independently downloaded evidence. A link is not
+    equivalent to an ordinary file in the collected artifact directory.
+    """
+    try:
+        info = path.lstat()
+    except OSError:
+        return False
+    return stat.S_ISREG(info.st_mode) and not (
+        getattr(info, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
+    )
+
+
 def _read_json(path: Path) -> dict[str, Any]:
+    if not _is_plain_file(path):
+        raise ValueError(f"Missing or redirected replay artifact: {path.name}")
     try:
         return _object(json.loads(path.read_text(encoding="utf-8")), str(path.name))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
@@ -101,7 +119,7 @@ def verify_replay_evidence(directory: Path, commit: str) -> tuple[dict[str, Any]
             or entry.get("log_file") != filename
             or not isinstance(entry.get("status"), str)
             or entry["status"] not in STATUSES
-            or not (directory / filename).is_file()
+            or not _is_plain_file(directory / filename)
         ):
             raise ValueError(f"Replay child #{index + 1} does not match the trusted plan")
 
