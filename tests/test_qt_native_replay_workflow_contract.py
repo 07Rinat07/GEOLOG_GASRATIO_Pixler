@@ -15,7 +15,7 @@ def test_native_replay_is_manual_only_with_bounded_inputs() -> None:
     assert "  push:" not in workflow
     for mode in ("isolated", "sequence", "both"):
         assert f"          - {mode}" in workflow
-    for repetition in ("1", "2", "3", "5"):
+    for repetition in ("1", "2", "3", "4"):
         assert f'          - "{repetition}"' in workflow
     assert "permissions:\n  contents: read" in workflow
     assert "persist-credentials: false" in workflow
@@ -46,12 +46,17 @@ def test_native_replay_uses_pinned_release_env_and_preserves_failures() -> None:
 
 
 def test_maximum_replay_budget_fits_workflow_timeout_with_headroom() -> None:
-    from tools.replay_windows_qt_native import CHILD_TIMEOUT_SECONDS, replay_plan
+    from tools.replay_windows_qt_native import (
+        CHILD_TIMEOUT_SECONDS,
+        MAX_REPETITIONS,
+        replay_plan,
+    )
 
     workflow = MANUAL.read_text(encoding="utf-8")
     assert "timeout-minutes: 120" in workflow
-    maximum_children = len(replay_plan(5, "both"))
-    assert maximum_children == 40
-    # Keep at most 100 minutes of child runtime inside the 120-minute Windows job.
-    # Preserve 20 minutes for checkout, installation, artifact uploads and overhead.
-    assert maximum_children * CHILD_TIMEOUT_SECONDS <= (120 - 20) * 60
+    maximum_children = len(replay_plan(MAX_REPETITIONS, "both"))
+    assert MAX_REPETITIONS == 4
+    assert maximum_children == 36
+    # Keep at most 90 minutes of child runtime in the 120-minute Windows job.
+    # Reserve at least 30 minutes for setup, artifact uploads and overhead.
+    assert maximum_children * CHILD_TIMEOUT_SECONDS <= (120 - 30) * 60
