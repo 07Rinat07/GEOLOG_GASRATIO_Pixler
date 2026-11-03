@@ -109,6 +109,29 @@ def list_staging_candidates(parent: Path) -> tuple[StagingCandidate, ...]:
                         ancestors_before,
                     )
                 )
+        # A directory can be replaced or modified while scandir runs.
+        # Recheck its observed identity, but never inspect its contents.
+        after_scan = root.lstat()
+        if (
+            not _is_real_directory(after_scan)
+            or (before.st_dev, before.st_ino)
+            != (after_scan.st_dev, after_scan.st_ino)
+            or _snapshot_ancestors(root) != ancestors_before
+        ):
+            raise BackupError("Staging parent changed during inventory")
+        for candidate in found:
+            try:
+                current = candidate.path.lstat()
+            except OSError as exc:
+                raise BackupError(
+                    "Staging candidate changed during inventory"
+                ) from exc
+            if (
+                not _is_real_directory(current)
+                or (current.st_dev, current.st_ino, current.st_mtime_ns)
+                != (candidate.device, candidate.inode, candidate.modified_ns)
+            ):
+                raise BackupError("Staging candidate changed during inventory")
         after = root.lstat()
         if (
             not _is_real_directory(after)
