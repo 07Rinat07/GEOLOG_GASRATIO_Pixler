@@ -51,12 +51,17 @@ SCENARIOS = (
         "tests/test_tabular_export_output_language.py::"
         "test_all_six_outputs_share_language_without_relocalizing_operator_ui[kk-en]",
     ),
+    (
+        "tabular-export-language-en-ru",
+        "tests/test_tabular_export_output_language.py::"
+        "test_all_six_outputs_share_language_without_relocalizing_operator_ui[en-ru]",
+    ),
 )
 MODES = ("isolated", "sequence", "both")
-MAX_REPETITIONS = 5
+MAX_REPETITIONS = 4
 CHILD_TIMEOUT_SECONDS = 150
-# Five repetitions × (seven isolated + one combined) = 40 children.
-# Worst-case child timeout budget: 100 of the workflow's 120 minutes.
+# Four repetitions × (eight isolated + one combined) = 36 children.
+# Worst-case child timeout budget: 90 of the workflow's 120 minutes.
 # Windows crash statuses previously observed in mandatory Qt/pyqtgraph CI.
 WINDOWS_NATIVE_CRASH_CODES = frozenset({0xC0000005, 0xC0000374})
 
