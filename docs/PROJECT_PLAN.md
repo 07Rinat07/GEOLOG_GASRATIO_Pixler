@@ -1,3 +1,13 @@
+## CI/Qt #544 / P0 — точный Windows replay нового сбоя en→ru (03.11.2026, PR-проверка) 
+
+Точность ограничения: ручной workflow `.github/workflows/qt-native-replay.yml` также должен разрешать только `1/2/3/4` повтора. Существовавшая опция `5` приводила к несовместимости с MAX_REPETITIONS=4; обнаружено тестом `test_maximum_replay_budget_fits_workflow_timeout_with_headroom` в PR #826, устранено согласованием опций и динамического контрактного теста. Обязательный `.github/workflows/release-gate.yml` не менялся.
+
+В post-merge Release Gate #41568388158 на точном main `bca5776c07b05c3104239584b926e551b4389bde`, attempt 1, зафиксирован native access violation `0xC0000005` в `pyqtgraph.ViewBoxMenu.__init__` при `tests/test_tabular_export_output_language.py::test_all_six_outputs_share_language_without_relocalizing_operator_ui[en-ru]`. Два других обязательных Windows Gate завершились SUCCESS; повторный запуск quality на том же SHA завершился SUCCESS, но причина сбоя не устранена и не установлена.
+
+Добавить **точный параметризованный selector [en-ru]** в allowlist ручного `tools/replay_windows_qt_native.py` и запускать его отдельно и в общем процессе, сохранив ранее известные сценарии. Чтобы не превысить бюджет диагностики (120 минут workflow), ограничить максимум четырьмя повторами по 9 дочерних процессов и 150 секунд на процесс (максимум 90 минут без установки/артефактов). Регрессии на набор selectors, отсутствие произвольных команд, подсчёт результатов, partial-report и учёт native exit code. Это не исправление Qt, не отключение проверок и не подтверждение физического Windows replay.
+
+**Далее:** отдельно запустить ручной replay на реальном Windows и сохранить `results.json`, runtime environment и minidump при наличии; сопоставить провал с версиями Qt/PySide6/pyqtgraph и жизненным циклом `PlotWidget` прежде чем менять GUI. До подтверждения всех трёх Release Gate на exact PR HEAD и main HEAD не сливать; после squash обязательно post-merge gate. Геологические расчёты, LAS/WITS/ГТИ и GUI не изменять.
+
 ## BACKUP-01 / P1 — проверка предков staging-пути без переходов по junction (03.11.2026, PR-проверка)
 
 Следующий ограниченный этап после read-only audit и Windows reparse-point guard: при перечислении возможных staging-каталогов проверять **все предки** родительского каталога по `lstat` (без следования symlink/reparse point на проверяемом компоненте), сохранять их `Path/st_dev/st_ino` в снимке кандидата и повторять сверку предков в конце инвентаризации и до/после `recheck_staging_candidate`. Отвергать исходные пути с `..` во избежание неоднозначного разрешения через link. Регрессии: symlink в вышестоящем компоненте, Windows reparse metadata для предка, заменённый предок между проверками, неизменённые обычные каталоги, отказ при `..`.

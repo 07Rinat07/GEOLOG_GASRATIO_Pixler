@@ -17,7 +17,7 @@ from tools.replay_windows_qt_native import (
 
 def test_replay_plan_is_bounded_and_only_uses_known_selectors() -> None:
     plan = replay_plan(2, "both")
-    assert len(plan) == 16
+    assert len(plan) == 18
     assert [part[1] for part in plan] == [
         "dataset-merge-undo",
         "tablet-rebuild",
@@ -26,14 +26,15 @@ def test_replay_plan_is_bounded_and_only_uses_known_selectors() -> None:
         "lithology-undo",
         "header-curve-redo",
         "tabular-export-language-kk-en",
+        "tabular-export-language-en-ru",
         "combined",
     ] * 2
     for i, (_, selector) in enumerate(SCENARIOS):
         assert plan[i][2] == (selector,)
-    assert plan[7][2] == tuple(selector for _, selector in SCENARIOS)
+    assert plan[8][2] == tuple(selector for _, selector in SCENARIOS)
 
 
-@pytest.mark.parametrize("repetitions", [0, -1, 6, True, "2"])
+@pytest.mark.parametrize("repetitions", [0, -1, 5, 6, True, "2"])
 def test_replay_plan_rejects_invalid_repetition_counts(repetitions) -> None:
     with pytest.raises(ValueError, match="repetitions"):
         replay_plan(repetitions, "isolated")
@@ -44,7 +45,7 @@ def test_track_x_scale_crash_selector_is_replayed_alone_and_in_sequence() -> Non
     assert SCENARIOS[2] == ("track-x-scale", selector)
     plan = replay_plan(1, "both")
     assert plan[2] == (1, "track-x-scale", (selector,))
-    assert selector in plan[7][2]
+    assert selector in plan[8][2]
 
 
 def test_normalized_gas_tablet_crash_selector_is_replayed_alone_and_in_sequence() -> None:
@@ -55,7 +56,7 @@ def test_normalized_gas_tablet_crash_selector_is_replayed_alone_and_in_sequence(
     assert SCENARIOS[3] == ("normalized-gas-tablet", selector)
     plan = replay_plan(1, "both")
     assert plan[3] == (1, "normalized-gas-tablet", (selector,))
-    assert selector in plan[7][2]
+    assert selector in plan[8][2]
 
 
 def test_lithology_undo_native_crash_selector_is_replayed_alone_and_in_sequence() -> None:
@@ -63,7 +64,7 @@ def test_lithology_undo_native_crash_selector_is_replayed_alone_and_in_sequence(
     assert SCENARIOS[4] == ("lithology-undo", selector)
     plan = replay_plan(1, "both")
     assert plan[4] == (1, "lithology-undo", (selector,))
-    assert selector in plan[7][2]
+    assert selector in plan[8][2]
 
 
 def test_header_redo_native_crash_replayed_alone_and_in_sequence() -> None:
@@ -74,7 +75,7 @@ def test_header_redo_native_crash_replayed_alone_and_in_sequence() -> None:
     assert SCENARIOS[5] == ("header-curve-redo", selector)
     plan = replay_plan(1, "both")
     assert plan[5] == (1, "header-curve-redo", (selector,))
-    assert selector in plan[7][2]
+    assert selector in plan[8][2]
 
 
 def test_tabular_export_kk_en_native_crash_replayed_alone_and_in_sequence() -> None:
@@ -86,13 +87,26 @@ def test_tabular_export_kk_en_native_crash_replayed_alone_and_in_sequence() -> N
     assert SCENARIOS[6] == ("tabular-export-language-kk-en", selector)
     plan = replay_plan(1, "both")
     assert plan[6] == (1, "tabular-export-language-kk-en", (selector,))
-    assert plan[7][2][-1] == selector
-    assert len(set(plan[7][2])) == len(SCENARIOS)
+    assert plan[8][2][-2] == selector
+    assert len(set(plan[8][2])) == len(SCENARIOS)
+
+
+def test_new_en_ru_native_crash_replayed_alone_and_in_sequence() -> None:
+    # Post-merge main Release Gate #41568388158, exact failing parameter.
+    selector = (
+        "tests/test_tabular_export_output_language.py::"
+        "test_all_six_outputs_share_language_without_relocalizing_operator_ui[en-ru]"
+    )
+    assert SCENARIOS[7] == ("tabular-export-language-en-ru", selector)
+    plan = replay_plan(1, "both")
+    assert plan[7] == (1, "tabular-export-language-en-ru", (selector,))
+    assert plan[8][2][-1] == selector
+    assert len(set(plan[8][2])) == len(SCENARIOS)
 
 
 def test_maximum_replay_budget_reserves_time_for_windows_setup_and_artifacts() -> None:
     plan = replay_plan(MAX_REPETITIONS, "both")
-    assert len(plan) == 40
+    assert len(plan) == 36
     assert len(plan) * CHILD_TIMEOUT_SECONDS <= 100 * 60
     assert plan[-1][1] == "combined"
 
@@ -118,22 +132,23 @@ def test_replay_collects_all_child_failures_without_masking_windows_crash(tmp_pa
     )
 
     assert success is False
-    assert len(commands) == 8
+    assert len(commands) == 9
     assert commands[0][0][:4] == (
         "python.exe",
         "scripts/run_tests.py",
         "-p",
         "no:cacheprovider",
     )
-    assert commands[7][0][-7:] == tuple(selector for _, selector in SCENARIOS)
+    assert commands[8][0][-8:] == tuple(selector for _, selector in SCENARIOS)
     assert all(call[1]["timeout"] == CHILD_TIMEOUT_SECONDS for call in commands)
     assert all(call[1]["check"] is False for call in commands)
     report = json.loads((tmp_path / "diagnostics" / "results.json").read_text("utf-8"))
-    assert report["completed"] == report["expected"] == 8
+    assert report["completed"] == report["expected"] == 9
     assert report["all_passed"] is False
     assert [item["status"] for item in report["results"]] == [
         "passed",
         "native_crash",
+        "passed",
         "passed",
         "passed",
         "passed",
@@ -190,7 +205,7 @@ def test_replay_timeout_is_reported_as_failure_and_other_runs_continue(tmp_path)
         tmp_path, repetitions=1, mode="isolated", runner=run
     )
     report = json.loads((tmp_path / "results.json").read_text("utf-8"))
-    assert len(calls) == 7
+    assert len(calls) == 8
     assert report["results"][0]["status"] == "timeout"
     assert report["results"][0]["exit_code"] is None
     assert report["results"][1]["status"] == "passed"
@@ -218,11 +233,12 @@ def test_replay_child_launch_error_is_recorded_without_masking_other_results(
         runner=run,
     )
     report = json.loads((tmp_path / "results.json").read_text(encoding="utf-8"))
-    assert len(calls) == 7
-    assert report["completed"] == report["expected"] == 7
+    assert len(calls) == 8
+    assert report["completed"] == report["expected"] == 8
     assert report["all_passed"] is False
     assert [item["status"] for item in report["results"]] == [
         "launch_error",
+        "passed",
         "passed",
         "passed",
         "passed",
@@ -263,12 +279,12 @@ def test_partial_replay_never_reports_success_while_children_remain(tmp_path) ->
         return subprocess.CompletedProcess(command, 0, stdout="passed", stderr="")
 
     assert execute_replay(tmp_path, repetitions=1, mode="both", runner=run)
-    assert len(snapshots) == 8
-    assert [report["completed"] for report in snapshots] == [0, 1, 2, 3, 4, 5, 6, 7]
-    assert all(report["expected"] == 8 for report in snapshots)
+    assert len(snapshots) == 9
+    assert [report["completed"] for report in snapshots] == list(range(9))
+    assert all(report["expected"] == 9 for report in snapshots)
     assert all(report["all_passed"] is False for report in snapshots)
     final = json.loads((tmp_path / "results.json").read_text(encoding="utf-8"))
-    assert final["completed"] == final["expected"] == 8
+    assert final["completed"] == final["expected"] == 9
     assert final["all_passed"] is True
 
 
@@ -283,7 +299,7 @@ def test_interruption_before_first_child_result_keeps_initial_failure_snapshot(t
         assert snapshot["mode"] == "both"
         assert snapshot["repetitions"] == 1
         assert snapshot["completed"] == 0
-        assert snapshot["expected"] == 8
+        assert snapshot["expected"] == 9
         assert snapshot["results"] == []
         assert snapshot["all_passed"] is False
         raise RuntimeError("synthetic parent interruption before first result")
@@ -312,7 +328,7 @@ def test_interrupted_replay_keeps_partial_report_failed(tmp_path) -> None:
         execute_replay(tmp_path, repetitions=1, mode="both", runner=run)
     report = json.loads((tmp_path / "results.json").read_text(encoding="utf-8"))
     assert report["completed"] == 1
-    assert report["expected"] == 8
+    assert report["expected"] == 9
     assert report["all_passed"] is False
 
 
