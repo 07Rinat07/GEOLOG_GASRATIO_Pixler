@@ -1,4 +1,6 @@
-## CI/Qt #544 — bounded replay of confirmed en→ru export crash (03.11.2026, PR review)
+## CI/Qt #544 — bounded replay of confirmed en→ru export crash (03.11.2026, PR review) 
+
+Follow-up: fixed the **manual** `.github/workflows/qt-native-replay.yml` input choices to `1/2/3/4`, matching `MAX_REPETITIONS=4`, and aligned the workflow-contract regression test to derive its budget from that constant. The initial PR #826 Windows Quality Gate exposed the obsolete `5`/`40` expectation; the mandatory Release Gate configuration remains untouched.
 
 The manual Windows native diagnostic replay allowlist now includes the exact `tests/test_tabular_export_output_language.py::test_all_six_outputs_share_language_without_relocalizing_operator_ui[en-ru]` selector observed in post-merge run #41568388158. It is tested both as an isolated child and in the combined sequence, alongside all prior known crash selectors. To maintain a strict workflow time budget with eight isolated scenarios plus the combined child (nine per iteration), maximum repetitions decrease from five to four: 36 children × 150 seconds = 90 minutes, leaving time for setup and artifact collection in a 120-minute run. No mandatory Windows CI step, Qt GUI, geological processing or source data is changed. A green rerun does not prove Qt #544 fixed; real Windows manual replay and native diagnostics are still required.
 
