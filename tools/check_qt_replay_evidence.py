@@ -99,7 +99,8 @@ def verify_replay_evidence(directory: Path, commit: str) -> tuple[dict[str, Any]
             or entry.get("scenario") != label
             or entry.get("selectors") != list(selectors)
             or entry.get("log_file") != filename
-            or entry.get("status") not in STATUSES
+            or not isinstance(entry.get("status"), str)
+            or entry["status"] not in STATUSES
             or not (directory / filename).is_file()
         ):
             raise ValueError(f"Replay child #{index + 1} does not match the trusted plan")
