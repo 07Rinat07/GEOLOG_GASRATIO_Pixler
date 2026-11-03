@@ -27,6 +27,7 @@ class StagingCandidate:
     modified_ns: int
     parent_device: int
     parent_inode: int
+    ancestor_identities: tuple[tuple[Path, int, int], ...] = ()
 
 
 def _is_real_directory(info: os.stat_result) -> bool:
@@ -40,6 +41,17 @@ def _is_real_directory(info: os.stat_result) -> bool:
     )
 
 
+def _snapshot_ancestors(parent: Path) -> tuple[tuple[Path, int, int], ...]:
+    """Observe each directory above parent without following its own link."""
+    observed: list[tuple[Path, int, int]] = []
+    for ancestor in parent.parents:
+        info = ancestor.lstat()
+        if not _is_real_directory(info):
+            raise BackupError("Staging ancestor must be a real directory")
+        observed.append((ancestor, info.st_dev, info.st_ino))
+    return tuple(observed)
+
+
 def list_staging_candidates(parent: Path) -> tuple[StagingCandidate, ...]:
     """List possible staging leftovers without following links or writing data.
 
@@ -48,8 +60,12 @@ def list_staging_candidates(parent: Path) -> tuple[StagingCandidate, ...]:
     reads, automatic deletion, or ownership assumptions. A filesystem writer
     can still change an entry immediately after this read-only snapshot.
     """
-    root = Path(parent)
+    requested = Path(parent)
+    if ".." in requested.parts:
+        raise BackupError("Staging parent cannot contain '..'")
+    root = Path(os.path.abspath(requested))
     try:
+        ancestors_before = _snapshot_ancestors(root)
         before = root.lstat()
         if not _is_real_directory(before):
             raise BackupError("Staging parent must be a real directory")
@@ -90,12 +106,14 @@ def list_staging_candidates(parent: Path) -> tuple[StagingCandidate, ...]:
                         info.st_mtime_ns,
                         before.st_dev,
                         before.st_ino,
+                        ancestors_before,
                     )
                 )
         after = root.lstat()
         if (
             not _is_real_directory(after)
             or (before.st_dev, before.st_ino) != (after.st_dev, after.st_ino)
+            or _snapshot_ancestors(root) != ancestors_before
         ):
             raise BackupError("Staging parent changed during inventory")
     except OSError as exc:
@@ -122,9 +140,16 @@ def recheck_staging_candidate(candidate: StagingCandidate) -> bool:
     ):
         return False
 
+    if not path.is_absolute() or (
+        not candidate.ancestor_identities and bool(path.parent.parents)
+    ):
+        return False
+
     expected_parent = (candidate.parent_device, candidate.parent_inode)
     expected_child = (candidate.device, candidate.inode, candidate.modified_ns)
     try:
+        if _snapshot_ancestors(path.parent) != candidate.ancestor_identities:
+            return False
         parent_before = path.parent.lstat()
         if (
             not _is_real_directory(parent_before)
@@ -140,7 +165,9 @@ def recheck_staging_candidate(candidate: StagingCandidate) -> bool:
             return False
         child_after = path.lstat()
         parent_after = path.parent.lstat()
-    except OSError:
+        if _snapshot_ancestors(path.parent) != candidate.ancestor_identities:
+            return False
+    except (OSError, BackupError):
         return False
     return (
         _is_real_directory(child_after)

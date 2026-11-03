@@ -295,3 +295,128 @@ def test_recheck_rejects_windows_reparse_directory(tmp_path, monkeypatch, target
         patch.setattr(Path, "lstat", reparse_path)
         assert not recheck_staging_candidate(snapshot)
     assert stage.is_dir()
+
+
+def test_inventory_rejects_symlinked_grandparent(tmp_path):
+    actual = tmp_path / "actual"
+    parent = actual / "child"
+    parent.mkdir(parents=True)
+    stage = parent / ".geolog-restore-a"
+    stage.mkdir()
+    link = tmp_path / "ancestor-link"
+    try:
+        link.symlink_to(actual, target_is_directory=True)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"Symlinks unavailable on this platform: {exc}")
+    with pytest.raises(BackupError, match="ancestor must be a real directory"):
+        list_staging_candidates(link / "child")
+    assert stage.is_dir()
+
+
+def test_inventory_rejects_windows_reparse_grandparent(tmp_path, monkeypatch):
+    grandparent = tmp_path / "outer"
+    parent = grandparent / "child"
+    parent.mkdir(parents=True)
+    stage = parent / ".geolog-restore-a"
+    stage.mkdir()
+    original = Path.lstat
+
+    def fake_grandparent(path):
+        info = original(path)
+        return _as_windows_reparse_point(info) if path == grandparent else info
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "lstat", fake_grandparent)
+        with pytest.raises(BackupError, match="ancestor must be a real directory"):
+            list_staging_candidates(parent)
+    assert stage.is_dir()
+
+
+def test_recheck_rejects_ancestor_turned_into_reparse_point(tmp_path, monkeypatch):
+    grandparent = tmp_path / "outer"
+    parent = grandparent / "child"
+    parent.mkdir(parents=True)
+    stage = parent / ".geolog-restore-a"
+    stage.mkdir()
+    snapshot = list_staging_candidates(parent)[0]
+    assert snapshot.ancestor_identities
+    original = Path.lstat
+
+    def fake_grandparent(path):
+        info = original(path)
+        return _as_windows_reparse_point(info) if path == grandparent else info
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "lstat", fake_grandparent)
+        assert not recheck_staging_candidate(snapshot)
+    assert stage.is_dir()
+
+
+def test_inventory_rejects_ancestor_replacement_during_scan(tmp_path, monkeypatch):
+    grandparent = tmp_path / "outer"
+    parent = grandparent / "child"
+    parent.mkdir(parents=True)
+    (parent / ".geolog-restore-a").mkdir()
+    original = Path.lstat
+    seen = 0
+
+    def changed_identity(path):
+        nonlocal seen
+        info = original(path)
+        if path == grandparent:
+            seen += 1
+            if seen == 2:
+                return SimpleNamespace(
+                    st_mode=info.st_mode,
+                    st_dev=info.st_dev,
+                    st_ino=info.st_ino + 1,
+                    st_mtime_ns=info.st_mtime_ns,
+                    st_file_attributes=getattr(info, "st_file_attributes", 0),
+                )
+        return info
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "lstat", changed_identity)
+        with pytest.raises(BackupError, match="changed during inventory"):
+            list_staging_candidates(parent)
+    assert (parent / ".geolog-restore-a").is_dir()
+
+
+def test_recheck_rejects_ancestor_replacement_after_initial_check(tmp_path, monkeypatch):
+    grandparent = tmp_path / "outer"
+    parent = grandparent / "child"
+    parent.mkdir(parents=True)
+    stage = parent / ".geolog-restore-a"
+    stage.mkdir()
+    snapshot = list_staging_candidates(parent)[0]
+    original = Path.lstat
+    seen = 0
+
+    def changed_second_identity(path):
+        nonlocal seen
+        info = original(path)
+        if path == grandparent:
+            seen += 1
+            if seen == 2:
+                return SimpleNamespace(
+                    st_mode=info.st_mode,
+                    st_dev=info.st_dev,
+                    st_ino=info.st_ino + 1,
+                    st_mtime_ns=info.st_mtime_ns,
+                    st_file_attributes=getattr(info, "st_file_attributes", 0),
+                )
+        return info
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "lstat", changed_second_identity)
+        assert not recheck_staging_candidate(snapshot)
+    assert stage.is_dir()
+
+
+def test_inventory_rejects_parent_dotdot_path(tmp_path):
+    base = tmp_path / "base"
+    base.mkdir()
+    (base / ".geolog-restore-a").mkdir()
+    with pytest.raises(BackupError, match="cannot contain"):
+        list_staging_candidates(base / ".." / "base")
+    assert (base / ".geolog-restore-a").is_dir()
