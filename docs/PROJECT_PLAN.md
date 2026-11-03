@@ -1,4 +1,6 @@
-## CI/Qt #544 / P0 — точный Windows replay нового сбоя en→ru (03.11.2026, PR-проверка)
+## CI/Qt #544 / P0 — точный Windows replay нового сбоя en→ru (03.11.2026, PR-проверка) 
+
+Точность ограничения: ручной workflow `.github/workflows/qt-native-replay.yml` также должен разрешать только `1/2/3/4` повтора. Существовавшая опция `5` приводила к несовместимости с MAX_REPETITIONS=4; обнаружено тестом `test_maximum_replay_budget_fits_workflow_timeout_with_headroom` в PR #826, устранено согласованием опций и динамического контрактного теста. Обязательный `.github/workflows/release-gate.yml` не менялся.
 
 В post-merge Release Gate #41568388158 на точном main `bca5776c07b05c3104239584b926e551b4389bde`, attempt 1, зафиксирован native access violation `0xC0000005` в `pyqtgraph.ViewBoxMenu.__init__` при `tests/test_tabular_export_output_language.py::test_all_six_outputs_share_language_without_relocalizing_operator_ui[en-ru]`. Два других обязательных Windows Gate завершились SUCCESS; повторный запуск quality на том же SHA завершился SUCCESS, но причина сбоя не устранена и не установлена.
 
