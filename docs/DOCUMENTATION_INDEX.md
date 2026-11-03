@@ -148,4 +148,6 @@ artifacts workflow `.github/workflows/release-gate.yml`.
   [WITSML_1411_SOAP.md](WITSML_1411_SOAP.md).
 - Восстановление из резервной копии: [BACKUP_STAGING_VERIFICATION.md](BACKUP_STAGING_VERIFICATION.md) —
   read-only проверка подготовленного staging-каталога, без публикации.
+- Windows Qt #544: [QT_NATIVE_REPLAY_ACCEPTANCE.md](QT_NATIVE_REPLAY_ACCEPTANCE.md) —
+  ручная проверка доказательств нативного сбоя по точному SHA, без изменения Release Gate.
 - Платформа: [BRANDING.md](BRANDING.md), [I18N.md](I18N.md).
