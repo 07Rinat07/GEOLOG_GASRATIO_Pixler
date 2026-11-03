@@ -145,3 +145,13 @@ def test_boolean_schema_and_missing_versions_are_rejected(tmp_path):
     path.write_text(json.dumps(data), encoding="utf-8")
     with pytest.raises(ValueError, match="schema"):
         check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
+
+
+def test_malformed_unhashable_status_fails_closed(tmp_path):
+    _write_artifacts(tmp_path)
+    path = tmp_path / "results.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["results"][0]["status"] = ["passed"]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ValueError, match="trusted plan"):
+        check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
