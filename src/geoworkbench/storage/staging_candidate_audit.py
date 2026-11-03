@@ -140,7 +140,9 @@ def recheck_staging_candidate(candidate: StagingCandidate) -> bool:
     ):
         return False
 
-    if not path.is_absolute() or not candidate.ancestor_identities and path.parent.parents:
+    if not path.is_absolute() or (
+        not candidate.ancestor_identities and bool(path.parent.parents)
+    ):
         return False
 
     expected_parent = (candidate.parent_device, candidate.parent_inode)
@@ -165,7 +167,7 @@ def recheck_staging_candidate(candidate: StagingCandidate) -> bool:
         parent_after = path.parent.lstat()
         if _snapshot_ancestors(path.parent) != candidate.ancestor_identities:
             return False
-    except OSError:
+    except (OSError, BackupError):
         return False
     return (
         _is_real_directory(child_after)
