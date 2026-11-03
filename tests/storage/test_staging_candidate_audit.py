@@ -297,6 +297,81 @@ def test_recheck_rejects_windows_reparse_directory(tmp_path, monkeypatch, target
     assert stage.is_dir()
 
 
+
+def test_inventory_rejects_candidate_replaced_after_first_observation(tmp_path, monkeypatch):
+    stage = tmp_path / ".geolog-restore-a"
+    stage.mkdir()
+    (stage / "foreign.bin").write_bytes(b"preserve")
+    original_lstat = Path.lstat
+    reads = 0
+
+    def replace_before_recheck(path):
+        nonlocal reads
+        if path == stage:
+            reads += 1
+            if reads == 2:
+                stage.rename(tmp_path / "old-stage")
+                stage.mkdir()
+        return original_lstat(path)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "lstat", replace_before_recheck)
+        with pytest.raises(BackupError, match="candidate changed during inventory"):
+            list_staging_candidates(tmp_path)
+    assert reads == 2
+    assert (tmp_path / "old-stage" / "foreign.bin").read_bytes() == b"preserve"
+    assert stage.is_dir()
+
+
+def test_inventory_rejects_candidate_mtime_change_after_first_observation(
+    tmp_path, monkeypatch
+):
+    stage = tmp_path / ".geolog-restore-a"
+    stage.mkdir()
+    original_lstat = Path.lstat
+    reads = 0
+
+    def change_mtime_before_recheck(path):
+        nonlocal reads
+        if path == stage:
+            reads += 1
+            if reads == 2:
+                old = original_lstat(stage)
+                updated_ns = old.st_mtime_ns + 10_000_000_000
+                os.utime(stage, ns=(updated_ns, updated_ns))
+        return original_lstat(path)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "lstat", change_mtime_before_recheck)
+        with pytest.raises(BackupError, match="candidate changed during inventory"):
+            list_staging_candidates(tmp_path)
+    assert reads == 2
+    assert stage.is_dir()
+
+
+def test_inventory_rejects_candidate_removed_during_final_recheck(
+    tmp_path, monkeypatch
+):
+    stage = tmp_path / ".geolog-restore-a"
+    stage.mkdir()
+    original_lstat = Path.lstat
+    reads = 0
+
+    def remove_before_recheck(path):
+        nonlocal reads
+        if path == stage:
+            reads += 1
+            if reads == 2:
+                stage.rmdir()
+        return original_lstat(path)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "lstat", remove_before_recheck)
+        with pytest.raises(BackupError, match="candidate changed during inventory"):
+            list_staging_candidates(tmp_path)
+    assert reads == 2
+    assert not stage.exists()
+
 def test_inventory_rejects_symlinked_grandparent(tmp_path):
     actual = tmp_path / "actual"
     parent = actual / "child"
