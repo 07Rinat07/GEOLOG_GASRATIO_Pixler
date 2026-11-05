@@ -181,24 +181,32 @@ class ExternalLasInsertController:
         well = self.session.current_well
         if well is None:
             raise RuntimeError("Сначала выберите скважину-приёмник")
-        well.datasets[result.dataset_id] = result
-        if source_layout is not None:
-            # A GIS+LAS derived copy must have its *own* layout, otherwise
-            # scrolling raises "Сначала создайте компоновку планшета".
-            # The original layout must remain independent.
-            self.session.tablet_layouts[result.dataset_id] = deepcopy(source_layout)
+        copied_layout = deepcopy(source_layout) if source_layout is not None else None
         source_document = self.session.source_documents.get(target.dataset_id)
         import_report = self.session.import_reports.get(target.dataset_id)
-        if source_document is not None:
-            self.session.source_documents[result.dataset_id] = source_document
-        if import_report is not None:
-            self.session.import_reports[result.dataset_id] = import_report
-        self.session.current_dataset_id = result.dataset_id
-        recalculation = prepared.recalculation
-        if recalculation is None:
-            recalculation = recalculate_existing_dependents(
-                self.session, result, formula_registry=self.formula_registry,
-            )
+        previous_dirty = self.session.dirty
+        try:
+            well.datasets[result.dataset_id] = result
+            if copied_layout is not None:
+                self.session.tablet_layouts[result.dataset_id] = copied_layout
+            if source_document is not None:
+                self.session.source_documents[result.dataset_id] = source_document
+            if import_report is not None:
+                self.session.import_reports[result.dataset_id] = import_report
+            self.session.current_dataset_id = result.dataset_id
+            recalculation = prepared.recalculation
+            if recalculation is None:
+                recalculation = recalculate_existing_dependents(
+                    self.session, result, formula_registry=self.formula_registry,
+                )
+        except Exception:
+            well.datasets.pop(result.dataset_id, None)
+            self.session.tablet_layouts.pop(result.dataset_id, None)
+            self.session.source_documents.pop(result.dataset_id, None)
+            self.session.import_reports.pop(result.dataset_id, None)
+            self.session.current_dataset_id = target.dataset_id
+            self.session.dirty = previous_dirty
+            raise
         self.session.dirty = True
         return ExternalLasInsertCopyOutcome(result, prepared.inserted_mnemonics, recalculation)
 
