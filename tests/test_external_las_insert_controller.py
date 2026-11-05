@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from hashlib import sha256
+from copy import deepcopy
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from threading import get_ident
@@ -9,6 +10,7 @@ import numpy as np
 import pytest
 
 from geoworkbench.data.las_adapter import LasImportResult, export_las, import_las_with_report
+from geoworkbench.calculations.custom_formula import CustomFormulaDefinition
 from geoworkbench.data.las_import_report import LasImportReport, LasSourceSnapshot
 from geoworkbench.data.lossless_las import parse_lossless_las
 from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain
@@ -256,6 +258,70 @@ def test_copy_aborts_if_target_changes_during_preparation(monkeypatch, tmp_path)
         controller.create_copy(analysis, (ExternalLasCurveSelection("inc", "INCL"),), prepare=prepare)
     assert session.current_dataset is other
     assert set(session.current_well.datasets) == {target.dataset_id, other.dataset_id}
+
+
+def test_worker_recalculation_matches_existing_gas_calculation(monkeypatch, tmp_path):
+    target = dataset("target", [100.0, 101.0])
+    for mnemonic, values in (("C1", [30.0, 40.0]), ("C2", [5.0, 6.0]), ("C3", [2.0, 3.0])):
+        add_curve(target, mnemonic, mnemonic, values)
+    source = dataset("source", [100.0, 101.0])
+    add_curve(source, "gr", "GR", [10.0, 20.0])
+    monkeypatch.setattr(
+        "geoworkbench.project.external_las_insert_controller.import_las_with_report",
+        lambda _path: imported(deepcopy(source), tmp_path / "gis.las"),
+    )
+    outputs = []
+    for threaded in (False, True):
+        session = ProjectSession()
+        receiver = deepcopy(target)
+        session.add_dataset(receiver)
+        controller = ExternalLasInsertController(session)
+        analysis = controller.analyze_file(tmp_path / "gis.las")
+        selection = ExternalLasCurveSelection("gr", "GR")
+        if threaded:
+            def prepare(operation):
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    return executor.submit(operation).result()
+            result = controller.create_copy(analysis, (selection,), prepare=prepare)
+        else:
+            result = controller.create_copy(analysis, (selection,))
+        outputs.append(result)
+        assert receiver.curve_by_mnemonic("GR") is None
+    baseline, threaded_result = outputs
+    assert baseline.recalculation == threaded_result.recalculation
+    assert baseline.recalculation.recalculated_mnemonics
+    baseline_curves = {c.metadata.original_mnemonic: c for c in baseline.dataset.curves.values()}
+    worker_curves = {c.metadata.original_mnemonic: c for c in threaded_result.dataset.curves.values()}
+    assert baseline_curves.keys() == worker_curves.keys()
+    for mnemonic, curve in baseline_curves.items():
+        np.testing.assert_allclose(curve.values, worker_curves[mnemonic].values, equal_nan=True)
+    assert baseline.dataset.gas_conditioning_qc == threaded_result.dataset.gas_conditioning_qc
+
+
+def test_copy_rejects_formula_changes_during_preparation(monkeypatch, tmp_path):
+    target = dataset("target", [100.0, 101.0])
+    source = dataset("source", [100.0, 101.0])
+    add_curve(source, "gr", "GR", [10.0, 20.0])
+    session = ProjectSession()
+    session.add_dataset(target)
+    controller = ExternalLasInsertController(session)
+    monkeypatch.setattr(
+        "geoworkbench.project.external_las_insert_controller.import_las_with_report",
+        lambda _path: imported(source, tmp_path / "gis.las"),
+    )
+    analysis = controller.analyze_file(tmp_path / "gis.las")
+
+    def prepare(operation):
+        prepared = operation()
+        session.project.custom_formulas["new"] = CustomFormulaDefinition(
+            "new", "New", "GR + 1", "NEW", "%",
+        )
+        return prepared
+
+    with pytest.raises(RuntimeError, match="Формулы изменились"):
+        controller.create_copy(analysis, (ExternalLasCurveSelection("gr", "GR"),), prepare=prepare)
+    assert session.current_dataset is target
+    assert len(session.current_well.datasets) == 1
 
 
 def test_shared_history_keeps_external_las_undo_domain_safe(
