@@ -426,6 +426,77 @@ def test_inventory_button_refreshes_source_without_recalculating(qapp, monkeypat
 
 
 @pytest.mark.parametrize("language", list(AppLanguage))
+@pytest.mark.parametrize("remove_selected", [False, True])
+def test_inventory_adds_new_curves_without_switching_reviewed_source(
+    qapp, monkeypatch, language, remove_selected,
+):
+    dataset = _dataset()
+    original = dataset.curves["selected"]
+    dialog = GisReferenceDialog(dataset, language=language)
+    _fill(dialog)
+    dialog.calculate.click()
+    existing_sample = dialog.sample
+    assert existing_sample is not None
+    original_values = original.values.copy()
+    new_curve = CurveData(
+        replace(original.metadata, curve_id="curve-2"), np.array([70., 80., 90.]),
+    )
+
+    def inspect(_dialog):
+        dataset.curves["new"] = new_curve
+        if remove_selected:
+            del dataset.curves["selected"]
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(GisInputInventoryDialog, "exec", inspect)
+    try:
+        dialog.inventory_button.click()
+        assert dialog.channel.currentData() == "selected"
+        assert dialog.channel.findData("new") > 0
+        if remove_selected:
+            assert dialog.sample is None
+            assert dialog.result_label.text() == dialog._t("invalid")
+        else:
+            assert dialog.sample is existing_sample
+        dialog.inventory_button.click()
+        assert sum(dialog.channel.itemData(i) == "new" for i in range(dialog.channel.count())) == 1
+        dialog.channel.setCurrentIndex(dialog.channel.findData("new"))
+        assert dialog.sample is None
+        dialog.review_source.click()
+        assert dialog.source_review_label.text() == dialog._t("source_ready")
+        assert dialog.source_sample_label.text() == dialog._t(
+            "source_sample", row=1, md="100", value="70", unit="API",
+        )
+        np.testing.assert_array_equal(original.values, original_values)
+        np.testing.assert_array_equal(new_curve.values, [70., 80., 90.])
+    finally:
+        dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_inventory_does_not_select_new_curve_for_operator(qapp, monkeypatch, language):
+    dataset = _dataset()
+    dialog = GisReferenceDialog(dataset, language=language)
+
+    def inspect(_dialog):
+        original = dataset.curves["selected"]
+        dataset.curves["new"] = CurveData(
+            replace(original.metadata, curve_id="curve-2"), original.values.copy(),
+        )
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(GisInputInventoryDialog, "exec", inspect)
+    try:
+        dialog.inventory_button.click()
+        assert dialog.channel.currentData() is None
+        assert dialog.channel.findData("new") > 0
+        assert dialog.sample is None
+        assert dialog.source_review_label.text() == dialog._t("selection_required")
+    finally:
+        dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
 @pytest.mark.parametrize("change", ["unchanged", "value", "null", "axis", "stale", "removed"])
 def test_inventory_return_refreshes_uncalibrated_preview(
     qapp, monkeypatch, language, change,
