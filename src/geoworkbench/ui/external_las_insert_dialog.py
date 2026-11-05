@@ -26,6 +26,7 @@ from geoworkbench.services.external_las_insert import (
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.ui.las_output_paths import available_las_output_path
+from geoworkbench.ui.las_growth_analysis_task import run_las_growth_analysis
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
@@ -153,7 +154,11 @@ class ExternalLasInsertDialog(QDialog):
         self.path_input.setText(str(source))
         self.issues.clear()
         try:
-            analysis = self.controller.analyze_file(source)
+            analysis = run_las_growth_analysis(
+                self, self._t("external_las.loading"),
+                lambda: self.controller.analyze_file(source),
+                activity="external_las.analysis",
+            )
         except (FileNotFoundError, OSError, RuntimeError, ValueError) as exc:
             self.analysis = None
             self.table.setRowCount(0)

@@ -23,6 +23,7 @@ class _AnalysisProgress(QDialog):
 
 def run_las_growth_analysis(
     parent: QWidget, message: str, operation: Callable[[], Result],
+    *, activity: str = "daily_las_growth.analysis",
 ) -> Result:
     """Run model-only preview work; all widgets and error handling stay on GUI thread."""
     dialog = _AnalysisProgress(parent)
@@ -35,7 +36,7 @@ def run_las_growth_analysis(
     progress.setRange(0, 0)
     layout.addWidget(progress)
     started = perf_counter()
-    log_event("daily_las_growth.analysis.started")
+    log_event(f"{activity}.started")
     with ThreadPoolExecutor(max_workers=1, thread_name_prefix="las-growth-analysis") as executor:
         future = executor.submit(operation)
         timer = QTimer(dialog)
@@ -53,7 +54,7 @@ def run_las_growth_analysis(
             return future.result()
         finally:
             log_event(
-                "daily_las_growth.analysis.finished",
+                f"{activity}.finished",
                 duration_ms=round((perf_counter() - started) * 1000.0, 3),
                 failed=future.exception() is not None,
             )

@@ -281,6 +281,7 @@ from geoworkbench.ui.window_geometry import (
 from geoworkbench.ui.csv_import_dialog import CsvImportDialog
 from geoworkbench.ui.curve_transfer_dialog import CurveTransferDialog
 from geoworkbench.ui.external_las_insert_dialog import ExternalLasInsertDialog
+from geoworkbench.ui.las_growth_analysis_task import run_las_growth_analysis
 from geoworkbench.ui.curve_settings_dialog import CurveSettingsDialog
 from geoworkbench.ui.excel_import_dialog import ExcelImportDialog
 from geoworkbench.ui.import_review_dialog import ImportReviewDialog
@@ -4486,7 +4487,7 @@ class MainWindow(QMainWindow):
         self._log(f"LAS экспортирован: {exported}")
         self.statusBar().showMessage(self._t("export.success", name=exported.name))
 
-    def _export_current_dataset_to_path(self, target: Path) -> Path:
+    def _export_current_dataset_to_path(self, target: Path, *, show_progress: bool = False) -> Path:
         destination = target if target.suffix.casefold() == ".las" else target.with_suffix(".las")
         overwrite = False
         if destination.exists():
@@ -4501,11 +4502,16 @@ class MainWindow(QMainWindow):
                 raise RuntimeError(self._t("las_editor.save_cancelled"))
             overwrite = True
         plan = self.dataset_export_controller.default_las_plan()
-        return self.dataset_export_controller.export_current_las(
-            destination,
-            overwrite=overwrite,
-            plan=plan,
-        )
+        def export() -> Path:
+            return self.dataset_export_controller.export_current_las(
+                destination, overwrite=overwrite, plan=plan,
+            )
+
+        if show_progress:
+            return run_las_growth_analysis(
+                self, self._t("external_las.saving"), export, activity="external_las.saving",
+            )
+        return export()
 
     def export_selected_csv(self) -> None:
         self._export_selected_table("csv")
@@ -9319,8 +9325,12 @@ class MainWindow(QMainWindow):
                 dialog.analysis,
                 dialog.selections,
                 name=dialog.output_path.stem,
+                prepare=lambda operation: run_las_growth_analysis(
+                    self, self._t("external_las.preparing"), operation,
+                    activity="external_las.preparing",
+                ),
             )
-            exported = self._export_current_dataset_to_path(dialog.output_path)
+            exported = self._export_current_dataset_to_path(dialog.output_path, show_progress=True)
         except (KeyError, OSError, RuntimeError, ValueError, LasExportError) as exc:
             self.derived_dataset_controller.rollback(checkpoint)
             QMessageBox.warning(self, self._t("external_las.title"), str(exc))
@@ -9332,6 +9342,11 @@ class MainWindow(QMainWindow):
                 name=exported.name,
             ),
             outcome.inserted_mnemonics,
+        )
+        QMessageBox.information(
+            self, self._t("external_las.title"),
+            self._t("external_las.copy_completed", count=len(outcome.inserted_mnemonics),
+                    name=str(exported)),
         )
 
     def undo_external_las_insert(self) -> None:

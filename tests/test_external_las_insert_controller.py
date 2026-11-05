@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from hashlib import sha256
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
+from threading import get_ident
 
 import numpy as np
 import pytest
@@ -197,6 +199,63 @@ def test_create_copy_keeps_target_unchanged_and_selects_new_dataset(
     assert any(
         key.startswith("EXTERNAL_LAS_IMPORT_") for key in outcome.dataset.parameters
     )
+
+
+def test_copy_preparation_runs_in_worker_before_project_commit(monkeypatch, tmp_path):
+    target = dataset("target", [100.0, 101.0])
+    source = dataset("source", [100.0, 101.0])
+    add_curve(source, "inc", "INCL", [1.0, 2.0])
+    session = ProjectSession()
+    session.add_dataset(target)
+    controller = ExternalLasInsertController(session)
+    monkeypatch.setattr(
+        "geoworkbench.project.external_las_insert_controller.import_las_with_report",
+        lambda _path: imported(source, tmp_path / "gis.las"),
+    )
+    analysis = controller.analyze_file(tmp_path / "gis.las")
+    main_thread = get_ident()
+    workers = []
+
+    def prepare(operation):
+        def run():
+            workers.append(get_ident())
+            prepared = operation()
+            assert session.current_dataset is target
+            assert len(session.current_well.datasets) == 1
+            return prepared
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            return executor.submit(run).result()
+
+    selection = ExternalLasCurveSelection("inc", "INCL")
+    outcome = controller.create_copy(analysis, (selection,), prepare=prepare)
+    assert workers and workers[0] != main_thread
+    assert session.current_dataset is outcome.dataset
+    np.testing.assert_allclose(outcome.dataset.curve_by_mnemonic("INCL").values, [1.0, 2.0])
+
+
+def test_copy_aborts_if_target_changes_during_preparation(monkeypatch, tmp_path):
+    target = dataset("target", [100.0, 101.0])
+    source = dataset("source", [100.0, 101.0])
+    add_curve(source, "inc", "INCL", [1.0, 2.0])
+    session = ProjectSession()
+    session.add_dataset(target)
+    controller = ExternalLasInsertController(session)
+    monkeypatch.setattr(
+        "geoworkbench.project.external_las_insert_controller.import_las_with_report",
+        lambda _path: imported(source, tmp_path / "gis.las"),
+    )
+    analysis = controller.analyze_file(tmp_path / "gis.las")
+    other = dataset("other", [100.0, 101.0])
+
+    def prepare(operation):
+        prepared = operation()
+        session.add_dataset(other)
+        return prepared
+
+    with pytest.raises(RuntimeError, match="изменился"):
+        controller.create_copy(analysis, (ExternalLasCurveSelection("inc", "INCL"),), prepare=prepare)
+    assert session.current_dataset is other
+    assert set(session.current_well.datasets) == {target.dataset_id, other.dataset_id}
 
 
 def test_shared_history_keeps_external_las_undo_domain_safe(
