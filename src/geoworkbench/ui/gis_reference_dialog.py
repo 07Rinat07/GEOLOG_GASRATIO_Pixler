@@ -118,8 +118,12 @@ class GisReferenceDialog(QDialog):
         # Keep the selected key (even if it disappeared) so a new channel is
         # never silently substituted for an operator's reviewed source.
         for key, curve in self.dataset.curves.items():
-            if self.channel.findData(key) < 0:
-                self.channel.addItem(f"{key} [{curve.metadata.unit or '?'}]", key)
+            index = self.channel.findData(key)
+            label = f"{key} [{curve.metadata.unit or '?'}]"
+            if index < 0:
+                self.channel.addItem(label, key)
+            elif self.channel.itemText(index) != label:
+                self.channel.setItemText(index, label)
         if self.sample is None:
             # The modal inventory can outlive edits to an uncalibrated preview.
             # Refresh the exact selected row so stale source values never linger.

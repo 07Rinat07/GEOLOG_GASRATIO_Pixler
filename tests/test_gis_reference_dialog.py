@@ -497,6 +497,75 @@ def test_inventory_does_not_select_new_curve_for_operator(qapp, monkeypatch, lan
 
 
 @pytest.mark.parametrize("language", list(AppLanguage))
+@pytest.mark.parametrize("calibrated", [False, True])
+@pytest.mark.parametrize("unit", ["vendor-unit", None])
+def test_inventory_refreshes_unit_label_without_substituting_source(
+    qapp, monkeypatch, language, calibrated, unit,
+):
+    dataset = _dataset()
+    curve = dataset.curves["selected"]
+    original_values = curve.values.copy()
+    dialog = GisReferenceDialog(dataset, language=language)
+    _fill(dialog)
+    if calibrated:
+        dialog.calculate.click()
+        assert dialog.sample is not None
+    else:
+        dialog.review_source.click()
+        assert dialog.source_review_label.text() == dialog._t("source_ready")
+    fields = {key: field.text() for key, field in dialog.fields.items()}
+    parameters = tuple(field.text() for field in dialog.parameters)
+
+    def inspect(_dialog):
+        curve.metadata = replace(curve.metadata, unit=unit)
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(GisInputInventoryDialog, "exec", inspect)
+    try:
+        dialog.inventory_button.click()
+        assert dialog.channel.currentData() == "selected"
+        assert dialog.channel.currentText() == f"selected [{unit or '?'}]"
+        assert dialog.sample is None
+        assert not dialog.source_sample_label.text()
+        if calibrated:
+            assert dialog.result_label.text() == dialog._t("invalid")
+        assert {key: field.text() for key, field in dialog.fields.items()} == fields
+        assert tuple(field.text() for field in dialog.parameters) == parameters
+        np.testing.assert_array_equal(curve.values, original_values)
+    finally:
+        dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_inventory_refreshes_other_unit_without_invalidating_selected_calibration(
+    qapp, monkeypatch, language,
+):
+    dataset = _dataset()
+    original = dataset.curves["selected"]
+    other = CurveData(replace(original.metadata, curve_id="other"), original.values.copy())
+    dataset.curves["other"] = other
+    dialog = GisReferenceDialog(dataset, language=language)
+    _fill(dialog)
+    dialog.calculate.click()
+    sample = dialog.sample
+    assert sample is not None
+
+    def inspect(_dialog):
+        other.metadata = replace(other.metadata, unit="updated-unit")
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(GisInputInventoryDialog, "exec", inspect)
+    try:
+        dialog.inventory_button.click()
+        assert dialog.channel.currentData() == "selected"
+        assert dialog.channel.itemText(dialog.channel.findData("other")) == "other [updated-unit]"
+        assert dialog.sample is sample
+        assert dialog.result_label.text()
+    finally:
+        dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
 @pytest.mark.parametrize("change", ["unchanged", "value", "null", "axis", "stale", "removed"])
 def test_inventory_return_refreshes_uncalibrated_preview(
     qapp, monkeypatch, language, change,
