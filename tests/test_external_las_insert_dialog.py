@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 from dataclasses import replace
+from threading import Event, get_ident
 
 import pytest
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QTimer, Qt
 
 from geoworkbench.services.depth_axis import DepthDirection
 from geoworkbench.services.localization import AppLanguage
@@ -48,6 +49,31 @@ class FakeController:
                 ),
             ),
         )
+
+
+def test_external_las_loading_keeps_gui_responsive(qapp, tmp_path):
+    ready = Event()
+    gui_thread = get_ident()
+    worker_threads = []
+
+    class SlowController(FakeController):
+        def analyze_file(self, path):
+            worker_threads.append(get_ident())
+            assert ready.wait(3), "GUI stopped processing events during LAS analysis"
+            return super().analyze_file(path)
+
+    dialog = ExternalLasInsertDialog(SlowController())
+    timer = QTimer(dialog)
+    timer.setSingleShot(True)
+    timer.timeout.connect(ready.set)
+    timer.start(10)
+    try:
+        dialog.load_path(tmp_path / "survey.las")
+        assert dialog.analysis is not None
+        assert worker_threads and worker_threads[0] != gui_thread
+    finally:
+        timer.stop()
+        dialog.close()
 
 
 def test_dialog_loads_candidates_and_returns_edited_selection(qapp, tmp_path: Path) -> None:
