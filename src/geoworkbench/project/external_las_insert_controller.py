@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from geoworkbench.data.las_adapter import import_las_with_report
-from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset
+from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, Project, Well
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.dataset_copy import create_dataset_copy
 from geoworkbench.services.dependent_recalculation import (
@@ -73,6 +73,7 @@ class ExternalLasInsertCopyOutcome:
 class PreparedExternalLasCopy:
     dataset: Dataset
     inserted_mnemonics: tuple[str, ...]
+    recalculation: DependentRecalculationReport | None = None
 
 
 @dataclass(slots=True)
@@ -125,6 +126,8 @@ class ExternalLasInsertController:
         if self._analysis != analysis or self._source_dataset is None:
             raise ValueError("Сначала повторно проанализируйте внешний LAS")
         source = self._source_dataset
+        custom_formulas = deepcopy(self.session.project.custom_formulas) if prepare else None
+        formula_registry = deepcopy(self.formula_registry) if prepare else self.formula_registry
 
         def prepare_copy() -> PreparedExternalLasCopy:
             build = build_external_las_curves(source, target, analysis, selections)
@@ -150,11 +153,29 @@ class ExternalLasInsertController:
                     values=built_curve.values.copy(),
                 )
                 inserted.append(metadata.original_mnemonic)
-            return PreparedExternalLasCopy(result, tuple(inserted))
+            recalculation = None
+            if custom_formulas is not None:
+                # Recalculate only the independent copy; the live project is
+                # not attached or mutated from the worker thread.
+                well = Well("external-las-preparation", "external-las-preparation")
+                well.datasets[result.dataset_id] = result
+                project = Project("external-las-preparation", "external-las-preparation")
+                project.wells[well.well_id] = well
+                project.custom_formulas = custom_formulas
+                isolated = ProjectSession(
+                    project=project, current_well_id=well.well_id,
+                    current_dataset_id=result.dataset_id,
+                )
+                recalculation = recalculate_existing_dependents(
+                    isolated, result, formula_registry=formula_registry,
+                )
+            return PreparedExternalLasCopy(result, tuple(inserted), recalculation)
 
         prepared = prepare(prepare_copy) if prepare is not None else prepare_copy()
         if self._target() is not target or self._analysis != analysis or self._source_dataset is not source:
             raise RuntimeError("Набор данных изменился во время вставки; повторите операцию")
+        if custom_formulas is not None and self.session.project.custom_formulas != custom_formulas:
+            raise RuntimeError("Формулы изменились во время вставки; повторите операцию")
         result = prepared.dataset
 
         well = self.session.current_well
@@ -173,11 +194,11 @@ class ExternalLasInsertController:
         if import_report is not None:
             self.session.import_reports[result.dataset_id] = import_report
         self.session.current_dataset_id = result.dataset_id
-        recalculation = recalculate_existing_dependents(
-            self.session,
-            result,
-            formula_registry=self.formula_registry,
-        )
+        recalculation = prepared.recalculation
+        if recalculation is None:
+            recalculation = recalculate_existing_dependents(
+                self.session, result, formula_registry=self.formula_registry,
+            )
         self.session.dirty = True
         return ExternalLasInsertCopyOutcome(result, prepared.inserted_mnemonics, recalculation)
 

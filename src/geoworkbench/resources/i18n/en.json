@@ -549,7 +549,7 @@
   "external_las.mapping.linear_overlap": "linear mapping on overlap only",
   "external_las.no_source": "No external LAS has been selected.",
   "external_las.loading": "Reading and analyzing the external LAS. Please wait…",
-  "external_las.preparing": "Inserting selected curves and preparing the copy. Please wait…",
+  "external_las.preparing": "Inserting curves, preparing the copy and recalculating data. Please wait…",
   "external_las.saving": "Saving the LAS with geology and inserted curves. Please wait…",
   "external_las.redo": "Redo external LAS insertion",
   "external_las.redone": "External LAS insertion redone",
