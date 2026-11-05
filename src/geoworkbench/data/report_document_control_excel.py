@@ -33,8 +33,15 @@ def write_document_control_sheet(
         for cell in row:
             cell.font = Font(size=visual.typography.body_pt, color=visual.palette.text.lstrip("#"))
             cell.alignment = Alignment(wrap_text=True, vertical="top")
-    sheet["A1"].font = Font(bold=True, color=visual.palette.accent.lstrip("#"))
-    sheet["A2"].font = Font(bold=True, size=visual.typography.section_pt)
+    sheet["A1"].font = Font(
+        bold=True, size=visual.typography.section_pt, color=visual.palette.accent.lstrip("#"),
+    )
+    sheet["A2"].font = Font(
+        bold=True, size=visual.typography.title_pt, color=visual.palette.text.lstrip("#"),
+    )
+    sheet["A3"].font = Font(
+        size=visual.typography.subtitle_pt, color=visual.palette.text_secondary.lstrip("#"),
+    )
     sheet.sheet_view.showGridLines = False
     sheet.page_setup.paperSize = sheet.PAPERSIZE_A4
     sheet.page_setup.fitToWidth = 1
@@ -43,3 +50,6 @@ def write_document_control_sheet(
     sheet.print_title_rows = "1:3"
     sheet.oddFooter.left.text = visual.brand_wordmark.replace("&", "&&")
     sheet.oddFooter.right.text = "&P / &N"
+    for part in (sheet.oddFooter.left, sheet.oddFooter.right):
+        part.size = visual.typography.footer_pt
+        part.color = visual.palette.text_muted.lstrip("#").upper()
