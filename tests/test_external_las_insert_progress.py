@@ -8,8 +8,8 @@ from PySide6.QtWidgets import QDialog, QWidget
 from geoworkbench.ui import main_window
 
 
-@pytest.mark.parametrize("fail_save", [False, True])
-def test_insert_reports_stages_and_rolls_back_failed_save(qapp, tmp_path, monkeypatch, fail_save):
+@pytest.mark.parametrize("failure", [None, "prepare", "save"])
+def test_insert_reports_stages_and_rolls_back_failed_save(qapp, tmp_path, monkeypatch, failure):
     messages = []
     events = []
     output = tmp_path / "combined.las"
@@ -31,7 +31,9 @@ def test_insert_reports_stages_and_rolls_back_failed_save(qapp, tmp_path, monkey
             assert selections == (selection,)
             assert name == "combined"
             prepare(lambda: events.append("prepared"))
-            return SimpleNamespace(inserted_mnemonics=("GR",))
+            if failure == "prepare":
+                raise RuntimeError("preparation failed")
+            return SimpleNamespace(inserted_mnemonics=("GR",), dataset=SimpleNamespace(dataset_id="derived"))
 
     class Window(QWidget):
         def __init__(self):
@@ -41,7 +43,7 @@ def test_insert_reports_stages_and_rolls_back_failed_save(qapp, tmp_path, monkey
             self.external_las_insert_controller = Controller()
             self.derived_dataset_controller = SimpleNamespace(
                 checkpoint=lambda: "checkpoint",
-                rollback=lambda checkpoint: events.append(("rollback", checkpoint)),
+                rollback_owned=lambda checkpoint, dataset_id: events.append(("rollback", checkpoint, dataset_id)),
             )
 
         def _t(self, key, **kwargs):
@@ -50,7 +52,7 @@ def test_insert_reports_stages_and_rolls_back_failed_save(qapp, tmp_path, monkey
         def _export_current_dataset_to_path(self, path, *, show_progress):
             assert show_progress
             events.append("save")
-            if fail_save:
+            if failure == "save":
                 raise OSError("save failed")
             return path
 
@@ -69,11 +71,16 @@ def test_insert_reports_stages_and_rolls_back_failed_save(qapp, tmp_path, monkey
         main_window.MainWindow.show_external_las_insert(window)
     finally:
         window.close()
-    assert events[:3] == ["external_las.preparing", "prepared", "save"]
-    if fail_save:
-        assert events[-1] == ("rollback", "checkpoint")
+    assert events[:2] == ["external_las.preparing", "prepared"]
+    if failure == "prepare":
+        assert len(events) == 2
+        assert messages == ["preparation failed"]
+    elif failure == "save":
+        assert events[2] == "save"
+        assert events[-1] == ("rollback", "checkpoint", "derived")
         assert messages == ["save failed"]
     else:
+        assert events[2] == "save"
         assert events[-1] == ("completed", ("GR",))
         assert messages == [f"external_las.copy_completed:{output}"]
 

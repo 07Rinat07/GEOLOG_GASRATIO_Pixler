@@ -324,6 +324,31 @@ def test_copy_rejects_formula_changes_during_preparation(monkeypatch, tmp_path):
     assert len(session.current_well.datasets) == 1
 
 
+def test_copy_cleans_only_its_own_partial_commit_on_error(monkeypatch, tmp_path):
+    target = dataset("target", [100.0, 101.0])
+    source = dataset("source", [100.0, 101.0])
+    add_curve(source, "gr", "GR", [10.0, 20.0])
+    session = ProjectSession()
+    session.add_dataset(target)
+    session.dirty = False
+    controller = ExternalLasInsertController(session)
+    monkeypatch.setattr(
+        "geoworkbench.project.external_las_insert_controller.import_las_with_report",
+        lambda _path: imported(source, tmp_path / "gis.las"),
+    )
+    def fail(*args, **kwargs):
+        raise RuntimeError("recalculation failed")
+    monkeypatch.setattr(
+        "geoworkbench.project.external_las_insert_controller.recalculate_existing_dependents", fail,
+    )
+    analysis = controller.analyze_file(tmp_path / "gis.las")
+    with pytest.raises(RuntimeError, match="recalculation failed"):
+        controller.create_copy(analysis, (ExternalLasCurveSelection("gr", "GR"),))
+    assert session.current_dataset is target
+    assert set(session.current_well.datasets) == {target.dataset_id}
+    assert session.dirty is False
+
+
 def test_shared_history_keeps_external_las_undo_domain_safe(
     monkeypatch, tmp_path: Path
 ) -> None:

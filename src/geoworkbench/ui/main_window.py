@@ -9320,6 +9320,7 @@ class MainWindow(QMainWindow):
         ):
             return
         checkpoint = self.derived_dataset_controller.checkpoint()
+        outcome = None
         try:
             outcome = self.external_las_insert_controller.create_copy(
                 dialog.analysis,
@@ -9332,7 +9333,8 @@ class MainWindow(QMainWindow):
             )
             exported = self._export_current_dataset_to_path(dialog.output_path, show_progress=True)
         except (KeyError, OSError, RuntimeError, ValueError, LasExportError) as exc:
-            self.derived_dataset_controller.rollback(checkpoint)
+            if outcome is not None:
+                self.derived_dataset_controller.rollback_owned(checkpoint, outcome.dataset.dataset_id)
             QMessageBox.warning(self, self._t("external_las.title"), str(exc))
             return
         self._after_external_las_insert(

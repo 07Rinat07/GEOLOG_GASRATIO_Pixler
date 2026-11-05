@@ -18,6 +18,48 @@ def _dataset(dataset_id: str) -> Dataset:
     )
 
 
+def test_owned_rollback_preserves_other_new_dataset_and_selection() -> None:
+    original = _dataset("original")
+    well = Well("well", "Well", datasets={original.dataset_id: original})
+    session = ProjectSession(
+        project=Project("project", "Project", wells={well.well_id: well}),
+        current_well_id=well.well_id, current_dataset_id=original.dataset_id,
+    )
+    controller = DerivedDatasetController(session)
+    checkpoint = controller.checkpoint()
+    unrelated = _dataset("unrelated")
+    created = _dataset("created")
+    well.datasets.update({unrelated.dataset_id: unrelated, created.dataset_id: created})
+    session.tablet_layouts[unrelated.dataset_id] = TabletLayout()
+    session.tablet_layouts[created.dataset_id] = TabletLayout()
+    session.current_dataset_id = unrelated.dataset_id
+    session.dirty = True
+    report = controller.rollback_owned(checkpoint, created.dataset_id)
+    assert report.removed_dataset_id == created.dataset_id
+    assert set(well.datasets) == {"original", "unrelated"}
+    assert unrelated.dataset_id in session.tablet_layouts
+    assert created.dataset_id not in session.tablet_layouts
+    assert session.current_dataset_id == unrelated.dataset_id
+    assert session.dirty
+
+
+def test_owned_rollback_restores_selection_and_retains_dirty_flag() -> None:
+    original = _dataset("original")
+    well = Well("well", "Well", datasets={original.dataset_id: original})
+    session = ProjectSession(
+        project=Project("project", "Project", wells={well.well_id: well}),
+        current_well_id=well.well_id, current_dataset_id=original.dataset_id,
+    )
+    controller = DerivedDatasetController(session)
+    checkpoint = controller.checkpoint()
+    well.datasets["created"] = _dataset("created")
+    session.current_dataset_id = "created"
+    session.dirty = True
+    controller.rollback_owned(checkpoint, "created")
+    assert session.current_dataset_id == "original"
+    assert session.dirty
+
+
 def test_rollback_removes_temporary_dataset_and_restores_project_state() -> None:
     original = _dataset("original")
     well = Well("well", "Well", datasets={original.dataset_id: original})
