@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from hashlib import sha256
 from copy import deepcopy
+from dataclasses import replace
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from threading import get_ident
@@ -15,6 +16,7 @@ from geoworkbench.data.las_import_report import LasImportReport, LasSourceSnapsh
 from geoworkbench.data.lossless_las import parse_lossless_las
 from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain
 from geoworkbench.project.external_las_insert_controller import ExternalLasInsertController
+from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
 from geoworkbench.services.depth_axis import analyze_depth_axis
@@ -322,6 +324,48 @@ def test_copy_rejects_formula_changes_during_preparation(monkeypatch, tmp_path):
         controller.create_copy(analysis, (ExternalLasCurveSelection("gr", "GR"),), prepare=prepare)
     assert session.current_dataset is target
     assert len(session.current_well.datasets) == 1
+
+
+@pytest.mark.parametrize("threaded", [False, True])
+def test_custom_formula_remains_calculated_after_insert_and_project_reopen(
+    monkeypatch, tmp_path, threaded,
+):
+    target = dataset("target", [100.0, 101.0])
+    add_curve(target, "c1", "C1", [10.0, 20.0])
+    add_curve(target, "custom", "CUSTOM", [0.0, 0.0])
+    target.curves["custom"].metadata = replace(
+        target.curves["custom"].metadata, provenance="custom-formula:custom:1",
+    )
+    source = dataset("source", [100.0, 101.0])
+    add_curve(source, "gr", "GR", [10.0, 20.0])
+    session = ProjectSession()
+    session.project.custom_formulas["custom"] = CustomFormulaDefinition(
+        "custom", "Custom", "C1 + 1", "CUSTOM", "%",
+    )
+    session.add_dataset(target)
+    controller = ExternalLasInsertController(session)
+    monkeypatch.setattr(
+        "geoworkbench.project.external_las_insert_controller.import_las_with_report",
+        lambda _path: imported(source, tmp_path / "gis.las"),
+    )
+    analysis = controller.analyze_file(tmp_path / "gis.las")
+    def prepare(operation):
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            return executor.submit(operation).result()
+    result = controller.create_copy(
+        analysis, (ExternalLasCurveSelection("gr", "GR"),),
+        prepare=prepare if threaded else None,
+    )
+    assert "CUSTOM" in result.recalculation.recalculated_mnemonics
+    np.testing.assert_allclose(result.dataset.curve_by_mnemonic("CUSTOM").values, [11.0, 21.0])
+    np.testing.assert_allclose(target.curve_by_mnemonic("CUSTOM").values, [0.0, 0.0])
+    project_path = tmp_path / "combined.geologpkg"
+    ProjectController(session=session).save_project(project_path)
+    reopened = ProjectController().open_project(project_path)
+    reopened.current_dataset_id = result.dataset.dataset_id
+    curve = reopened.current_dataset.curve_by_mnemonic("CUSTOM")
+    assert curve.metadata.provenance.startswith("custom-formula:custom:1:external-las-copy:target:custom")
+    np.testing.assert_allclose(curve.values, [11.0, 21.0])
 
 
 def test_copy_cleans_only_its_own_partial_commit_on_error(monkeypatch, tmp_path):

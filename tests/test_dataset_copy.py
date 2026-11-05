@@ -4,6 +4,7 @@ import numpy as np
 
 from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain
 from geoworkbench.services.dataset_copy import create_dataset_copy
+from geoworkbench.services.report_passport import _parse_formula_provenance
 
 
 def test_dataset_copy_has_independent_arrays_and_new_identity() -> None:
@@ -35,3 +36,30 @@ def test_dataset_copy_has_independent_arrays_and_new_identity() -> None:
     copied_curve.values[0] = 999.0
     assert source.depth[0] == 100.0
     assert source.curve_by_mnemonic("GR").values[0] == 10.0
+
+
+def test_copy_preserves_formula_identity_and_immediate_curve_lineage() -> None:
+    source = Dataset("source", "Original", DatasetKind.GTI, DepthDomain.MD, np.array([1., 2.]))
+    for curve_id, provenance in (
+        ("custom", "custom-formula:calc1:2"),
+        ("profile", "calculation:profile1:3"),
+        ("plain", "source"),
+    ):
+        source.curves[curve_id] = CurveData(
+            CurveMetadata(curve_id, curve_id, curve_id, None, None, "source", provenance),
+            np.array([1., 2.]),
+        )
+    copied = create_dataset_copy(source, name="Copy", provenance="external-las-copy")
+    for curve_id, identity in (("custom", ("custom-formula", "calc1", "2")),
+                               ("profile", ("calculation", "profile1", "3"))):
+        curve = copied.curve_by_mnemonic(curve_id)
+        assert _parse_formula_provenance(curve.metadata.provenance) == identity
+        assert curve.metadata.provenance.endswith(f"external-las-copy:source:{curve_id}")
+    assert copied.curve_by_mnemonic("plain").metadata.provenance == "external-las-copy:source:plain"
+    second = create_dataset_copy(copied, name="Second", provenance="external-las-copy")
+    copied_custom = copied.curve_by_mnemonic("custom")
+    second_custom = second.curve_by_mnemonic("custom")
+    assert _parse_formula_provenance(second_custom.metadata.provenance) == ("custom-formula", "calc1", "2")
+    assert second_custom.metadata.provenance.endswith(
+        f"external-las-copy:{copied.dataset_id}:{copied_custom.metadata.curve_id}"
+    )

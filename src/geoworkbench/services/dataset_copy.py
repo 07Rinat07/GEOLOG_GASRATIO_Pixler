@@ -71,6 +71,13 @@ def create_dataset_copy(
     for curve in source.curves.values():
         metadata = curve.metadata
         curve_id = new_id()
+        lineage = f"{provenance}:{source.dataset_id}:{metadata.curve_id}"
+        parts = metadata.provenance.split(":")
+        if (len(parts) >= 3 and parts[0] in {"custom-formula", "calculation"}
+                and parts[1].strip() and parts[2].strip()):
+            # Formula recognition uses the first three fields; retain them
+            # while recording the immediate source curve of the new copy.
+            lineage = ":".join((*parts[:3], lineage))
         result.curves[curve_id] = CurveData(
             metadata=CurveMetadata(
                 curve_id=curve_id,
@@ -79,7 +86,7 @@ def create_dataset_copy(
                 unit=metadata.unit,
                 description=metadata.description,
                 source_dataset_id=dataset_id,
-                provenance=f"{provenance}:{source.dataset_id}:{metadata.curve_id}",
+                provenance=lineage,
                 semantic=metadata.semantic,
             ),
             values=np.asarray(curve.values, dtype=np.float64).copy(),
