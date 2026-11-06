@@ -25,6 +25,7 @@ class GisIntervalSampleReview:
     finite_count: int
     missing_count: int
     finite_md_bounds: tuple[float, float] | None
+    missing_md_preview: tuple[float, ...] = ()
 
 
 def review_gis_interval_samples(
@@ -55,7 +56,18 @@ def review_gis_interval_samples(
     observed = selected & np.isfinite(values)
     total, finite = int(np.count_nonzero(selected)), int(np.count_nonzero(observed))
     finite_depths = depths[observed]
+    # Bound temporary index arrays even if a large LAS has many missing rows.
+    preview: list[float] = []
+    if finite != total:
+        for start in range(0, len(depths), 65_536):
+            stop = min(start + 65_536, len(depths))
+            missing_indices = np.flatnonzero(selected[start:stop] & ~np.isfinite(values[start:stop]))
+            preview.extend(float(depths[start + index]) for index in missing_indices[:10 - len(preview)])
+            if len(preview) == 10:
+                break
     observed_bounds = (
         (float(np.min(finite_depths)), float(np.max(finite_depths))) if finite else None
     )
-    return GisIntervalSampleReview(source, top, bottom, total, finite, total - finite, observed_bounds)
+    return GisIntervalSampleReview(
+        source, top, bottom, total, finite, total - finite, observed_bounds, tuple(preview),
+    )

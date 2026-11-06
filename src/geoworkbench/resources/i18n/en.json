@@ -2544,6 +2544,7 @@
   "petro_reference.review_interval": "Review samples in interval",
   "petro_reference.interval_invalid": "Check the MD bounds and selected GIS source.",
   "petro_reference.interval_summary": "At review: {total} samples, {finite} values, {missing} missing. Individual points do not establish continuous coverage.",
+  "petro_reference.interval_missing_depths": "First missing sample depths in source order (showing {shown} of {total}), MD m: {depths}.",
   "petro_reference.source_ready": "Source checks passed. Calibration parameters and expert applicability evidence are still required; this does not approve interpretation.",
   "petro_reference.source_blocked": "Source unavailable for this method:\n{reasons}",
   "petro_reference.issue.curve_not_found": "The selected curve is no longer available.",
