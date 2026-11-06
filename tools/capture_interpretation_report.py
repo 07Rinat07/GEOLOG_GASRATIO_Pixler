@@ -24,6 +24,7 @@ from geoworkbench.project.interpretation_calculation_controller import (
     InterpretationCalculationController,
     NormalizedGasCalculationMode,
 )
+from geoworkbench.project.interpretation_controller import InterpretationController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.hydrocarbon_interpretation import (
     build_hydrocarbon_interpretation_report,
@@ -348,15 +349,22 @@ def _verify_forms(
     document: fitz.Document,
     artifact_dir: Path,
     label: str,
+    *,
+    has_manual: bool,
 ) -> dict[str, list[int]]:
     all_text = "\n".join(page.get_text() for page in document)
-    _require_text(all_text, tuple(_SECTION_MARKERS.values()), f"{label} forms")
+    expected = {key: value for key, value in _SECTION_MARKERS.items() if key != "manual" or has_manual}
+    _require_text(all_text, tuple(expected.values()), f"{label} forms")
     _reject_text(all_text, _FORBIDDEN_CLIENT_MARKERS, f"{label} forms")
     _require_text(all_text, _METHOD_TABLE_HEADERS, f"{label} methods form")
-    _require_text(all_text, _MANUAL_TABLE_HEADERS, f"{label} manual form")
+    if has_manual:
+        _require_text(all_text, _MANUAL_TABLE_HEADERS, f"{label} manual form")
+        _require_text(all_text, ("Проверенный пласт", "Проверено геологом"), f"{label} manual values")
+    else:
+        _reject_text(all_text, (_SECTION_MARKERS["manual"],), f"{label} empty manual form")
 
     section_pages: dict[str, list[int]] = {}
-    for section, marker in _SECTION_MARKERS.items():
+    for section, marker in expected.items():
         pages = _page_indexes(document, marker)
         if not pages:
             raise RuntimeError(f"{label}: section {section!r} was not printed")
@@ -429,7 +437,7 @@ def _verify_chart_pages(
     return chart_pages
 
 
-def _verify_pdf(pdf_path: Path, artifact_dir: Path, label: str) -> str:
+def _verify_pdf(pdf_path: Path, artifact_dir: Path, label: str, *, has_manual: bool) -> str:
     with fitz.open(pdf_path) as document:
         if document.page_count < 3:
             raise RuntimeError(f"{label}: expected at least three report pages")
@@ -437,7 +445,7 @@ def _verify_pdf(pdf_path: Path, artifact_dir: Path, label: str) -> str:
         maximum_font_size = _verify_page_geometry(document, label)
         _verify_cover(document, label)
         chart_pages = _verify_chart_pages(document, artifact_dir, label)
-        section_pages = _verify_forms(document, artifact_dir, label)
+        section_pages = _verify_forms(document, artifact_dir, label, has_manual=has_manual)
 
         artifact_dir.mkdir(parents=True, exist_ok=True)
         _render_all_pages(document, artifact_dir, label)
@@ -473,6 +481,12 @@ def _capture_pdf_acceptance(output: Path) -> None:
         dataset = session.current_dataset
         if dataset is None:
             raise RuntimeError(f"{label}: acceptance dataset is missing")
+        if label == "long":
+            editor = InterpretationController(session)
+            editor.add_interpretation("Геолог")
+            editor.add_interval(float(dataset.depth[5]), float(dataset.depth[10]),
+                                "hydrocarbon show", "Проверенный пласт",
+                                comment="Проверено геологом")
         report = build_hydrocarbon_interpretation_report(
             session,
             normalized_gas_mode=NormalizedGasCalculationMode.SERVER,
@@ -485,7 +499,7 @@ def _capture_pdf_acceptance(output: Path) -> None:
             dataset=dataset,
             include_chart=True,
         )
-        results.append(_verify_pdf(target, target_dir, label))
+        results.append(_verify_pdf(target, target_dir, label, has_manual=label == "long"))
     (target_dir / "metrics.txt").write_text(
         "\n".join(results) + "\n",
         encoding="utf-8",
