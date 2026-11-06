@@ -16,6 +16,10 @@ def test_normalized_gas_panel_is_visible_opaque_and_controls_local_inputs(qapp) 
         InterpretationCalculationController(ProjectSession()),
         language=AppLanguage.RU,
     )
+    assert workspace.threshold.value() == 5.0
+    workspace.threshold.setValue(6.0)
+    assert workspace.threshold.value() == 6.0
+    workspace.threshold.setValue(4.0)
     assert workspace.threshold.value() == 4.0
     workspace.resize(1_200, 800)
     workspace.show()
