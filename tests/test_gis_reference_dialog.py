@@ -58,6 +58,35 @@ def _saved_parameters(dataset, path):
 
 @pytest.mark.parametrize("language", list(AppLanguage))
 @pytest.mark.parametrize("density", [False, True])
+def test_interval_review_counts_samples_without_calibration_or_mutation(qapp, language, density):
+    dataset = _dataset(density)
+    before = dataset.curves["selected"].values.copy()
+    dialog = GisReferenceDialog(dataset, language=language)
+    try:
+        _fill(dialog, density)
+        dialog.review_interval.click()
+        assert dialog.interval_review_label.text() == dialog._t(
+            "interval_summary", total=3, finite=2, missing=1,
+        )
+        assert dialog.sample is None
+        np.testing.assert_array_equal(dataset.curves["selected"].values, before)
+        dialog.fields["top"].setText("100.5")
+        assert not dialog.interval_review_label.text()
+        dialog.review_interval.click()
+        assert dialog.interval_review_label.text() == dialog._t(
+            "interval_summary", total=2, finite=1, missing=1,
+        )
+        dialog.fields["base"].setText("invalid")
+        dialog.review_interval.click()
+        assert dialog.interval_review_label.text() == dialog._t("interval_invalid")
+        dialog.channel.setCurrentIndex(0)
+        assert not dialog.interval_review_label.text()
+    finally:
+        dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+@pytest.mark.parametrize("density", [False, True])
 def test_saved_parameters_reopen_matching_source_without_activating_calibration(
     qapp, monkeypatch, tmp_path, language, density,
 ):
