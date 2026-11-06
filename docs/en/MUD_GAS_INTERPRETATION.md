@@ -122,7 +122,8 @@ With at least 20 valid samples, the detector:
 - joins adjacent points using the median depth step;
 - attaches available Haworth/Pixler/DEXP interval medians as context.
 
-The default `3.0` threshold is a starting point, not a universal geological cutoff.
+The report window starts with an editable threshold of `5.0`. It is a starting point,
+not a universal geological cutoff; a higher threshold may miss weak shows.
 `low/medium/high` describes only relative anomaly strength and continuity; it is not
 a probability of hydrocarbon saturation.
 
