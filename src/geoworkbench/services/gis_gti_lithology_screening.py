@@ -151,11 +151,13 @@ def review_gis_gti_interval(
     rock_family: RockFamily,
     observations: tuple[IntervalObservation, ...],
 ) -> GisGtiIntervalReview:
-    """Review overlapping validated intervals on the exact same verified MD axis.
+    """Review validated observations covering the whole verified MD window.
 
     A prior GIS semantic resolver must approve each curve's UOM, tool, source,
     caliper QC, lag and petrophysical model. One source ID may supply multiple
     measurements; this function does not double-count or assign probabilities.
+    Partial observations require the partitioning API so each conclusion applies
+    only to depths covered by its accepted evidence.
     """
     _validate_bounds(top_md_m, bottom_md_m)
     if not isinstance(depth_axis_id, str) or not depth_axis_id.strip():
@@ -179,6 +181,11 @@ def review_gis_gti_interval(
             reasons.append("suspect_or_rejected_source_not_used")
             continue
         accepted.append(observed)
+
+    # A window-level conclusion must not combine observations from different
+    # depths or imply support in uncovered parts of the window.
+    if any(item.top_md_m > top_md_m or item.bottom_md_m < bottom_md_m for item in accepted):
+        raise ValueError("Partial interval evidence requires review_gis_gti_intervals")
 
     kinds = {item.kind for item in accepted}
     tests = kinds & _TEST_KINDS
@@ -321,8 +328,9 @@ def review_gis_gti_intervals(
     # The aggregate review itself is deliberately not returned as a cell result.
     review_gis_gti_interval(
         top_md_m=top_md_m, bottom_md_m=bottom_md_m, depth_axis_id=depth_axis_id,
-        rock_family=rock_family, observations=observations,
+        rock_family=rock_family, observations=(),
     )
+    _validate_partition_observations(observations, depth_axis_id)
     return tuple(review_gis_gti_interval(
         top_md_m=top, bottom_md_m=bottom, depth_axis_id=depth_axis_id,
         rock_family=rock_family,
@@ -346,8 +354,9 @@ def review_gis_gti_lithology_intervals(
     """
     review_gis_gti_interval(
         top_md_m=top_md_m, bottom_md_m=bottom_md_m, depth_axis_id=depth_axis_id,
-        rock_family=RockFamily.UNKNOWN_OR_MIXED, observations=observations,
+        rock_family=RockFamily.UNKNOWN_OR_MIXED, observations=(),
     )
+    _validate_partition_observations(observations, depth_axis_id)
     if not isinstance(lithology, tuple):
         raise TypeError("Lithology observations must be an immutable tuple")
     for item in lithology:
@@ -390,6 +399,17 @@ def review_gis_gti_lithology_intervals(
             tuple(dict.fromkeys(item.source_id for item in discarded)), tuple(issues),
         ))
     return tuple(result)
+
+
+def _validate_partition_observations(
+    observations: tuple[IntervalObservation, ...], depth_axis_id: str,
+) -> None:
+    if not isinstance(observations, tuple):
+        raise TypeError("observations must be an immutable tuple")
+    for item in observations:
+        if not isinstance(item, IntervalObservation):
+            raise TypeError("All observations must be IntervalObservation")
+        _validate_observation(item, depth_axis_id)
 
 
 def _md_cells(
