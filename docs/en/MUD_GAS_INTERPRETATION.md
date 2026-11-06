@@ -13,6 +13,9 @@ depth dataset. It can:
 4. keep automatically detected prospective intervals separate from geologist-confirmed intervals;
 5. export XLSX, DOCX, PDF, or print through the system dialog.
 
+Use **Geologist intervals…** to edit the project's intervals before export; the
+preview refreshes after the editor closes. Empty sections are omitted from the report.
+
 The source LAS is never overwritten. Calculated curves, manual intervals, and the
 layout are persisted in the primary `*.geologpkg` project with **Ctrl+S**. Report files are
 separate outputs and do not save the project.

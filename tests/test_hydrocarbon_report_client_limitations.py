@@ -102,7 +102,20 @@ def test_docx_omits_methodology_limitations_but_keeps_report_content(tmp_path) -
     assert "Ограничения методики" not in document_xml
     assert "internal warning must stay out of client export" not in document_xml
     assert "Методы и доступность" in document_xml
+    assert "Интервалы, подтверждённые геологом" not in document_xml
+
+
+def test_docx_keeps_populated_geologist_intervals(tmp_path) -> None:
+    interval = SimpleNamespace(interpretation_name="Геолог", top_depth=100.0,
+                               bottom_depth=102.0, interval_type="show",
+                               label="Пласт А", comment="Проверено")
+    target = tmp_path / "confirmed.docx"
+    _write_docx(target, _minimal_report(manual_intervals=(interval,)), None)
+    with zipfile.ZipFile(target) as package:
+        document_xml = package.read("word/document.xml").decode("utf-8")
     assert "Интервалы, подтверждённые геологом" in document_xml
+    assert "Пласт А" in document_xml
+    assert "Проверено" in document_xml
 
 
 def test_methods_sheet_omits_methodology_limitations_and_internal_warnings() -> None:

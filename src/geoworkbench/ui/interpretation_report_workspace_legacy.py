@@ -81,6 +81,7 @@ from geoworkbench.services.report_geology_snapshot import build_report_geology_s
 
 class InterpretationReportWorkspace(QWidget):
     calculation_completed = Signal(object)
+    edit_manual_intervals_requested = Signal()
 
     def __init__(
         self,
@@ -316,6 +317,12 @@ class InterpretationReportWorkspace(QWidget):
         )
         self.refresh_button.clicked.connect(self.refresh)
         actions.addWidget(self.refresh_button)
+        self.edit_manual_intervals_button = QPushButton(
+            self._text("Интервалы геолога…", "Геолог аралықтары…", "Geologist intervals…")
+        )
+        self.edit_manual_intervals_button.setObjectName("edit-geologist-intervals")
+        self.edit_manual_intervals_button.clicked.connect(self._edit_manual_intervals)
+        actions.addWidget(self.edit_manual_intervals_button)
         self.compare_methods_button = QPushButton(
             self._text(
                 "Сопоставить стандартный метод и ОПУС",
@@ -405,6 +412,12 @@ class InterpretationReportWorkspace(QWidget):
             AppLanguage.EN: "Interpretation reports",
         }[language]
 
+    def _edit_manual_intervals(self) -> None:
+        if self._export_in_progress:
+            return
+        self.edit_manual_intervals_requested.emit()
+        self.refresh()
+
     def refresh(self) -> None:
         # A recalculation, mode change or well change invalidates paired evidence.
         self._clear_method_comparison()
@@ -412,6 +425,9 @@ class InterpretationReportWorkspace(QWidget):
         mixture_mode = self._is_mixture_mode()
         opus_mode = self._is_opus_mode()
         has_dataset = self.controller.session.current_dataset is not None
+        self.edit_manual_intervals_button.setEnabled(
+            self.controller.session.current_well is not None and not mixture_mode
+        )
         self.calculate_button.setEnabled(has_dataset and not mixture_mode)
         self.compare_methods_button.setEnabled(has_dataset and not mixture_mode)
         self.geology_evidence_button.setEnabled(has_dataset and not mixture_mode)
@@ -1921,6 +1937,9 @@ class InterpretationReportWorkspace(QWidget):
         )
         self.refresh_button.setText(
             self._text("Обновить анализ", "Талдауды жаңарту", "Refresh analysis")
+        )
+        self.edit_manual_intervals_button.setText(
+            self._text("Интервалы геолога…", "Геолог аралықтары…", "Geologist intervals…")
         )
         self.word_orientation_label.setText(self._text("Страницы Word:", "Word беттері:", "Word pages:"))
         current_orientation = self.word_orientation.currentData()

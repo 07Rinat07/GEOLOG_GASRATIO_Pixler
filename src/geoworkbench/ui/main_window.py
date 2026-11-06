@@ -885,6 +885,9 @@ class MainWindow(QMainWindow):
         self.interpretation_report_workspace.calculation_completed.connect(
             self._after_interpretation_calculation
         )
+        self.interpretation_report_workspace.edit_manual_intervals_requested.connect(
+            self.show_interpretation_intervals
+        )
         self.interpretation_report_workspace.back_requested.connect(
             self._show_home_from_interpretation_report
         )

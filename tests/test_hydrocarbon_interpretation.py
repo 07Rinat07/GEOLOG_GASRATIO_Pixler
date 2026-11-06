@@ -165,6 +165,28 @@ def test_report_detects_relative_anomaly_and_keeps_manual_intervals_separate() -
     assert "Check DST" in html
 
 
+def test_empty_manual_intervals_hide_section_but_populated_report_keeps_it() -> None:
+    report = build_hydrocarbon_interpretation_report(_session())
+    assert "Интервалы, подтверждённые геологом" in hydrocarbon_interpretation_html(report)
+    assert "+Confirmed" in hydrocarbon_interpretation_html(report)
+    empty = replace(report, manual_intervals=())
+    assert "Интервалы, подтверждённые геологом" not in hydrocarbon_interpretation_html(empty)
+
+
+def test_pdf_omits_empty_manual_section_and_prints_entered_intervals(tmp_path, qapp) -> None:
+    report = build_hydrocarbon_interpretation_report(_session())
+    for name, candidate in (("empty", replace(report, manual_intervals=())), ("filled", report)):
+        target = tmp_path / f"{name}.pdf"
+        export_hydrocarbon_interpretation_pdf(candidate, target)
+        with fitz.open(target) as document:
+            text = " ".join(page.get_text() for page in document)
+        if name == "empty":
+            assert "Интервалы, подтверждённые геологом" not in text
+        else:
+            assert "Интервалы, подтверждённые геологом" in text
+            assert "+Confirmed" in text
+
+
 def test_report_replaces_legacy_gas_vendor_codes_with_readable_names() -> None:
     session = _session()
     dataset = session.current_dataset
