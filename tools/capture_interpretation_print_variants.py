@@ -30,6 +30,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_system_print import (
 from geoworkbench.project.interpretation_calculation_controller import (
     NormalizedGasCalculationMode,
 )
+from geoworkbench.project.interpretation_controller import InterpretationController
 from geoworkbench.services.hydrocarbon_interpretation import (
     build_hydrocarbon_interpretation_report,
 )
@@ -127,6 +128,7 @@ def _verify_portrait_report(
     label: str,
     *,
     expect_multiple_charts: bool,
+    has_manual: bool,
 ) -> tuple[int, tuple[int, ...]]:
     with fitz.open(pdf_path) as document:
         if document.page_count < 3:
@@ -210,10 +212,16 @@ def _verify_portrait_report(
             "Методы и доступность",
             "Перспективные интервалы УВ-проявлений",
             "Интерпретация по интервалам",
-            "Интервалы, подтверждённые геологом",
         ):
             if marker not in all_text:
                 raise RuntimeError(f"{label}: report section is missing: {marker}")
+        manual_marker = "Интервалы, подтверждённые геологом"
+        if has_manual:
+            for marker in (manual_marker, "Проверенный пласт", "Проверено геологом"):
+                if marker not in all_text:
+                    raise RuntimeError(f"{label}: manual section is missing: {marker}")
+        elif manual_marker in all_text:
+            raise RuntimeError(f"{label}: empty manual section must be hidden")
         forbidden = [marker for marker in _FORBIDDEN_CLIENT_MARKERS if marker in all_text]
         if forbidden:
             raise RuntimeError(
@@ -255,6 +263,12 @@ def _build_portrait_report(
     dataset = session.current_dataset
     if dataset is None:
         raise RuntimeError(f"{label}: acceptance dataset is missing")
+    if repeated_anomalies:
+        editor = InterpretationController(session)
+        editor.add_interpretation("Геолог")
+        editor.add_interval(float(dataset.depth[5]), float(dataset.depth[10]),
+                            "hydrocarbon show", "Проверенный пласт",
+                            comment="Проверено геологом")
     report = build_hydrocarbon_interpretation_report(
         session,
         normalized_gas_mode=NormalizedGasCalculationMode.SERVER,
@@ -278,6 +292,7 @@ def _build_portrait_report(
         output,
         label,
         expect_multiple_charts=depth_span > 100.0,
+        has_manual=repeated_anomalies,
     )
     return target, page_count, chart_pages
 

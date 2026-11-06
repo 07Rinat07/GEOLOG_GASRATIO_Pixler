@@ -1475,8 +1475,13 @@ def hydrocarbon_interpretation_html(
         "</tr>"
         for interval in report.manual_intervals
     )
-    if not manual_rows:
-        manual_rows = f"<tr><td colspan='5'>{escape(labels['no_manual'])}</td></tr>"
+    manual_section = (
+        f'<h2>{escape(labels["manual"])}</h2>'
+        f'<table><thead><tr><th>{escape(labels["interpretation"])}</th>'
+        f'<th>{escape(labels["interval"])}</th><th>{escape(labels["type"])}</th>'
+        f'<th>{escape(labels["label"])}</th><th>{escape(labels["comment"])}</th></tr></thead>'
+        f'<tbody>{manual_rows}</tbody></table>'
+    ) if manual_rows else ""
     warnings = "".join(
         f"<li>{escape(localize_system_warning(item, language))}</li>"
         for item in report.warnings
@@ -1526,11 +1531,7 @@ small {{ color: #44566c; }}
 <tbody>{candidate_rows}</tbody></table>
 <h2>{escape(labels["details"])}</h2>
 {candidate_details or f"<p>{escape(labels['empty'])}</p>"}
-<h2>{escape(labels["manual"])}</h2>
-<table><thead><tr><th>{escape(labels["interpretation"])}</th>
-<th>{escape(labels["interval"])}</th><th>{escape(labels["type"])}</th>
-<th>{escape(labels["label"])}</th><th>{escape(labels["comment"])}</th></tr></thead>
-<tbody>{manual_rows}</tbody></table>
+{manual_section}
 <div class="notice"><h2>{escape(labels["warnings"])}</h2><ul>{warnings}</ul></div>
 </body></html>"""
 

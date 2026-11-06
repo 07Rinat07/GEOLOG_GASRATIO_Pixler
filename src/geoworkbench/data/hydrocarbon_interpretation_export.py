@@ -441,8 +441,8 @@ def _write_docx(
     else:
         body.append(_paragraph(labels.no_intervals))
 
-    body.append(_paragraph(labels.manual_heading, style="Heading1"))
     if report.manual_intervals:
+        body.append(_paragraph(labels.manual_heading, style="Heading1"))
         body.append(
             _table(
                 (
@@ -465,8 +465,6 @@ def _write_docx(
                 widths=(2_600, 2_200, 2_200, 4_000, 4_100),
             )
         )
-    else:
-        body.append(_paragraph(labels.no_manual))
     page_width, page_height = ((11906, 16838) if orientation == "portrait" else (16838, 11906))
     document_xml = (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
