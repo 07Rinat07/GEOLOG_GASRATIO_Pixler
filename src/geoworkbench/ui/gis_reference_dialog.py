@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
-    QComboBox, QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit,
-    QPushButton, QScrollArea, QSpinBox, QVBoxLayout, QWidget,
+    QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit,
+    QMessageBox, QPushButton, QScrollArea, QSpinBox, QVBoxLayout, QWidget,
 )
 
 from geoworkbench.domain.models import Dataset
+from geoworkbench.services.gis_calibration_records import (
+    SavedGisCalibrationRecord, export_gis_calibration_record, load_gis_calibration_record,
+    validate_gis_calibration_record_source,
+)
 from geoworkbench.services.gis_reference_calibration import (
     CalibratedGisSample, create_gis_reference_calibration, evaluate_gis_reference_sample,
 )
@@ -28,6 +34,7 @@ class GisReferenceDialog(QDialog):
         self.dataset = dataset
         self.localizer = Localizer.create(language)
         self.sample: CalibratedGisSample | None = None
+        self._loaded_record: SavedGisCalibrationRecord | None = None
         self.setObjectName("gis-reference-dialog")
         self.setWindowTitle(self._t("action"))
         root = QVBoxLayout(self)
@@ -90,6 +97,19 @@ class GisReferenceDialog(QDialog):
         self.result_label.setWordWrap(True)
         self.result_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         root.addWidget(self.result_label)
+        records = QHBoxLayout()
+        self.save_parameters = QPushButton(self._t("save_parameters"), self)
+        self.save_parameters.setObjectName("gis-reference-save-parameters")
+        self.save_parameters.setEnabled(False)
+        records.addWidget(self.save_parameters)
+        self.open_parameters = QPushButton(self._t("open_parameters"), self)
+        self.open_parameters.setObjectName("gis-reference-open-parameters")
+        records.addWidget(self.open_parameters)
+        root.addLayout(records)
+        self.record_status = QLabel(self)
+        self.record_status.setTextFormat(Qt.TextFormat.PlainText)
+        self.record_status.setWordWrap(True)
+        root.addWidget(self.record_status)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(
             self.localizer.text("common.close"),
@@ -97,7 +117,7 @@ class GisReferenceDialog(QDialog):
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
         self.method.currentIndexChanged.connect(self._method_changed)
-        self.channel.currentIndexChanged.connect(self._invalidate)
+        self.channel.currentIndexChanged.connect(self._discard_record)
         self.channel.currentIndexChanged.connect(self.source_review_label.clear)
         self.method.currentIndexChanged.connect(self.source_review_label.clear)
         self.row.valueChanged.connect(self._invalidate)
@@ -105,9 +125,11 @@ class GisReferenceDialog(QDialog):
             selector.currentIndexChanged.connect(self.source_sample_label.clear)
         self.row.valueChanged.connect(self.source_sample_label.clear)
         for field in (*self.fields.values(), *self.parameters):
-            field.textChanged.connect(self._invalidate)
+            field.textChanged.connect(self._discard_record)
         self.calculate.clicked.connect(self._calculate)
         self.review_source.clicked.connect(self._review_source)
+        self.save_parameters.clicked.connect(self._save_parameters)
+        self.open_parameters.clicked.connect(self._open_parameters)
         self._method_changed()
         fit_window_to_screen(self, preferred=QSize(640, 620), minimum=QSize(380, 360))
 
@@ -146,6 +168,105 @@ class GisReferenceDialog(QDialog):
     def _invalidate(self) -> None:
         self.sample = None
         self.result_label.clear()
+        self.save_parameters.setEnabled(False)
+        self.record_status.clear()
+
+    def _discard_record(self) -> None:
+        self._loaded_record = None
+        self._invalidate()
+
+    def _current_sample(self) -> CalibratedGisSample | None:
+        if self.sample is not None:
+            try:
+                evaluate_gis_reference_sample(
+                    self.dataset, self.sample.calibration, sample_index=self.sample.sample_index,
+                )
+            except (ValueError, TypeError, OverflowError):
+                self._invalidate()
+                self.result_label.setText(self._t("invalid"))
+        return self.sample
+
+    def _save_parameters(self) -> None:
+        sample = self._current_sample()
+        if sample is None:
+            return
+        filename, _ = QFileDialog.getSaveFileName(
+            self, self._t("save_parameters"), "gis-parameters.json", "JSON (*.json)",
+        )
+        if not filename:
+            return
+        # A native dialog runs an event loop; do not export a replacement review or draft.
+        if self._current_sample() is not sample:
+            return
+        if not filename.casefold().endswith(".json"):
+            filename += ".json"
+            # The native chooser confirmed the selected path, not an appended suffix.
+            if Path(filename).exists():
+                answer = QMessageBox.question(
+                    self, self._t("save_parameters"), self._t("parameters_overwrite"),
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
+                )
+                if answer is not QMessageBox.StandardButton.Yes:
+                    return
+        if self._current_sample() is not sample:
+            return
+        try:
+            export_gis_calibration_record(
+                self.dataset, sample.calibration, filename, overwrite=True,
+            )
+        except (ValueError, TypeError, OverflowError):
+            self._invalidate()
+            self.record_status.setText(self._t("parameters_invalid"))
+        except OSError:
+            self.record_status.setText(self._t("parameters_save_failed"))
+        else:
+            self.record_status.setText(self._t("parameters_saved"))
+
+    def _open_parameters(self) -> None:
+        dataset = self.dataset
+        filename, _ = QFileDialog.getOpenFileName(
+            self, self._t("open_parameters"), "", "JSON (*.json)",
+        )
+        if not filename:
+            return
+        try:
+            if self.dataset is not dataset:
+                raise ValueError("Dataset changed during parameter selection")
+            record = load_gis_calibration_record(filename, dataset=dataset)
+            method_index = self.method.findData(record.method_id)
+            channel_index = self.channel.findData(record.curve_key)
+            if method_index < 1 or channel_index < 1:
+                raise ValueError("Recorded source selection is unavailable")
+            fields = {
+                "calibration_id": record.calibration_id, "tool_id": record.tool_id,
+                "reviewer": record.reviewer, "evidence": record.applicability_reference,
+                "top": repr(record.md_bounds[0]), "base": repr(record.md_bounds[1]),
+            }
+            parameters = dict(record.parameters)
+            parameter_values = tuple(
+                repr(parameters[name]) for name in self._parameter_names(record.method_id)
+            )
+            if any(len(value) > self.fields[key].maxLength() for key, value in fields.items()):
+                raise ValueError("Recorded text exceeds editor limits")
+            validate_gis_calibration_record_source(dataset, record)
+            if self.dataset is not dataset:
+                raise ValueError("Dataset changed while reading parameters")
+        except (OSError, ValueError, TypeError, OverflowError, KeyError):
+            self._current_sample()
+            self.record_status.setText(self._t("parameters_invalid"))
+            return
+        # Commit only a fully checked record. Loading never creates a runtime calibration.
+        self._invalidate()
+        self.method.setCurrentIndex(method_index)
+        self.channel.setCurrentIndex(channel_index)
+        for key, value in fields.items():
+            self.fields[key].setText(value)
+        for field, value in zip(self.parameters, parameter_values):
+            field.setText(value)
+        self._review_source()
+        self._loaded_record = record
+        self.record_status.setText(self._t("parameters_loaded"))
 
     def _review_source(self) -> None:
         self._invalidate()
@@ -196,23 +317,34 @@ class GisReferenceDialog(QDialog):
         for label, field, key in zip(self.parameter_labels, self.parameters, labels):
             label.setText(self._t(key))
             field.clear()
-        self._invalidate()
+        self._discard_record()
 
     @staticmethod
     def _number(field: QLineEdit) -> float:
         # Explicit decimal separators only; no grouping/implicit unit conversion.
         return float(field.text().strip().replace(",", "."))
 
+    @staticmethod
+    def _parameter_names(method: str) -> tuple[str, str]:
+        return (("matrix_density_g_cm3", "fluid_density_g_cm3")
+                if method == "density-porosity-1"
+                else ("clean_reference_api", "shale_reference_api"))
+
     def _calculate(self) -> None:
+        if self._loaded_record is not None:
+            try:
+                validate_gis_calibration_record_source(self.dataset, self._loaded_record)
+            except (ValueError, TypeError, OverflowError):
+                self._invalidate()
+                self.record_status.setText(self._t("parameters_invalid"))
+                return
         # Recheck live source quality; a prior operator review never authorizes calculation.
         self._review_source()
         method, channel = self.method.currentData(), self.channel.currentData()
         if not isinstance(method, str) or not isinstance(channel, str):
             self.result_label.setText(self._t("selection_required"))
             return
-        names = (("matrix_density_g_cm3", "fluid_density_g_cm3")
-                 if method == "density-porosity-1"
-                 else ("clean_reference_api", "shale_reference_api"))
+        names = self._parameter_names(method)
         try:
             calibration = create_gis_reference_calibration(
                 self.dataset, method_id=method, curve_key=channel,
@@ -230,6 +362,7 @@ class GisReferenceDialog(QDialog):
             self.result_label.setText(self._t("invalid"))
             return
         self.sample = sample
+        self.save_parameters.setEnabled(True)
         self.result_label.setText(self._t(
             "result", md=f"{sample.md_m:.9g}", value=f"{sample.source_value:.9g}",
             unit=calibration.source.curve.unit if calibration.source.curve else "",

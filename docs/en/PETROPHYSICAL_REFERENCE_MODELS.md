@@ -39,8 +39,9 @@ applicability_reference (expert review evidence), MD bounds and all method
 parameters. `evaluate_gis_reference_sample` evaluates one actual sample_index
 with source MD/value and full calibration context. There are no default
 parameters, interpolation or clipping. Curve revision/metadata, replaced
-arrays, in-place MD edits or reopen require a new profile. Profiles are
-session-local and are not saved. Evidence records an expert attestation, not
+arrays, in-place MD edits or reopen require a new profile. Active calibrations are
+session-local and are not saved; separate parameter records are described below.
+Evidence records an expert attestation, not
 automatic tool applicability certification. NaN, invalid indices and samples
 outside the MD scope are rejected. Controllers must increment curve.version
 for in-place value edits. This is not a batch-loop API: every sample rechecks
@@ -53,9 +54,32 @@ and parameters. Choose the source row (from 1), then click Evaluate sample.
 Use a decimal dot or comma without thousands separators. The dialog displays
 source MD/value/unit, result, QC and calibration ID. Editing a field clears the
 result; changing the method clears parameters. Close leaves the project unchanged.
-There is no profile saving, derived curve, export or fluid identification.
+Separate JSON records save parameters, not an active calibration, a derived curve or fluid identification.
 Invalid fields, NaN, stale sources and incompatible units block calculation.
 Synthetic numerical checks do not replace tool/regional field acceptance.
+
+## Saving and opening parameters
+
+After a successful sample evaluation, click **Save parameters…** and choose a separate JSON file.
+The record contains the selected method and curve, calibration/tool IDs, reviewer,
+evidence, MD bounds and method parameters. It is an independent file: saving the
+project does not automatically include it, and source LAS files and samples are unchanged.
+Choose a separate output JSON; the source LAS cannot be used as the record destination.
+
+**Open parameters…** compares the record's source with the current dataset: dataset/axis/curve
+identities, units, alignment evidence and actual data. A match fills the fields;
+neither the result nor an active calibration is restored automatically. The record does not
+save the source-row selection; the current row remains selected. Review the
+parameters and source row, then explicitly click Evaluate sample. Editing fields
+clears the prior verification status. Malformed records, changed sources and foreign
+datasets are rejected without partially filling fields. Cancelling file selection
+preserves the current inputs.
+
+A reopened saved project can use the record if its source remains unchanged. A new
+dataset copy or fresh LAS import with new identifiers does not acquire calibration
+automatically, even when the numbers match. A source match does not establish tool
+applicability, expert evidence or a geological conclusion. An archived JSON is not a
+digital signature; accept records only from a known source.
 
 **GIS source inventory:** click Source GIS inventory in the same dialog.
 The separate table shows source IDs, units, finite paired MD/value sample
@@ -80,7 +104,7 @@ coverage, calibration, saturation or productivity.
 
 ## Quality control and next steps
 
-`valid` means only that the numerical result is admissible for the **supplied** inputs; it does not certify calibration or producibility. Non-finite, zero and inconsistent inputs raise `ValueError`; there are no implicit coefficients, oil/gas cutoffs or LAS value translations. Next steps are GIS source provenance, unit and depth-axis validation, operator UI integration, and independent petrophysical/field acceptance. Original sample values and LAS mnemonics remain unchanged. See the [plan](../PROJECT_PLAN.md) and [requirements](../REQUIREMENTS.md).
+`valid` means only that the numerical result is admissible for the **supplied** inputs; it does not certify calibration or producibility. Non-finite, zero and inconsistent inputs raise `ValueError`; there are no implicit coefficients, oil/gas cutoffs or LAS value translations. Full interval profiles, combined GIS/GTI/LBA correlation and independent petrophysical/field acceptance remain separate stages. Original sample values and LAS mnemonics remain unchanged. See the [plan](../PROJECT_PLAN.md) and [requirements](../REQUIREMENTS.md).
 
 Before entering calibration, use **Review selected source** after selecting a method and curve. The review explains axis, channel identity/state, family and unit-scale blockers. Passing source checks is not calibration or interpretation approval. Repeat the review after source changes; method/channel changes clear it, and evaluation rechecks the live source. Entered evidence is preserved.
 

@@ -1,3 +1,20 @@
+## INTERP-GIS-01 — detached, source-checked parameter records (06.11.2026)
+
+The single-sample GIS dialog can save explicit IGR/density parameters to a separate
+versioned JSON and reopen them only for the same verified source. Dataset/axis/curve
+identity, metadata, units, axis evidence and exact numeric representation/samples are
+checked; reopening the same saved project is supported without restoring old runtime
+calibrations. Loading only fills the editor. Evaluation requires an explicit action
+and checks the loaded source again; manual field changes start a new draft.
+
+The reader is bounded and rejects malformed records, duplicate keys, nonfinite or
+incorrectly typed numbers and foreign/stale sources. Export rechecks the live calibration
+before atomic publication and protects the source and existing output on failure.
+RU/KK/EN controls, operator guidance, security boundaries and regression coverage are
+included. Project schema v38, raw LAS arrays and calculation methods are unchanged.
+Full interval profiles/correlation, geological approval and physical Windows acceptance
+remain separate; a matching fingerprint is not authentication and Qt #544 remains open.
+
 ## Project status and external LAS operator guidance (06.11.2026)
 
 Reconciled the active project queue with merged PRs #831–837 and the current implementation.

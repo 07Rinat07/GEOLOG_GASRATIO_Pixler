@@ -350,13 +350,20 @@ def test_petrophysical_reference_guides_keep_methods_and_operator_scope_in_sync(
         "kk": "Дереккөздің сақталған деректемелері",
         "en": "Saved source details",
     }
+    parameter_headings = {
+        "ru": "Сохранение и открытие параметров",
+        "kk": "Параметрлерді сақтау және ашу",
+        "en": "Saving and opening parameters",
+    }
     for language, heading in detail_headings.items():
         guide = (
             ROOT / "docs" / language / "PETROPHYSICAL_REFERENCE_MODELS.md"
         ).read_text(encoding="utf-8")
         assert all(name in guide for name in names)
-        assert guide.count("\n## ") == 7
+        assert guide.count("\n## ") == 8
         assert guide.count(f"\n## {heading}\n") == 1
+        assert guide.count(f"\n## {parameter_headings[language]}\n") == 1
+        assert "JSON" in guide
 
     index = (ROOT / "docs" / "DOCUMENTATION_INDEX.md").read_text(encoding="utf-8")
     for language in ("ru", "kk", "en"):

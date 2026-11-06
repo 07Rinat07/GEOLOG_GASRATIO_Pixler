@@ -1,5 +1,17 @@
 # Using the application securely
 
+## GIS calibration parameter records
+
+Open parameter JSON only from a known source. The application bounds file size,
+validates its format and compares it with current data; malformed, stale or foreign
+records do not fill fields. Successful opening does not activate calibration:
+review the parameters and explicitly evaluate a sample.
+Matching fingerprints does not establish authorship, document authenticity or a
+geological conclusion. A record contains the reviewer's name and entered evidence;
+treat it as user data and keep it out of Git. Save it to a separate JSON, not the
+source LAS. Records contain no raw sample arrays and are not automatically included
+in the saved project.
+
 ## Pillow 13.0.0 image-security update (2026-10-21)
 
 The dependency scanner identified eight vulnerabilities in Pillow 12.3.0.

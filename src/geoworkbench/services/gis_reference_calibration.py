@@ -103,6 +103,25 @@ def evaluate_gis_reference_sample(
     Replaced arrays and reopened datasets require a new calibration even when
     copied IDs/versions match. Results retain their immutable calibration context.
     """
+    validate_gis_reference_calibration(dataset, calibration)
+    source = calibration.source
+    depths = dataset.active_index.values
+    values = dataset.curves[source.curve_key].values
+    if type(sample_index) is not int or not 0 <= sample_index < len(depths):
+        raise ValueError("A valid integer source sample index is required")
+    md, value = _finite(depths[sample_index]), _finite(values[sample_index])
+    if not calibration.md_bounds[0] <= md <= calibration.md_bounds[1]:
+        raise ValueError("Source sample is outside calibration MD scope")
+    estimate = _estimate(source.method_id, dict(calibration.parameters), value)
+    return CalibratedGisSample(calibration, sample_index, md, value, estimate)
+
+
+def validate_gis_reference_calibration(
+    dataset: Dataset, calibration: GisReferenceCalibration,
+) -> None:
+    """Recheck a live calibration without evaluating or selecting a source row."""
+    if not isinstance(calibration, GisReferenceCalibration):
+        raise ValueError("An existing GIS calibration is required")
     source = calibration.source
     current = review_gis_reference_input(
         dataset, method_id=source.method_id, curve_key=source.curve_key,
@@ -119,13 +138,6 @@ def evaluate_gis_reference_sample(
         raise ValueError("Calibration MD coordinates changed")
     if calibration._values_sha256 != _array_digest(values):
         raise ValueError("Calibration curve sample values changed")
-    if type(sample_index) is not int or not 0 <= sample_index < len(depths):
-        raise ValueError("A valid integer source sample index is required")
-    md, value = _finite(depths[sample_index]), _finite(values[sample_index])
-    if not calibration.md_bounds[0] <= md <= calibration.md_bounds[1]:
-        raise ValueError("Source sample is outside calibration MD scope")
-    estimate = _estimate(source.method_id, dict(calibration.parameters), value)
-    return CalibratedGisSample(calibration, sample_index, md, value, estimate)
 
 
 def _estimate(method: str, parameters: dict[str, float], value: float) -> PetrophysicalEstimate:
