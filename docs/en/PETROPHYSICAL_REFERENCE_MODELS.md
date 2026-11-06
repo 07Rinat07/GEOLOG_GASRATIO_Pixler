@@ -47,12 +47,13 @@ outside the MD scope are rejected. Controllers must increment curve.version
 for in-place value edits. This is not a batch-loop API: every sample rechecks
 inventory and MD. Archie is not connected.
 
-**Operator dialog:** Calculations → GIS: review one sample…
-
 “Review samples in interval” counts actual values and missing samples of the
-selected curve between the entered MD bounds. It is a point-in-time snapshot;
-review again after source changes. Point counts do not establish continuous
+selected curve between the entered MD bounds. Up to ten missing sample depths
+are shown in source order. This is a snapshot; review again after source changes.
+Point counts do not establish continuous
 coverage, correlation, or fluid type.
+
+**Operator dialog:** Calculations → GIS: review one sample…
 (`GisReferenceDialog`, `petro_reference.action`). Select the active GIS dataset,
 method and curve; enter calibration/tool IDs, reviewer, evidence, MD bounds
 and parameters. Choose the source row (from 1), then click Evaluate sample.

@@ -196,10 +196,17 @@ class GisReferenceDialog(QDialog):
         except (ValueError, TypeError, OverflowError):
             self.interval_review_label.setText(self._t("interval_invalid"))
             return
-        self.interval_review_label.setText(self._t(
+        summary = self._t(
             "interval_summary", total=result.sample_count,
             finite=result.finite_count, missing=result.missing_count,
-        ))
+        )
+        if result.missing_md_preview:
+            summary += "\n" + self._t(
+                "interval_missing_depths",
+                shown=len(result.missing_md_preview), total=result.missing_count,
+                depths=", ".join(f"{depth:.9g}" for depth in result.missing_md_preview),
+            )
+        self.interval_review_label.setText(summary)
 
     def _invalidate(self) -> None:
         self.sample = None

@@ -65,16 +65,18 @@ def test_interval_review_counts_samples_without_calibration_or_mutation(qapp, la
     try:
         _fill(dialog, density)
         dialog.review_interval.click()
-        assert dialog.interval_review_label.text() == dialog._t(
-            "interval_summary", total=3, finite=2, missing=1,
+        assert dialog.interval_review_label.text() == (
+            dialog._t("interval_summary", total=3, finite=2, missing=1) + "\n"
+            + dialog._t("interval_missing_depths", shown=1, total=1, depths="101")
         )
         assert dialog.sample is None
         np.testing.assert_array_equal(dataset.curves["selected"].values, before)
         dialog.fields["top"].setText("100.5")
         assert not dialog.interval_review_label.text()
         dialog.review_interval.click()
-        assert dialog.interval_review_label.text() == dialog._t(
-            "interval_summary", total=2, finite=1, missing=1,
+        assert dialog.interval_review_label.text() == (
+            dialog._t("interval_summary", total=2, finite=1, missing=1) + "\n"
+            + dialog._t("interval_missing_depths", shown=1, total=1, depths="101")
         )
         dialog.fields["base"].setText("invalid")
         dialog.review_interval.click()
