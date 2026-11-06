@@ -6,9 +6,23 @@ from geoworkbench.services.gis_gti_lithology_screening import (
     EvidenceOrigin, FluidAssessment, IntervalObservation, ObservationKind,
     ObservationQuality, ReservoirAssessment, RockFamily,
     review_gis_gti_interval,
+    review_gis_gti_intervals,
 )
 
 AXIS = "dataset-well1/md-m-verified"
+
+
+def test_partial_evidence_requires_depth_partition_before_screening() -> None:
+    porosity = gis(ObservationKind.EFFECTIVE_POROSITY, top=1000, bottom=1005)
+    gas_show = gas(top=1005, bottom=1010)
+    args = dict(top_md_m=1000, bottom_md_m=1010, depth_axis_id=AXIS,
+                rock_family=RockFamily.CLASTIC, observations=(porosity, gas_show))
+    with pytest.raises(ValueError, match="Partial interval evidence"):
+        review_gis_gti_interval(**args)
+    cells = review_gis_gti_intervals(**args)
+    assert [(cell.top_md_m, cell.bottom_md_m) for cell in cells] == [(1000, 1005), (1005, 1010)]
+    assert all(not cell.shortlist_for_geologist for cell in cells)
+    assert [cell.accepted_evidence_ids for cell in cells] == [(porosity.source_id,), (gas_show.source_id,)]
 
 
 def gis(kind: ObservationKind, *, quality: ObservationQuality = ObservationQuality.VALIDATED,
