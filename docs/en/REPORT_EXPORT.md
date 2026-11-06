@@ -1,5 +1,10 @@
 # Report export and interval summary
 
+The Balance/Character plots show the displayed and total paired-point counts
+and the median X across all pairs. When outliers compress the data, the X axis
+is labelled `log(1+x)` while tick labels retain original values. Up to 1200
+points are drawn; statistics use all pairs.
+
 ## Purpose
 
 The subsystem creates a reproducible report for a selected well and depth range. It complements
