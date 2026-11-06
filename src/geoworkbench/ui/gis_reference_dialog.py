@@ -21,6 +21,7 @@ from geoworkbench.services.gis_reference_calibration import (
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.gis_reference_input_review import review_gis_reference_input
+from geoworkbench.services.gis_interval_sample_review import review_gis_interval_samples
 from geoworkbench.ui.gis_input_inventory_dialog import GisInputInventoryDialog
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
@@ -83,6 +84,15 @@ class GisReferenceDialog(QDialog):
             field.setMaxLength(2000 if key == "evidence" else 200)
             form.addRow(self._t(key), field)
             self.fields[key] = field
+        self.review_interval = QPushButton(self._t("review_interval"), body)
+        self.review_interval.setObjectName("gis-reference-review-interval")
+        form.addRow(self.review_interval)
+        self.interval_review_label = QLabel(body)
+        self.interval_review_label.setObjectName("gis-reference-interval-review")
+        self.interval_review_label.setTextFormat(Qt.TextFormat.PlainText)
+        self.interval_review_label.setWordWrap(True)
+        self.interval_review_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        form.addRow(self.interval_review_label)
         self.parameter_labels = (QLabel(body), QLabel(body))
         self.parameters = (QLineEdit(body), QLineEdit(body))
         for label, field in zip(self.parameter_labels, self.parameters):
@@ -128,12 +138,18 @@ class GisReferenceDialog(QDialog):
             field.textChanged.connect(self._discard_record)
         self.calculate.clicked.connect(self._calculate)
         self.review_source.clicked.connect(self._review_source)
+        self.review_interval.clicked.connect(self._review_interval)
+        for selector in (self.method, self.channel):
+            selector.currentIndexChanged.connect(self.interval_review_label.clear)
+        for key in ("top", "base"):
+            self.fields[key].textChanged.connect(self.interval_review_label.clear)
         self.save_parameters.clicked.connect(self._save_parameters)
         self.open_parameters.clicked.connect(self._open_parameters)
         self._method_changed()
         fit_window_to_screen(self, preferred=QSize(640, 620), minimum=QSize(380, 360))
 
     def _show_inventory(self) -> None:
+        self.interval_review_label.clear()
         GisInputInventoryDialog(
             self.dataset, self, language=self.localizer.language,
         ).exec()
@@ -164,6 +180,26 @@ class GisReferenceDialog(QDialog):
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(f"petro_reference.{key}", **values)
+
+    def _review_interval(self) -> None:
+        self.interval_review_label.clear()
+        method, channel = self.method.currentData(), self.channel.currentData()
+        if not isinstance(method, str) or not isinstance(channel, str):
+            self.interval_review_label.setText(self._t("selection_required"))
+            return
+        try:
+            result = review_gis_interval_samples(
+                self.dataset, method_id=method, curve_key=channel,
+                top_md_m=self._number(self.fields["top"]),
+                bottom_md_m=self._number(self.fields["base"]),
+            )
+        except (ValueError, TypeError, OverflowError):
+            self.interval_review_label.setText(self._t("interval_invalid"))
+            return
+        self.interval_review_label.setText(self._t(
+            "interval_summary", total=result.sample_count,
+            finite=result.finite_count, missing=result.missing_count,
+        ))
 
     def _invalidate(self) -> None:
         self.sample = None
@@ -269,6 +305,7 @@ class GisReferenceDialog(QDialog):
         self.record_status.setText(self._t("parameters_loaded"))
 
     def _review_source(self) -> None:
+        self.interval_review_label.clear()
         self._invalidate()
         self.source_sample_label.clear()
         method, channel = self.method.currentData(), self.channel.currentData()
