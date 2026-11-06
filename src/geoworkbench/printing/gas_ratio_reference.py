@@ -201,6 +201,22 @@ def _compact_tick(value: float) -> str:
     return f"{value:.2g}"
 
 
+def _scatter_axis(values: NDArray[np.float64]) -> tuple[float, bool]:
+    """Choose an explicitly labelled log1p axis when outliers compress the cloud."""
+    if not values.size:
+        return 1.0, False
+    peak = float(np.max(values))
+    maximum = max(1.0, peak * 1.05 if peak <= np.finfo(float).max / 1.05 else peak)
+    typical = max(1.0, float(np.quantile(values, 0.95)))
+    return maximum, maximum / typical > 20.0
+
+
+def _scatter_fraction(values: NDArray[np.float64], maximum: float, logarithmic: bool) -> NDArray[np.float64]:
+    if logarithmic:
+        return np.log1p(values) / np.log1p(maximum)
+    return values / maximum
+
+
 def _paired_x_tick_rect(plot: QRectF, tick: int) -> QRectF:
     """Keep the first X tick clear of the Y=0 label at both plot origins."""
     x = plot.left() + tick / 5 * plot.width()
@@ -291,7 +307,7 @@ def paint_ratio_reference_summary(
             plot = QRectF(65 + index * 490, 80, 395, 205)
             _axes(painter, plot)
             x, y, depth = reference_pairs(dataset, name)
-            maximum = max(1.0, float(np.max(x)) * 1.05) if x.size else 1.0
+            maximum, logarithmic = _scatter_axis(x)
             if not x.size:
                 _text(
                     painter,
@@ -307,12 +323,26 @@ def paint_ratio_reference_summary(
                 QRectF(plot.left(), 309, plot.width(), 21),
                 "Balance (Bh)" if name == "BH" else "Character (Ch)",
             )
-            _text(painter, QRectF(plot.left(), 46, plot.width(), 28), "C1 / ΣHC")
+            _text(painter, QRectF(plot.left(), 46, 145, 28), "C1 / ΣHC")
+            shown = min(x.size, 1200)
+            summary = {
+                AppLanguage.RU: f"Точек {shown}/{x.size} · медиана X: {_compact_tick(float(np.median(x)))}" if x.size else "Точек 0",
+                AppLanguage.KK: f"Нүктелер {shown}/{x.size} · X медианасы: {_compact_tick(float(np.median(x)))}" if x.size else "Нүктелер 0",
+                AppLanguage.EN: f"Points {shown}/{x.size} · median X: {_compact_tick(float(np.median(x)))}" if x.size else "Points 0",
+            }[language]
+            _text(painter, QRectF(plot.left() + 148, 40, plot.width() - 148, 18), summary, typography.caption_pt)
+            scale_label = {
+                AppLanguage.RU: "X: log(1+x)" if logarithmic else "X: линейная шкала",
+                AppLanguage.KK: "X: log(1+x)" if logarithmic else "X: сызықтық шкала",
+                AppLanguage.EN: "X: log(1+x)" if logarithmic else "X: linear scale",
+            }[language]
+            _text(painter, QRectF(plot.left() + 148, 59, plot.width() - 148, 18), scale_label, typography.caption_pt)
             for tick in range(6):
+                tick_value = np.expm1(np.log1p(maximum) * tick / 5) if logarithmic else maximum * tick / 5
                 _text(
                     painter,
                     _paired_x_tick_rect(plot, tick),
-                    _compact_tick(maximum * tick / 5),
+                    _compact_tick(float(tick_value)),
                     typography.caption_pt,
                 )
                 _text(
@@ -324,17 +354,18 @@ def paint_ratio_reference_summary(
             selection = (
                 np.arange(x.size) if x.size <= 1200 else np.linspace(0, x.size - 1, 1200, dtype=int)
             )
+            x_positions = _scatter_fraction(x[selection], maximum, logarithmic)
             painter.save()
             painter.setClipRect(plot)
             painter.setPen(Qt.PenStyle.NoPen)
-            for row in selection:
+            for position, row in zip(x_positions, selection, strict=True):
                 bin_index = min(
                     5, int((depth[row] - low_depth) / max(1e-9, high_depth - low_depth) * 6)
                 )
                 _depth_marker(
                     painter,
                     QPointF(
-                        plot.left() + x[row] / maximum * plot.width(),
+                        plot.left() + position * plot.width(),
                         plot.bottom() - y[row] * plot.height(),
                     ),
                     max(0, bin_index),

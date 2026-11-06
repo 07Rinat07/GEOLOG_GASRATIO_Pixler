@@ -50,6 +50,37 @@ def test_crossplot_keeps_paired_source_rows_and_methane_fraction() -> None:
     np.testing.assert_array_equal(depth, [100.0, 103.0])
 
 
+def test_crossplot_uses_labelled_log1p_axis_for_large_outliers(qapp, monkeypatch):
+    import geoworkbench.printing.gas_ratio_reference as reference
+
+    values = np.r_[np.linspace(0, 5, 99), 1400.0]
+    maximum, logarithmic = reference._scatter_axis(values)
+    assert logarithmic
+    positions = reference._scatter_fraction(values, maximum, logarithmic)
+    assert positions[0] == 0
+    assert positions[98] > 0.2
+    assert positions[-1] < 1
+    assert np.all(np.diff(positions) > 0)
+    assert not reference._scatter_axis(np.array([0.0, 1.0, 5.0]))[1]
+    original_pairs, original_text = reference.reference_pairs, reference._text
+    labels = []
+
+    def pairs(dataset, name):
+        if name == "BH":
+            return values, np.full(values.shape, 0.8), np.linspace(100, 103, values.size)
+        return original_pairs(dataset, name)
+
+    def capture(painter, rect, text, size=None, **kwargs):
+        labels.append(text)
+        original_text(painter, rect, text, size, **kwargs)
+
+    monkeypatch.setattr(reference, "reference_pairs", pairs)
+    monkeypatch.setattr(reference, "_text", capture)
+    reference.ratio_reference_summary_uri(_dataset(), AppLanguage.RU)
+    assert "X: log(1+x)" in labels
+    assert any(label.startswith("Точек 100/100 · медиана X:") for label in labels)
+
+
 def test_reference_summary_handles_complete_pixler_profiles_without_mutating_source(qapp) -> None:
     dataset = _dataset()
     before = {name: curve.values.copy() for name, curve in dataset.curves.items()}
