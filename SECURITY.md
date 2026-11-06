@@ -27,6 +27,14 @@ disclosure after a fixed build is available.
 
 ## Data handling
 
+- GIS calibration parameter records are separate, bounded JSON inputs. The reader rejects
+  unsupported schemas, duplicate keys, invalid types and non-finite numbers, then verifies
+  the current dataset/curve/axis metadata and sample fingerprints before filling UI fields.
+  Opening a record never activates calibration; an explicit sample evaluation is still required.
+  Fingerprints detect a source mismatch, not document authenticity or the reviewer's identity.
+  Records contain operator-supplied reviewer/evidence text: handle them as user data and keep
+  them out of Git. Export rechecks the source before publication and rejects the source LAS
+  as its destination; no raw sample arrays are included in the record.
 - Projects, LAS files, WITS/WITSML captures, exports, diagnostic bundles and raw sidecars are user
   data, not source code. They must not be committed unless they are explicitly approved,
   synthetic and documented test fixtures.

@@ -1,14 +1,16 @@
+from copy import deepcopy
 from dataclasses import replace
 
 import numpy as np
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QAbstractItemView, QDialog, QMessageBox
+from PySide6.QtWidgets import QAbstractItemView, QDialog, QFileDialog, QMessageBox
 
 from geoworkbench.domain.models import (
     CalculationState, CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.gis_calibration_records import export_gis_calibration_record
 from geoworkbench.services.semantic_channels import SemanticChannelDictionary
 from geoworkbench.ui.gis_reference_dialog import GisReferenceDialog
 from geoworkbench.ui.gis_input_inventory_dialog import GisInputInventoryDialog
@@ -33,6 +35,306 @@ def _fill(dialog, density=False):
         dialog.fields[key].setText(value)
     for field, value in zip(dialog.parameters, ("2,71", "1,0") if density else ("25", "125")):
         field.setText(value)
+
+
+def _draft(dialog):
+    return (
+        dialog.method.currentData(), dialog.channel.currentData(), dialog.row.value(),
+        {key: field.text() for key, field in dialog.fields.items()},
+        tuple(field.text() for field in dialog.parameters),
+    )
+
+
+def _saved_parameters(dataset, path):
+    dialog = GisReferenceDialog(dataset)
+    try:
+        _fill(dialog)
+        dialog.calculate.click()
+        assert dialog.sample is not None
+        export_gis_calibration_record(dataset, dialog.sample.calibration, path)
+    finally:
+        dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+@pytest.mark.parametrize("density", [False, True])
+def test_saved_parameters_reopen_matching_source_without_activating_calibration(
+    qapp, monkeypatch, tmp_path, language, density,
+):
+    dataset = _dataset(density)
+    original = dataset.curves["selected"].values.copy()
+    original_depths = dataset.active_index.values.copy()
+    path = tmp_path / "parameters.json"
+    dialog = GisReferenceDialog(dataset, language=language)
+    reopened = None
+    try:
+        assert not dialog.save_parameters.isEnabled()
+        _fill(dialog, density)
+        dialog.calculate.click()
+        sample = dialog.sample
+        assert sample is not None and dialog.save_parameters.isEnabled()
+        monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *args: (str(path), "JSON"))
+        dialog.save_parameters.click()
+        assert path.is_file()
+        assert dialog.record_status.text() == dialog._t("parameters_saved")
+        assert dialog.sample is sample
+
+        source = deepcopy(dataset)
+        reopened = GisReferenceDialog(source, language=language)
+        # The record carries parameters, not an implicitly selected sample or computed result.
+        reopened.row.setValue(3)
+        monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args: (str(path), "JSON"))
+        reopened.open_parameters.click()
+        assert reopened.method.currentData() == sample.calibration.source.method_id
+        assert reopened.channel.currentData() == "selected"
+        assert reopened.row.value() == 3
+        assert reopened.sample is None and not reopened.save_parameters.isEnabled()
+        assert not reopened.result_label.text()
+        assert reopened.record_status.text() == reopened._t("parameters_loaded")
+        assert reopened.record_status.textFormat() is Qt.TextFormat.PlainText
+        for key in ("calibration_id", "tool_id", "reviewer", "evidence"):
+            assert reopened.fields[key].text() == dialog.fields[key].text()
+        assert tuple(reopened._number(field) for field in reopened.parameters) == (
+            (2.71, 1.0) if density else (25.0, 125.0)
+        )
+        reopened.calculate.click()
+        assert reopened.sample is not None and reopened.sample is not sample
+        assert reopened.sample.sample_index == 2
+        assert reopened.save_parameters.isEnabled()
+        assert not reopened.record_status.text()
+        np.testing.assert_array_equal(dataset.curves["selected"].values, original)
+        np.testing.assert_array_equal(source.curves["selected"].values, original)
+        np.testing.assert_array_equal(dataset.active_index.values, original_depths)
+        np.testing.assert_array_equal(source.active_index.values, original_depths)
+    finally:
+        dialog.close()
+        if reopened is not None:
+            reopened.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+@pytest.mark.parametrize("failure", ["invalid", "foreign", "changed_during_dialog"])
+def test_open_parameters_rejects_record_without_partial_draft_changes(
+    qapp, monkeypatch, tmp_path, language, failure,
+):
+    dataset = _dataset()
+    path = tmp_path / "parameters.json"
+    _saved_parameters(dataset, path)
+    if failure == "invalid":
+        path.write_text('{"internal": "do not display this"}', encoding="utf-8")
+    elif failure == "foreign":
+        dataset.dataset_id = "different-dataset"
+    dialog = GisReferenceDialog(dataset, language=language)
+    try:
+        _fill(dialog)
+        dialog.fields["reviewer"].setText("Keep this draft")
+        before = _draft(dialog)
+
+        def choose(*args):
+            if failure == "changed_during_dialog":
+                dataset.curves["selected"].values[0] = 99.0
+            return str(path), "JSON"
+
+        monkeypatch.setattr(QFileDialog, "getOpenFileName", choose)
+        dialog.open_parameters.click()
+        assert _draft(dialog) == before
+        assert dialog.sample is None and not dialog.save_parameters.isEnabled()
+        assert dialog.record_status.text() == dialog._t("parameters_invalid")
+        assert str(path) not in dialog.record_status.text()
+        assert "do not display this" not in dialog.record_status.text()
+        assert dataset.curves["selected"].values[0] == (
+            99.0 if failure == "changed_during_dialog" else 65.0
+        )
+    finally:
+        dialog.close()
+
+
+@pytest.mark.parametrize("when", ["before_dialog", "during_dialog", "draft_during_dialog"])
+def test_save_parameters_rechecks_current_sample_after_modal_selection(
+    qapp, monkeypatch, tmp_path, when,
+):
+    dataset = _dataset()
+    path = tmp_path / "parameters.json"
+    dialog = GisReferenceDialog(dataset)
+    seen = []
+    try:
+        _fill(dialog)
+        dialog.calculate.click()
+        assert dialog.sample is not None
+        if when == "before_dialog":
+            dataset.curves["selected"].values[0] = 90.0
+
+        def choose(*args):
+            seen.append(True)
+            if when == "during_dialog":
+                dataset.curves["selected"].values[0] = 90.0
+            else:
+                dialog.fields["reviewer"].setText("Changed while choosing a file")
+            return str(path), "JSON"
+
+        monkeypatch.setattr(QFileDialog, "getSaveFileName", choose)
+        dialog.save_parameters.click()
+        assert seen == ([] if when == "before_dialog" else [True])
+        assert not path.exists()
+        assert dialog.sample is None and not dialog.save_parameters.isEnabled()
+        assert dialog.record_status.text() != dialog._t("parameters_saved")
+    finally:
+        dialog.close()
+
+
+@pytest.mark.parametrize("action", ["save", "open"])
+def test_cancel_parameter_file_dialog_preserves_current_draft(qapp, monkeypatch, action):
+    dialog = GisReferenceDialog(_dataset())
+    try:
+        _fill(dialog)
+        dialog.calculate.click()
+        sample, before, result = dialog.sample, _draft(dialog), dialog.result_label.text()
+        method = "getSaveFileName" if action == "save" else "getOpenFileName"
+        monkeypatch.setattr(QFileDialog, method, lambda *args: ("", ""))
+        button = dialog.save_parameters if action == "save" else dialog.open_parameters
+        button.click()
+        assert _draft(dialog) == before
+        assert dialog.sample is sample and dialog.save_parameters.isEnabled()
+        assert dialog.result_label.text() == result
+    finally:
+        dialog.close()
+
+
+@pytest.mark.parametrize("change", ["parameter", "identity", "channel", "method", "row", "source"])
+def test_loaded_parameter_match_status_is_invalidated_by_edits_or_source_review(
+    qapp, monkeypatch, tmp_path, change,
+):
+    dataset = _dataset()
+    path = tmp_path / "parameters.json"
+    _saved_parameters(dataset, path)
+    dialog = GisReferenceDialog(dataset)
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args: (str(path), "JSON"))
+    try:
+        dialog.open_parameters.click()
+        assert dialog.record_status.text() == dialog._t("parameters_loaded")
+        if change == "parameter":
+            dialog.parameters[0].setText("30")
+        elif change == "identity":
+            dialog.fields["reviewer"].setText("Another reviewer")
+        elif change == "channel":
+            dialog.channel.setCurrentIndex(0)
+        elif change == "method":
+            dialog.method.setCurrentIndex(2)
+        elif change == "row":
+            dialog.row.setValue(3)
+        else:
+            dataset.curves["selected"].values[0] = 90.0
+            dialog.review_source.click()
+        assert not dialog.record_status.text()
+        assert dialog.sample is None and not dialog.save_parameters.isEnabled()
+    finally:
+        dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_parameter_save_failure_has_no_success_or_internal_details(
+    qapp, monkeypatch, tmp_path, language,
+):
+    dialog = GisReferenceDialog(_dataset(), language=language)
+    try:
+        _fill(dialog)
+        dialog.calculate.click()
+        sample = dialog.sample
+        path = tmp_path / "parameters.json"
+        monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *args: (str(path), "JSON"))
+
+        def fail(*args, **kwargs):
+            raise OSError("internal path and diagnostic details")
+
+        monkeypatch.setattr(
+            "geoworkbench.ui.gis_reference_dialog.export_gis_calibration_record", fail,
+        )
+        dialog.save_parameters.click()
+        assert dialog.sample is sample and dialog.save_parameters.isEnabled()
+        assert not path.exists()
+        assert dialog.record_status.text() == dialog._t("parameters_save_failed")
+        assert "internal path" not in dialog.record_status.text()
+    finally:
+        dialog.close()
+
+
+@pytest.mark.parametrize("review_before_calculation", [False, True])
+def test_loaded_parameters_recheck_source_before_explicit_calculation(
+    qapp, monkeypatch, tmp_path, review_before_calculation,
+):
+    dataset = _dataset()
+    path = tmp_path / "parameters.json"
+    _saved_parameters(dataset, path)
+    dialog = GisReferenceDialog(dataset)
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args: (str(path), "JSON"))
+    try:
+        dialog.open_parameters.click()
+        before = _draft(dialog)
+        version = dataset.curves["selected"].version
+        dataset.curves["selected"].values[0] = 90.0
+        if review_before_calculation:
+            dialog.review_source.click()
+        dialog.calculate.click()
+        assert dialog.sample is None and not dialog.save_parameters.isEnabled()
+        assert dialog.record_status.text() == dialog._t("parameters_invalid")
+        assert _draft(dialog) == before
+        assert dataset.curves["selected"].version == version
+        assert dataset.curves["selected"].values[0] == 90.0
+    finally:
+        dialog.close()
+
+
+def test_loaded_parameters_allow_other_valid_row_after_source_review(qapp, monkeypatch, tmp_path):
+    dataset = _dataset()
+    path = tmp_path / "parameters.json"
+    _saved_parameters(dataset, path)
+    dialog = GisReferenceDialog(dataset)
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args: (str(path), "JSON"))
+    try:
+        dialog.open_parameters.click()
+        dialog.row.setValue(3)
+        dialog.review_source.click()
+        dialog.calculate.click()
+        assert dialog.sample is not None and dialog.sample.sample_index == 2
+        assert dialog.sample.source_value == 145.0
+        assert dialog.save_parameters.isEnabled()
+    finally:
+        dialog.close()
+
+
+@pytest.mark.parametrize("confirm", [False, True])
+def test_save_parameters_confirms_existing_file_after_appending_json(
+    qapp, monkeypatch, tmp_path, confirm,
+):
+    dialog = GisReferenceDialog(_dataset())
+    path = tmp_path / "parameters.json"
+    path.write_bytes(b"existing output")
+    prompts = []
+    try:
+        _fill(dialog)
+        dialog.calculate.click()
+        sample, draft = dialog.sample, _draft(dialog)
+        monkeypatch.setattr(
+            QFileDialog, "getSaveFileName", lambda *args: (str(path.with_suffix("")), "JSON"),
+        )
+
+        def question(*args):
+            prompts.append(args)
+            return QMessageBox.StandardButton.Yes if confirm else QMessageBox.StandardButton.No
+
+        monkeypatch.setattr(QMessageBox, "question", question)
+        dialog.save_parameters.click()
+        assert len(prompts) == 1
+        assert prompts[0][-1] is QMessageBox.StandardButton.No
+        assert dialog.sample is sample and _draft(dialog) == draft
+        if confirm:
+            assert path.read_bytes() != b"existing output"
+            assert dialog.record_status.text() == dialog._t("parameters_saved")
+        else:
+            assert path.read_bytes() == b"existing output"
+            assert not dialog.record_status.text()
+    finally:
+        dialog.close()
 
 
 @pytest.mark.parametrize("language", list(AppLanguage))
