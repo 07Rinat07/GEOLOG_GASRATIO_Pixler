@@ -1,3 +1,23 @@
+## Project status and external LAS operator guidance (06.11.2026)
+
+Reconciled the active project queue with merged PRs #831–837 and the current implementation.
+The old October snapshot is explicitly historical; GIS inventory, single-sample IGR/density
+UI and data-only fusion are recorded as implemented parts, while full GIS correlation,
+persisted calibration records, interval profiles and field acceptance remain open.
+The current project format is v38. RU/KK/EN LAS Editor 2 guides now describe the existing
+copy-and-save workflow, its activity stages and final success message, without promising
+in-place Undo or uninterrupted responsiveness during the final tablet refresh.
+
+The integrated changes covered by this status update are:
+
+- [#831](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/831): shared visual profile for the Excel document-control sheet.
+- [#832](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/832) and [#833](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/833): visible external-LAS read/prepare/save stages, background recalculation of the prepared copy and explicit successful-save feedback.
+- [#834](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/834) and [#835](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/835): rollback limited to the operation-owned copy and preserved formula identity/provenance. Previously lost formula identifiers are not reconstructed automatically.
+- [#836](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/836) and [#837](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/837): newly available GIS curve keys and refreshed unit labels after inventory, preserving the selected source and revalidating calibration.
+
+This documentation update changes no runtime behavior or release checks. Native Qt #544,
+real large-LAS Windows acceptance and geological validation remain open.
+
 ## CI/Qt #544 — bounded replay of confirmed en→ru export crash (03.11.2026, PR review) 
 
 Follow-up: fixed the **manual** `.github/workflows/qt-native-replay.yml` input choices to `1/2/3/4`, matching `MAX_REPETITIONS=4`, and aligned the workflow-contract regression test to derive its budget from that constant. The initial PR #826 Windows Quality Gate exposed the obsolete `5`/`40` expectation; the mandatory Release Gate configuration remains untouched.

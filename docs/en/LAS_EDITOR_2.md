@@ -1,15 +1,15 @@
 # LAS Editor 2 — safe merging, external LAS insertion, and batch editing
 
-Updated: 21 July 2026
+Updated: 6 November 2026
 
 ## Purpose
 
-LAS Editor 2 combines depth normalization, progressive LAS merging, direct insertion of
+LAS Editor 2 combines depth normalization, progressive LAS merging, insertion of
 external curves, mouse-based curve editing, spreadsheet operations, and exports.
 
 Source LAS files on disk are never overwritten automatically. Transformations create a new
 project copy or modify only the current working dataset. Disk output is explicit through LAS
-export or project save.
+export, project save, or choosing an output LAS in the external insertion command.
 
 ## Ascending-depth copy
 
@@ -68,9 +68,22 @@ encoding sample is capped at the first 128 KiB of header content before `~ASCII`
 
 ## Insert data from an external LAS
 
-**Insert data from external LAS…** reads a disk file and adds selected curves to the current
-dataset. It is intended for wireline data, directional surveys, well trajectory channels,
-laboratory measurements, and third-party engineering curves.
+**Insert data from external LAS…** reads a disk file, creates a copy of the current dataset
+with the selected external curves, and saves it to an explicitly chosen output LAS.
+The original dataset remains unchanged. Choose a new output file distinct from both source
+LAS files; overwriting an existing output requires explicit confirmation. This is intended for wireline
+data, directional surveys, well trajectory channels, laboratory measurements, and third-party
+engineering curves.
+
+Check the copy's output LAS before confirming insertion. Separate indicators show file reading and
+analysis, copy preparation including dependent-curve recalculation, and saving. They identify
+the current stage without a completion percentage or a cancel button. After saving and view
+updates succeed, a message shows the output LAS path and the number of added curves. Reading,
+preparation, or saving errors are shown separately and do not produce a success message.
+
+Reading, preparation with recalculation, and writing run in the background. The final tablet
+update can still delay the interface; acceptance with real large LAS files on Windows remains
+open.
 
 - identical depth grids are copied without interpolation;
 - partial overlap is interpolated only inside the common interval;
@@ -78,10 +91,11 @@ laboratory measurements, and third-party engineering curves.
 - values outside the overlap remain missing;
 - depth units `m`, `ft`, `cm`, and `mm` are converted to the current LAS depth unit;
 - a descending external source is reversed only in a temporary in-memory copy;
-- the external file is not modified.
+- the external file is not modified when the output LAS is saved to a separate path.
 
-An `EXTERNAL_LAS_IMPORT_*` manifest stores source SHA-256, path, encoding, mapping details,
-and inserted curves. Undo is available until an inserted curve receives later edits.
+The created copy contains an `EXTERNAL_LAS_IMPORT_*` manifest with source SHA-256, path,
+encoding, depth mapping details, and inserted curves. Creating a copy with this command is
+not an Undo/Redo operation. Use `Ctrl+S` to retain the copy as part of the project.
 
 The physical source unit is preserved. Display names and display units for forms/PDF are
 edited at track-binding level; changing a caption does not convert numeric values.
