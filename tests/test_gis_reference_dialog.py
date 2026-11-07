@@ -67,6 +67,8 @@ def test_interval_review_counts_samples_without_calibration_or_mutation(qapp, la
         dialog.review_interval.click()
         assert dialog.interval_review_label.text() == (
             dialog._t("interval_summary", total=3, finite=2, missing=1) + "\n"
+            + dialog._t("interval_value_bounds", minimum="2.42" if density else "65",
+                        maximum="2.9" if density else "145", unit="g/cm3" if density else "API") + "\n"
             + dialog._t("interval_missing_depths", shown=1, total=1, depths="101")
         )
         assert dialog.sample is None
@@ -76,6 +78,8 @@ def test_interval_review_counts_samples_without_calibration_or_mutation(qapp, la
         dialog.review_interval.click()
         assert dialog.interval_review_label.text() == (
             dialog._t("interval_summary", total=2, finite=1, missing=1) + "\n"
+            + dialog._t("interval_value_bounds", minimum="2.9" if density else "145",
+                        maximum="2.9" if density else "145", unit="g/cm3" if density else "API") + "\n"
             + dialog._t("interval_missing_depths", shown=1, total=1, depths="101")
         )
         dialog.fields["base"].setText("invalid")

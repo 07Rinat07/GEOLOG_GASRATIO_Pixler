@@ -21,13 +21,16 @@ def test_counts_actual_rows_and_missing_without_mutating_source():
     result = review(dataset)
     assert (result.sample_count, result.finite_count, result.missing_count) == (3, 2, 1)
     assert result.finite_md_bounds == (100.0, 102.0)
+    assert result.finite_value_bounds == (0.0, 30.0)
     assert result.missing_md_preview == (101.0,)
     assert result.source.curve.source_dataset_id == "original-run"
     np.testing.assert_equal(values, [0.0, np.nan, 30.0])
     missing = review(dataset, 100.5, 101.5)
     assert (missing.sample_count, missing.finite_count, missing.missing_count) == (1, 0, 1)
     assert missing.finite_md_bounds is None
+    assert missing.finite_value_bounds is None
     assert review(dataset, 110, 120).sample_count == 0
+    assert review(dataset, 110, 120).finite_value_bounds is None
     assert review(dataset, 110, 120).missing_md_preview == ()
 
 
@@ -47,10 +50,22 @@ def test_missing_preview_finds_sparse_rows_after_first_chunk():
     dataset.active_index.values = np.arange(70_000, dtype=float)
     values = np.ones(70_000)
     values[[65_536, 69_999]] = np.nan
+    values[65_537] = -10
+    values[69_998] = 100
     dataset.curves["selected"].values = values
     result = review(dataset, 0, 69_999)
     assert result.missing_count == 2
     assert result.missing_md_preview == (65_536.0, 69_999.0)
+    assert result.finite_value_bounds == (-10.0, 100.0)
+
+
+def test_value_bounds_exclude_other_depths_and_nonfinite_values():
+    dataset = _dataset()
+    dataset.active_index.values = np.arange(99.0, 104.0)
+    dataset.curves["selected"].values = np.array([-999.0, 0.0, np.inf, 15.0, 999.0])
+    result = review(dataset, 100, 102)
+    assert (result.sample_count, result.finite_count, result.missing_count) == (3, 2, 1)
+    assert result.finite_value_bounds == (0.0, 15.0)
 
 
 def test_descending_axis_and_stale_unit_are_handled_explicitly():

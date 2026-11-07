@@ -200,6 +200,13 @@ class GisReferenceDialog(QDialog):
             "interval_summary", total=result.sample_count,
             finite=result.finite_count, missing=result.missing_count,
         )
+        if result.finite_value_bounds is not None:
+            minimum, maximum = result.finite_value_bounds
+            curve = result.source.curve
+            summary += "\n" + self._t(
+                "interval_value_bounds", minimum=f"{minimum:.9g}", maximum=f"{maximum:.9g}",
+                unit=(curve.unit if curve is not None else None) or "?",
+            )
         if result.missing_md_preview:
             summary += "\n" + self._t(
                 "interval_missing_depths",
