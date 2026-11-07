@@ -200,6 +200,12 @@ class GisReferenceDialog(QDialog):
             "interval_summary", total=result.sample_count,
             finite=result.finite_count, missing=result.missing_count,
         )
+        if result.finite_md_bounds is not None:
+            shallowest, deepest = result.finite_md_bounds
+            summary += "\n" + self._t(
+                "interval_observed_depths", shallowest=f"{shallowest:.9g}",
+                deepest=f"{deepest:.9g}",
+            )
         if result.finite_value_bounds is not None:
             minimum, maximum = result.finite_value_bounds
             curve = result.source.curve
