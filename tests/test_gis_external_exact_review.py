@@ -108,6 +108,37 @@ def test_duplicate_manifest_fields_do_not_authorize_source(monkeypatch, tmp_path
     assert not exact_external_gis_curve_ids(combined)
 
 
+@pytest.mark.parametrize("reason", ["interpolated", "missing_semantics"])
+def test_unverified_copy_explains_review_rejection_in_each_language(qapp, monkeypatch, tmp_path, reason):
+    from PySide6.QtWidgets import QMessageBox
+    from geoworkbench.services.localization import AppLanguage
+    from geoworkbench.ui.main_window import MainWindow
+
+    depths = (100.0, 102.0) if reason == "interpolated" else (100.0, 101.0, 102.0)
+    session, receiver, _, combined = _copy(monkeypatch, tmp_path, source_depth=depths)
+    if reason == "missing_semantics":
+        curve = next(iter(combined.curves.values()))
+        curve.metadata = replace(curve.metadata, semantic=None)
+    window = MainWindow()
+    messages = []
+    monkeypatch.setattr(QMessageBox, "information", lambda *args: messages.append(args[2]))
+    monkeypatch.setattr(GisReferenceDialog, "exec", lambda _dialog: pytest.fail("unexpected review"))
+    try:
+        window.session.project = session.project
+        window.session.current_well_id = session.current_well_id
+        window.session.current_dataset_id = combined.dataset_id
+        window.session.dirty = False
+        for language in AppLanguage:
+            window.change_language(language)
+            window.show_gis_reference_dialog()
+            assert messages[-1] == window._t("petro_reference.external_unavailable")
+        assert len(messages) == 3
+        assert not window.session.dirty
+        assert receiver.curves == {}
+    finally:
+        window.close()
+
+
 def test_combined_dataset_is_available_from_main_window(qapp, monkeypatch, tmp_path):
     from PySide6.QtWidgets import QDialog
     from geoworkbench.ui.main_window import MainWindow
