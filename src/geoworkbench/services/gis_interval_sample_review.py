@@ -26,6 +26,7 @@ class GisIntervalSampleReview:
     missing_count: int
     finite_md_bounds: tuple[float, float] | None
     missing_md_preview: tuple[float, ...] = ()
+    finite_value_bounds: tuple[float, float] | None = None
 
 
 def review_gis_interval_samples(
@@ -68,6 +69,17 @@ def review_gis_interval_samples(
     observed_bounds = (
         (float(np.min(finite_depths)), float(np.max(finite_depths))) if finite else None
     )
+    value_bounds: tuple[float, float] | None = None
+    if finite:
+        minimum, maximum = float("inf"), float("-inf")
+        # Do not allocate a second array proportional to the entire LAS interval.
+        for start in range(0, len(values), 65_536):
+            stop = min(start + 65_536, len(values))
+            chunk = values[start:stop][observed[start:stop]]
+            if chunk.size:
+                minimum = min(minimum, float(np.min(chunk)))
+                maximum = max(maximum, float(np.max(chunk)))
+        value_bounds = (minimum, maximum)
     return GisIntervalSampleReview(
-        source, top, bottom, total, finite, total - finite, observed_bounds, tuple(preview),
+        source, top, bottom, total, finite, total - finite, observed_bounds, tuple(preview), value_bounds,
     )

@@ -2545,6 +2545,7 @@
   "petro_reference.review_interval": "Аралықтағы өлшемдерді тексеру",
   "petro_reference.interval_invalid": "MD шекараларын және таңдалған ГИС дереккөзін тексеріңіз.",
   "petro_reference.interval_summary": "Тексеру кезінде: {total} өлшем, {finite} мән, {missing} бос мән. Жеке нүктелер үздіксіз қамтуды білдірмейді.",
+  "petro_reference.interval_value_bounds": "Бар мәндер ауқымы: {minimum}–{maximum} {unit}. Бұл қабаттың немесе флюидтің бағасы емес.",
   "petro_reference.interval_missing_depths": "Бос өлшемдердің жазылу ретіндегі алғашқы тереңдіктері ({total} ішінен {shown} көрсетілді), MD м: {depths}.",
   "petro_reference.source_ready": "Дереккөз тексерулері өтті. Калибрлеу параметрлері мен қолдануға жарамдылықтың сарапшылық негіздері әлі қажет; бұл интерпретацияны бекіту емес.",
   "petro_reference.source_blocked": "Бұл әдіс үшін дереккөз қолжетімсіз:\n{reasons}",
