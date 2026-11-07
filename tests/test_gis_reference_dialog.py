@@ -67,6 +67,7 @@ def test_interval_review_counts_samples_without_calibration_or_mutation(qapp, la
         dialog.review_interval.click()
         assert dialog.interval_review_label.text() == (
             dialog._t("interval_summary", total=3, finite=2, missing=1) + "\n"
+            + dialog._t("interval_observed_depths", shallowest="100", deepest="102") + "\n"
             + dialog._t("interval_value_bounds", minimum="2.42" if density else "65",
                         maximum="2.9" if density else "145", unit="g/cm3" if density else "API") + "\n"
             + dialog._t("interval_missing_depths", shown=1, total=1, depths="101")
@@ -78,6 +79,7 @@ def test_interval_review_counts_samples_without_calibration_or_mutation(qapp, la
         dialog.review_interval.click()
         assert dialog.interval_review_label.text() == (
             dialog._t("interval_summary", total=2, finite=1, missing=1) + "\n"
+            + dialog._t("interval_observed_depths", shallowest="102", deepest="102") + "\n"
             + dialog._t("interval_value_bounds", minimum="2.9" if density else "145",
                         maximum="2.9" if density else "145", unit="g/cm3" if density else "API") + "\n"
             + dialog._t("interval_missing_depths", shown=1, total=1, depths="101")
@@ -87,6 +89,38 @@ def test_interval_review_counts_samples_without_calibration_or_mutation(qapp, la
         assert dialog.interval_review_label.text() == dialog._t("interval_invalid")
         dialog.channel.setCurrentIndex(0)
         assert not dialog.interval_review_label.text()
+    finally:
+        dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_interval_review_hides_depth_range_when_no_values(qapp, language):
+    dialog = GisReferenceDialog(_dataset(), language=language)
+    try:
+        _fill(dialog)
+        dialog.fields["top"].setText("100.5")
+        dialog.fields["base"].setText("101.5")
+        dialog.review_interval.click()
+        assert dialog.interval_review_label.text() == (
+            dialog._t("interval_summary", total=1, finite=0, missing=1) + "\n"
+            + dialog._t("interval_missing_depths", shown=1, total=1, depths="101")
+        )
+    finally:
+        dialog.close()
+
+
+def test_interval_review_shows_observed_bounds_for_descending_partial_coverage(qapp):
+    dataset = _dataset()
+    dataset.active_index.values = np.array([102.0, 101.0, 100.0])
+    dialog = GisReferenceDialog(dataset)
+    try:
+        _fill(dialog)
+        dialog.fields["top"].setText("99")
+        dialog.fields["base"].setText("105")
+        dialog.review_interval.click()
+        assert dialog._t("interval_observed_depths", shallowest="100", deepest="102") in (
+            dialog.interval_review_label.text()
+        )
     finally:
         dialog.close()
 

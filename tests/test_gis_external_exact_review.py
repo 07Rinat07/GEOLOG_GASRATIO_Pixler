@@ -160,6 +160,7 @@ def test_combined_dataset_is_available_from_main_window(qapp, monkeypatch, tmp_p
             dialog.review_interval.click()
             assert dialog.interval_review_label.text() == (
                 dialog._t("interval_summary", total=3, finite=3, missing=0) + "\n"
+                + dialog._t("interval_observed_depths", shallowest="100", deepest="102") + "\n"
                 + dialog._t("interval_value_bounds", minimum="0", maximum="2", unit="API")
             )
             return QDialog.DialogCode.Rejected

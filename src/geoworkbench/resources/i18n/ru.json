@@ -2545,6 +2545,7 @@
   "petro_reference.review_interval": "Проверить отсчёты в интервале",
   "petro_reference.interval_invalid": "Проверьте границы MD и выбранный источник ГИС.",
   "petro_reference.interval_summary": "На момент проверки: отсчётов {total}, значений {finite}, пропусков {missing}. Отдельные точки не означают непрерывного покрытия.",
+  "petro_reference.interval_observed_depths": "Крайние глубины имеющихся значений: {shallowest}–{deepest} м MD. Между ними могут быть пропуски.",
   "petro_reference.interval_value_bounds": "Диапазон имеющихся значений: {minimum}–{maximum} {unit}. Это не оценка пласта или флюида.",
   "petro_reference.interval_missing_depths": "Глубины первых пропущенных отсчётов в порядке записи (показано {shown} из {total}), MD м: {depths}.",
   "petro_reference.source_ready": "Проверки источника пройдены. Требуются параметры калибровки и экспертные основания применимости; это не утверждение интерпретации.",
