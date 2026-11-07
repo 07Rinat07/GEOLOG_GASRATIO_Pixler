@@ -28,6 +28,8 @@ _FAMILIES = {
     "pef": QuantityClass.DIMENSIONLESS,
 }
 
+GIS_SAMPLE_FAMILIES = frozenset(_FAMILIES)
+
 
 def _unique_manifest_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
     result: dict[str, object] = {}
