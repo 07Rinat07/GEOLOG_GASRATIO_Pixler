@@ -908,7 +908,9 @@ class InterpretationReportWorkspace(QWidget):
             )
         layout.addWidget(selector)
         from geoworkbench.domain.models import DatasetKind
-        from geoworkbench.services.gis_input_inventory import exact_external_gis_curve_ids
+        from geoworkbench.services.gis_input_inventory import (
+            GIS_SAMPLE_FAMILIES, exact_external_gis_curve_ids,
+        )
 
         def has_reviewable_gis() -> bool:
             external_ids = (
@@ -917,7 +919,7 @@ class InterpretationReportWorkspace(QWidget):
             )
             return any(
                 curve.metadata.semantic is not None
-                and curve.metadata.semantic.family in {"gamma_ray", "bulk_density"}
+                and curve.metadata.semantic.family in GIS_SAMPLE_FAMILIES
                 and (dataset.kind is DatasetKind.GIS or curve.metadata.curve_id in external_ids)
                 for curve in dataset.curves.values()
             )

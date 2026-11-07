@@ -11,6 +11,7 @@ from math import isfinite
 import numpy as np
 
 from geoworkbench.domain.models import Dataset
+from geoworkbench.services.gis_input_inventory import GisCurveInput, inventory_gis_inputs
 from geoworkbench.services.gis_reference_input_review import (
     GisReferenceInputReview, review_gis_reference_input,
 )
@@ -29,6 +30,31 @@ class GisIntervalSampleReview:
     finite_value_bounds: tuple[float, float] | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class GisSourceIntervalSampleReview:
+    """Observed values only; does not authorize a petrophysical calculation."""
+
+    source: GisCurveInput
+    top_md_m: float
+    bottom_md_m: float
+    sample_count: int
+    finite_count: int
+    missing_count: int
+    finite_md_bounds: tuple[float, float] | None
+    missing_md_preview: tuple[float, ...] = ()
+    finite_value_bounds: tuple[float, float] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _IntervalSummary:
+    sample_count: int
+    finite_count: int
+    missing_count: int
+    finite_md_bounds: tuple[float, float] | None
+    missing_md_preview: tuple[float, ...]
+    finite_value_bounds: tuple[float, float] | None
+
+
 def review_gis_interval_samples(
     dataset: Dataset, *, method_id: str, curve_key: str,
     top_md_m: float, bottom_md_m: float,
@@ -39,6 +65,44 @@ def review_gis_interval_samples(
     Bounds do not imply coverage between observations. No values are filled,
     interpreted, calibrated or aligned with another dataset.
     """
+    top, bottom = _interval_bounds(top_md_m, bottom_md_m)
+    source = review_gis_reference_input(dataset, method_id=method_id, curve_key=curve_key)
+    if not source.ready_for_calibration:
+        raise ValueError("GIS source review failed: " + ", ".join(source.issues))
+    summary = _summarize_samples(dataset, curve_key, top, bottom)
+    return GisIntervalSampleReview(
+        source, top, bottom, summary.sample_count, summary.finite_count, summary.missing_count,
+        summary.finite_md_bounds, summary.missing_md_preview, summary.finite_value_bounds,
+    )
+
+
+def review_gis_source_interval_samples(
+    dataset: Dataset, *, curve_key: str, top_md_m: float, bottom_md_m: float,
+) -> GisSourceIntervalSampleReview:
+    """Review explicit verified source rows without selecting a calculation method.
+
+    These are raw observations, not calibration, continuous coverage or evidence
+    of geological alignment. Unsupported units, axes and provenance are rejected.
+    """
+    top, bottom = _interval_bounds(top_md_m, bottom_md_m)
+    if not isinstance(curve_key, str) or not curve_key.strip():
+        raise ValueError("An explicit curve key is required")
+    inventory = inventory_gis_inputs(dataset)
+    source = next((row for row in inventory.curves if row.curve_key == curve_key), None)
+    # A correctly shaped curve containing only missing samples is still useful
+    # for an availability review; it must never be treated as calibration input.
+    if source is None or inventory.axis_issues or any(
+        issue != "no_finite_paired_samples" for issue in source.issues
+    ):
+        raise ValueError("GIS source review failed")
+    summary = _summarize_samples(dataset, curve_key, top, bottom)
+    return GisSourceIntervalSampleReview(
+        source, top, bottom, summary.sample_count, summary.finite_count, summary.missing_count,
+        summary.finite_md_bounds, summary.missing_md_preview, summary.finite_value_bounds,
+    )
+
+
+def _interval_bounds(top_md_m: float, bottom_md_m: float) -> tuple[float, float]:
     bounds: list[float] = []
     for value in (top_md_m, bottom_md_m):
         scalar = np.asarray(value)
@@ -48,9 +112,10 @@ def review_gis_interval_samples(
     top, bottom = bounds
     if not (isfinite(top) and isfinite(bottom) and top < bottom and isfinite(bottom - top)):
         raise ValueError("Interval bounds must be ordered finite MD values")
-    source = review_gis_reference_input(dataset, method_id=method_id, curve_key=curve_key)
-    if not source.ready_for_calibration:
-        raise ValueError("GIS source review failed: " + ", ".join(source.issues))
+    return top, bottom
+
+
+def _summarize_samples(dataset: Dataset, curve_key: str, top: float, bottom: float) -> _IntervalSummary:
     depths = np.asarray(dataset.active_index.values)
     values = np.asarray(dataset.curves[curve_key].values)
     selected = (depths >= top) & (depths <= bottom)
@@ -80,6 +145,4 @@ def review_gis_interval_samples(
                 minimum = min(minimum, float(np.min(chunk)))
                 maximum = max(maximum, float(np.max(chunk)))
         value_bounds = (minimum, maximum)
-    return GisIntervalSampleReview(
-        source, top, bottom, total, finite, total - finite, observed_bounds, tuple(preview), value_bounds,
-    )
+    return _IntervalSummary(total, finite, total - finite, observed_bounds, tuple(preview), value_bounds)

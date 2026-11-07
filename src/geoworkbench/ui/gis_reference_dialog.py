@@ -21,7 +21,10 @@ from geoworkbench.services.gis_reference_calibration import (
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.gis_reference_input_review import review_gis_reference_input
-from geoworkbench.services.gis_interval_sample_review import review_gis_interval_samples
+from geoworkbench.services.gis_interval_sample_review import (
+    GisIntervalSampleReview, GisSourceIntervalSampleReview, review_gis_interval_samples,
+    review_gis_source_interval_samples,
+)
 from geoworkbench.ui.gis_input_inventory_dialog import GisInputInventoryDialog
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
@@ -87,6 +90,9 @@ class GisReferenceDialog(QDialog):
         self.review_interval = QPushButton(self._t("review_interval"), body)
         self.review_interval.setObjectName("gis-reference-review-interval")
         form.addRow(self.review_interval)
+        self.review_source_interval = QPushButton(self._t("review_source_interval"), body)
+        self.review_source_interval.setObjectName("gis-reference-review-source-interval")
+        form.addRow(self.review_source_interval)
         self.interval_review_label = QLabel(body)
         self.interval_review_label.setObjectName("gis-reference-interval-review")
         self.interval_review_label.setTextFormat(Qt.TextFormat.PlainText)
@@ -139,6 +145,7 @@ class GisReferenceDialog(QDialog):
         self.calculate.clicked.connect(self._calculate)
         self.review_source.clicked.connect(self._review_source)
         self.review_interval.clicked.connect(self._review_interval)
+        self.review_source_interval.clicked.connect(self._review_source_interval)
         for selector in (self.method, self.channel):
             selector.currentIndexChanged.connect(self.interval_review_label.clear)
         for key in ("top", "base"):
@@ -196,10 +203,34 @@ class GisReferenceDialog(QDialog):
         except (ValueError, TypeError, OverflowError):
             self.interval_review_label.setText(self._t("interval_invalid"))
             return
+        self._show_interval_result(result)
+
+    def _review_source_interval(self) -> None:
+        self.interval_review_label.clear()
+        channel = self.channel.currentData()
+        if not isinstance(channel, str):
+            self.interval_review_label.setText(self._t("source_channel_required"))
+            return
+        try:
+            result = review_gis_source_interval_samples(
+                self.dataset, curve_key=channel,
+                top_md_m=self._number(self.fields["top"]),
+                bottom_md_m=self._number(self.fields["base"]),
+            )
+        except (ValueError, TypeError, OverflowError):
+            self.interval_review_label.setText(self._t("interval_invalid"))
+            return
+        self._show_interval_result(result)
+
+    def _show_interval_result(
+        self, result: GisIntervalSampleReview | GisSourceIntervalSampleReview,
+    ) -> None:
         summary = self._t(
             "interval_summary", total=result.sample_count,
             finite=result.finite_count, missing=result.missing_count,
         )
+        if isinstance(result, GisSourceIntervalSampleReview):
+            summary = self._t("source_interval_notice") + "\n" + summary
         if result.finite_md_bounds is not None:
             shallowest, deepest = result.finite_md_bounds
             summary += "\n" + self._t(
@@ -208,7 +239,7 @@ class GisReferenceDialog(QDialog):
             )
         if result.finite_value_bounds is not None:
             minimum, maximum = result.finite_value_bounds
-            curve = result.source.curve
+            curve = result.source if isinstance(result, GisSourceIntervalSampleReview) else result.source.curve
             summary += "\n" + self._t(
                 "interval_value_bounds", minimum=f"{minimum:.9g}", maximum=f"{maximum:.9g}",
                 unit=(curve.unit if curve is not None else None) or "?",

@@ -53,6 +53,12 @@ are shown in source order. This is a snapshot; review again after source changes
 Point counts do not establish continuous
 coverage, correlation, or fluid type.
 
+For GR, RHOB, NPHI, DT, resistivity and other recognized GIS channels, select a
+curve and choose “Review original GIS samples” without selecting a method. Source
+unit, semantics, axis and provenance are checked; no unit conversion, calibration
+or petrophysical calculation is performed. A fully missing curve is reported as
+missing samples, not as a negative result or a statement about the whole well.
+
 **Operator dialog:** Calculations → GIS: review one sample…
 (`GisReferenceDialog`, `petro_reference.action`). Select the active GIS dataset,
 method and curve; enter calibration/tool IDs, reviewer, evidence, MD bounds
