@@ -7,6 +7,8 @@ tool applicability, valid saturation or alignment with another dataset.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
+import re
 
 import numpy as np
 
@@ -25,6 +27,69 @@ _FAMILIES = {
     "resistivity": QuantityClass.RESISTIVITY,
     "pef": QuantityClass.DIMENSIONLESS,
 }
+
+
+def _unique_manifest_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("Duplicate external LAS manifest field")
+        result[key] = value
+    return result
+
+
+def exact_external_gis_curve_ids(dataset: Dataset) -> frozenset[str]:
+    """Identify exact-row external curves backed by an unambiguous import manifest.
+
+    This does not establish geological alignment or physical applicability.
+    Resampled curves and records without matching provenance remain ineligible.
+    """
+    matches: dict[str, int] = {}
+    curves_by_id = {curve.metadata.curve_id: curve for curve in dataset.curves.values()}
+    duplicate_ids: set[str] = set()
+    seen_ids: set[str] = set()
+    for curve in dataset.curves.values():
+        if curve.metadata.curve_id in seen_ids:
+            duplicate_ids.add(curve.metadata.curve_id)
+        seen_ids.add(curve.metadata.curve_id)
+    for key, encoded in dataset.parameters.items():
+        if (not key.startswith("EXTERNAL_LAS_IMPORT_") or not isinstance(encoded, str)
+                or len(encoded) > 4_000_000):
+            continue
+        try:
+            manifest = json.loads(encoded, object_pairs_hook=_unique_manifest_object)
+        except (ValueError, RecursionError):
+            continue
+        if not isinstance(manifest, dict) or type(manifest.get("version")) is not int:
+            continue
+        digest, entries = manifest.get("source_sha256"), manifest.get("curves")
+        if (manifest["version"] != 1 or manifest.get("mapping") != "exact"
+                or not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest)
+                or not isinstance(entries, list)):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            curve_id, source_name, source_unit = (
+                entry.get("target_curve_id"), entry.get("source_mnemonic"), entry.get("source_unit")
+            )
+            if (not isinstance(curve_id, str) or not curve_id.strip()
+                    or not isinstance(source_name, str) or not source_name.strip()):
+                continue
+            if source_unit is not None and not isinstance(source_unit, str):
+                continue
+            candidate_curve = curves_by_id.get(curve_id)
+            if candidate_curve is None or curve_id in duplicate_ids:
+                continue
+            metadata = candidate_curve.metadata
+            if (metadata.semantic is None or metadata.semantic.family not in _FAMILIES
+                    or metadata.source_dataset_id != dataset.dataset_id
+                    or entry.get("target_mnemonic") != metadata.original_mnemonic
+                    or source_unit != metadata.unit
+                    or metadata.provenance != f"external-las:{digest}:{source_name}:{source_unit or ''}"):
+                continue
+            matches[curve_id] = matches.get(curve_id, 0) + 1
+    return frozenset(curve_id for curve_id, count in matches.items() if count == 1)
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,12 +125,14 @@ def inventory_gis_inputs(dataset: Dataset) -> GisInputInventory:
     """Snapshot existing source evidence without resolving aliases or editing arrays.
 
     Counts and bounds describe actual paired samples, not continuous coverage.
-    Unknown semantics and incompatible axes stay explicit; no unit conversion,
-    interpolation, source replacement or cross-dataset MD/lag inference occurs.
+    Unknown semantics and incompatible axes stay explicit. Non-GIS datasets
+    admit only individually verified exact-row external LAS insertions; no unit
+    conversion, interpolation or cross-dataset MD/lag inference occurs here.
     """
     axis = dataset.active_index
     axis_issues: list[str] = []
-    if dataset.kind is not DatasetKind.GIS:
+    external_ids = exact_external_gis_curve_ids(dataset) if dataset.kind is not DatasetKind.GIS else frozenset()
+    if dataset.kind is not DatasetKind.GIS and not external_ids:
         axis_issues.append("dataset_not_gis")
     if not supports_saved_md_geology(dataset):
         axis_issues.append("unverified_metre_md_alignment")
@@ -85,6 +152,8 @@ def inventory_gis_inputs(dataset: Dataset) -> GisInputInventory:
         metadata = curve.metadata
         binding = metadata.semantic
         issues: list[str] = []
+        if dataset.kind is not DatasetKind.GIS and metadata.curve_id not in external_ids:
+            issues.append("external_source_unverified")
         if not metadata.curve_id.strip():
             issues.append("missing_curve_id")
         family = binding.family if binding is not None else None

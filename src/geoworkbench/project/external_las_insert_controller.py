@@ -149,6 +149,7 @@ class ExternalLasInsertController:
                         description=metadata.description,
                         source_dataset_id=result.dataset_id,
                         provenance=metadata.provenance,
+                        semantic=metadata.semantic,
                     ),
                     values=built_curve.values.copy(),
                 )

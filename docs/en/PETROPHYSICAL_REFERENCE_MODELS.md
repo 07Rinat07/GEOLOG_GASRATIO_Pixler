@@ -57,6 +57,11 @@ coverage, correlation, or fluid type.
 (`GisReferenceDialog`, `petro_reference.action`). Select the active GIS dataset,
 method and curve; enter calibration/tool IDs, reviewer, evidence, MD bounds
 and parameters. Choose the source row (from 1), then click Evaluate sample.
+The dialog also accepts a new gas-dataset copy containing a row-matched external
+GIS curve with matching import manifest and semantic binding. Interpolated curves
+and older copies without semantic bindings are not accepted automatically; retain
+the originals and insert again to make a new copy. Row matching alone does not
+verify geological alignment.
 Use a decimal dot or comma without thousands separators. The dialog displays
 source MD/value/unit, result, QC and calibration ID. Editing a field clears the
 result; changing the method clears parameters. Close leaves the project unchanged.

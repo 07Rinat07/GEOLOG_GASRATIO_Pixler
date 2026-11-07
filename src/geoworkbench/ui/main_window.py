@@ -7646,7 +7646,11 @@ class MainWindow(QMainWindow):
 
     def show_gis_reference_dialog(self) -> None:
         dataset = self.session.current_dataset
-        if dataset is None or dataset.kind is not DatasetKind.GIS:
+        from geoworkbench.services.gis_input_inventory import exact_external_gis_curve_ids
+
+        if dataset is None or (
+            dataset.kind is not DatasetKind.GIS and not exact_external_gis_curve_ids(dataset)
+        ):
             QMessageBox.information(
                 self, self._t("petro_reference.action"), self._t("petro_reference.select_gis"),
             )
