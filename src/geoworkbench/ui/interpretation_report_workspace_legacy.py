@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from functools import partial
 from html import escape
+from math import isfinite
 from pathlib import Path
 from typing import Iterator, Literal
 
@@ -906,6 +907,102 @@ class InterpretationReportWorkspace(QWidget):
                 index,
             )
         layout.addWidget(selector)
+        from geoworkbench.domain.models import DatasetKind
+        from geoworkbench.services.gis_input_inventory import exact_external_gis_curve_ids
+
+        def has_reviewable_gis() -> bool:
+            external_ids = (
+                exact_external_gis_curve_ids(dataset)
+                if dataset.kind is not DatasetKind.GIS else frozenset()
+            )
+            return any(
+                curve.metadata.semantic is not None
+                and curve.metadata.semantic.family in {"gamma_ray", "bulk_density"}
+                and (dataset.kind is DatasetKind.GIS or curve.metadata.curve_id in external_ids)
+                for curve in dataset.curves.values()
+            )
+
+        # Only a source that can pass the existing GIS entry guard exposes this
+        # optional operator action; the source is checked again when clicked.
+        gis_button = QPushButton(self._text(
+            "Проверить ГИС в выбранном интервале…",
+            "Таңдалған аралықтағы ГИС-ті тексеру…",
+            "Review GIS in selected interval…",
+        ), dialog)
+        gis_button.setObjectName("interpretation-geology-review-gis")
+        gis_button.setVisible(has_reviewable_gis())
+        layout.addWidget(gis_button)
+
+        def review_gis() -> None:
+            from geoworkbench.services.geology_depth_alignment import supports_saved_md_geology
+            from geoworkbench.ui.gis_reference_dialog import GisReferenceDialog
+
+            index = selector.currentData()
+            geology_current = False
+            if session.current_well is well and session.current_dataset is dataset:
+                try:
+                    geology_current = build_report_geology_snapshot(session).geology_sha256 == geology_digest
+                except (RuntimeError, ValueError, TypeError):
+                    pass
+            if (
+                self._geology_evidence_dialog is not dialog
+                or session.current_well is not well or session.current_dataset is not dataset
+                or self._method_comparison_source_key(report) != source_key
+                or not isinstance(index, int) or not 0 <= index < len(report.candidates)
+                or not supports_saved_md_geology(dataset)
+                or not has_reviewable_gis()
+                or not geology_current
+            ):
+                QMessageBox.information(self, gis_button.text(), self._text(
+                    "Источник или интервал изменился. Обновите отчёт и выберите интервал заново.",
+                    "Дереккөз немесе аралық өзгерді. Есепті жаңартып, аралықты қайта таңдаңыз.",
+                    "The source or interval changed. Refresh the report and select the interval again.",
+                ))
+                return
+            # Report identities do not catch in-place edits to array contents.
+            # Rebuild only on this explicit click and require the same candidate.
+            try:
+                QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+                try:
+                    if self._is_opus_mode():
+                        lod = self.total_gas_lod.value()
+                        current = build_opus_interpretation_report(
+                            session, threshold=self.threshold.value(),
+                            depth_interval=getattr(self.controller, "depth_interval", None),
+                            total_gas_lod=lod if lod > 0.0 else None,
+                        )
+                    else:
+                        current = build_hydrocarbon_interpretation_report(
+                            session, threshold=self.threshold.value(),
+                            depth_interval=getattr(self.controller, "depth_interval", None),
+                        )
+                finally:
+                    QApplication.restoreOverrideCursor()
+                candidate = report.candidates[index]
+                if (
+                    session.current_well is not well or session.current_dataset is not dataset
+                    or self._method_comparison_source_key(report) != source_key
+                    or current.dataset_id != dataset.dataset_id
+                    or current.depth_axis_id != dataset.active_index_id
+                    or index >= len(current.candidates) or current.candidates[index] != candidate
+                    or not (isfinite(candidate.top_depth) and isfinite(candidate.bottom_depth)
+                            and candidate.top_depth < candidate.bottom_depth
+                            and isfinite(candidate.bottom_depth - candidate.top_depth))
+                ):
+                    raise ValueError("The selected interval is stale or invalid")
+            except (RuntimeError, ValueError, TypeError, OverflowError):
+                QMessageBox.information(self, gis_button.text(), self._text(
+                    "Газовый интервал изменился или недоступен. Обновите отчёт и выберите его заново.",
+                    "Газ аралығы өзгерді немесе қолжетімсіз. Есепті жаңартып, қайта таңдаңыз.",
+                    "The gas interval changed or is unavailable. Refresh the report and select it again.",
+                ))
+                return
+            review = GisReferenceDialog(dataset, self, language=self.language)
+            review.fields["top"].setText(f"{candidate.top_depth:.17g}")
+            review.fields["base"].setText(f"{candidate.bottom_depth:.17g}")
+            review.exec()
+
+        gis_button.clicked.connect(review_gis)
         # Field-by-field MD detail is an explicitly chosen read-only preview.
         # Export approvals still refer to the complete verified evidence snapshot.
         field_choice = QComboBox(dialog)
