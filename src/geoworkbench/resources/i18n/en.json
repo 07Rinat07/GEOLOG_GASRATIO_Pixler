@@ -2579,6 +2579,7 @@
   "petro_reference.reviewer": "Reviewed by",
   "petro_reference.row": "Source row (from 1)",
   "petro_reference.select_gis": "Select a GIS dataset or a copy with a verified row-matched external LAS insertion.",
+  "petro_reference.external_unavailable": "This copy has no verified GIS curve inserted on matching depth rows. Possible causes include interpolation during insertion, missing curve information, or inconsistent metadata. Open the original GIS dataset for review. If the grids match, you can repeat the insertion into a new copy; geological alignment requires separate confirmation.",
   "petro_reference.selection_required": "Select a method and source curve.",
   "petro_reference.shale": "Shale GR reference (API)",
   "petro_reference.tool_id": "Tool ID",

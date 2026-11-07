@@ -7651,8 +7651,15 @@ class MainWindow(QMainWindow):
         if dataset is None or (
             dataset.kind is not DatasetKind.GIS and not exact_external_gis_curve_ids(dataset)
         ):
+            has_external_import = dataset is not None and any(
+                key.startswith("EXTERNAL_LAS_IMPORT_") for key in dataset.parameters
+            )
+            message_key = (
+                "petro_reference.external_unavailable" if has_external_import
+                else "petro_reference.select_gis"
+            )
             QMessageBox.information(
-                self, self._t("petro_reference.action"), self._t("petro_reference.select_gis"),
+                self, self._t("petro_reference.action"), self._t(message_key),
             )
             return
         GisReferenceDialog(dataset, self, language=self.language).exec()
