@@ -62,6 +62,10 @@ GIS curve with matching import manifest and semantic binding. Interpolated curve
 and older copies without semantic bindings are not accepted automatically; retain
 the originals and insert again to make a new copy. Row matching alone does not
 verify geological alignment.
+In the report's “Compare gas with geology” window, an operator can select a gas
+interval and open “Review GIS in selected interval…” when suitable GIS exists in
+the same dataset. Bounds come from a freshly rechecked gas candidate; the operator
+chooses the method and curve. This preview adds no automatic conclusion or PDF content.
 Use a decimal dot or comma without thousands separators. The dialog displays
 source MD/value/unit, result, QC and calibration ID. Editing a field clears the
 result; changing the method clears parameters. Close leaves the project unchanged.
