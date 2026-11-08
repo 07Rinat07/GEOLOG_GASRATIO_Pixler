@@ -30,12 +30,9 @@ def main() -> int:
             if not debugger.is_file() or " " in str(dump_path):
                 raise RuntimeError("Debugger or safe dump path unavailable")
             capture = f".exr -1; r; kb; lm; .dump /m {dump_path}; q"
-            commands = (
-                f'sxe -c "{capture}" 0xc0000005; sxe -c "{capture}" 0xc0000374; '
-                f'sxe -c "{capture}" 0xc0000409; g'
-            )
             command = [
-                str(debugger), "-o", "-G", "-c", commands,
+                str(debugger), "-o", "-g", "-G", "-xe", "0xc0000005", "-xe", "0xc0000374",
+                "-xe", "0xc0000409", "-c", capture,
                 sys.executable, "scripts/run_tests.py", "--geolog-single-shard", "-p", "no:cacheprovider", *selectors,
             ]
             result = subprocess.run(command, env=environment, check=False, timeout=1200).returncode
