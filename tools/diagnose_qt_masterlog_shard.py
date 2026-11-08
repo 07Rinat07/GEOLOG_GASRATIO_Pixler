@@ -14,9 +14,9 @@ def main() -> int:
     environment = os.environ.copy()
     mode = os.environ.get("GEOLOG_REPLAY_MODE")
     if mode == "isolated":
-        prefix = ((*shards[4][24:35], shards[4][41]),)
+        prefix = ((*shards[4][24:35], shards[4][42]),)
     elif mode == "sequence":
-        prefix = ((*shards[4][24:35], *shards[4][42:44]),)
+        prefix = ((*shards[4][24:35], shards[4][43]),)
     else:
         raise ValueError("Select one diagnostic prefix")
     selected = (*prefix, shards[last])
