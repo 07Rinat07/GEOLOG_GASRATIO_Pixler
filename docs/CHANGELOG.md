@@ -1,3 +1,10 @@
+## CI/Qt #544 — native debugger evidence (09.11.2026)
+
+Record the failed post-merge Windows gate and the separately captured CDB/Python
+stacks. The diagnostic debugger stopped the target at an access violation; its
+workflow success is not a completed test pass. The root cause and relationship
+between the observed native error codes remain unproven.
+
 ## INTERP-GIS-01 — missing sample depths in comparison (08.11.2026)
 
 The GIS interval comparison shows up to ten missing sample depths for the selected
