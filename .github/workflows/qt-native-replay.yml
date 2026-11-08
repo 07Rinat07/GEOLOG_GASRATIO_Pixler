@@ -95,7 +95,7 @@ jobs:
           GEOLOG_REPLAY_MODE: ${{ inputs.mode }}
           GEOLOG_REPLAY_REPETITIONS: ${{ inputs.repetitions }}
         run: |
-          .\.venv\Scripts\python.exe tools/replay_windows_qt_native.py --output-dir build/ci-artifacts/qt-replay --mode $env:GEOLOG_REPLAY_MODE --repetitions $env:GEOLOG_REPLAY_REPETITIONS
+          .\.venv\Scripts\python.exe -m tools.diagnose_qt_masterlog_shard
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload replay logs and version evidence
