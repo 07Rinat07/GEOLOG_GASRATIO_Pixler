@@ -14,12 +14,12 @@ def main() -> int:
     environment = os.environ.copy()
     mode = os.environ.get("GEOLOG_REPLAY_MODE")
     if mode == "isolated":
-        prefix = ((*shards[4][29:32], *shards[4][33:35], shards[4][42]),)
+        prefix = ((*shards[4][29:32], *shards[4][33:35], shards[4][42], *shards[last]),)
     elif mode == "sequence":
-        prefix = (shards[4][29:32], shards[4][33:35], (shards[4][42],))
+        prefix = ((*shards[4][29:32], *shards[4][33:35], shards[4][42]), shards[last])
     else:
         raise ValueError("Select one diagnostic prefix")
-    selected = (*prefix, shards[last])
+    selected = prefix
     for index, selectors in enumerate(selected, start=1):
         print(f"Diagnostic shard {index}/{len(selected)}: {len(selectors)} files", flush=True)
         result = _run_child(("-p", "no:cacheprovider"), selectors, environment)
