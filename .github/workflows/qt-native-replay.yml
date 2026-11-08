@@ -89,6 +89,12 @@ jobs:
           .\.venv\Scripts\python.exe tools/capture_windows_native_runtime.py --output build/ci-artifacts/qt-replay/native-runtime.json --commit "${{ github.sha }}"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Check available native debuggers
+        shell: pwsh
+        run: |
+          Get-Command cdb, procdump, windbg -ErrorAction SilentlyContinue | Select-Object Name, Source | Format-Table
+          Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\Debuggers\x64\cdb.exe" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+
       - name: Replay known native-heavy Qt selectors
         shell: pwsh
         env:
