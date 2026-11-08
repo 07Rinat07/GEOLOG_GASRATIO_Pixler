@@ -39,11 +39,18 @@ from geoworkbench.ui.interpretation_report_workspace_drilling import (
 
 
 def _diagnostic_layout_items() -> None:
-    for obj in gc.get_objects():
+    objects = gc.get_objects()
+    for obj in objects:
         if type(obj) is QWidgetItem:
             valid = shiboken6.isValid(obj)
             native = shiboken6.getCppPointer(obj)[0] if valid else 0
-            print(f"QT_GC_ITEM {id(obj):x} {valid} {native:x}", flush=True)
+            owners = sorted({type(ref).__name__ for ref in gc.get_referrers(obj) if ref is not objects})
+            print(
+                f"QT_GC_ITEM {id(obj):x} {valid} {native:x} "
+                f"owned={shiboken6.ownedByPython(obj)} created={shiboken6.createdByPython(obj)} "
+                f"python_refs={','.join(owners)}",
+                flush=True,
+            )
 
 
 class InterpretationReportWorkspace(_DrillingInterpretationReportWorkspace):
