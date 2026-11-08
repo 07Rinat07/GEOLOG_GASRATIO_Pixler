@@ -58,7 +58,8 @@ def _diagnostic_layout_items(current: QWidget) -> None:
                     print(
                         f"QT_GC_OWNER {id(obj):x} layout={id(ref):x} "
                         f"parent={type(parent).__name__ if parent else 'None'} "
-                        f"name={parent.objectName() if parent else ''} current={parent is current}",
+                        f"name={parent.objectName() if parent else ''} current={parent is current} "
+                        f"root={ref is current.layout()} layout_parent={type(ref.parent()).__name__}",
                         flush=True,
                     )
                     if parent and parent.objectName() == "interpretation-report-workspace":
