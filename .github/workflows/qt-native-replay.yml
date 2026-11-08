@@ -95,7 +95,7 @@ jobs:
           GEOLOG_REPLAY_MODE: ${{ inputs.mode }}
           GEOLOG_REPLAY_REPETITIONS: ${{ inputs.repetitions }}
         run: |
-          .\.venv\Scripts\python.exe -m tools.diagnose_qt_masterlog_shard
+          .\.venv\Scripts\python.exe -m tools.diagnose_qt_masterlog_shard *>&1 | Tee-Object -FilePath build/ci-artifacts/qt-replay/stream.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload replay logs and version evidence

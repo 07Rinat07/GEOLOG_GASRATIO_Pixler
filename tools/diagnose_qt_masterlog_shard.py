@@ -22,8 +22,7 @@ def main() -> int:
             sys.executable, "scripts/run_tests.py", "--geolog-single-shard", "-p", "no:cacheprovider", *selectors,
         ]
         print(f"Running {name}: {len(selectors)} selectors", flush=True)
-        with (output / f"{name}.log").open("w", encoding="utf-8", errors="replace") as log:
-            result = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, check=False, timeout=1200)
+        result = subprocess.run(command, check=False, timeout=1200)
         print(f"{name}: exit {result.returncode} (0x{result.returncode & 0xffffffff:08X})", flush=True)
         failed |= result.returncode != 0
     return 1 if failed else 0
