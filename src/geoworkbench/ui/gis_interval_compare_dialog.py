@@ -2,19 +2,37 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QSize, Qt
+from math import isfinite
+
+from PySide6.QtCore import QCoreApplication, QSize, Qt, Slot
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
-    QApplication, QDialog, QDialogButtonBox, QFormLayout, QHeaderView, QLabel, QLineEdit,
+    QDialog, QDialogButtonBox, QFormLayout, QHeaderView, QLabel, QLineEdit, QProgressBar,
     QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.gis_input_inventory import GIS_SAMPLE_FAMILIES
 from geoworkbench.services.gis_interval_sample_review import (
-    MAX_GIS_INTERVAL_CURVES, GisSourceIntervalBatchItem, review_gis_source_interval_batch,
+    MAX_GIS_INTERVAL_CURVES, GisSourceIntervalBatchItem,
 )
+from geoworkbench.services.gis_interval_snapshot import GisIntervalSnapshot
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.gis_interval_compare_worker import GisIntervalCompareWorker
 from geoworkbench.ui.window_geometry import fit_window_to_screen
+
+
+# Keep a worker alive even if an application shutdown destroys the parent dialog.
+_LIVE_WORKERS: set[GisIntervalCompareWorker] = set()
+
+
+def _stop_workers_on_exit() -> None:
+    # Qt must not destroy a running QThread during application shutdown.
+    workers = tuple(_LIVE_WORKERS)
+    for worker in workers:
+        worker.request_cancel()
+    for worker in workers:
+        worker.wait()
 
 
 class GisIntervalCompareDialog(QDialog):
@@ -25,6 +43,9 @@ class GisIntervalCompareDialog(QDialog):
         super().__init__(parent)
         self.dataset = dataset
         self.localizer = Localizer.create(language)
+        self._worker: GisIntervalCompareWorker | None = None
+        self._cancel_requested = False
+        self._close_after_worker = False
         self.setObjectName("gis-interval-compare-dialog")
         self.setWindowTitle(self._t("title"))
         layout = QVBoxLayout(self)
@@ -72,10 +93,19 @@ class GisIntervalCompareDialog(QDialog):
         self.status.setTextFormat(Qt.TextFormat.PlainText)
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
+        self.progress = QProgressBar(self)
+        self.progress.setObjectName("gis-interval-compare-progress")
+        self.progress.hide()
+        layout.addWidget(self.progress)
         self.review = QPushButton(self._t("review"), self)
         self.review.setObjectName("gis-interval-compare-review")
         self.review.clicked.connect(self._review)
         layout.addWidget(self.review)
+        self.cancel = QPushButton(self._t("cancel"), self)
+        self.cancel.setObjectName("gis-interval-compare-cancel")
+        self.cancel.clicked.connect(self._cancel_review)
+        self.cancel.hide()
+        layout.addWidget(self.cancel)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(self.localizer.text("common.close"))
         buttons.rejected.connect(self.reject)
@@ -109,6 +139,8 @@ class GisIntervalCompareDialog(QDialog):
             self.status.clear()
 
     def _review(self) -> None:
+        if self._worker is not None:
+            return
         self._clear_results()
         selected: list[str] = []
         for row in range(self.table.rowCount()):
@@ -126,20 +158,68 @@ class GisIntervalCompareDialog(QDialog):
         if not 1 <= len(keys) <= MAX_GIS_INTERVAL_CURVES:
             self.status.setText(self._t("selection_required", limit=MAX_GIS_INTERVAL_CURVES))
             return
-        self.status.setText(self._t("working"))
-        self.status.repaint()
-        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
-            results = review_gis_source_interval_batch(
-                self.dataset, curve_keys=keys,
-                top_md_m=float(self.top.text().strip().replace(",", ".")),
-                bottom_md_m=float(self.bottom.text().strip().replace(",", ".")),
-            )
+            top = float(self.top.text().strip().replace(",", "."))
+            bottom = float(self.bottom.text().strip().replace(",", "."))
+            if not (isfinite(top) and isfinite(bottom) and top < bottom and isfinite(bottom - top)):
+                raise ValueError("Invalid interval")
         except (ValueError, TypeError, OverflowError):
             self.status.setText(self._t("invalid"))
             return
-        finally:
-            QApplication.restoreOverrideCursor()
+        self._cancel_requested = False
+        self._close_after_worker = False
+        self._set_running(True)
+        self.status.setText(self._t("preparing"))
+        worker = GisIntervalCompareWorker(self.dataset, keys, top, bottom)
+        self._worker = worker
+        _LIVE_WORKERS.add(worker)
+        app = QCoreApplication.instance()
+        if app is not None and not app.property("gis_compare_shutdown_connected"):
+            app.aboutToQuit.connect(_stop_workers_on_exit)
+            app.setProperty("gis_compare_shutdown_connected", True)
+        worker.progress.connect(self._progress)
+        worker.completed.connect(self._completed)
+        worker.failed.connect(self._failed)
+        worker.finished.connect(self._worker_finished)
+        worker.finished.connect(lambda: _LIVE_WORKERS.discard(worker))
+        worker.finished.connect(worker.deleteLater)
+        self.destroyed.connect(worker.request_cancel)
+        worker.start()
+
+    def _set_running(self, running: bool) -> None:
+        for widget in (self.top, self.bottom, self.table, self.review):
+            widget.setEnabled(not running)
+        self.cancel.setVisible(running)
+        self.cancel.setEnabled(running)
+        self.progress.setVisible(running)
+        if running:
+            self.progress.setRange(0, 0)
+
+    @Slot(str, int, int)
+    def _progress(self, stage: str, current: int, total: int) -> None:
+        if self._cancel_requested:
+            return
+        if stage == "reviewing" and total > 0:
+            self.progress.setRange(0, total)
+            self.progress.setValue(current)
+            self.status.setText(self._t("progress", current=current, total=total))
+        elif stage in {"preparing", "checking", "verifying"}:
+            self.progress.setRange(0, 0)
+            self.status.setText(self._t(stage))
+
+    @Slot(object, object)
+    def _completed(self, snapshot: object, payload: object) -> None:
+        if self._cancel_requested:
+            self.status.setText(self._t("cancelled"))
+            return
+        if (
+            not isinstance(snapshot, GisIntervalSnapshot) or snapshot.source is not self.dataset
+            or not snapshot.structure_matches() or not isinstance(payload, tuple)
+            or any(not isinstance(item, GisSourceIntervalBatchItem) for item in payload)
+        ):
+            self.status.setText(self._t("changed"))
+            return
+        results = payload
         by_key = {item.curve_key: item for item in results}
         for row in range(self.table.rowCount()):
             choice = self.table.item(row, 0)
@@ -147,6 +227,41 @@ class GisIntervalCompareDialog(QDialog):
             if key in by_key:
                 self._show_item(row, by_key[key])
         self.status.setText(self._t("complete"))
+
+    @Slot(str)
+    def _failed(self, reason: str) -> None:
+        self.status.setText(self._t(reason if reason in {"cancelled", "changed"} else "failed"))
+
+    @Slot()
+    def _cancel_review(self) -> None:
+        if self._worker is not None:
+            self._cancel_requested = True
+            self.cancel.setEnabled(False)
+            self.status.setText(self._t("cancelling"))
+            self._worker.request_cancel()
+
+    @Slot()
+    def _worker_finished(self) -> None:
+        self._worker = None
+        self._set_running(False)
+        if self._close_after_worker:
+            self._close_after_worker = False
+            self.reject()
+
+    def reject(self) -> None:
+        if self._worker is not None:
+            self._close_after_worker = True
+            self._cancel_review()
+            return
+        super().reject()
+
+    def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 - Qt API
+        if self._worker is not None:
+            self._close_after_worker = True
+            self._cancel_review()
+            event.ignore()
+            return
+        super().closeEvent(event)
 
     def _show_item(self, row: int, item: GisSourceIntervalBatchItem) -> None:
         if item.source is not None:

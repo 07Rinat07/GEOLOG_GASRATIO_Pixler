@@ -63,6 +63,11 @@ curves from the current dataset in one MD interval. Each row shows its original
 unit, source, sample and missing counts, outermost depths and value range, or the
 reason it is blocked. This snapshot does not establish continuous coverage,
 calibration or fluid type.
+The comparison runs in the background with preparation, curve count, source recheck
+and completion states. Cancel discards partial results and stops after the current
+non-interruptible stage. The selected arrays and axis are temporarily copied, so
+large LAS files require additional memory. Detected source changes reject the
+result; run the review again after any edit.
 
 **Operator dialog:** Calculations → GIS: review one sample…
 (`GisReferenceDialog`, `petro_reference.action`). Select the active GIS dataset,

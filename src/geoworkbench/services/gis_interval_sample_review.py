@@ -5,6 +5,7 @@ This snapshot describes points, not continuous coverage or interpretation.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from math import isfinite
 
@@ -56,6 +57,10 @@ class GisSourceIntervalBatchItem:
 
 
 MAX_GIS_INTERVAL_CURVES = 8
+
+
+class GisIntervalReviewCancelled(Exception):
+    """A read-only interval review was cancelled between processing stages."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,6 +122,8 @@ def review_gis_source_interval_samples(
 
 def review_gis_source_interval_batch(
     dataset: Dataset, *, curve_keys: tuple[str, ...], top_md_m: float, bottom_md_m: float,
+    progress: Callable[[int, int], None] | None = None,
+    cancelled: Callable[[], bool] | None = None,
 ) -> tuple[GisSourceIntervalBatchItem, ...]:
     """Review explicitly selected sources on one axis without interpolation or inference.
 
@@ -130,10 +137,14 @@ def review_gis_source_interval_batch(
         or len(set(curve_keys)) != len(curve_keys)
     ):
         raise ValueError("Select one to eight unique GIS curve keys")
+    if cancelled is not None and cancelled():
+        raise GisIntervalReviewCancelled
     inventory = inventory_gis_inputs(dataset)
     sources = {source.curve_key: source for source in inventory.curves}
     result: list[GisSourceIntervalBatchItem] = []
-    for key in curve_keys:
+    for index, key in enumerate(curve_keys):
+        if cancelled is not None and cancelled():
+            raise GisIntervalReviewCancelled
         source = sources.get(key)
         issues = tuple(f"axis:{issue}" for issue in inventory.axis_issues)
         if source is None:
@@ -144,13 +155,17 @@ def review_gis_source_interval_batch(
             )
         if issues or source is None:
             result.append(GisSourceIntervalBatchItem(key, source, issues, None))
-            continue
-        summary = _summarize_samples(dataset, key, top, bottom)
-        review = GisSourceIntervalSampleReview(
-            source, top, bottom, summary.sample_count, summary.finite_count, summary.missing_count,
-            summary.finite_md_bounds, summary.missing_md_preview, summary.finite_value_bounds,
-        )
-        result.append(GisSourceIntervalBatchItem(key, source, (), review))
+        else:
+            summary = _summarize_samples(dataset, key, top, bottom)
+            review = GisSourceIntervalSampleReview(
+                source, top, bottom, summary.sample_count, summary.finite_count, summary.missing_count,
+                summary.finite_md_bounds, summary.missing_md_preview, summary.finite_value_bounds,
+            )
+            result.append(GisSourceIntervalBatchItem(key, source, (), review))
+        if progress is not None:
+            progress(index + 1, len(curve_keys))
+    if cancelled is not None and cancelled():
+        raise GisIntervalReviewCancelled
     return tuple(result)
 
 

@@ -1,4 +1,5 @@
 from dataclasses import replace
+from time import monotonic, sleep
 
 import numpy as np
 import pytest
@@ -17,6 +18,15 @@ from test_gas_interval_gis_review_ui import _with_inserted_gis
 from test_gis_interval_compare import _two_curves
 
 
+def _wait_review(qapp, dialog):
+    deadline = monotonic() + 30.0
+    while dialog._worker is not None and monotonic() < deadline:
+        qapp.processEvents()
+        sleep(0.005)
+    qapp.processEvents()
+    assert dialog._worker is None
+
+
 @pytest.mark.parametrize("language", list(AppLanguage))
 def test_explicit_comparison_shows_separate_values_and_blocks_stale_source(qapp, language):
     dataset = _two_curves()
@@ -26,6 +36,7 @@ def test_explicit_comparison_shows_separate_values_and_blocks_stale_source(qapp,
         dialog.table.item(0, 0).setCheckState(Qt.CheckState.Checked)
         dialog.table.item(1, 0).setCheckState(Qt.CheckState.Checked)
         dialog.review.click()
+        _wait_review(qapp, dialog)
         assert dialog.status.text() == dialog._t("complete")
         assert dialog.table.item(0, 2).text() == "API"
         assert dialog.table.item(1, 2).text() == "ohm.m"
@@ -35,6 +46,7 @@ def test_explicit_comparison_shows_separate_values_and_blocks_stale_source(qapp,
         assert dialog.table.item(1, 8).text() == dialog._t("reviewed")
         dataset.curves["RT"].metadata = replace(dataset.curves["RT"].metadata, unit="invalid")
         dialog.review.click()
+        _wait_review(qapp, dialog)
         assert dialog.table.item(0, 8).text() == dialog._t("reviewed")
         assert dialog.table.item(1, 4).text() == "—"
         assert dialog.table.item(1, 8).text() != dialog._t("reviewed")
@@ -65,12 +77,14 @@ def test_missing_values_and_outside_interval_are_distinguished(qapp):
     try:
         dialog.table.item(1, 0).setCheckState(Qt.CheckState.Checked)
         dialog.review.click()
+        _wait_review(qapp, dialog)
         assert dialog.table.item(1, 4).text() == "0 / 3"
         assert dialog.table.item(1, 5).text() == "3"
         assert dialog.table.item(1, 8).text() == dialog._t("no_values")
         dialog.top.setText("110")
         dialog.bottom.setText("120")
         dialog.review.click()
+        _wait_review(qapp, dialog)
         assert dialog.table.item(1, 4).text() == "0 / 0"
         assert dialog.table.item(1, 8).text() == dialog._t("no_samples")
     finally:
@@ -95,6 +109,7 @@ def test_selection_limit_and_removed_curve_do_not_substitute_other_data(qapp):
             dialog.table.item(row, 0).setCheckState(Qt.CheckState.Unchecked)
         del dataset.curves["GR"]
         dialog.review.click()
+        _wait_review(qapp, dialog)
         assert dialog.table.item(0, 4).text() == "—"
         assert dialog.table.item(0, 8).text() == dialog._t("source_missing")
     finally:
@@ -147,6 +162,7 @@ def test_selected_gas_interval_compares_two_external_gis_curves(qapp, monkeypatc
         for row in range(2):
             dialog.table.item(row, 0).setCheckState(Qt.CheckState.Checked)
         dialog.review.click()
+        _wait_review(qapp, dialog)
         assert {dialog.table.item(row, 2).text() for row in range(2)} == {"API", "ohm.m"}
         assert all(dialog.table.item(row, 8).text() == dialog._t("reviewed") for row in range(2))
         seen.append(True)
