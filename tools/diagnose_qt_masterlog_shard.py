@@ -36,7 +36,7 @@ def main() -> int:
             command = [
                 str(debugger), "-o", "-g", "-G", "-xd", "0xc0000005", "-xd", "0xc0000374",
                 "-xd", "0xc0000409", "-c", capture,
-                sys.executable, "scripts/run_tests.py", "--geolog-single-shard", "-p", "no:cacheprovider", *selectors,
+                sys.executable, "scripts/run_tests.py", "--geolog-single-shard", "-s", "-p", "no:cacheprovider", *selectors,
             ]
             result = subprocess.run(command, env=environment, check=False, timeout=1200).returncode
         else:
