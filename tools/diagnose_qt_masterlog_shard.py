@@ -12,8 +12,16 @@ def main() -> int:
     last = next(index for index, selectors in enumerate(shards) if target in selectors)
     _configure_environment()
     environment = os.environ.copy()
-    for index, selectors in enumerate(shards[: last + 1], start=1):
-        print(f"Diagnostic shard {index}/{last + 1}: {len(selectors)} files", flush=True)
+    mode = os.environ.get("GEOLOG_REPLAY_MODE")
+    if mode == "isolated":
+        prefix = shards[:4]
+    elif mode == "sequence":
+        prefix = shards[4:last]
+    else:
+        raise ValueError("Select one diagnostic prefix")
+    selected = (*prefix, shards[last])
+    for index, selectors in enumerate(selected, start=1):
+        print(f"Diagnostic shard {index}/{len(selected)}: {len(selectors)} files", flush=True)
         result = _run_child(("-p", "no:cacheprovider"), selectors, environment)
         if result:
             return result
