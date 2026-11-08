@@ -102,6 +102,8 @@ class InterpretationReportWorkspace(_DrillingInterpretationReportWorkspace):
         root.setContentsMargins(16, 14, 16, 14)
         root.setSpacing(12)
 
+        print("QT_LAYOUT_PHASE_BEFORE", flush=True)
+        _diagnostic_layout_items(self)
         for index in range(root.count()):
             item = root.itemAt(index)
             widget = item.widget() if item else None
@@ -120,6 +122,7 @@ class InterpretationReportWorkspace(_DrillingInterpretationReportWorkspace):
         if explanation_item is None or help_item is None:
             raise RuntimeError("Не найдены вводные элементы страницы интерпретации")
         print(f"QT_LAYOUT_WRAPPERS {id(explanation_item):x} {id(help_item):x}", flush=True)
+        print("QT_LAYOUT_PHASE_AFTER", flush=True)
         _diagnostic_layout_items(self)
         explanation = explanation_item.widget()
         help_label = help_item.widget()
