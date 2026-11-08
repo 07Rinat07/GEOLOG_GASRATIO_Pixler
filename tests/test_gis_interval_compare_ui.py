@@ -50,6 +50,8 @@ def test_explicit_comparison_shows_separate_values_and_blocks_stale_source(qapp,
         assert dialog.table.item(0, 8).text() == dialog._t("reviewed")
         assert dialog.table.item(1, 4).text() == "—"
         assert dialog.table.item(1, 8).text() != dialog._t("reviewed")
+        dialog.table.setCurrentCell(1, 5)
+        assert dialog.missing_details.text() == dialog._t("missing_select")
         dialog.top.setText("101")
         assert dialog.table.item(0, 4).text() == "—" and not dialog.status.text()
     finally:
@@ -66,6 +68,59 @@ def test_comparison_requires_explicit_selection_and_finite_interval(qapp):
         dialog.review.click()
         assert dialog.status.text() == dialog._t("invalid")
         assert dialog.table.item(0, 4).text() == "—"
+    finally:
+        dialog.close()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_missing_depth_details_follow_reviewed_row_and_clear_on_input_change(qapp, language):
+    dataset = _two_curves()
+    dialog = GisIntervalCompareDialog(dataset, top="100", bottom="102", language=language)
+    try:
+        for row in range(2):
+            dialog.table.item(row, 0).setCheckState(Qt.CheckState.Checked)
+        dialog.review.click()
+        _wait_review(qapp, dialog)
+        assert dialog.missing_details.text() == dialog._t(
+            "missing_preview", curve="GR", depths="101", shown=1, total=1,
+        )
+        dialog.table.setCurrentCell(1, 5)
+        assert dialog.missing_details.text() == dialog._t(
+            "missing_preview", curve="RT", depths="102", shown=1, total=1,
+        )
+        dialog.top.setText("101")
+        assert dialog.missing_details.text() == dialog._t("missing_select")
+        dialog.review.click()
+        _wait_review(qapp, dialog)
+        dialog.table.setCurrentCell(1, 5)
+        assert "102" in dialog.missing_details.text()
+        dialog.top.setText("110")
+        dialog.bottom.setText("120")
+        dialog.review.click()
+        _wait_review(qapp, dialog)
+        assert dialog.missing_details.text() == dialog._t("missing_no_rows", curve="GR")
+    finally:
+        dialog.close()
+
+
+def test_missing_details_are_bounded_and_do_not_claim_continuous_coverage(qapp):
+    dataset = _two_curves()
+    dataset.active_index.values = np.arange(100.0, 113.0)
+    dataset.depth = dataset.active_index.values
+    dataset.curves["GR"].values = np.full(13, np.nan)
+    dataset.curves["RT"].values = np.ones(13)
+    dialog = GisIntervalCompareDialog(dataset, top="100", bottom="112")
+    try:
+        for row in range(2):
+            dialog.table.item(row, 0).setCheckState(Qt.CheckState.Checked)
+        dialog.review.click()
+        _wait_review(qapp, dialog)
+        assert dialog.missing_details.text() == dialog._t(
+            "missing_preview", curve="GR", depths=", ".join(str(i) for i in range(100, 110)),
+            shown=10, total=13,
+        )
+        dialog.table.setCurrentCell(1, 5)
+        assert dialog.missing_details.text() == dialog._t("missing_none", curve="RT")
     finally:
         dialog.close()
 

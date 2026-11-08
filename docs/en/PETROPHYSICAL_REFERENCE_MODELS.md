@@ -63,6 +63,9 @@ curves from the current dataset in one MD interval. Each row shows its original
 unit, source, sample and missing counts, outermost depths and value range, or the
 reason it is blocked. This snapshot does not establish continuous coverage,
 calibration or fluid type.
+Select a reviewed row to see up to ten missing sample depths in source row order
+and the total missing count below the table. These are individual points, not
+intervals; no rows and no missing values in existing rows are shown separately.
 The comparison runs in the background with preparation, curve count, source recheck
 and completion states. Cancel discards partial results and stops after the current
 non-interruptible stage. The selected arrays and axis are temporarily copied, so
