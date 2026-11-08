@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import gc
+
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import (
@@ -19,6 +21,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
+    QWidgetItem,
 )
 
 from geoworkbench.project.interpretation_calculation_controller import (
@@ -32,6 +35,11 @@ from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.interpretation_report_workspace_drilling import (
     InterpretationReportWorkspace as _DrillingInterpretationReportWorkspace,
 )
+
+
+def _diagnostic_layout_items() -> None:
+    items = [id(obj) for obj in gc.get_objects() if type(obj) is QWidgetItem]
+    print("QT_GC_ITEM_IDS", " ".join(f"{item:x}" for item in items), flush=True)
 
 
 class InterpretationReportWorkspace(_DrillingInterpretationReportWorkspace):
@@ -69,6 +77,7 @@ class InterpretationReportWorkspace(_DrillingInterpretationReportWorkspace):
         if explanation_item is None or help_item is None:
             raise RuntimeError("Не найдены вводные элементы страницы интерпретации")
         print(f"QT_LAYOUT_WRAPPERS {id(explanation_item):x} {id(help_item):x}", flush=True)
+        _diagnostic_layout_items()
         explanation = explanation_item.widget()
         help_label = help_item.widget()
         if explanation is None or help_label is None:
