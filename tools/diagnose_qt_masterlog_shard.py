@@ -4,10 +4,11 @@ from pathlib import Path
 import subprocess
 import sys
 
-from scripts.run_tests import _test_file_shards
+from scripts.run_tests import _configure_environment, _test_file_shards
 
 
 def main() -> int:
+    _configure_environment()
     output = Path("build/ci-artifacts/qt-replay")
     output.mkdir(parents=True, exist_ok=True)
     target = "tests/test_masterlog_columns_dialog.py"
