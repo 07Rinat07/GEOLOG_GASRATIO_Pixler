@@ -29,7 +29,10 @@ def main() -> int:
             dump_path = Path(os.environ["RUNNER_TEMP"]) / "geolog-replay-dumps/qt-native.dmp"
             if not debugger.is_file() or " " in str(dump_path):
                 raise RuntimeError("Debugger or safe dump path unavailable")
-            capture = f".exr -1; r; kb; lm; .dump /m {dump_path}; q"
+            capture = (
+                f".exr -1; r; u @rip-20 @rip+20; dq @rbx L4; "
+                f"da poi(poi(@rbx+8)+0x18); kb; lm; .dump /m {dump_path}; q"
+            )
             command = [
                 str(debugger), "-o", "-g", "-G", "-xd", "0xc0000005", "-xd", "0xc0000374",
                 "-xd", "0xc0000409", "-c", capture,
