@@ -46,6 +46,19 @@ class GisSourceIntervalSampleReview:
 
 
 @dataclass(frozen=True, slots=True)
+class GisSourceIntervalBatchItem:
+    """One requested curve, either reviewed or explicitly blocked."""
+
+    curve_key: str
+    source: GisCurveInput | None
+    issues: tuple[str, ...]
+    review: GisSourceIntervalSampleReview | None
+
+
+MAX_GIS_INTERVAL_CURVES = 8
+
+
+@dataclass(frozen=True, slots=True)
 class _IntervalSummary:
     sample_count: int
     finite_count: int
@@ -100,6 +113,45 @@ def review_gis_source_interval_samples(
         source, top, bottom, summary.sample_count, summary.finite_count, summary.missing_count,
         summary.finite_md_bounds, summary.missing_md_preview, summary.finite_value_bounds,
     )
+
+
+def review_gis_source_interval_batch(
+    dataset: Dataset, *, curve_keys: tuple[str, ...], top_md_m: float, bottom_md_m: float,
+) -> tuple[GisSourceIntervalBatchItem, ...]:
+    """Review explicitly selected sources on one axis without interpolation or inference.
+
+    Invalid sources remain visible as blocked rows. Inventory is rebuilt once for
+    the operation; no measurement is substituted and no calibration is created.
+    """
+    top, bottom = _interval_bounds(top_md_m, bottom_md_m)
+    if (
+        not isinstance(curve_keys, tuple) or not 1 <= len(curve_keys) <= MAX_GIS_INTERVAL_CURVES
+        or any(not isinstance(key, str) or not key.strip() for key in curve_keys)
+        or len(set(curve_keys)) != len(curve_keys)
+    ):
+        raise ValueError("Select one to eight unique GIS curve keys")
+    inventory = inventory_gis_inputs(dataset)
+    sources = {source.curve_key: source for source in inventory.curves}
+    result: list[GisSourceIntervalBatchItem] = []
+    for key in curve_keys:
+        source = sources.get(key)
+        issues = tuple(f"axis:{issue}" for issue in inventory.axis_issues)
+        if source is None:
+            issues += ("curve_not_found",)
+        else:
+            issues += tuple(
+                f"curve:{issue}" for issue in source.issues if issue != "no_finite_paired_samples"
+            )
+        if issues or source is None:
+            result.append(GisSourceIntervalBatchItem(key, source, issues, None))
+            continue
+        summary = _summarize_samples(dataset, key, top, bottom)
+        review = GisSourceIntervalSampleReview(
+            source, top, bottom, summary.sample_count, summary.finite_count, summary.missing_count,
+            summary.finite_md_bounds, summary.missing_md_preview, summary.finite_value_bounds,
+        )
+        result.append(GisSourceIntervalBatchItem(key, source, (), review))
+    return tuple(result)
 
 
 def _interval_bounds(top_md_m: float, bottom_md_m: float) -> tuple[float, float]:

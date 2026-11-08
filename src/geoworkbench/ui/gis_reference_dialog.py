@@ -93,6 +93,9 @@ class GisReferenceDialog(QDialog):
         self.review_source_interval = QPushButton(self._t("review_source_interval"), body)
         self.review_source_interval.setObjectName("gis-reference-review-source-interval")
         form.addRow(self.review_source_interval)
+        self.compare_source_intervals = QPushButton(self._t("compare_source_intervals"), body)
+        self.compare_source_intervals.setObjectName("gis-reference-compare-source-intervals")
+        form.addRow(self.compare_source_intervals)
         self.interval_review_label = QLabel(body)
         self.interval_review_label.setObjectName("gis-reference-interval-review")
         self.interval_review_label.setTextFormat(Qt.TextFormat.PlainText)
@@ -146,6 +149,7 @@ class GisReferenceDialog(QDialog):
         self.review_source.clicked.connect(self._review_source)
         self.review_interval.clicked.connect(self._review_interval)
         self.review_source_interval.clicked.connect(self._review_source_interval)
+        self.compare_source_intervals.clicked.connect(self._compare_source_intervals)
         for selector in (self.method, self.channel):
             selector.currentIndexChanged.connect(self.interval_review_label.clear)
         for key in ("top", "base"):
@@ -221,6 +225,18 @@ class GisReferenceDialog(QDialog):
             self.interval_review_label.setText(self._t("interval_invalid"))
             return
         self._show_interval_result(result)
+
+    def _compare_source_intervals(self) -> None:
+        from geoworkbench.ui.gis_interval_compare_dialog import GisIntervalCompareDialog
+
+        self.interval_review_label.clear()
+        dialog = GisIntervalCompareDialog(
+            self.dataset, self, top=self.fields["top"].text(), bottom=self.fields["base"].text(),
+            language=self.localizer.language,
+        )
+        dialog.exec()
+        # The modal event loop may outlive source edits; keep no stale result.
+        self._current_sample()
 
     def _show_interval_result(
         self, result: GisIntervalSampleReview | GisSourceIntervalSampleReview,
