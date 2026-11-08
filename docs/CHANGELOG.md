@@ -1,3 +1,10 @@
+## INTERP-GIS-01 — missing sample depths in comparison (08.11.2026)
+
+The GIS interval comparison shows up to ten missing sample depths for the selected
+reviewed curve, in source row order, along with the total missing count. Empty
+intervals and rows without missing values are distinguished. These are individual
+observations and do not establish continuous coverage or geological interpretation.
+
 ## INTERP-GIS-01 — detached, source-checked parameter records (06.11.2026)
 
 The single-sample GIS dialog can save explicit IGR/density parameters to a separate

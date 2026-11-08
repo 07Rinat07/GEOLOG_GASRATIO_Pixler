@@ -46,6 +46,7 @@ class GisIntervalCompareDialog(QDialog):
         self._worker: GisIntervalCompareWorker | None = None
         self._cancel_requested = False
         self._close_after_worker = False
+        self._missing_details: dict[int, str] = {}
         self.setObjectName("gis-interval-compare-dialog")
         self.setWindowTitle(self._t("title"))
         layout = QVBoxLayout(self)
@@ -88,6 +89,12 @@ class GisIntervalCompareDialog(QDialog):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(8, QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.table)
+        self.missing_details = QLabel(self._t("missing_select"), self)
+        self.missing_details.setObjectName("gis-interval-missing-details")
+        self.missing_details.setTextFormat(Qt.TextFormat.PlainText)
+        self.missing_details.setWordWrap(True)
+        layout.addWidget(self.missing_details)
+        self.table.currentCellChanged.connect(self._update_missing_details)
         self.status = QLabel(self)
         self.status.setObjectName("gis-interval-compare-status")
         self.status.setTextFormat(Qt.TextFormat.PlainText)
@@ -127,6 +134,9 @@ class GisIntervalCompareDialog(QDialog):
     def _clear_results(self) -> None:
         if not hasattr(self, "table"):
             return
+        self._missing_details.clear()
+        if hasattr(self, "missing_details"):
+            self.missing_details.setText(self._t("missing_select"))
         for row in range(self.table.rowCount()):
             choice = self.table.item(row, 0)
             key = choice.data(Qt.ItemDataRole.UserRole) if choice is not None else None
@@ -221,12 +231,23 @@ class GisIntervalCompareDialog(QDialog):
             return
         results = payload
         by_key = {item.curve_key: item for item in results}
+        first_reviewed_row = None
         for row in range(self.table.rowCount()):
             choice = self.table.item(row, 0)
             key = choice.data(Qt.ItemDataRole.UserRole) if choice is not None else None
             if key in by_key:
                 self._show_item(row, by_key[key])
+                if first_reviewed_row is None and by_key[key].review is not None:
+                    first_reviewed_row = row
+        if first_reviewed_row is not None:
+            self.table.setCurrentCell(first_reviewed_row, 5)
+        self._update_missing_details()
         self.status.setText(self._t("complete"))
+
+    def _update_missing_details(self, *_args: int) -> None:
+        self.missing_details.setText(
+            self._missing_details.get(self.table.currentRow(), self._t("missing_select"))
+        )
 
     @Slot(str)
     def _failed(self, reason: str) -> None:
@@ -278,6 +299,17 @@ class GisIntervalCompareDialog(QDialog):
             self._set_cell(row, 8, "; ".join(reasons))
             return
         review = item.review
+        if review.sample_count == 0:
+            detail = self._t("missing_no_rows", curve=item.curve_key)
+        elif review.missing_count == 0:
+            detail = self._t("missing_none", curve=item.curve_key)
+        else:
+            depths = ", ".join(f"{depth:.9g}" for depth in review.missing_md_preview)
+            detail = self._t(
+                "missing_preview", curve=item.curve_key, depths=depths,
+                shown=len(review.missing_md_preview), total=review.missing_count,
+            )
+        self._missing_details[row] = detail
         self._set_cell(row, 4, f"{review.finite_count} / {review.sample_count}")
         self._set_cell(row, 5, str(review.missing_count))
         if review.finite_md_bounds is not None:
