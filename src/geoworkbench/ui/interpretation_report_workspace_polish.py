@@ -101,6 +101,16 @@ class InterpretationReportWorkspace(_DrillingInterpretationReportWorkspace):
         root.setContentsMargins(16, 14, 16, 14)
         root.setSpacing(12)
 
+        for index in range(root.count()):
+            item = root.itemAt(index)
+            widget = item.widget() if item else None
+            print(
+                f"QT_ROOT_BEFORE {id(item):x} index={index} "
+                f"widget={type(widget).__name__ if widget else 'None'} "
+                f"name={widget.objectName() if widget else ''}",
+                flush=True,
+            )
+
         # The legacy form and its action row are replaced by two compact cards.
         root.takeAt(3)
         root.takeAt(3)
