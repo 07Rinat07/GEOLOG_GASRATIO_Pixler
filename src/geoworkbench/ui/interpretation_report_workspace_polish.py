@@ -38,7 +38,7 @@ from geoworkbench.ui.interpretation_report_workspace_drilling import (
 )
 
 
-def _diagnostic_layout_items() -> None:
+def _diagnostic_layout_items(current: QWidget) -> None:
     objects = gc.get_objects()
     for obj in objects:
         if type(obj) is QWidgetItem:
@@ -58,9 +58,20 @@ def _diagnostic_layout_items() -> None:
                     print(
                         f"QT_GC_OWNER {id(obj):x} layout={id(ref):x} "
                         f"parent={type(parent).__name__ if parent else 'None'} "
-                        f"name={parent.objectName() if parent else ''}",
+                        f"name={parent.objectName() if parent else ''} current={parent is current}",
                         flush=True,
                     )
+                    if parent and parent.objectName() == "interpretation-report-workspace":
+                        for index in range(ref.count()):
+                            item = ref.itemAt(index)
+                            if item is obj:
+                                widget = item.widget()
+                                print(
+                                    f"QT_GC_ROOT {id(obj):x} index={index} "
+                                    f"widget={type(widget).__name__ if widget else 'None'} "
+                                    f"name={widget.objectName() if widget else ''}",
+                                    flush=True,
+                                )
 
 
 class InterpretationReportWorkspace(_DrillingInterpretationReportWorkspace):
@@ -98,7 +109,7 @@ class InterpretationReportWorkspace(_DrillingInterpretationReportWorkspace):
         if explanation_item is None or help_item is None:
             raise RuntimeError("Не найдены вводные элементы страницы интерпретации")
         print(f"QT_LAYOUT_WRAPPERS {id(explanation_item):x} {id(help_item):x}", flush=True)
-        _diagnostic_layout_items()
+        _diagnostic_layout_items(self)
         explanation = explanation_item.widget()
         help_label = help_item.widget()
         if explanation is None or help_label is None:
