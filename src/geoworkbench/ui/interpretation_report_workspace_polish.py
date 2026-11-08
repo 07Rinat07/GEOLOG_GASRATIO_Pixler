@@ -44,13 +44,23 @@ def _diagnostic_layout_items() -> None:
         if type(obj) is QWidgetItem:
             valid = shiboken6.isValid(obj)
             native = shiboken6.getCppPointer(obj)[0] if valid else 0
-            owners = sorted({type(ref).__name__ for ref in gc.get_referrers(obj) if ref is not objects})
+            refs = [ref for ref in gc.get_referrers(obj) if ref is not objects]
+            owners = sorted({type(ref).__name__ for ref in refs})
             print(
                 f"QT_GC_ITEM {id(obj):x} {valid} {native:x} "
                 f"owned={shiboken6.ownedByPython(obj)} created={shiboken6.createdByPython(obj)} "
                 f"python_refs={','.join(owners)}",
                 flush=True,
             )
+            for ref in refs:
+                if isinstance(ref, QVBoxLayout) and shiboken6.isValid(ref):
+                    parent = ref.parentWidget()
+                    print(
+                        f"QT_GC_OWNER {id(obj):x} layout={id(ref):x} "
+                        f"parent={type(parent).__name__ if parent else 'None'} "
+                        f"name={parent.objectName() if parent else ''}",
+                        flush=True,
+                    )
 
 
 class InterpretationReportWorkspace(_DrillingInterpretationReportWorkspace):
