@@ -58,6 +58,11 @@ curve and choose “Review original GIS samples” without selecting a method. S
 unit, semantics, axis and provenance are checked; no unit conversion, calibration
 or petrophysical calculation is performed. A fully missing curve is reported as
 missing samples, not as a negative result or a statement about the whole well.
+“Compare multiple GIS curves…” opens a table for explicitly selecting up to eight
+curves from the current dataset in one MD interval. Each row shows its original
+unit, source, sample and missing counts, outermost depths and value range, or the
+reason it is blocked. This snapshot does not establish continuous coverage,
+calibration or fluid type.
 
 **Operator dialog:** Calculations → GIS: review one sample…
 (`GisReferenceDialog`, `petro_reference.action`). Select the active GIS dataset,
