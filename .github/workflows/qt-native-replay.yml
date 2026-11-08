@@ -106,6 +106,15 @@ jobs:
           .\.venv\Scripts\python.exe -m tools.diagnose_qt_masterlog_shard *>&1 | Tee-Object -FilePath build/ci-artifacts/qt-replay/stream.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Capture Python crash events
+        if: always()
+        shell: pwsh
+        run: |
+          $Output = "build/ci-artifacts/qt-replay/windows-crash-events.txt"
+          New-Item -ItemType Directory -Force (Split-Path $Output) | Out-Null
+          $Events = Get-WinEvent -FilterHashtable @{LogName='Application'; Id=1000} -MaxEvents 50 -ErrorAction SilentlyContinue
+          $Events | Where-Object { $_.Message -match '(?i)python\.exe' } | Select-Object -First 5 TimeCreated, Message | Format-List | Out-File -Encoding utf8 $Output
+
       - name: Upload replay logs and version evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
