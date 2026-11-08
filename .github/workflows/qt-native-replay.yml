@@ -64,7 +64,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           uv pip sync requirements/release.lock --python .venv --require-hashes
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          uv pip install --python .venv setuptools==83.0.0 wheel==0.47.0 pytest==9.1.1 pytest-asyncio==1.4.0
+          uv pip install --python .venv setuptools==83.0.0 wheel==0.47.0 pytest==9.1.1 pytest-asyncio==1.4.0 ruff==0.15.22 mypy==1.19.1 types-defusedxml==0.7.0.20260504 build==1.5.0
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           uv pip install --python .venv --no-deps --no-build-isolation --editable .
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -95,6 +95,14 @@ jobs:
           GEOLOG_REPLAY_MODE: ${{ inputs.mode }}
           GEOLOG_REPLAY_REPETITIONS: ${{ inputs.repetitions }}
         run: |
+          .\.venv\Scripts\python.exe tools/check_documentation.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\.venv\Scripts\python.exe -m compileall -q src tests tools scripts benchmarks
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\.venv\Scripts\python.exe -m ruff check src tests tools scripts benchmarks
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\.venv\Scripts\python.exe -m mypy src
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .\.venv\Scripts\python.exe -m tools.diagnose_qt_masterlog_shard *>&1 | Tee-Object -FilePath build/ci-artifacts/qt-replay/stream.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

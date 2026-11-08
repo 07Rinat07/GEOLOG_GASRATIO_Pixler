@@ -1,32 +1,23 @@
-"""Temporary diagnostic replay of the observed Windows CI Qt failure."""
+"""Temporary replay of the release-test shard prefix ending at Masterlog."""
 
-from pathlib import Path
-import subprocess
+import os
 import sys
 
-from scripts.run_tests import _configure_environment, _test_file_shards
+from scripts.run_tests import _configure_environment, _run_child, _test_file_shards
 
 
 def main() -> int:
-    _configure_environment()
-    output = Path("build/ci-artifacts/qt-replay")
-    output.mkdir(parents=True, exist_ok=True)
+    shards = _test_file_shards(16)
     target = "tests/test_masterlog_columns_dialog.py"
-    shard = next(items for items in _test_file_shards(16) if target in items)
-    scenarios = (
-        ("masterlog-only", (target,)),
-        ("original-shard", shard),
-    )
-    failed = False
-    for name, selectors in scenarios:
-        command = [
-            sys.executable, "scripts/run_tests.py", "--geolog-single-shard", "-p", "no:cacheprovider", *selectors,
-        ]
-        print(f"Running {name}: {len(selectors)} selectors", flush=True)
-        result = subprocess.run(command, check=False, timeout=1200)
-        print(f"{name}: exit {result.returncode} (0x{result.returncode & 0xffffffff:08X})", flush=True)
-        failed |= result.returncode != 0
-    return 1 if failed else 0
+    last = next(index for index, selectors in enumerate(shards) if target in selectors)
+    _configure_environment()
+    environment = os.environ.copy()
+    for index, selectors in enumerate(shards[: last + 1], start=1):
+        print(f"Diagnostic shard {index}/{last + 1}: {len(selectors)} files", flush=True)
+        result = _run_child(("-p", "no:cacheprovider"), selectors, environment)
+        if result:
+            return result
+    return 0
 
 
 if __name__ == "__main__":
