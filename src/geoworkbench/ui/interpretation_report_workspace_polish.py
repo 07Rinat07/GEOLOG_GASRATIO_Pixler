@@ -68,6 +68,7 @@ class InterpretationReportWorkspace(_DrillingInterpretationReportWorkspace):
         help_item = root.takeAt(0)
         if explanation_item is None or help_item is None:
             raise RuntimeError("Не найдены вводные элементы страницы интерпретации")
+        print(f"QT_LAYOUT_WRAPPERS {id(explanation_item):x} {id(help_item):x}", flush=True)
         explanation = explanation_item.widget()
         help_label = help_item.widget()
         if explanation is None or help_label is None:
