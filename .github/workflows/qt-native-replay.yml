@@ -64,7 +64,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           uv pip sync requirements/release.lock --python .venv --require-hashes
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          uv pip install --python .venv setuptools==83.0.0 wheel==0.47.0 pytest==9.1.1 pytest-asyncio==1.4.0 ruff==0.15.22 mypy==1.19.1 types-defusedxml==0.7.0.20260504 build==1.5.0
+          uv pip install --python .venv setuptools==83.0.0 wheel==0.47.0 pytest==9.1.1 pytest-asyncio==1.4.0
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           uv pip install --python .venv --no-deps --no-build-isolation --editable .
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -89,37 +89,14 @@ jobs:
           .\.venv\Scripts\python.exe tools/capture_windows_native_runtime.py --output build/ci-artifacts/qt-replay/native-runtime.json --commit "${{ github.sha }}"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Check available native debuggers
-        shell: pwsh
-        run: |
-          Get-Command cdb, procdump, windbg -ErrorAction SilentlyContinue | Select-Object Name, Source | Format-Table
-          Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\Debuggers\x64\cdb.exe" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
-
       - name: Replay known native-heavy Qt selectors
         shell: pwsh
         env:
           GEOLOG_REPLAY_MODE: ${{ inputs.mode }}
           GEOLOG_REPLAY_REPETITIONS: ${{ inputs.repetitions }}
         run: |
-          .\.venv\Scripts\python.exe tools/check_documentation.py
+          .\.venv\Scripts\python.exe tools/replay_windows_qt_native.py --output-dir build/ci-artifacts/qt-replay --mode $env:GEOLOG_REPLAY_MODE --repetitions $env:GEOLOG_REPLAY_REPETITIONS
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          .\.venv\Scripts\python.exe -m compileall -q src tests tools scripts benchmarks
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          .\.venv\Scripts\python.exe -m ruff check src tests tools scripts benchmarks
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          .\.venv\Scripts\python.exe -m mypy src
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          .\.venv\Scripts\python.exe -m tools.diagnose_qt_masterlog_shard *>&1 | Tee-Object -FilePath build/ci-artifacts/qt-replay/stream.log
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Capture Python crash events
-        if: always()
-        shell: pwsh
-        run: |
-          $Output = "build/ci-artifacts/qt-replay/windows-crash-events.txt"
-          New-Item -ItemType Directory -Force (Split-Path $Output) | Out-Null
-          $Events = Get-WinEvent -FilterHashtable @{LogName='Application'; Id=1000} -MaxEvents 50 -ErrorAction SilentlyContinue
-          $Events | Where-Object { $_.Message -match '(?i)python\.exe' } | Select-Object -First 5 TimeCreated, Message | Format-List | Out-File -Encoding utf8 $Output
 
       - name: Upload replay logs and version evidence
         if: always()
