@@ -37,7 +37,7 @@ _PYTEST_COMPLETE = re.compile(
 # Any incomplete execution invalidates a diagnostic success, even if pytest
 # returns zero (for example, an unexpected skip or deselection).
 _PYTEST_INCOMPLETE = re.compile(
-    r"\\b[1-9]\\d*\\s+(?:skipped|xfailed|xpassed|deselected|reruns?)\\b",
+    r"\b[1-9]\d*\s+(?:skipped|xfailed|xpassed|deselected|reruns?)\b",
     re.IGNORECASE,
 )
 _PYTEST_FAILURES = re.compile(
