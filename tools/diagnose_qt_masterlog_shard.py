@@ -139,6 +139,9 @@ def _cdb_startup_commands(dump_path: Path) -> str:
             f'sxe -c "{capture}" 0xc0000374',
             f'sxd -c2 "{capture}" av',
             f'sxd -c2 "{capture}" 0xc0000409',
+            # The real python.exe starts as a child of venvlauncher.exe.
+            # Its initial (ibp) break is a debugger event, not a crash.
+            "sxn ibp",
             ".echo GEOLOG_CDB_ARMED",
             "g",
             "",

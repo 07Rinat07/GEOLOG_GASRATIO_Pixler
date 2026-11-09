@@ -72,7 +72,7 @@ def test_cdb_initializes_exception_filters_before_target_runs(tmp_path: Path) ->
     assert lines[2].endswith(" 0xc0000409")
     assert all("GEOLOG_CDB_NATIVE_EXCEPTION" in line for line in lines[:3])
     assert all(".exr -1; r; kv; lm; .dump /m" in line for line in lines[:3])
-    assert lines[-2:] == [".echo GEOLOG_CDB_ARMED", "g"]
+    assert lines[-3:] == ["sxn ibp", ".echo GEOLOG_CDB_ARMED", "g"]
 
 
 def test_cdb_launch_uses_startup_file_not_initial_dump(
