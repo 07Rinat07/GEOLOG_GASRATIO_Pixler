@@ -1,0 +1,140 @@
+name: Windows Qt Masterlog CDB diagnostic (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Replay Masterlog shard alone or with a seed; CDB captures remain failures"
+        required: true
+        default: sequence
+        type: choice
+        options:
+          - isolated
+          - sequence
+          - both
+      repetitions:
+        description: "Bounded clean-process repetitions"
+        required: true
+        default: "2"
+        type: choice
+        options:
+          - "1"
+          - "2"
+          - "3"
+          - "4"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qt-masterlog-cdb-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHONUTF8: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  qt-native-replay:
+    name: Windows Masterlog CDB diagnostic
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: "0.11.29"
+          enable-cache: true
+          cache-dependency-glob: requirements/release.lock
+
+      - name: Install the hashed release environment
+        shell: pwsh
+        run: |
+          uv venv .venv --python 3.11
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          uv pip sync requirements/release.lock --python .venv --require-hashes
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          uv pip install --python .venv setuptools==83.0.0 wheel==0.47.0 pytest==9.1.1 pytest-asyncio==1.4.0 ruff==0.15.22 mypy==1.19.1 types-defusedxml==0.7.0.20260504 build==1.5.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          uv pip install --python .venv --no-deps --no-build-isolation --editable .
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Enable bounded WER minidumps on the hosted runner
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_ACTIONS -ne "true" -or $env:RUNNER_OS -ne "Windows") {
+            throw "Native dumps require a disposable Windows Actions runner"
+          }
+          $DumpFolder = Join-Path $env:RUNNER_TEMP "geolog-replay-dumps"
+          New-Item -ItemType Directory -Force $DumpFolder | Out-Null
+          $DumpKey = "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\python.exe"
+          New-Item -Path $DumpKey -Force | Out-Null
+          New-ItemProperty -Path $DumpKey -Name DumpFolder -Value $DumpFolder -PropertyType ExpandString -Force | Out-Null
+          New-ItemProperty -Path $DumpKey -Name DumpType -Value 1 -PropertyType DWord -Force | Out-Null
+          New-ItemProperty -Path $DumpKey -Name DumpCount -Value 2 -PropertyType DWord -Force | Out-Null
+
+      - name: Capture native runtime versions
+        shell: pwsh
+        run: |
+          .\.venv\Scripts\python.exe tools/capture_windows_native_runtime.py --output build/ci-artifacts/qt-replay/native-runtime.json --commit "${{ github.sha }}"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Check available native debuggers
+        shell: pwsh
+        run: |
+          Get-Command cdb, procdump, windbg -ErrorAction SilentlyContinue | Select-Object Name, Source | Format-Table
+          Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\Debuggers\x64\cdb.exe" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+
+      - name: Replay known native-heavy Qt selectors
+        shell: pwsh
+        env:
+          GEOLOG_REPLAY_MODE: ${{ inputs.mode }}
+          GEOLOG_REPLAY_REPETITIONS: ${{ inputs.repetitions }}
+        run: |
+          .\.venv\Scripts\python.exe tools/check_documentation.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\.venv\Scripts\python.exe -m compileall -q src tests tools scripts benchmarks
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\.venv\Scripts\python.exe -m ruff check src tests tools scripts benchmarks
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\.venv\Scripts\python.exe -m mypy src
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\.venv\Scripts\python.exe -m tools.diagnose_qt_masterlog_shard *>&1 | Tee-Object -FilePath build/ci-artifacts/qt-replay/stream.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Capture Python crash events
+        if: always()
+        shell: pwsh
+        run: |
+          $Output = "build/ci-artifacts/qt-replay/windows-crash-events.txt"
+          New-Item -ItemType Directory -Force (Split-Path $Output) | Out-Null
+          $Events = Get-WinEvent -FilterHashtable @{LogName='Application'; Id=1000} -MaxEvents 50 -ErrorAction SilentlyContinue
+          $Events | Where-Object { $_.Message -match '(?i)python\.exe' } | Select-Object -First 5 TimeCreated, Message | Format-List | Out-File -Encoding utf8 $Output
+
+      - name: Upload replay logs and version evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: qt-native-replay-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/ci-artifacts/qt-replay
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload bounded native crash dumps
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: qt-native-dumps-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/geolog-replay-dumps/*.dmp
+          if-no-files-found: ignore
+          retention-days: 3
