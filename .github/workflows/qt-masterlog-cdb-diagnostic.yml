@@ -1,6 +1,16 @@
-name: Windows Qt Masterlog CDB diagnostic (manual)
+name: Windows Qt Masterlog CDB diagnostic
 
+# The manual workflow file does not exist on main yet. This narrow push
+# trigger runs the instrumented CDB replay on its own temporary branch
+# without merging diagnostic code or weakening the mandatory Release gate.
 on:
+  push:
+    branches:
+      - codex/qt-wrapper-referrers
+    paths:
+      - .github/workflows/qt-masterlog-cdb-diagnostic.yml
+      - tools/diagnose_qt_masterlog_shard.py
+      - tests/test_diagnose_qt_masterlog_shard.py
   workflow_dispatch:
     inputs:
       mode:
@@ -99,8 +109,8 @@ jobs:
       - name: Replay known native-heavy Qt selectors
         shell: pwsh
         env:
-          GEOLOG_REPLAY_MODE: ${{ inputs.mode }}
-          GEOLOG_REPLAY_REPETITIONS: ${{ inputs.repetitions }}
+          GEOLOG_REPLAY_MODE: ${{ inputs.mode || 'failing-shard' }}
+          GEOLOG_REPLAY_REPETITIONS: ${{ inputs.repetitions || '1' }}
         run: |
           .\.venv\Scripts\python.exe tools/check_documentation.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
