@@ -17,6 +17,9 @@ from tools.diagnose_qt_masterlog_shard import debugger_replay_passed
         (0, "================= 329 passed, 1 failed in 11.35s =================", False),
         (0, "tests/test_masterlog_columns_dialog.py::test_still_running PASSED", False),
         (0, "================= 329 passed, 1 skipped in 11.35s =================", True),
+        (0, "================= 3 passed, 1 error in 11.35s =================", False),
+        (0, "================= 3 passed, 2 errors in 11.35s =================", False),
+        (0, "================= 3 passed in 11.35s =================\nFatal Python error: access violation", False),
     ),
 )
 def test_cdb_exit_does_not_mask_incomplete_or_crashed_pytest(
