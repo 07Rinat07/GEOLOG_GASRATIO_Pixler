@@ -86,7 +86,7 @@ _NATIVE_EXCEPTION = re.compile(
     r"ExceptionCode:\s*(?:0x)?c000(?:0005|0374|0409)\b"
     r"|Windows fatal exception:\s*code\s*0xc000(?:0005|0374|0409)\b"
     r"|second chance !!!"
-    r"|Fatal Python error:"
+    r"|Fatal Python error:",
     re.IGNORECASE,
 )
 _CDB_ARMED_MARKER = re.compile(r"(?m)^[ \t]*GEOLOG_CDB_ARMED[ \t]*$")
