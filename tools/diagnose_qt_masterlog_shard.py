@@ -135,7 +135,10 @@ def main() -> int:
         if mode in {"isolated", "both"}:
             # A genuine isolated control must not import the six-file seed.
             # Keep it distinct from the seeded CDB sequence used for diagnosis.
-            print(f"Diagnostic {repetition}/{repetitions}: isolated Masterlog target", flush=True)
+            print(
+                f"Diagnostic {repetition}/{repetitions}: isolated Masterlog target",
+                flush=True,
+            )
             result = _run_child(
                 ("-p", "no:cacheprovider"), (TARGET_FILE,), environment
             )

@@ -5,6 +5,7 @@ import pytest
 from scripts.run_tests import _FORCED_NATIVE_BATCH_FILES, _test_file_shards
 
 from tools.diagnose_qt_masterlog_shard import (
+    SEED_FILES,
     TARGET_FILE,
     debugger_replay_passed,
     select_target_group,
@@ -54,27 +55,19 @@ def test_masterlog_diagnostic_targets_regular_or_native_isolated_file(
     assert select_target_group(shards) == expected
 
 
-
 @pytest.mark.parametrize(
     ("mode", "expected_calls"),
     (
         ("isolated", (("pytest", (TARGET_FILE,)),)),
-        ("sequence", (("pytest", (
-            "tests/test_gas_curve_rendering_continuity.py",
-            "tests/test_gas_interval_gis_review_ui.py",
-            "tests/test_gas_interval_gis_source_review_ui.py",
-            "tests/test_gas_mixture_line_patterns.py",
-            "tests/test_gas_mixture_output_language.py",
-            "tests/test_gas_update_coverage.py",
-        )), ("cdb", (TARGET_FILE,)))),
-        ("both", (("pytest", (TARGET_FILE,)), ("pytest", (
-            "tests/test_gas_curve_rendering_continuity.py",
-            "tests/test_gas_interval_gis_review_ui.py",
-            "tests/test_gas_interval_gis_source_review_ui.py",
-            "tests/test_gas_mixture_line_patterns.py",
-            "tests/test_gas_mixture_output_language.py",
-            "tests/test_gas_update_coverage.py",
-        )), ("cdb", (TARGET_FILE,)))),
+        ("sequence", (("pytest", SEED_FILES), ("cdb", (TARGET_FILE,)))),
+        (
+            "both",
+            (
+                ("pytest", (TARGET_FILE,)),
+                ("pytest", SEED_FILES),
+                ("cdb", (TARGET_FILE,)),
+            ),
+        ),
     ),
 )
 def test_masterlog_replay_modes_preserve_true_isolation(
