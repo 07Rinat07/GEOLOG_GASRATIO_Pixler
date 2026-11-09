@@ -49,6 +49,30 @@ layout. Это наблюдения одного пути под отладчи�
 Далее: изучить жизненный цикл Qt-объектов и минидамп, воспроизвести возможное
 исправление без изменения набора проверок и отдельно подтвердить gates PR и main.
 
+## Проверка совместимости и сдерживание аварии (10 ноября 2026)
+
+[PR #858](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/858)
+на head `fcd5932776556e7bdb859fc5712f625414bbeb8b` переводит
+`tests/test_masterlog_columns_dialog.py` в обязательные отдельные Qt-процессы.
+[Release Gate 42656798986](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/42656798986)
+завершился успешно по Quality, GUI/HiDPI/PDF и Security. Это ограничивает
+совместное использование нативной памяти между тестами, но не доказывает
+устранение причины #544.
+
+Диагностический [PR #857](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/857)
+проверен на базе ветки #858: head `4eadb1930c55aee6748797ee755ca8c5b08df117`,
+[Release Gate 42669961073](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/42669961073)
+— все три Windows jobs успешны. Дополнительный CDB-драйвер теперь учитывает
+перенос Masterlog из обычного набора в отдельный процесс и не признаёт
+аварийное завершение CDB успешно пройденным pytest.
+
+Для `main` `726a22f00d7cb10858cf2986289d932ad298fefb`
+[Release Gate 42462681087](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/42462681087)
+в пятой попытке снова зафиксировал `0xC0000374` в Qt fixture после теста
+Masterlog. До подтверждения обязательных критериев слияния PR остаются
+в Draft. Результат отдельного диагностического workflow не подменяет
+Release Gate ни одного коммита.
+
 ## Запуск на настоящем Windows runner
 
 1. В GitHub Actions выбрать **Windows Qt native replay (manual)**,
