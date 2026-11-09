@@ -54,6 +54,57 @@ def test_masterlog_diagnostic_targets_regular_or_native_isolated_file(
     assert select_target_group(shards) == expected
 
 
+
+@pytest.mark.parametrize(
+    ("mode", "expected_calls"),
+    (
+        ("isolated", (("pytest", (TARGET_FILE,)),)),
+        ("sequence", (("pytest", (
+            "tests/test_gas_curve_rendering_continuity.py",
+            "tests/test_gas_interval_gis_review_ui.py",
+            "tests/test_gas_interval_gis_source_review_ui.py",
+            "tests/test_gas_mixture_line_patterns.py",
+            "tests/test_gas_mixture_output_language.py",
+            "tests/test_gas_update_coverage.py",
+        )), ("cdb", (TARGET_FILE,)))),
+        ("both", (("pytest", (TARGET_FILE,)), ("pytest", (
+            "tests/test_gas_curve_rendering_continuity.py",
+            "tests/test_gas_interval_gis_review_ui.py",
+            "tests/test_gas_interval_gis_source_review_ui.py",
+            "tests/test_gas_mixture_line_patterns.py",
+            "tests/test_gas_mixture_output_language.py",
+            "tests/test_gas_update_coverage.py",
+        )), ("cdb", (TARGET_FILE,)))),
+    ),
+)
+def test_masterlog_replay_modes_preserve_true_isolation(
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+    expected_calls: tuple[tuple[str, tuple[str, ...]], ...],
+) -> None:
+    """An isolated replay must not inherit the seeded native Qt process."""
+    from tools import diagnose_qt_masterlog_shard as diagnostic
+
+    calls: list[tuple[str, tuple[str, ...]]] = []
+    monkeypatch.setenv("GEOLOG_REPLAY_MODE", mode)
+    monkeypatch.setenv("GEOLOG_REPLAY_REPETITIONS", "1")
+    monkeypatch.setattr(diagnostic, "_test_file_shards", lambda _count: ())
+    monkeypatch.setattr(diagnostic, "_configure_environment", lambda: None)
+
+    def run_child(_args, selectors, _environment) -> int:
+        calls.append(("pytest", tuple(selectors)))
+        return 0
+
+    def run_debugged(selectors, _environment) -> int:
+        calls.append(("cdb", tuple(selectors)))
+        return 0
+
+    monkeypatch.setattr(diagnostic, "_run_child", run_child)
+    monkeypatch.setattr(diagnostic, "_run_debugged_target", run_debugged)
+    assert diagnostic.main() == 0
+    assert calls == list(expected_calls)
+
+
 def test_diagnostic_selector_tracks_real_windows_runner_partition() -> None:
     """The CDB target must exist in both pre- and post-isolation runner layouts."""
     shards = _test_file_shards(16)

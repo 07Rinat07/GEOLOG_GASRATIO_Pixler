@@ -133,9 +133,11 @@ def main() -> int:
     environment = os.environ.copy()
     for repetition in range(1, repetitions + 1):
         if mode in {"isolated", "both"}:
-            print(f"Diagnostic {repetition}/{repetitions}: combined seed and target group", flush=True)
+            # A genuine isolated control must not import the six-file seed.
+            # Keep it distinct from the seeded CDB sequence used for diagnosis.
+            print(f"Diagnostic {repetition}/{repetitions}: isolated Masterlog target", flush=True)
             result = _run_child(
-                ("-p", "no:cacheprovider"), (*SEED_FILES, *target_shard), environment
+                ("-p", "no:cacheprovider"), (TARGET_FILE,), environment
             )
             if result:
                 return 1
