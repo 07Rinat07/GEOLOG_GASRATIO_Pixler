@@ -141,6 +141,13 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         "tests/test_pdf_chart_page_density.py",
         # Windows offscreen Qt can corrupt the native heap when header scenes
         # share a process with earlier dialogs (0xC0000374 during widget.hide).
+        # Main 726a22f / Release Gate 42462681087 aborted with Qt heap corruption
+        # (0xC0000374) in the autouse window-hiding fixture immediately after
+        # Masterlog column dialog tests shared a large unrelated Qt shard.
+        # Preserve every Masterlog assertion, but give each test a fresh native
+        # QApplication/heap instead of inheriting earlier GUI lifetime state.
+        # This is containment, not a root-cause fix for #544.
+        "tests/test_masterlog_columns_dialog.py",
         "tests/test_masterlog_header_dialog.py",
         "tests/test_well_update_workflow.py",
         "tests/test_widget_print.py",
