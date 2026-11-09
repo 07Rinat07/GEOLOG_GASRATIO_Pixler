@@ -23,11 +23,71 @@ SEED_FILES = (
 )
 TARGET_FILE = "tests/test_masterlog_columns_dialog.py"
 
+# Exact 9/16 regular shard captured from main 726a22f / run 42462681087,
+# attempt 7. Run the same selectors together to reproduce the native heap fault.
+MAIN_FAILED_SHARD_FILES = (
+    "tests/test_las3_scalar_log_preview.py",
+    "tests/test_las3_section_inventory.py",
+    "tests/test_las3_tablet_render_acceptance.py",
+    "tests/test_las_curve_browser.py",
+    "tests/test_las_editor_dialog.py",
+    "tests/test_las_export_dialog.py",
+    "tests/test_las_export_plan.py",
+    "tests/test_las_geology_dialect.py",
+    "tests/test_las_growth_analysis_task.py",
+    "tests/test_las_import_policy.py",
+    "tests/test_las_numeric_line_iteration.py",
+    "tests/test_las_parameter_resolver.py",
+    "tests/test_las_range_editor.py",
+    "tests/test_las_table_editor.py",
+    "tests/test_late_analysis_adapter.py",
+    "tests/test_late_analysis_coordinator.py",
+    "tests/test_late_analysis_review_dialog.py",
+    "tests/test_layout_transaction.py",
+    "tests/test_lba_color_labels.py",
+    "tests/test_lba_label_orientation.py",
+    "tests/test_lba_operator_screening.py",
+    "tests/test_lba_standard.py",
+    "tests/test_lba_visuals.py",
+    "tests/test_legacy_geosight_forms.py",
+    "tests/test_lithology_controller.py",
+    "tests/test_lithology_dialog.py",
+    "tests/test_lithology_interval_dialog.py",
+    "tests/test_lithology_labels.py",
+    "tests/test_lithology_legend.py",
+    "tests/test_lithology_legend_dialog.py",
+    "tests/test_lithology_pattern_catalog.py",
+    "tests/test_lithology_patterns.py",
+    "tests/test_lithology_review_comparison.py",
+    "tests/test_lithology_review_export.py",
+    "tests/test_lithology_review_history.py",
+    "tests/test_lithology_review_reader.py",
+    "tests/test_lithology_revision_proposal.py",
+    "tests/test_lithology_source_mapping.py",
+    "tests/test_lithology_translation_tracking.py",
+    "tests/test_lithology_translation_tracking_dialog.py",
+    "tests/test_lithotype_catalog.py",
+    "tests/test_lithotype_catalog_controller.py",
+    "tests/test_lithotype_catalog_dialog.py",
+    "tests/test_logo_catalog.py",
+    "tests/test_lossless_las.py",
+    "tests/test_main_shell_presentation.py",
+    "tests/test_manual_backup_dialog.py",
+    "tests/test_manual_backup_restore_preview_dialog.py",
+    "tests/test_masterlog_assets_dialog.py",
+    "tests/test_masterlog_bundle_exporter.py",
+    "tests/test_masterlog_bundle_preflight.py",
+    "tests/test_masterlog_callout_unicode.py",
+    "tests/test_masterlog_columns_dialog.py",
+    "tests/test_masterlog_control_layout.py",
+)
+
 _NATIVE_EXCEPTION = re.compile(
     r"ExceptionCode:\s*(?:0x)?c000(?:0005|0374|0409)\b"
     r"|Windows fatal exception:\s*code\s*0xc000(?:0005|0374|0409)\b"
     r"|second chance !!!"
-    r"|Fatal Python error:",
+    r"|Fatal Python error:"
+    r"|GEOLOG_CDB_NATIVE_EXCEPTION",
     re.IGNORECASE,
 )
 _PYTEST_COMPLETE = re.compile(
@@ -50,10 +110,35 @@ def debugger_replay_passed(returncode: int, output: str) -> bool:
     """Never mistake a CDB capture/quit for completed successful pytest."""
     return (
         returncode == 0
+        and "GEOLOG_CDB_ARMED" in output
         and _NATIVE_EXCEPTION.search(output) is None
         and _PYTEST_FAILURES.search(output) is None
         and _PYTEST_INCOMPLETE.search(output) is None
         and _PYTEST_COMPLETE.search(output) is not None
+    )
+
+
+def _cdb_startup_commands(dump_path: Path) -> str:
+    """Arm native-exception capture before resuming the Python process.
+
+    -cf runs at the debugger's initial breakpoint. The -c startup option must
+    not be used to take a dump: that would run before the target faults.
+    """
+    if any(char in str(dump_path) for char in (' ', '"', ';')):
+        raise ValueError("CDB dump path must not contain spaces or commands")
+    capture = (
+        ".echo GEOLOG_CDB_NATIVE_EXCEPTION; .exr -1; r; kv; lm; "
+        f".dump /m {dump_path}; q"
+    )
+    return "\n".join(
+        (
+            f'sxe -c "{capture}" 0xc0000374',
+            f'sxd -c2 "{capture}" av',
+            f'sxd -c2 "{capture}" 0xc0000409',
+            ".echo GEOLOG_CDB_ARMED",
+            "g",
+            "",
+        )
     )
 
 
@@ -62,18 +147,17 @@ def _run_debugged_target(selectors: tuple[str, ...], environment: dict[str, str]
         Path(os.environ["ProgramFiles(x86)"]) / "Windows Kits/10/Debuggers/x64/cdb.exe"
     )
     dump_path = Path(os.environ["RUNNER_TEMP"]) / "geolog-replay-dumps/qt-native.dmp"
-    if not debugger.is_file() or " " in str(dump_path):
-        raise RuntimeError("Debugger or safe dump path unavailable")
+    if not debugger.is_file():
+        raise RuntimeError("CDB debugger not installed on Windows runner")
     dump_path.parent.mkdir(parents=True, exist_ok=True)
-    capture = (
-        ".exr -1; r; u @rip-20 @rip+20; dq @rbx L4; "
-        "da poi(poi(@rbx+8)+0x18); kb; lm; "
-        f".dump /m {dump_path}; q"
-    )
+    startup_file = dump_path.parent / "cdb-startup.txt"
+    startup_file.write_text(_cdb_startup_commands(dump_path), encoding="ascii")
+
+    # Do not use -g: it would skip the initial break used to install filters.
+    # The installed exception commands print native registers, stack, modules
+    # and write a bounded dump only after an actual fatal exception.
     command = [
-        str(debugger), "-o", "-g", "-G",
-        "-xd", "0xc0000005", "-xd", "0xc0000374", "-xd", "0xc0000409",
-        "-c", capture,
+        str(debugger), "-G", "-cf", str(startup_file),
         sys.executable, "scripts/run_tests.py", "--geolog-single-shard",
         "-s", "-p", "no:cacheprovider", *selectors,
     ]
@@ -116,11 +200,8 @@ def select_target_group(shards: tuple[tuple[str, ...], ...]) -> tuple[str, ...]:
 def main() -> int:
     shards = _test_file_shards(16)
     target_shard = select_target_group(shards)
-    if any(not Path(name).is_file() for name in (*SEED_FILES, *target_shard)):
-        raise RuntimeError("Expected replay selectors are missing")
-
-    mode = os.environ.get("GEOLOG_REPLAY_MODE", "sequence")
-    if mode not in {"isolated", "sequence", "both"}:
+    mode = os.environ.get("GEOLOG_REPLAY_MODE", "failing-shard")
+    if mode not in {"isolated", "sequence", "both", "failing-shard"}:
         raise ValueError("Select isolated, sequence, or both")
     try:
         repetitions = int(os.environ.get("GEOLOG_REPLAY_REPETITIONS", "1"))
@@ -128,10 +209,17 @@ def main() -> int:
         raise ValueError("Invalid replay repetitions") from exc
     if not 1 <= repetitions <= 4:
         raise ValueError("Replay repetitions must be between 1 and 4")
+    selectors = MAIN_FAILED_SHARD_FILES if mode == "failing-shard" else (*SEED_FILES, *target_shard)
+    if any(not Path(name).is_file() for name in selectors):
+        raise RuntimeError("Expected replay selectors are missing")
 
     _configure_environment()
     environment = os.environ.copy()
     for repetition in range(1, repetitions + 1):
+        if mode == "failing-shard":
+            print(f"Diagnostic {repetition}/{repetitions}: exact failed main shard", flush=True)
+            if _run_debugged_target(MAIN_FAILED_SHARD_FILES, environment):
+                return 1
         if mode in {"isolated", "both"}:
             # A genuine isolated control must not import the six-file seed.
             # Keep it distinct from the seeded CDB sequence used for diagnosis.

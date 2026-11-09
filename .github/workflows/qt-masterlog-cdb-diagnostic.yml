@@ -4,11 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "Replay Masterlog shard alone or with a seed; CDB captures remain failures"
+        description: "Replay exact failing main shard under CDB, isolated Masterlog, or seeded sequence"
         required: true
-        default: sequence
+        default: failing-shard
         type: choice
         options:
+          - failing-shard
           - isolated
           - sequence
           - both
