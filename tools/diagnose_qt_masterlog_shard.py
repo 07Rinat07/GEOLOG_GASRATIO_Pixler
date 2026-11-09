@@ -87,8 +87,11 @@ _NATIVE_EXCEPTION = re.compile(
     r"|Windows fatal exception:\s*code\s*0xc000(?:0005|0374|0409)\b"
     r"|second chance !!!"
     r"|Fatal Python error:"
-    r"|GEOLOG_CDB_NATIVE_EXCEPTION",
     re.IGNORECASE,
+)
+_CDB_ARMED_MARKER = re.compile(r"(?m)^[ \t]*GEOLOG_CDB_ARMED[ \t]*$")
+_CDB_EXCEPTION_MARKER = re.compile(
+    r"(?m)^[ \t]*GEOLOG_CDB_NATIVE_EXCEPTION[ \t]*$"
 )
 _PYTEST_COMPLETE = re.compile(
     r"=+\s*\d+ passed\b[^\r\n]*\bin\s+\d+(?:\.\d+)?s\s*=+",
@@ -110,7 +113,8 @@ def debugger_replay_passed(returncode: int, output: str) -> bool:
     """Never mistake a CDB capture/quit for completed successful pytest."""
     return (
         returncode == 0
-        and "GEOLOG_CDB_ARMED" in output
+        and _CDB_ARMED_MARKER.search(output) is not None
+        and _CDB_EXCEPTION_MARKER.search(output) is None
         and _NATIVE_EXCEPTION.search(output) is None
         and _PYTEST_FAILURES.search(output) is None
         and _PYTEST_INCOMPLETE.search(output) is None
@@ -153,11 +157,14 @@ def _run_debugged_target(selectors: tuple[str, ...], environment: dict[str, str]
     startup_file = dump_path.parent / "cdb-startup.txt"
     startup_file.write_text(_cdb_startup_commands(dump_path), encoding="ascii")
 
-    # Do not use -g: it would skip the initial break used to install filters.
+    # Debug child Python behind Windows venvlauncher.exe. Do not use -g:
+    # it would skip the initial breakpoint needed to install filters.
+    # Disable CDB debug heap (-hd) so heap corruption is tested on the
+    # same standard Windows heap as the mandatory Quality gate.
     # The installed exception commands print native registers, stack, modules
     # and write a bounded dump only after an actual fatal exception.
     command = [
-        str(debugger), "-G", "-cf", str(startup_file),
+        str(debugger), "-o", "-hd", "-G", "-cf", str(startup_file),
         sys.executable, "scripts/run_tests.py", "--geolog-single-shard",
         "-s", "-p", "no:cacheprovider", *selectors,
     ]
@@ -175,8 +182,11 @@ def _run_debugged_target(selectors: tuple[str, ...], environment: dict[str, str]
     print(completed.stdout, end="", flush=True)
     if not debugger_replay_passed(completed.returncode, completed.stdout):
         print(
-            "Diagnostic replay FAILED or INCOMPLETE: CDB exit alone is not "
-            "proof that pytest finished successfully.",
+            "Diagnostic replay FAILED or INCOMPLETE: "
+            f"CDB status={completed.returncode}; "
+            f"armed={_CDB_ARMED_MARKER.search(completed.stdout) is not None}; "
+            f"exception_marker={_CDB_EXCEPTION_MARKER.search(completed.stdout) is not None}. "
+            "CDB exit alone is not proof that pytest finished successfully.",
             file=sys.stderr,
             flush=True,
         )

@@ -21,6 +21,20 @@ from tools.diagnose_qt_masterlog_shard import (
     ("status", "output", "expected"),
     (
         (0, "GEOLOG_CDB_ARMED\n================= 330 passed in 11.35s =================", True),
+        (
+            0,
+            '0:000> sxe -c ".echo GEOLOG_CDB_NATIVE_EXCEPTION; .dump /m ..." 0xc0000374'
+            '\n0:000> .echo GEOLOG_CDB_ARMED'
+            '\nGEOLOG_CDB_ARMED'
+            '\n================= 330 passed in 11.35s =================',
+            True,
+        ),
+        (
+            0,
+            '0:000> .echo GEOLOG_CDB_ARMED'
+            '\n================= 330 passed in 11.35s =================',
+            False,
+        ),
         (0, "================= 330 passed in 11.35s =================", False),
         (0, "GEOLOG_CDB_ARMED\nGEOLOG_CDB_NATIVE_EXCEPTION\n================= 330 passed in 11.35s =================", False),
         (1, "================= 330 passed in 11.35s =================", False),
@@ -77,6 +91,8 @@ def test_cdb_launch_uses_startup_file_not_initial_dump(
     def fake_run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
         commands.append(command)
         assert "-cf" in command
+        assert "-o" in command  # Follow real python.exe spawned by venvlauncher.
+        assert "-hd" in command  # Use normal Windows heap.
         assert "-g" not in command
         assert "-xd" not in command
         assert "-c" not in command
