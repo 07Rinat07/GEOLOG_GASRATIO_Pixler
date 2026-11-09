@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import gc
-import shiboken6
-
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import (
@@ -22,7 +19,6 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
-    QWidgetItem,
 )
 
 from geoworkbench.project.interpretation_calculation_controller import (
@@ -36,43 +32,6 @@ from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.interpretation_report_workspace_drilling import (
     InterpretationReportWorkspace as _DrillingInterpretationReportWorkspace,
 )
-
-
-def _diagnostic_layout_items(current: QWidget) -> None:
-    objects = gc.get_objects()
-    for obj in objects:
-        if type(obj) is QWidgetItem:
-            valid = shiboken6.isValid(obj)
-            native = shiboken6.getCppPointer(obj)[0] if valid else 0
-            refs = [ref for ref in gc.get_referrers(obj) if ref is not objects]
-            owners = sorted({type(ref).__name__ for ref in refs})
-            print(
-                f"QT_GC_ITEM {id(obj):x} {valid} {native:x} "
-                f"owned={shiboken6.ownedByPython(obj)} created={shiboken6.createdByPython(obj)} "
-                f"python_refs={','.join(owners)}",
-                flush=True,
-            )
-            for ref in refs:
-                if isinstance(ref, QVBoxLayout) and shiboken6.isValid(ref):
-                    parent = ref.parentWidget()
-                    print(
-                        f"QT_GC_OWNER {id(obj):x} layout={id(ref):x} "
-                        f"parent={type(parent).__name__ if parent else 'None'} "
-                        f"name={parent.objectName() if parent else ''} current={parent is current} "
-                        f"root={ref is current.layout()} layout_parent={type(ref.parent()).__name__}",
-                        flush=True,
-                    )
-                    if parent and parent.objectName() == "interpretation-report-workspace":
-                        for index in range(ref.count()):
-                            item = ref.itemAt(index)
-                            if item is obj:
-                                widget = item.widget()
-                                print(
-                                    f"QT_GC_ROOT {id(obj):x} index={index} "
-                                    f"widget={type(widget).__name__ if widget else 'None'} "
-                                    f"name={widget.objectName() if widget else ''}",
-                                    flush=True,
-                                )
 
 
 class InterpretationReportWorkspace(_DrillingInterpretationReportWorkspace):
@@ -102,18 +61,6 @@ class InterpretationReportWorkspace(_DrillingInterpretationReportWorkspace):
         root.setContentsMargins(16, 14, 16, 14)
         root.setSpacing(12)
 
-        print("QT_LAYOUT_PHASE_BEFORE", flush=True)
-        _diagnostic_layout_items(self)
-        for index in range(root.count()):
-            item = root.itemAt(index)
-            widget = item.widget() if item else None
-            print(
-                f"QT_ROOT_BEFORE {id(item):x} index={index} "
-                f"widget={type(widget).__name__ if widget else 'None'} "
-                f"name={widget.objectName() if widget else ''}",
-                flush=True,
-            )
-
         # The legacy form and its action row are replaced by two compact cards.
         root.takeAt(3)
         root.takeAt(3)
@@ -121,9 +68,6 @@ class InterpretationReportWorkspace(_DrillingInterpretationReportWorkspace):
         help_item = root.takeAt(0)
         if explanation_item is None or help_item is None:
             raise RuntimeError("Не найдены вводные элементы страницы интерпретации")
-        print(f"QT_LAYOUT_WRAPPERS {id(explanation_item):x} {id(help_item):x}", flush=True)
-        print("QT_LAYOUT_PHASE_AFTER", flush=True)
-        _diagnostic_layout_items(self)
         explanation = explanation_item.widget()
         help_label = help_item.widget()
         if explanation is None or help_label is None:
