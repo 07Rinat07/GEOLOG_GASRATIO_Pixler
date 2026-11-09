@@ -93,14 +93,23 @@ def _run_debugged_target(selectors: tuple[str, ...], environment: dict[str, str]
     return 0
 
 
+def select_target_group(shards: tuple[tuple[str, ...], ...]) -> tuple[str, ...]:
+    """Keep Masterlog replay usable after the runner moves it to native batches.
+
+    Before the Qt containment fix the target lived in a shared regular shard.
+    After that fix the file is explicitly excluded from regular shards, but the
+    diagnostic must still execute it as a standalone target rather than abort.
+    """
+    return next(
+        (selectors for selectors in shards if TARGET_FILE in selectors),
+        (TARGET_FILE,),
+    )
+
+
 def main() -> int:
     shards = _test_file_shards(16)
-    target_shard = next(
-        (selectors for selectors in shards if TARGET_FILE in selectors), None
-    )
-    if target_shard is None or any(
-        not Path(name).is_file() for name in (*SEED_FILES, *target_shard)
-    ):
+    target_shard = select_target_group(shards)
+    if any(not Path(name).is_file() for name in (*SEED_FILES, *target_shard)):
         raise RuntimeError("Expected replay selectors are missing")
 
     mode = os.environ.get("GEOLOG_REPLAY_MODE", "sequence")
@@ -117,7 +126,7 @@ def main() -> int:
     environment = os.environ.copy()
     for repetition in range(1, repetitions + 1):
         if mode in {"isolated", "both"}:
-            print(f"Diagnostic {repetition}/{repetitions}: combined shard", flush=True)
+            print(f"Diagnostic {repetition}/{repetitions}: combined seed and target group", flush=True)
             result = _run_child(
                 ("-p", "no:cacheprovider"), (*SEED_FILES, *target_shard), environment
             )
