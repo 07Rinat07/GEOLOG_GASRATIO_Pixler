@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from tools.diagnose_qt_masterlog_shard import debugger_replay_passed
+from tools.diagnose_qt_masterlog_shard import (
+    TARGET_FILE,
+    debugger_replay_passed,
+    select_target_group,
+)
 
 
 @pytest.mark.parametrize(
@@ -26,3 +30,18 @@ def test_cdb_exit_does_not_mask_incomplete_or_crashed_pytest(
     status: int, output: str, expected: bool
 ) -> None:
     assert debugger_replay_passed(status, output) is expected
+
+
+@pytest.mark.parametrize(
+    ("shards", "expected"),
+    (
+        ((("tests/preceding.py", TARGET_FILE),), ("tests/preceding.py", TARGET_FILE)),
+        ((("tests/preceding.py",),), (TARGET_FILE,)),
+        ((), (TARGET_FILE,)),
+    ),
+)
+def test_masterlog_diagnostic_targets_regular_or_native_isolated_file(
+    shards: tuple[tuple[str, ...], ...], expected: tuple[str, ...]
+) -> None:
+    """PR #858 moves Masterlog out of regular shards; diagnostics must survive."""
+    assert select_target_group(shards) == expected
