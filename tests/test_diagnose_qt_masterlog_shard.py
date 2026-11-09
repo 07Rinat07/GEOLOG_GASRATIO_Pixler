@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import pytest
 
+from scripts.run_tests import _FORCED_NATIVE_BATCH_FILES, _test_file_shards
+
 from tools.diagnose_qt_masterlog_shard import (
     TARGET_FILE,
     debugger_replay_passed,
@@ -45,3 +47,17 @@ def test_masterlog_diagnostic_targets_regular_or_native_isolated_file(
 ) -> None:
     """PR #858 moves Masterlog out of regular shards; diagnostics must survive."""
     assert select_target_group(shards) == expected
+
+
+def test_diagnostic_selector_tracks_real_windows_runner_partition() -> None:
+    """The CDB target must exist in both pre- and post-isolation runner layouts."""
+    shards = _test_file_shards(16)
+    selected = select_target_group(shards)
+    assert TARGET_FILE in selected
+    regular_matches = [part for part in shards if TARGET_FILE in part]
+    if TARGET_FILE in _FORCED_NATIVE_BATCH_FILES:
+        assert not regular_matches
+        assert selected == (TARGET_FILE,)
+    else:
+        assert len(regular_matches) == 1
+        assert selected == regular_matches[0]
