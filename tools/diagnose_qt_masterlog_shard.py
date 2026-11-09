@@ -34,6 +34,12 @@ _PYTEST_COMPLETE = re.compile(
     r"=+\s*\d+ passed\b[^\r\n]*\bin\s+\d+(?:\.\d+)?s\s*=+",
     re.IGNORECASE,
 )
+# Any incomplete execution invalidates a diagnostic success, even if pytest
+# returns zero (for example, an unexpected skip or deselection).
+_PYTEST_INCOMPLETE = re.compile(
+    r"\\b[1-9]\\d*\\s+(?:skipped|xfailed|xpassed|deselected|reruns?)\\b",
+    re.IGNORECASE,
+)
 _PYTEST_FAILURES = re.compile(
     r"=+\s*[^\r\n]*\b[1-9]\d*\s+(?:failed|errors?)\b",
     re.IGNORECASE,
@@ -46,6 +52,7 @@ def debugger_replay_passed(returncode: int, output: str) -> bool:
         returncode == 0
         and _NATIVE_EXCEPTION.search(output) is None
         and _PYTEST_FAILURES.search(output) is None
+        and _PYTEST_INCOMPLETE.search(output) is None
         and _PYTEST_COMPLETE.search(output) is not None
     )
 
