@@ -26,7 +26,8 @@ TARGET_FILE = "tests/test_masterlog_columns_dialog.py"
 _NATIVE_EXCEPTION = re.compile(
     r"ExceptionCode:\s*(?:0x)?c000(?:0005|0374|0409)\b"
     r"|Windows fatal exception:\s*code\s*0xc000(?:0005|0374|0409)\b"
-    r"|second chance !!!",
+    r"|second chance !!!"
+    r"|Fatal Python error:",
     re.IGNORECASE,
 )
 _PYTEST_COMPLETE = re.compile(
@@ -34,7 +35,7 @@ _PYTEST_COMPLETE = re.compile(
     re.IGNORECASE,
 )
 _PYTEST_FAILURES = re.compile(
-    r"=+\s*[^\r\n]*\b\d+\s+failed\b",
+    r"=+\s*[^\r\n]*\b[1-9]\d*\s+(?:failed|errors?)\b",
     re.IGNORECASE,
 )
 
