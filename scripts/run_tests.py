@@ -238,7 +238,17 @@ def _top_level_test_nodes(path: Path) -> tuple[str, ...]:
             if item.name.startswith("test_"):
                 nodes.append(f"{prefix}::{item.name}")
             continue
-        if not isinstance(item, ast.ClassDef) or not item.name.startswith("Test"):
+        if not isinstance(item, ast.ClassDef):
+            continue
+        # pytest also discovers unittest.TestCase methods from classes whose
+        # names do not start with Test. Those tests must not disappear when
+        # we split a native-heavy file into individual subprocess selectors.
+        is_unittest_case = any(
+            (isinstance(base, ast.Name) and base.id == "TestCase")
+            or (isinstance(base, ast.Attribute) and base.attr == "TestCase")
+            for base in item.bases
+        )
+        if not item.name.startswith("Test") and not is_unittest_case:
             continue
         for child in item.body:
             if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
