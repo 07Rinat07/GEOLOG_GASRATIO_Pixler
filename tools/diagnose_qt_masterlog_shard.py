@@ -102,8 +102,12 @@ _CDB_ARMED_MARKER = re.compile(r"(?m)^[ \t]*GEOLOG_CDB_ARMED[ \t]*$")
 _CDB_EXCEPTION_MARKER = re.compile(
     r"(?m)^[ \t]*GEOLOG_CDB_NATIVE_EXCEPTION[ \t]*$"
 )
+_PYTEST_COLLECTED = re.compile(
+    r"(?m)^(?:collecting \.\.\. )?collected ([1-9]\d*) items?[ \t]*$",
+    re.IGNORECASE,
+)
 _PYTEST_COMPLETE = re.compile(
-    r"=+\s*\d+ passed\b[^\r\n]*\bin\s+\d+(?:\.\d+)?s\s*=+",
+    r"(?m)^=+\s*([1-9]\d*) passed\b[^\r\n]*\bin\s+\d+(?:\.\d+)?s\s*=+[ \t]*$",
     re.IGNORECASE,
 )
 # Any incomplete execution invalidates a diagnostic success, even if pytest
@@ -119,7 +123,15 @@ _PYTEST_FAILURES = re.compile(
 
 
 def debugger_replay_passed(returncode: int, output: str) -> bool:
-    """Never mistake a CDB capture/quit for completed successful pytest."""
+    """Require exactly one complete pytest collection and matching pass count.
+
+    CDB can quit with status zero after a partial run. The Python child reports
+    either 'collecting ... collected N items' or 'collected N items' when CDB
+    interleaves module-load messages. Neither a summary alone nor an unrelated
+    native exception marker establishes complete test execution.
+    """
+    collected = _PYTEST_COLLECTED.findall(output)
+    completed = _PYTEST_COMPLETE.findall(output)
     return (
         returncode == 0
         and _CDB_ARMED_MARKER.search(output) is not None
@@ -127,7 +139,9 @@ def debugger_replay_passed(returncode: int, output: str) -> bool:
         and _NATIVE_EXCEPTION.search(output) is None
         and _PYTEST_FAILURES.search(output) is None
         and _PYTEST_INCOMPLETE.search(output) is None
-        and _PYTEST_COMPLETE.search(output) is not None
+        and len(collected) == 1
+        and len(completed) == 1
+        and collected[0] == completed[0]
     )
 
 

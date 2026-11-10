@@ -25,12 +25,56 @@ from tools.diagnose_qt_masterlog_shard import (
 @pytest.mark.parametrize(
     ("status", "output", "expected"),
     (
-        (0, "GEOLOG_CDB_ARMED\n================= 330 passed in 11.35s =================", True),
+        (
+            0,
+            "GEOLOG_CDB_ARMED\ncollected 330 items"
+            "\n================= 330 passed in 11.35s =================",
+            True,
+        ),
+        (
+            0,
+            "GEOLOG_CDB_ARMED\ncollecting ... collected 330 items"
+            "\n================= 330 passed in 11.35s =================",
+            True,
+        ),
+        (
+            0,
+            "GEOLOG_CDB_ARMED\ncollected 1 item"
+            "\n================= 1 passed in 1.35s =================",
+            True,
+        ),
+        (
+            0,
+            "GEOLOG_CDB_ARMED\ncollected 330 items"
+            "\n================= 329 passed in 11.35s =================",
+            False,
+        ),
+        (
+            0,
+            "GEOLOG_CDB_ARMED\ncollected 330 items"
+            "\n================= 330 passed in 11.35s ================="
+            "\n================= 330 passed in 11.35s =================",
+            False,
+        ),
+        (
+            0,
+            "GEOLOG_CDB_ARMED\ncollected 330 items"
+            "\ncollected 330 items"
+            "\n================= 330 passed in 11.35s =================",
+            False,
+        ),
+        (
+            0,
+            "GEOLOG_CDB_ARMED"
+            "\n================= 330 passed in 11.35s =================",
+            False,
+        ),
         (
             0,
             '0:000> sxe -c ".echo GEOLOG_CDB_NATIVE_EXCEPTION; .dump /m ..." 0xc0000374'
             '\n0:000> .echo GEOLOG_CDB_ARMED'
             '\nGEOLOG_CDB_ARMED'
+            '\ncollected 330 items'
             '\n================= 330 passed in 11.35s =================',
             True,
         ),
@@ -54,7 +98,12 @@ from tools.diagnose_qt_masterlog_shard import (
         (0, "================= 329 passed, 1 xpassed in 11.35s =================", False),
         (0, "================= 329 passed, 1 deselected in 11.35s =================", False),
         (0, "================= 329 passed, 1 rerun in 11.35s =================", False),
-        (0, "GEOLOG_CDB_ARMED\n================= 329 passed, 1 warning in 11.35s =================", True),
+        (
+            0,
+            "GEOLOG_CDB_ARMED\ncollected 329 items"
+            "\n================= 329 passed, 1 warning in 11.35s =================",
+            True,
+        ),
         (0, "================= 3 passed, 1 error in 11.35s =================", False),
         (0, "================= 3 passed, 2 errors in 11.35s =================", False),
         (0, "================= 3 passed in 11.35s =================\nFatal Python error: access violation", False),
@@ -105,7 +154,8 @@ def test_cdb_launch_uses_startup_file_not_initial_dump(
         assert startup_file.exists()
         assert startup_file.read_text(encoding="ascii").endswith("g\n")
         return subprocess.CompletedProcess(
-            command, 0, "GEOLOG_CDB_ARMED\n================= 1 passed in 0.02s ================="
+            command, 0, "GEOLOG_CDB_ARMED\ncollected 1 item"
+            "\n================= 1 passed in 0.02s ================="
         )
 
     monkeypatch.setattr(diagnostic.subprocess, "run", fake_run)
