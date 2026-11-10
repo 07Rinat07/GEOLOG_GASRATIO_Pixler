@@ -187,21 +187,21 @@ def test_native_selection_preserves_inherited_test_methods(
     """A child class must not lose inherited pytest/unittest test methods."""
     path = tmp_path / "test_inherited_native.py"
     path.write_text(
-        "import unittest\\n"
-        "def test_regular():\\n"
-        "    assert True\\n"
-        "class WidgetBase(unittest.TestCase):\\n"
-        "    def test_base(self):\\n"
-        "        self.assertTrue(True)\\n"
-        "class WidgetChild(WidgetBase):\\n"
-        "    def test_local(self):\\n"
-        "        self.assertTrue(True)\\n"
-        "class PlainBase:\\n"
-        "    def test_reused(self):\\n"
-        "        assert True\\n"
-        "class TestPlainChild(PlainBase):\\n"
-        "    def test_own(self):\\n"
-        "        assert True\\n",
+        "import unittest\n"
+        "def test_regular():\n"
+        "    assert True\n"
+        "class WidgetBase(unittest.TestCase):\n"
+        "    def test_base(self):\n"
+        "        self.assertTrue(True)\n"
+        "class WidgetChild(WidgetBase):\n"
+        "    def test_local(self):\n"
+        "        self.assertTrue(True)\n"
+        "class PlainBase:\n"
+        "    def test_reused(self):\n"
+        "        assert True\n"
+        "class TestPlainChild(PlainBase):\n"
+        "    def test_own(self):\n"
+        "        assert True\n",
         encoding="utf-8",
     )
     prefix = path.as_posix()
