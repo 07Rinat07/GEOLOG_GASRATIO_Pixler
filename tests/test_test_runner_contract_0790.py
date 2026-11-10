@@ -110,3 +110,118 @@ def test_word_ui_language_orientation_cases_use_separate_native_processes() -> N
     batches = run_tests._heavy_test_batches((path,))
     assert all(len(selectors) == 1 for _, selectors in batches)
     assert all((path.as_posix(), (case,)) in batches for case in cases)
+
+
+def test_forced_native_unittest_case_keeps_separate_native_process(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Non-Test-named unittest cases are discovered and isolated individually."""
+    path = tmp_path / "test_widget_case.py"
+    path.write_text(
+        "import unittest\n"
+        "class WidgetCase(unittest.TestCase):\n"
+        "    def test_widget_setup(self):\n"
+        "        assert True\n",
+        encoding="utf-8",
+    )
+    expected = f"{path.as_posix()}::WidgetCase::test_widget_setup"
+    assert run_tests._top_level_test_nodes(path) == (expected,)
+    monkeypatch.setattr(
+        run_tests, "_FORCED_NATIVE_BATCH_FILES", frozenset({path.as_posix()})
+    )
+    assert run_tests._heavy_test_batches((path,)) == (
+        (path.as_posix(), (expected,)),
+    )
+    assert run_tests._test_file_shards(1, (path,)) == ()
+
+
+def test_mixed_pytest_and_nonstandard_unittest_classes_are_not_dropped(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """An AST-visible pytest function must not hide a unittest TestCase."""
+    path = tmp_path / "test_mixed_native.py"
+    path.write_text(
+        "import unittest\n"
+        "def test_regular():\n"
+        "    assert True\n"
+        "class WidgetCase(unittest.TestCase):\n"
+        "    def test_widget_setup(self):\n"
+        "        self.assertTrue(True)\n",
+        encoding="utf-8",
+    )
+    selected = (
+        f"{path.as_posix()}::test_regular",
+        f"{path.as_posix()}::WidgetCase::test_widget_setup",
+    )
+    assert run_tests._top_level_test_nodes(path) == selected
+    monkeypatch.setattr(
+        run_tests, "_FORCED_NATIVE_BATCH_FILES", frozenset({path.as_posix()})
+    )
+    # Production forces every native test file into the single-test set too.
+    # Mirror that invariant for the temporary path in this contract test.
+    monkeypatch.setattr(
+        run_tests, "_SINGLE_TEST_PROCESS_FILES", frozenset({path.as_posix()})
+    )
+    assert run_tests._heavy_test_batches((path,)) == (
+        (path.as_posix(), (selected[0],)),
+        (path.as_posix(), (selected[1],)),
+    )
+    assert run_tests._test_file_shards(1, (path,)) == ()
+
+
+def test_empty_forced_native_module_still_runs_for_pytest_collection_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    path = tmp_path / "test_no_cases.py"
+    path.write_text("VALUE = 1\n", encoding="utf-8")
+    monkeypatch.setattr(
+        run_tests, "_FORCED_NATIVE_BATCH_FILES", frozenset({path.as_posix()})
+    )
+    assert run_tests._heavy_test_batches((path,)) == (
+        (path.as_posix(), (path.as_posix(),)),
+    )
+
+
+def test_native_selection_preserves_inherited_test_methods(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A child class must not lose inherited pytest/unittest test methods."""
+    path = tmp_path / "test_inherited_native.py"
+    path.write_text(
+        "import unittest\n"
+        "def test_regular():\n"
+        "    assert True\n"
+        "class WidgetBase(unittest.TestCase):\n"
+        "    def test_base(self):\n"
+        "        self.assertTrue(True)\n"
+        "class WidgetChild(WidgetBase):\n"
+        "    def test_local(self):\n"
+        "        self.assertTrue(True)\n"
+        "class PlainBase:\n"
+        "    def test_reused(self):\n"
+        "        assert True\n"
+        "class TestPlainChild(PlainBase):\n"
+        "    def test_own(self):\n"
+        "        assert True\n",
+        encoding="utf-8",
+    )
+    prefix = path.as_posix()
+    selected = (
+        f"{prefix}::test_regular",
+        f"{prefix}::WidgetBase::test_base",
+        f"{prefix}::WidgetChild::test_base",
+        f"{prefix}::WidgetChild::test_local",
+        f"{prefix}::TestPlainChild::test_reused",
+        f"{prefix}::TestPlainChild::test_own",
+    )
+    assert run_tests._top_level_test_nodes(path) == selected
+    monkeypatch.setattr(
+        run_tests, "_FORCED_NATIVE_BATCH_FILES", frozenset({prefix})
+    )
+    monkeypatch.setattr(
+        run_tests, "_SINGLE_TEST_PROCESS_FILES", frozenset({prefix})
+    )
+    assert run_tests._heavy_test_batches((path,)) == tuple(
+        (prefix, (selector,)) for selector in selected
+    )
+    assert run_tests._test_file_shards(1, (path,)) == ()
