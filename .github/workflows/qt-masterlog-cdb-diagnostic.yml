@@ -14,11 +14,12 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "Diagnose failing Qt resample undo or compare full main shard using CDB/plain controls"
+        description: "Reproduce Qt native failure in normalized-gas or resample-undo, or compare main shard"
         required: true
-        default: resample-undo
+        default: normalized-gas
         type: choice
         options:
+          - normalized-gas
           - resample-undo
           - plain-shard
           - failing-shard
@@ -111,7 +112,7 @@ jobs:
       - name: Replay known native-heavy Qt selectors
         shell: pwsh
         env:
-          GEOLOG_REPLAY_MODE: ${{ inputs.mode || 'resample-undo' }}
+          GEOLOG_REPLAY_MODE: ${{ inputs.mode || 'normalized-gas' }}
           GEOLOG_REPLAY_REPETITIONS: ${{ inputs.repetitions || '1' }}
         run: |
           .\.venv\Scripts\python.exe tools/check_documentation.py

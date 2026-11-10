@@ -12,6 +12,8 @@ from tools.diagnose_qt_masterlog_shard import (
     MAIN_FAILED_SHARD_FILES,
     RESAMPLE_UNDO_FILE,
     RESAMPLE_UNDO_NODE,
+    NORMALIZED_GAS_FILE,
+    NORMALIZED_GAS_NODE,
     TARGET_FILE,
     _cdb_startup_commands,
     _run_plain_target,
@@ -141,6 +143,14 @@ def test_resample_undo_selector_is_real_and_unambiguous() -> None:
     )
 
 
+def test_normalized_gas_selector_is_real_and_unambiguous() -> None:
+    assert Path(NORMALIZED_GAS_FILE).is_file()
+    assert NORMALIZED_GAS_NODE == (
+        "tests/test_main_window_normalized_gas_tablet.py"
+        "::test_show_normalized_gas_button_opens_tablet_and_adds_track"
+    )
+
+
 def test_failed_main_shard_manifest_preserves_original_sequence() -> None:
     assert MAIN_FAILED_SHARD_FILES[0] == "tests/test_las3_scalar_log_preview.py"
     assert MAIN_FAILED_SHARD_FILES[-1] == "tests/test_masterlog_control_layout.py"
@@ -174,6 +184,13 @@ def test_masterlog_diagnostic_targets_regular_or_native_isolated_file(
             (
                 ("plain", (RESAMPLE_UNDO_NODE,)),
                 ("cdb", (RESAMPLE_UNDO_NODE,)),
+            ),
+        ),
+        (
+            "normalized-gas",
+            (
+                ("plain", (NORMALIZED_GAS_NODE,)),
+                ("cdb", (NORMALIZED_GAS_NODE,)),
             ),
         ),
         ("sequence", (("pytest", SEED_FILES), ("cdb", (TARGET_FILE,)))),

@@ -26,6 +26,11 @@ RESAMPLE_UNDO_FILE = "tests/test_main_window.py"
 RESAMPLE_UNDO_NODE = (
     "tests/test_main_window.py::test_window_creates_and_undoes_resampled_copy"
 )
+NORMALIZED_GAS_FILE = "tests/test_main_window_normalized_gas_tablet.py"
+NORMALIZED_GAS_NODE = (
+    "tests/test_main_window_normalized_gas_tablet.py"
+    "::test_show_normalized_gas_button_opens_tablet_and_adds_track"
+)
 
 # Exact 9/16 regular shard captured from main 726a22f / run 42462681087,
 # attempt 7. Run the same selectors together to reproduce the native heap fault.
@@ -227,9 +232,9 @@ def main() -> int:
     shards = _test_file_shards(16)
     target_shard = select_target_group(shards)
     mode = os.environ.get("GEOLOG_REPLAY_MODE", "plain-shard")
-    if mode not in {"isolated", "sequence", "both", "failing-shard", "plain-shard", "resample-undo"}:
+    if mode not in {"isolated", "sequence", "both", "failing-shard", "plain-shard", "resample-undo", "normalized-gas"}:
         raise ValueError(
-            "Select plain-shard, failing-shard, resample-undo, isolated, sequence, or both"
+            "Select plain-shard, failing-shard, resample-undo, normalized-gas, isolated, sequence, or both"
         )
     try:
         repetitions = int(os.environ.get("GEOLOG_REPLAY_REPETITIONS", "1"))
@@ -240,6 +245,8 @@ def main() -> int:
     selectors = (
         (RESAMPLE_UNDO_FILE,)
         if mode == "resample-undo"
+        else (NORMALIZED_GAS_FILE,)
+        if mode == "normalized-gas"
         else MAIN_FAILED_SHARD_FILES
         if mode in {"failing-shard", "plain-shard"}
         else (*SEED_FILES, *target_shard)
@@ -250,17 +257,21 @@ def main() -> int:
     _configure_environment()
     environment = os.environ.copy()
     for repetition in range(1, repetitions + 1):
-        if mode == "resample-undo":
-            # Keep both controls even when the first case crashes. Every native
-            # exit must propagate as a failure; never count a CDB capture as pass.
-            node = (RESAMPLE_UNDO_NODE,)
+        if mode in {"resample-undo", "normalized-gas"}:
+            # Both native crash sites are tested once without a debugger and
+            # once with CDB. One failure cannot be hidden by the other control.
+            node = (
+                (RESAMPLE_UNDO_NODE,)
+                if mode == "resample-undo"
+                else (NORMALIZED_GAS_NODE,)
+            )
             print(
-                f"Diagnostic {repetition}/{repetitions}: undo/resample without CDB",
+                f"Diagnostic {repetition}/{repetitions}: {mode} without CDB",
                 flush=True,
             )
             plain_result = _run_plain_target(node, environment)
             print(
-                f"Diagnostic {repetition}/{repetitions}: undo/resample under CDB",
+                f"Diagnostic {repetition}/{repetitions}: {mode} under CDB",
                 flush=True,
             )
             cdb_result = _run_debugged_target(node, environment)
