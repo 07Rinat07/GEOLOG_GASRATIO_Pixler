@@ -179,3 +179,48 @@ def test_empty_forced_native_module_still_runs_for_pytest_collection_failure(
     assert run_tests._heavy_test_batches((path,)) == (
         (path.as_posix(), (path.as_posix(),)),
     )
+
+
+def test_native_selection_preserves_inherited_test_methods(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A child class must not lose inherited pytest/unittest test methods."""
+    path = tmp_path / "test_inherited_native.py"
+    path.write_text(
+        "import unittest\\n"
+        "def test_regular():\\n"
+        "    assert True\\n"
+        "class WidgetBase(unittest.TestCase):\\n"
+        "    def test_base(self):\\n"
+        "        self.assertTrue(True)\\n"
+        "class WidgetChild(WidgetBase):\\n"
+        "    def test_local(self):\\n"
+        "        self.assertTrue(True)\\n"
+        "class PlainBase:\\n"
+        "    def test_reused(self):\\n"
+        "        assert True\\n"
+        "class TestPlainChild(PlainBase):\\n"
+        "    def test_own(self):\\n"
+        "        assert True\\n",
+        encoding="utf-8",
+    )
+    prefix = path.as_posix()
+    selected = (
+        f"{prefix}::test_regular",
+        f"{prefix}::WidgetBase::test_base",
+        f"{prefix}::WidgetChild::test_base",
+        f"{prefix}::WidgetChild::test_local",
+        f"{prefix}::TestPlainChild::test_reused",
+        f"{prefix}::TestPlainChild::test_own",
+    )
+    assert run_tests._top_level_test_nodes(path) == selected
+    monkeypatch.setattr(
+        run_tests, "_FORCED_NATIVE_BATCH_FILES", frozenset({prefix})
+    )
+    monkeypatch.setattr(
+        run_tests, "_SINGLE_TEST_PROCESS_FILES", frozenset({prefix})
+    )
+    assert run_tests._heavy_test_batches((path,)) == tuple(
+        (prefix, (selector,)) for selector in selected
+    )
+    assert run_tests._test_file_shards(1, (path,)) == ()
