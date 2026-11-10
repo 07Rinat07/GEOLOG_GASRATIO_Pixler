@@ -109,3 +109,37 @@ def test_word_ui_language_orientation_cases_use_separate_native_processes() -> N
     batches = run_tests._heavy_test_batches((path,))
     assert all(len(selectors) == 1 for _, selectors in batches)
     assert all((path.as_posix(), (case,)) in batches for case in cases)
+
+
+def test_forced_native_module_without_ast_test_nodes_is_not_silently_skipped(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """pytest discovers unittest TestCase methods in non-Test-prefixed classes."""
+    path = tmp_path / "test_widget_case.py"
+    path.write_text(
+        "import unittest\n"
+        "class WidgetCase(unittest.TestCase):\n"
+        "    def test_widget_setup(self):\n"
+        "        assert True\n",
+        encoding="utf-8",
+    )
+    assert run_tests._top_level_test_nodes(path) == ()
+    monkeypatch.setattr(
+        run_tests, "_FORCED_NATIVE_BATCH_FILES", frozenset({path.as_posix()})
+    )
+    batches = run_tests._heavy_test_batches((path,))
+    assert batches == ((path.as_posix(), (path.as_posix(),)),)
+    assert run_tests._test_file_shards(1, (path,)) == ()
+
+
+def test_empty_forced_native_module_still_runs_for_pytest_collection_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    path = tmp_path / "test_no_cases.py"
+    path.write_text("VALUE = 1\n", encoding="utf-8")
+    monkeypatch.setattr(
+        run_tests, "_FORCED_NATIVE_BATCH_FILES", frozenset({path.as_posix()})
+    )
+    assert run_tests._heavy_test_batches((path,)) == (
+        (path.as_posix(), (path.as_posix(),)),
+    )

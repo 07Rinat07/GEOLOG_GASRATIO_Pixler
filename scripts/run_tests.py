@@ -263,6 +263,13 @@ def _heavy_test_batches(
         if not _requires_native_batch(path, nodes):
             continue
         path_name = path.as_posix()
+        if not nodes:
+            # Forced native files can hold pytest-collected cases not visible
+            # to the top-level AST test-function finder, such as a unittest
+            # TestCase with a non-Test class name or generated tests.
+            # Run the module so missing collection fails rather than skipping.
+            batches.append((path_name, (path_name,)))
+            continue
         batch_size = (
             1 if path_name in _SINGLE_TEST_PROCESS_FILES else _NATIVE_TEST_BATCH_SIZE
         )
