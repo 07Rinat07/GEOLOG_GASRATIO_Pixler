@@ -10,6 +10,8 @@ from scripts.run_tests import _FORCED_NATIVE_BATCH_FILES, _test_file_shards
 from tools.diagnose_qt_masterlog_shard import (
     SEED_FILES,
     MAIN_FAILED_SHARD_FILES,
+    RESAMPLE_UNDO_FILE,
+    RESAMPLE_UNDO_NODE,
     TARGET_FILE,
     _cdb_startup_commands,
     _run_plain_target,
@@ -132,6 +134,13 @@ def test_plain_control_uses_original_pytest_child_without_cdb(
     ]
 
 
+def test_resample_undo_selector_is_real_and_unambiguous() -> None:
+    assert Path(RESAMPLE_UNDO_FILE).is_file()
+    assert RESAMPLE_UNDO_NODE == (
+        "tests/test_main_window.py::test_window_creates_and_undoes_resampled_copy"
+    )
+
+
 def test_failed_main_shard_manifest_preserves_original_sequence() -> None:
     assert MAIN_FAILED_SHARD_FILES[0] == "tests/test_las3_scalar_log_preview.py"
     assert MAIN_FAILED_SHARD_FILES[-1] == "tests/test_masterlog_control_layout.py"
@@ -160,6 +169,13 @@ def test_masterlog_diagnostic_targets_regular_or_native_isolated_file(
         ("isolated", (("pytest", (TARGET_FILE,)),)),
         ("failing-shard", (("cdb", MAIN_FAILED_SHARD_FILES),)),
         ("plain-shard", (("plain", MAIN_FAILED_SHARD_FILES),)),
+        (
+            "resample-undo",
+            (
+                ("plain", (RESAMPLE_UNDO_NODE,)),
+                ("cdb", (RESAMPLE_UNDO_NODE,)),
+            ),
+        ),
         ("sequence", (("pytest", SEED_FILES), ("cdb", (TARGET_FILE,)))),
         (
             "both",

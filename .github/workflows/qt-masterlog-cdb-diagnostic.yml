@@ -14,11 +14,12 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "Compare exact main shard without debugger vs CDB-instrumented and isolated controls"
+        description: "Diagnose failing Qt resample undo or compare full main shard using CDB/plain controls"
         required: true
-        default: plain-shard
+        default: resample-undo
         type: choice
         options:
+          - resample-undo
           - plain-shard
           - failing-shard
           - isolated
@@ -110,7 +111,7 @@ jobs:
       - name: Replay known native-heavy Qt selectors
         shell: pwsh
         env:
-          GEOLOG_REPLAY_MODE: ${{ inputs.mode || 'plain-shard' }}
+          GEOLOG_REPLAY_MODE: ${{ inputs.mode || 'resample-undo' }}
           GEOLOG_REPLAY_REPETITIONS: ${{ inputs.repetitions || '1' }}
         run: |
           .\.venv\Scripts\python.exe tools/check_documentation.py
