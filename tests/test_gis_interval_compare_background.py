@@ -3,6 +3,8 @@ from threading import Event, Timer
 import numpy as np
 from PySide6.QtCore import QTimer, Qt
 
+from geoworkbench.services.gis_interval_sample_review import review_gis_source_interval_batch
+from geoworkbench.services.gis_interval_snapshot import GisIntervalSnapshot
 from geoworkbench.ui import gis_interval_compare_worker as worker_module
 from geoworkbench.ui.gis_interval_compare_dialog import GisIntervalCompareDialog, _stop_workers_on_exit
 from test_gis_interval_compare import _two_curves
@@ -175,3 +177,35 @@ def test_large_synthetic_review_processes_gui_events(qapp):
         if dialog._worker is not None:
             _wait_review(qapp, dialog)
         dialog.close()
+
+
+def test_queued_gis_review_rejects_inplace_change_after_worker_verification(qapp):
+    """A source edit between worker emit and the GUI slot must invalidate results."""
+    for change in ("curve_values", "axis_values"):
+        dataset = _two_curves()
+        dialog = GisIntervalCompareDialog(dataset, top="100", bottom="102")
+        try:
+            dialog.table.item(1, 0).setCheckState(Qt.CheckState.Checked)
+            snapshot = GisIntervalSnapshot(dataset, ("RT",), lambda: False)
+            result = review_gis_source_interval_batch(
+                snapshot.dataset, curve_keys=("RT",), top_md_m=100, bottom_md_m=102,
+            )
+            assert result[0].review is not None
+            assert snapshot.matches(lambda: False)
+
+            # Model Qt queued delivery: the worker has already emitted a
+            # verified result, but the GUI has not handled the signal yet.
+            if change == "curve_values":
+                dataset.curves["RT"].values[0] = 99.0
+            else:
+                dataset.active_index.values[0] = 99.0
+            assert snapshot.structure_matches()  # old GUI check was insufficient
+            assert not snapshot.matches(lambda: False)
+
+            dialog._completed(snapshot, result)
+            assert dialog.status.text() == dialog._t("changed")
+            assert dialog.table.item(1, 4).text() == "—"
+            assert dialog.table.item(1, 8).text() == "—"
+            assert dialog.missing_details.text() == dialog._t("missing_select")
+        finally:
+            dialog.close()
