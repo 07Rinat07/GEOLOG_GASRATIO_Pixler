@@ -14,11 +14,12 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "Replay exact failing main shard under CDB, isolated Masterlog, or seeded sequence"
+        description: "Compare exact main shard without debugger vs CDB-instrumented and isolated controls"
         required: true
-        default: failing-shard
+        default: plain-shard
         type: choice
         options:
+          - plain-shard
           - failing-shard
           - isolated
           - sequence
@@ -109,7 +110,7 @@ jobs:
       - name: Replay known native-heavy Qt selectors
         shell: pwsh
         env:
-          GEOLOG_REPLAY_MODE: ${{ inputs.mode || 'failing-shard' }}
+          GEOLOG_REPLAY_MODE: ${{ inputs.mode || 'plain-shard' }}
           GEOLOG_REPLAY_REPETITIONS: ${{ inputs.repetitions || '1' }}
         run: |
           .\.venv\Scripts\python.exe tools/check_documentation.py

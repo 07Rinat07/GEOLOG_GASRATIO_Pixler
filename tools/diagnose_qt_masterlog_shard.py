@@ -197,6 +197,15 @@ def _run_debugged_target(selectors: tuple[str, ...], environment: dict[str, str]
     return 0
 
 
+def _run_plain_target(selectors: tuple[str, ...], environment: dict[str, str]) -> int:
+    """Control: run the same native Qt shard without debugger instrumentation.
+
+    A nonzero process status, including 0xC0000374, is still a failure.
+    Windows Error Reporting is configured by the workflow for dump collection.
+    """
+    return _run_child(("-s", "-p", "no:cacheprovider"), selectors, environment)
+
+
 def select_target_group(shards: tuple[tuple[str, ...], ...]) -> tuple[str, ...]:
     """Keep Masterlog replay usable after the runner moves it to native batches.
 
@@ -213,22 +222,33 @@ def select_target_group(shards: tuple[tuple[str, ...], ...]) -> tuple[str, ...]:
 def main() -> int:
     shards = _test_file_shards(16)
     target_shard = select_target_group(shards)
-    mode = os.environ.get("GEOLOG_REPLAY_MODE", "failing-shard")
-    if mode not in {"isolated", "sequence", "both", "failing-shard"}:
-        raise ValueError("Select isolated, sequence, or both")
+    mode = os.environ.get("GEOLOG_REPLAY_MODE", "plain-shard")
+    if mode not in {"isolated", "sequence", "both", "failing-shard", "plain-shard"}:
+        raise ValueError("Select plain-shard, failing-shard, isolated, sequence, or both")
     try:
         repetitions = int(os.environ.get("GEOLOG_REPLAY_REPETITIONS", "1"))
     except ValueError as exc:
         raise ValueError("Invalid replay repetitions") from exc
     if not 1 <= repetitions <= 4:
         raise ValueError("Replay repetitions must be between 1 and 4")
-    selectors = MAIN_FAILED_SHARD_FILES if mode == "failing-shard" else (*SEED_FILES, *target_shard)
+    selectors = (
+        MAIN_FAILED_SHARD_FILES
+        if mode in {"failing-shard", "plain-shard"}
+        else (*SEED_FILES, *target_shard)
+    )
     if any(not Path(name).is_file() for name in selectors):
         raise RuntimeError("Expected replay selectors are missing")
 
     _configure_environment()
     environment = os.environ.copy()
     for repetition in range(1, repetitions + 1):
+        if mode == "plain-shard":
+            print(
+                f"Diagnostic {repetition}/{repetitions}: exact main shard, no debugger",
+                flush=True,
+            )
+            if _run_plain_target(MAIN_FAILED_SHARD_FILES, environment):
+                return 1
         if mode == "failing-shard":
             print(f"Diagnostic {repetition}/{repetitions}: exact failed main shard", flush=True)
             if _run_debugged_target(MAIN_FAILED_SHARD_FILES, environment):

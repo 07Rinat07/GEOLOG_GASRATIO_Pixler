@@ -12,6 +12,7 @@ from tools.diagnose_qt_masterlog_shard import (
     MAIN_FAILED_SHARD_FILES,
     TARGET_FILE,
     _cdb_startup_commands,
+    _run_plain_target,
     debugger_replay_passed,
     select_target_group,
 )
@@ -108,6 +109,29 @@ def test_cdb_launch_uses_startup_file_not_initial_dump(
     assert len(commands) == 1
 
 
+def test_plain_control_uses_original_pytest_child_without_cdb(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from tools import diagnose_qt_masterlog_shard as diagnostic
+
+    seen: list[tuple[tuple[str, ...], tuple[str, ...], dict[str, str]]] = []
+
+    def fake_child(
+        args: tuple[str, ...],
+        selectors: tuple[str, ...],
+        environment: dict[str, str],
+    ) -> int:
+        seen.append((args, selectors, environment))
+        return 0
+
+    monkeypatch.setattr(diagnostic, "_run_child", fake_child)
+    env = {"QT_QPA_PLATFORM": "offscreen"}
+    assert _run_plain_target(MAIN_FAILED_SHARD_FILES, env) == 0
+    assert seen == [
+        (("-s", "-p", "no:cacheprovider"), MAIN_FAILED_SHARD_FILES, env)
+    ]
+
+
 def test_failed_main_shard_manifest_preserves_original_sequence() -> None:
     assert MAIN_FAILED_SHARD_FILES[0] == "tests/test_las3_scalar_log_preview.py"
     assert MAIN_FAILED_SHARD_FILES[-1] == "tests/test_masterlog_control_layout.py"
@@ -135,6 +159,7 @@ def test_masterlog_diagnostic_targets_regular_or_native_isolated_file(
     (
         ("isolated", (("pytest", (TARGET_FILE,)),)),
         ("failing-shard", (("cdb", MAIN_FAILED_SHARD_FILES),)),
+        ("plain-shard", (("plain", MAIN_FAILED_SHARD_FILES),)),
         ("sequence", (("pytest", SEED_FILES), ("cdb", (TARGET_FILE,)))),
         (
             "both",
@@ -170,6 +195,12 @@ def test_masterlog_replay_modes_preserve_true_isolation(
 
     monkeypatch.setattr(diagnostic, "_run_child", run_child)
     monkeypatch.setattr(diagnostic, "_run_debugged_target", run_debugged)
+
+    def run_plain(selectors, _environment) -> int:
+        calls.append(("plain", tuple(selectors)))
+        return 0
+
+    monkeypatch.setattr(diagnostic, "_run_plain_target", run_plain)
     assert diagnostic.main() == 0
     assert calls == list(expected_calls)
 
