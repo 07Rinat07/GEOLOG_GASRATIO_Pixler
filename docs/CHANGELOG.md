@@ -15,6 +15,21 @@ stacks. The diagnostic debugger stopped the target at an access violation; its
 workflow success is not a completed test pass. The root cause and relationship
 between the observed native error codes remain unproven.
 
+## Windows Qt Release Gate — fail-closed collection for forced native modules (10.11.2026)
+
+The Windows test sharder previously excluded explicitly native-isolated test modules
+from shared shards but silently produced zero native jobs if its AST scanner found
+no top-level test functions. Pytest can still discover unittest.TestCase methods
+in other class names or dynamically generated test objects, so those modules
+must not be discarded before pytest collection.
+
+The forced-native fallback now invokes the module as a single subprocess. If
+the module has no tests, pytest's nonzero no-collection exit is preserved.
+Added regression coverage for both a unittest.TestCase under a non-Test class
+name and an empty module. No existing assertions are skipped, no mandatory
+Release Gate condition is relaxed, and the unresolved Qt #544 native crash is
+not considered fixed. Exact-head Windows jobs and main gating remain required.
+
 ## INTERP-GIS-01 — missing sample depths in comparison (08.11.2026)
 
 The GIS interval comparison shows up to ten missing sample depths for the selected
