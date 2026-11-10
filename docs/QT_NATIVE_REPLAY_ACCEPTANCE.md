@@ -60,18 +60,50 @@ layout. Это наблюдения одного пути под отладчи�
 устранение причины #544.
 
 Диагностический [PR #857](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/857)
-проверен на базе ветки #858: head `4eadb1930c55aee6748797ee755ca8c5b08df117`,
-[Release Gate 42669961073](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/42669961073)
-— все три Windows jobs успешны. Дополнительный CDB-драйвер теперь учитывает
-перенос Masterlog из обычного набора в отдельный процесс и не признаёт
-аварийное завершение CDB успешно пройденным pytest.
+на базе ветки #858: текущий head `0b97a80e95486ab7daaafe3cf21bfaf3b443f3d0`.
+Его [Release Gate 42725270952](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/42725270952)
+завершился успешно по всем трём Windows jobs (Quality, GUI/HiDPI/PDF,
+Security) **на этом head**. Этот результат не распространяется на `main` и
+не устанавливает первопричину нативной ошибки.
 
 Для `main` `726a22f00d7cb10858cf2986289d932ad298fefb`
-[Release Gate 42462681087](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/42462681087)
-в пятой попытке снова зафиксировал `0xC0000374` в Qt fixture после теста
-Masterlog. До подтверждения обязательных критериев слияния PR остаются
-в Draft. Результат отдельного диагностического workflow не подменяет
-Release Gate ни одного коммита.
+[Release Gate 42462681087, попытка 7](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/42462681087/attempts/7)
+снова завершился с `0xC0000374` в Qt fixture после тестов Masterlog.
+Остальные два Windows jobs завершились успешно. До выполнения всех
+обязательных условий слияния PR остаются Draft. Ни один отдельный
+диагностический workflow не заменяет Release Gate.
+
+## Повторные native-проверки (10 ноября 2026)
+
+На head PR #857 `49f0caefc93584f1994962b823c048da7ae34679`
+[Windows CDB diagnostic 42724398858](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/42724398858)
+завершился успешно: исходный девятый набор `main` (54 тестовых файла,
+576 pytest cases) пройден **под CDB** за 31,13 с. Нативное исключение
+не зафиксировано, минидамп не создан.
+
+На последующем head PR #857 `0b97a80e95486ab7daaafe3cf21bfaf3b443f3d0`
+[Windows diagnostic 42725262093](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/42725262093)
+выполнил те же 54 файла **без CDB**: 576 passed за 23,45 с,
+без нативной аварии и минидампа. Оба результата являются отдельными
+контрольными прогонами, а не доказательством устранения `0xC0000374`:
+стабильное воспроизведение ошибки обычного `main` CI и её связь с Qt
+lifecycle пока не установлены.
+
+Различать два процесса получения доказательств:
+
+- **Windows Qt native replay (manual)** — старый workflow из `main` с
+  `results.json`, `native-runtime.json` и проверкой
+  `tools.check_qt_replay_evidence`. Именно к нему относится инструкция
+  ниже.
+- **Windows Qt Masterlog CDB diagnostic** — новый workflow PR #857,
+  который пока отсутствует в `main`. В открытой временной ветке
+  `codex/qt-wrapper-referrers` он запускается узким `push`-триггером
+  на изменение собственных файлов. Режимы `plain-shard`,
+  `failing-shard`, `isolated`, `sequence`, `both` не создают
+  `results.json` в формате старого replay; отсутствие дампа означает
+  лишь, что в конкретном прогоне дамп не получен. Его
+  `workflow_dispatch` будет доступен после появления workflow в
+  ветке по умолчанию. Не смешивать артефакты этих двух процессов.
 
 ## Запуск на настоящем Windows runner
 

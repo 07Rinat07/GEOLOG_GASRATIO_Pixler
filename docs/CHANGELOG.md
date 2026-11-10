@@ -1,3 +1,13 @@
+## CI/Qt #544 — replay evidence reconciliation (10.11.2026)
+
+The first CDB-instrumented repeat of the exact 54-file failed-main shard passed
+576 tests in 31.13 s; a second plain Windows child repeat also passed 576
+tests in 23.45 s. Neither yielded a native dump. Both are diagnostic evidence,
+not a resolution of the seven repeated main Quality failures (`0xC0000374`).
+Updated `QT_NATIVE_REPLAY_ACCEPTANCE.md` to distinguish the original manual
+replay and new PR #857 CDB diagnostic, and to reference the exact successful
+PR head and failing main attempt. All three Windows gates remain required.
+
 ## CI/Qt #544 — native debugger evidence (09.11.2026)
 
 Record the failed post-merge Windows gate and the separately captured CDB/Python
