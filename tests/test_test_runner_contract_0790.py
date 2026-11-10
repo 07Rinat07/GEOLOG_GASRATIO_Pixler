@@ -111,10 +111,10 @@ def test_word_ui_language_orientation_cases_use_separate_native_processes() -> N
     assert all((path.as_posix(), (case,)) in batches for case in cases)
 
 
-def test_forced_native_module_without_ast_test_nodes_is_not_silently_skipped(
+def test_forced_native_unittest_case_keeps_separate_native_process(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """pytest discovers unittest TestCase methods in non-Test-prefixed classes."""
+    """Non-Test-named unittest cases are discovered and isolated individually."""
     path = tmp_path / "test_widget_case.py"
     path.write_text(
         "import unittest\n"
@@ -123,12 +123,43 @@ def test_forced_native_module_without_ast_test_nodes_is_not_silently_skipped(
         "        assert True\n",
         encoding="utf-8",
     )
-    assert run_tests._top_level_test_nodes(path) == ()
+    expected = f"{path.as_posix()}::WidgetCase::test_widget_setup"
+    assert run_tests._top_level_test_nodes(path) == (expected,)
     monkeypatch.setattr(
         run_tests, "_FORCED_NATIVE_BATCH_FILES", frozenset({path.as_posix()})
     )
-    batches = run_tests._heavy_test_batches((path,))
-    assert batches == ((path.as_posix(), (path.as_posix(),)),)
+    assert run_tests._heavy_test_batches((path,)) == (
+        (path.as_posix(), (expected,)),
+    )
+    assert run_tests._test_file_shards(1, (path,)) == ()
+
+
+def test_mixed_pytest_and_nonstandard_unittest_classes_are_not_dropped(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """An AST-visible pytest function must not hide a unittest TestCase."""
+    path = tmp_path / "test_mixed_native.py"
+    path.write_text(
+        "import unittest\n"
+        "def test_regular():\n"
+        "    assert True\n"
+        "class WidgetCase(unittest.TestCase):\n"
+        "    def test_widget_setup(self):\n"
+        "        self.assertTrue(True)\n",
+        encoding="utf-8",
+    )
+    selected = (
+        f"{path.as_posix()}::test_regular",
+        f"{path.as_posix()}::WidgetCase::test_widget_setup",
+    )
+    assert run_tests._top_level_test_nodes(path) == selected
+    monkeypatch.setattr(
+        run_tests, "_FORCED_NATIVE_BATCH_FILES", frozenset({path.as_posix()})
+    )
+    assert run_tests._heavy_test_batches((path,)) == (
+        (path.as_posix(), (selected[0],)),
+        (path.as_posix(), (selected[1],)),
+    )
     assert run_tests._test_file_shards(1, (path,)) == ()
 
 
