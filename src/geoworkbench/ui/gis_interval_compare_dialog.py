@@ -224,8 +224,11 @@ class GisIntervalCompareDialog(QDialog):
             return
         if (
             not isinstance(snapshot, GisIntervalSnapshot) or snapshot.source is not self.dataset
-            or not snapshot.structure_matches() or not isinstance(payload, tuple)
+            or not isinstance(payload, tuple)
             or any(not isinstance(item, GisSourceIntervalBatchItem) for item in payload)
+            # The worker checked arrays before emitting. Qt may deliver this
+            # signal after an in-place edit; identity checks alone miss it.
+            or not snapshot.matches(lambda: False)
         ):
             self.status.setText(self._t("changed"))
             return
