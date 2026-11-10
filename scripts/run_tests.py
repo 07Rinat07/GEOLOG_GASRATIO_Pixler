@@ -232,6 +232,48 @@ def _all_test_files() -> tuple[Path, ...]:
 def _top_level_test_nodes(path: Path) -> tuple[str, ...]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     prefix = path.as_posix()
+    local_classes = {
+        item.name: item for item in tree.body if isinstance(item, ast.ClassDef)
+    }
+
+    def inherits_unittest(
+        item: ast.ClassDef, seen: frozenset[str] = frozenset()
+    ) -> bool:
+        """Follow local TestCase subclasses, including non-Test-named children."""
+        if item.name in seen:
+            return False
+        ancestry = seen | {item.name}
+        for base in item.bases:
+            if isinstance(base, ast.Attribute) and base.attr == "TestCase":
+                return True
+            if not isinstance(base, ast.Name):
+                continue
+            if base.id == "TestCase":
+                return True
+            parent = local_classes.get(base.id)
+            if parent is not None and inherits_unittest(parent, ancestry):
+                return True
+        return False
+
+    def test_methods(
+        item: ast.ClassDef, seen: frozenset[str] = frozenset()
+    ) -> tuple[str, ...]:
+        """Include inherited local test methods for each collected subclass."""
+        if item.name in seen:
+            return ()
+        ancestry = seen | {item.name}
+        names: list[str] = []
+        for base in item.bases:
+            if isinstance(base, ast.Name):
+                parent = local_classes.get(base.id)
+                if parent is not None:
+                    names.extend(test_methods(parent, ancestry))
+        for child in item.body:
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if child.name.startswith("test_"):
+                    names.append(child.name)
+        return tuple(dict.fromkeys(names))
+
     nodes: list[str] = []
     for item in tree.body:
         if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -240,22 +282,11 @@ def _top_level_test_nodes(path: Path) -> tuple[str, ...]:
             continue
         if not isinstance(item, ast.ClassDef):
             continue
-        # pytest also discovers unittest.TestCase methods from classes whose
-        # names do not start with Test. Those tests must not disappear when
-        # we split a native-heavy file into individual subprocess selectors.
-        is_unittest_case = any(
-            (isinstance(base, ast.Name) and base.id == "TestCase")
-            or (isinstance(base, ast.Attribute) and base.attr == "TestCase")
-            for base in item.bases
-        )
-        if not item.name.startswith("Test") and not is_unittest_case:
+        if not item.name.startswith("Test") and not inherits_unittest(item):
             continue
-        for child in item.body:
-            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                if child.name.startswith("test_"):
-                    nodes.append(f"{prefix}::{item.name}::{child.name}")
+        for name in test_methods(item):
+            nodes.append(f"{prefix}::{item.name}::{name}")
     return tuple(nodes)
-
 
 def _requires_native_batch(path: Path, nodes: Sequence[str]) -> bool:
     return (
