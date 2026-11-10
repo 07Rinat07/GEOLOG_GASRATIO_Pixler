@@ -156,6 +156,11 @@ def test_mixed_pytest_and_nonstandard_unittest_classes_are_not_dropped(
     monkeypatch.setattr(
         run_tests, "_FORCED_NATIVE_BATCH_FILES", frozenset({path.as_posix()})
     )
+    # Production forces every native test file into the single-test set too.
+    # Mirror that invariant for the temporary path in this contract test.
+    monkeypatch.setattr(
+        run_tests, "_SINGLE_TEST_PROCESS_FILES", frozenset({path.as_posix()})
+    )
     assert run_tests._heavy_test_batches((path,)) == (
         (path.as_posix(), (selected[0],)),
         (path.as_posix(), (selected[1],)),
