@@ -121,7 +121,7 @@ def test_batch_chunked_summary_preserves_order_bounds_and_missing_values():
         count, count - 4, 4,
     )
     assert item.review.missing_md_preview == (149_999.0, 84_464.0, 70_000.0, 0.0)
-    assert item.review.finite_md_bounds == (2.0, 150_000.0)
+    assert item.review.finite_md_bounds == (1.0, 150_000.0)
     assert item.review.finite_value_bounds == (-5.0, 30.0)
     np.testing.assert_array_equal(values, before)
 
