@@ -96,3 +96,57 @@ def test_batch_does_not_present_interpolated_external_data_as_source(monkeypatch
     )
     assert item.review is None
     assert "curve:external_source_unverified" in item.issues
+
+
+def test_batch_chunked_summary_preserves_order_bounds_and_missing_values():
+    dataset = _two_curves()
+    count = 150_001
+    dataset.active_index.values = np.arange(count - 1, -1, -1, dtype=float)
+    dataset.depth = dataset.active_index.values
+    dataset.curves["GR"].values = np.ones(count)
+    values = np.ones(count)
+    values[0] = 0.0
+    values[[1, 65_536, 150_000]] = np.nan
+    values[80_000] = np.inf
+    values[90_000] = -5.0
+    values[100_000] = 30.0
+    dataset.curves["RT"].values = values
+    before = values.copy()
+
+    item, = service.review_gis_source_interval_batch(
+        dataset, curve_keys=("RT",), top_md_m=0, bottom_md_m=count - 1,
+    )
+    assert item.review is not None
+    assert (item.review.sample_count, item.review.finite_count, item.review.missing_count) == (
+        count, count - 4, 4,
+    )
+    assert item.review.missing_md_preview == (149_999.0, 84_464.0, 70_000.0, 0.0)
+    assert item.review.finite_md_bounds == (1.0, 150_000.0)
+    assert item.review.finite_value_bounds == (-5.0, 30.0)
+    np.testing.assert_array_equal(values, before)
+
+
+def test_batch_cancellation_interrupts_one_large_curve_without_partial_progress():
+    dataset = _two_curves()
+    count = 150_000
+    dataset.active_index.values = np.arange(count, dtype=float)
+    dataset.depth = dataset.active_index.values
+    dataset.curves["GR"].values = np.ones(count)
+    dataset.curves["RT"].values = np.ones(count)
+    polls = []
+    progress = []
+
+    def cancelled():
+        polls.append(True)
+        # 1: before inventory, 2: before the curve, 3: first 65,536 rows,
+        # 4: the next chunk. No curve-level result may have been emitted.
+        return len(polls) >= 4
+
+    with pytest.raises(service.GisIntervalReviewCancelled):
+        service.review_gis_source_interval_batch(
+            dataset, curve_keys=("RT",), top_md_m=0, bottom_md_m=count - 1,
+            progress=lambda done, total: progress.append((done, total)),
+            cancelled=cancelled,
+        )
+    assert len(polls) == 4
+    assert progress == []
