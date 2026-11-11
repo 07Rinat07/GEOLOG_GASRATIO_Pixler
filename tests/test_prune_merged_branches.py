@@ -82,11 +82,16 @@ class StubGitHub:
         ref_sha: str = BRANCH_SHA,
         compare_status: str = "ahead",
         branch_name: str = "codex/merged",
+        active_base: str | None = None,
+        late_active_base: str | None = None,
     ) -> None:
         self.main_sha = main_sha
         self.ref_sha = ref_sha
         self.compare_status = compare_status
         self.branch_name = branch_name
+        self.active_base = active_base
+        self.late_active_base = late_active_base
+        self.open_pulls_calls = 0
         self.deleted: list[str] = []
         self.requests: list[tuple[str, str]] = []
 
@@ -107,6 +112,13 @@ class StubGitHub:
         if path == "/branches":
             return [_branch(self.branch_name)]
         if path.startswith("/pulls?"):
+            if "state=open" in path:
+                self.open_pulls_calls += 1
+                active = (
+                    self.late_active_base if self.open_pulls_calls > 1
+                    else self.active_base
+                )
+                return [{"state": "open", "base": {"ref": active}}] if active else []
             assert "state=all" in path
             return [_pull(self.branch_name)]
         raise AssertionError(path)
@@ -167,3 +179,23 @@ def test_github_transport_supplies_required_user_agent(monkeypatch, method, payl
     result = cleanup.GitHub(REPOSITORY, 'test-token').request(method, '/branches/main')
     assert result == ({'ok': True} if payload else None)
     assert connection.closed
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"active_base": "codex/merged"},
+        {"late_active_base": "codex/merged"},
+    ],
+)
+def test_cleanup_never_deletes_base_of_open_stacked_pr(kwargs: dict) -> None:
+    api = StubGitHub(**kwargs)
+    assert prune(api, repository=REPOSITORY, verified_sha=MAIN_SHA) == 0
+    assert api.deleted == []
+
+
+def test_cleanup_can_delete_after_dependent_pr_changes_base() -> None:
+    api = StubGitHub(active_base="codex/unrelated")
+    assert prune(api, repository=REPOSITORY, verified_sha=MAIN_SHA) == 1
+    assert api.deleted == ["/git/refs/heads/codex/merged"]
+    assert api.open_pulls_calls == 2

@@ -102,11 +102,22 @@ def prune(github: GitHub, *, repository: str, verified_sha: str) -> int:
         return 0
 
     branches = github.all_pages("/branches")
+    # A merged PR's former head may also be the *base* of an active stacked PR.
+    # GitHub automatically closes that active PR if its base branch is deleted.
+    # Inspect all open PRs, not only PRs whose head matches the candidate.
+    open_pulls = github.all_pages("/pulls?state=open")
     owner = repository.split("/", 1)[0]
     removed = 0
     for candidate in branches:
         name = candidate.get("name")
         if not isinstance(name, str) or not name.startswith(_TEMP_PREFIXES):
+            continue
+        if any(
+            isinstance(pull.get("base"), dict)
+            and pull["base"].get("ref") == name
+            for pull in open_pulls
+        ):
+            print(f"Retained: {name} (base of an open pull request)")
             continue
         query = urlencode({"head": f"{owner}:{name}", "state": "all"})
         pulls = github.all_pages(f"/pulls?{query}")
@@ -125,6 +136,15 @@ def prune(github: GitHub, *, repository: str, verified_sha: str) -> int:
             print(f"Retained: {name} (merge commit not in current main)")
             continue
 
+        # Recheck immediately before deletion: a stacked PR can be opened
+        # while the cleanup job is validating merge ancestry.
+        if any(
+            isinstance(pull.get("base"), dict)
+            and pull["base"].get("ref") == name
+            for pull in github.all_pages("/pulls?state=open")
+        ):
+            print(f"Retained: {name} (new dependent PR is open)")
+            continue
         current_main = github.request("GET", "/branches/main")
         current_branch = github.request(
             "GET", f"/branches/{quote(name, safe='/')}"
