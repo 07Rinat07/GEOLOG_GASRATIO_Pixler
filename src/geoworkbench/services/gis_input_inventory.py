@@ -123,6 +123,49 @@ class GisInputInventory:
     curves: tuple[GisCurveInput, ...]
 
 
+
+_GIS_SCAN_CHUNK_ROWS = 65_536
+
+
+def _inspect_depth_axis(depths: np.ndarray) -> tuple[bool, bool]:
+    """Check every MD sample and adjacent pair without whole-axis masks."""
+    all_finite = True
+    ascending = True
+    descending = True
+    previous = None
+    for start in range(0, len(depths), _GIS_SCAN_CHUNK_ROWS):
+        part = depths[start:start + _GIS_SCAN_CHUNK_ROWS]
+        all_finite = bool(np.isfinite(part).all()) and all_finite
+        if previous is not None:
+            ascending = ascending and bool(part[0] > previous)
+            descending = descending and bool(part[0] < previous)
+        if len(part) > 1:
+            ascending = ascending and bool(np.all(part[1:] > part[:-1]))
+            descending = descending and bool(np.all(part[1:] < part[:-1]))
+        previous = part[-1]
+    return all_finite, ascending or descending
+
+
+def _paired_sample_stats(
+    depths: np.ndarray, values: np.ndarray, *, allow_bounds: bool,
+) -> tuple[int, tuple[float, float] | None]:
+    """Count actual finite MD/value pairs and optionally calculate their extrema."""
+    count = 0
+    minimum = float("inf")
+    maximum = float("-inf")
+    for start in range(0, len(depths), _GIS_SCAN_CHUNK_ROWS):
+        stop = min(start + _GIS_SCAN_CHUNK_ROWS, len(depths))
+        chunk_depths = depths[start:stop]
+        valid = np.isfinite(chunk_depths) & np.isfinite(values[start:stop])
+        selected = int(np.count_nonzero(valid))
+        count += selected
+        if selected and allow_bounds:
+            measured_depths = chunk_depths[valid]
+            minimum = min(minimum, float(np.min(measured_depths)))
+            maximum = max(maximum, float(np.max(measured_depths)))
+    return count, ((minimum, maximum) if count and allow_bounds else None)
+
+
 def inventory_gis_inputs(dataset: Dataset) -> GisInputInventory:
     """Snapshot existing source evidence without resolving aliases or editing arrays.
 
@@ -140,13 +183,13 @@ def inventory_gis_inputs(dataset: Dataset) -> GisInputInventory:
         axis_issues.append("unverified_metre_md_alignment")
     depths = np.asarray(axis.values)
     numeric_axis = depths.ndim == 1 and depths.dtype.kind in "fiu"
-    finite_depths = np.isfinite(depths) if numeric_axis else np.zeros(0, dtype=bool)
-    if not numeric_axis or not depths.size or not finite_depths.all():
+    finite_axis, ordered_axis = (
+        _inspect_depth_axis(depths) if numeric_axis and depths.size else (False, False)
+    )
+    if not finite_axis:
         axis_issues.append("invalid_depth_samples")
-    if numeric_axis and depths.size > 1 and finite_depths.all():
-        # Compare adjacent source samples directly: integer diff may overflow.
-        if not (np.all(depths[1:] > depths[:-1]) or np.all(depths[1:] < depths[:-1])):
-            axis_issues.append("ambiguous_depth_order")
+    if numeric_axis and depths.size > 1 and finite_axis and not ordered_axis:
+        axis_issues.append("ambiguous_depth_order")
 
     uoms = default_uom_dictionary()
     rows: list[GisCurveInput] = []
@@ -189,16 +232,14 @@ def inventory_gis_inputs(dataset: Dataset) -> GisInputInventory:
             numeric_axis and values.ndim == 1 and values.dtype.kind in "fiu"
             and values.shape == depths.shape
         )
-        valid = finite_depths & np.isfinite(values) if paired else np.zeros(0, dtype=bool)
-        count = int(np.count_nonzero(valid))
-        bounds = None
+        count, bounds = (
+            _paired_sample_stats(depths, values, allow_bounds=not axis_issues)
+            if paired else (0, None)
+        )
         if not paired:
             issues.append("invalid_curve_samples")
         elif not count:
             issues.append("no_finite_paired_samples")
-        elif not axis_issues:
-            observed_depths = depths[valid]
-            bounds = (float(np.min(observed_depths)), float(np.max(observed_depths)))
         rows.append(GisCurveInput(
             curve_key=key,
             curve_id=metadata.curve_id,
