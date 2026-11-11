@@ -156,7 +156,7 @@ def review_gis_source_interval_batch(
         if issues or source is None:
             result.append(GisSourceIntervalBatchItem(key, source, issues, None))
         else:
-            summary = _summarize_samples(dataset, key, top, bottom)
+            summary = _summarize_samples(dataset, key, top, bottom, cancelled=cancelled)
             review = GisSourceIntervalSampleReview(
                 source, top, bottom, summary.sample_count, summary.finite_count, summary.missing_count,
                 summary.finite_md_bounds, summary.missing_md_preview, summary.finite_value_bounds,
@@ -182,34 +182,54 @@ def _interval_bounds(top_md_m: float, bottom_md_m: float) -> tuple[float, float]
     return top, bottom
 
 
-def _summarize_samples(dataset: Dataset, curve_key: str, top: float, bottom: float) -> _IntervalSummary:
+def _summarize_samples(
+    dataset: Dataset, curve_key: str, top: float, bottom: float,
+    cancelled: Callable[[], bool] | None = None,
+) -> _IntervalSummary:
+    """Scan actual MD rows in bounded chunks; never invent missing samples.
+
+    A batch review checks cancellation inside one large curve, not just between
+    curves. Keep preview depths in original LAS order (including descending MD).
+    """
     depths = np.asarray(dataset.active_index.values)
     values = np.asarray(dataset.curves[curve_key].values)
-    selected = (depths >= top) & (depths <= bottom)
-    observed = selected & np.isfinite(values)
-    total, finite = int(np.count_nonzero(selected)), int(np.count_nonzero(observed))
-    finite_depths = depths[observed]
-    # Bound temporary index arrays even if a large LAS has many missing rows.
+    total = 0
+    finite = 0
     preview: list[float] = []
-    if finite != total:
-        for start in range(0, len(depths), 65_536):
-            stop = min(start + 65_536, len(depths))
-            missing_indices = np.flatnonzero(selected[start:stop] & ~np.isfinite(values[start:stop]))
-            preview.extend(float(depths[start + index]) for index in missing_indices[:10 - len(preview)])
-            if len(preview) == 10:
-                break
-    observed_bounds = (
-        (float(np.min(finite_depths)), float(np.max(finite_depths))) if finite else None
+    depth_min, depth_max = float("inf"), float("-inf")
+    value_min, value_max = float("inf"), float("-inf")
+    for start in range(0, len(depths), 65_536):
+        if cancelled is not None and cancelled():
+            raise GisIntervalReviewCancelled
+        stop = min(start + 65_536, len(depths))
+        chunk_depths = depths[start:stop]
+        chunk_values = values[start:stop]
+        selected = (chunk_depths >= top) & (chunk_depths <= bottom)
+        count = int(np.count_nonzero(selected))
+        if not count:
+            continue
+        finite_values = np.isfinite(chunk_values)
+        observed = selected & finite_values
+        present = int(np.count_nonzero(observed))
+        total += count
+        finite += present
+        if present:
+            measured_depths = chunk_depths[observed]
+            measured_values = chunk_values[observed]
+            depth_min = min(depth_min, float(np.min(measured_depths)))
+            depth_max = max(depth_max, float(np.max(measured_depths)))
+            value_min = min(value_min, float(np.min(measured_values)))
+            value_max = max(value_max, float(np.max(measured_values)))
+        if count != present and len(preview) < 10:
+            missing = np.flatnonzero(selected & ~finite_values)
+            preview.extend(
+                float(chunk_depths[index]) for index in missing[:10 - len(preview)]
+            )
+    if cancelled is not None and cancelled():
+        raise GisIntervalReviewCancelled
+    return _IntervalSummary(
+        total, finite, total - finite,
+        (depth_min, depth_max) if finite else None,
+        tuple(preview),
+        (value_min, value_max) if finite else None,
     )
-    value_bounds: tuple[float, float] | None = None
-    if finite:
-        minimum, maximum = float("inf"), float("-inf")
-        # Do not allocate a second array proportional to the entire LAS interval.
-        for start in range(0, len(values), 65_536):
-            stop = min(start + 65_536, len(values))
-            chunk = values[start:stop][observed[start:stop]]
-            if chunk.size:
-                minimum = min(minimum, float(np.min(chunk)))
-                maximum = max(maximum, float(np.max(chunk)))
-        value_bounds = (minimum, maximum)
-    return _IntervalSummary(total, finite, total - finite, observed_bounds, tuple(preview), value_bounds)
