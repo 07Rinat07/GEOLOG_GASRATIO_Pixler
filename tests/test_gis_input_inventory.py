@@ -8,7 +8,9 @@ from geoworkbench.domain.models import (
     IndexType,
 )
 from geoworkbench.services import gis_input_inventory as inventory_module
-from geoworkbench.services.gis_input_inventory import inventory_gis_inputs
+from geoworkbench.services.gis_input_inventory import (
+    GisInventoryCancelled, inventory_gis_inputs,
+)
 from geoworkbench.services.semantic_channels import SemanticChannelDictionary
 from geoworkbench.services.uom_dictionary import QuantityClass
 
@@ -234,3 +236,54 @@ def test_large_inventory_rejects_nonfinite_md_without_discarding_finite_pair_cou
     row, = result.curves
     assert row.finite_sample_count == rows - 1
     assert row.sample_md_bounds is None
+
+
+def test_inventory_cancel_stops_within_large_md_axis_without_returning_rows():
+    dataset = _dataset()
+    rows = 150_000
+    depths = np.arange(rows, dtype=float)
+    dataset.active_index.values = depths
+    dataset.depth = depths
+    dataset.curves["GR"].values = np.ones(rows)
+    calls = []
+
+    def cancelled():
+        calls.append(True)
+        # First entry check, first MD chunk, then second MD chunk.
+        return len(calls) >= 3
+
+    with pytest.raises(GisInventoryCancelled):
+        inventory_gis_inputs(dataset, cancelled=cancelled)
+    assert len(calls) == 3
+    assert dataset.active_index.values is depths
+
+
+def test_inventory_cancel_stops_between_large_curve_chunks(monkeypatch):
+    dataset = _dataset()
+    rows = 150_000
+    depths = np.arange(rows, dtype=float)
+    values = np.zeros(rows)
+    dataset.active_index.values = depths
+    dataset.depth = depths
+    dataset.curves["GR"].values = values
+    started = []
+    curve_polls = []
+    original = inventory_module._paired_sample_stats
+
+    def instrumented(*args, **kwargs):
+        started.append(True)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(inventory_module, "_paired_sample_stats", instrumented)
+
+    def cancelled():
+        if started:
+            curve_polls.append(True)
+            return len(curve_polls) >= 2
+        return False
+
+    with pytest.raises(GisInventoryCancelled):
+        inventory_gis_inputs(dataset, cancelled=cancelled)
+    assert started and len(curve_polls) == 2
+    assert dataset.curves["GR"].values is values
+    assert dataset.active_index.values is depths

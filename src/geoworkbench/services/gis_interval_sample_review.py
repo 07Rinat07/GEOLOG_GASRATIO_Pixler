@@ -12,7 +12,9 @@ from math import isfinite
 import numpy as np
 
 from geoworkbench.domain.models import Dataset
-from geoworkbench.services.gis_input_inventory import GisCurveInput, inventory_gis_inputs
+from geoworkbench.services.gis_input_inventory import (
+    GisCurveInput, GisInventoryCancelled, inventory_gis_inputs,
+)
 from geoworkbench.services.gis_reference_input_review import (
     GisReferenceInputReview, review_gis_reference_input,
 )
@@ -139,7 +141,15 @@ def review_gis_source_interval_batch(
         raise ValueError("Select one to eight unique GIS curve keys")
     if cancelled is not None and cancelled():
         raise GisIntervalReviewCancelled
-    inventory = inventory_gis_inputs(dataset)
+    try:
+        # Keep the original single-argument inventory call for non-cancellable
+        # API consumers and existing inventory spies.
+        inventory = (
+            inventory_gis_inputs(dataset, cancelled=cancelled)
+            if cancelled is not None else inventory_gis_inputs(dataset)
+        )
+    except GisInventoryCancelled as exc:
+        raise GisIntervalReviewCancelled from exc
     sources = {source.curve_key: source for source in inventory.curves}
     result: list[GisSourceIntervalBatchItem] = []
     for index, key in enumerate(curve_keys):

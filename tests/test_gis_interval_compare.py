@@ -126,7 +126,41 @@ def test_batch_chunked_summary_preserves_order_bounds_and_missing_values():
     np.testing.assert_array_equal(values, before)
 
 
-def test_batch_cancellation_interrupts_one_large_curve_without_partial_progress():
+def test_batch_cancellation_interrupts_one_large_curve_without_partial_progress(monkeypatch):
+    dataset = _two_curves()
+    count = 150_000
+    dataset.active_index.values = np.arange(count, dtype=float)
+    dataset.depth = dataset.active_index.values
+    dataset.curves["GR"].values = np.ones(count)
+    dataset.curves["RT"].values = np.ones(count)
+    summary_started = []
+    summary_polls = []
+    progress = []
+    original = service._summarize_samples
+
+    def instrumented(*args, **kwargs):
+        summary_started.append(True)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(service, "_summarize_samples", instrumented)
+
+    def cancelled():
+        if summary_started:
+            summary_polls.append(True)
+            return len(summary_polls) >= 2
+        return False
+
+    with pytest.raises(service.GisIntervalReviewCancelled):
+        service.review_gis_source_interval_batch(
+            dataset, curve_keys=("RT",), top_md_m=0, bottom_md_m=count - 1,
+            progress=lambda done, total: progress.append((done, total)),
+            cancelled=cancelled,
+        )
+    assert summary_started and len(summary_polls) == 2
+    assert progress == []
+
+
+def test_batch_cancel_during_inventory_reports_normal_review_cancellation():
     dataset = _two_curves()
     count = 150_000
     dataset.active_index.values = np.arange(count, dtype=float)
@@ -138,15 +172,14 @@ def test_batch_cancellation_interrupts_one_large_curve_without_partial_progress(
 
     def cancelled():
         polls.append(True)
-        # 1: before inventory, 2: before the curve, 3: first 65,536 rows,
-        # 4: the next chunk. No curve-level result may have been emitted.
+        # Batch entry, inventory entry, first MD chunk, second MD chunk.
         return len(polls) >= 4
 
     with pytest.raises(service.GisIntervalReviewCancelled):
         service.review_gis_source_interval_batch(
             dataset, curve_keys=("RT",), top_md_m=0, bottom_md_m=count - 1,
-            progress=lambda done, total: progress.append((done, total)),
             cancelled=cancelled,
+            progress=lambda done, total: progress.append((done, total)),
         )
     assert len(polls) == 4
     assert progress == []
