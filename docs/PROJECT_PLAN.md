@@ -1,5 +1,24 @@
 # Единый план проекта
 
+## Актуальная стабилизация Windows CI — 11 ноября 2026
+
+- [#858](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/858) интегрирован в `main` как `9d2391c830a80c52eb4139f4794bd7d37059e2a3`: [post-merge Release Gate 42899560016](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/42899560016) завершился **3/3 SUCCESS**.
+- [#857](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/857) интегрирован в `main` как `2c65524eb94037c4e4f7b8c477e613e4ce717420`: [post-merge Release Gate 42907157346](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/42907157346) завершился **3/3 SUCCESS**.
+- [#859](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/859), INTERP-GIS-01: добавлена проверка совпадения значений кривой и MD-оси в момент получения результата из фонового потока; точный PR-head `f19e281` прошёл [все три Windows gate в run 42906894936](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/42906894936). PR слит в `main` как `1c213e37bb15e1be8027c05fcc013b9db8d93f39`. Его [post-merge Release Gate 42913938511](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/42913938511) на момент записи **выполняется**, результат ещё не подтверждён.
+- PR #856 хранит документацию по диагностике нативных сбоев Qt. Три Windows gate на прежнем head `a46f255` [завершились SUCCESS](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/42907559328); любое изменение PR требует нового точного Release Gate.
+- Причина Qt #544 **не установлена**; изоляция Masterlog-тестов — ограничение последствий, а не доказательство исправления Qt/pyqtgraph. Тесты и обязательные проверки не отключать. Дальнейшие слияния разрешены только после 3/3 SUCCESS на точном PR-head и текущем `main`, без конфликтов, с последующим post-merge CI. Активные ветки сохранять.
+- Продуктовая очередь по этому плану: INTERP-GIS-01, затем отдельные шаги проверяемой привязки исходных ГИС к интервальным признакам с учётом MD, единиц измерения, пробелов и происхождения данных. Не интерполировать пропуски без отдельного обоснованного расчёта.
+
+## Стабилизация Windows CI — 9 ноября 2026
+
+`main` `726a22f00d7cb10858cf2986289d932ad298fefb` после #855 синхронизирован,
+но [post-merge Release Gate](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/42462681087)
+не прошёл: повторяется нативный сбой Qt `0xC0000374`. В отдельном CDB replay
+получены нативный и Python-стеки `0xC0000005` в процессе создания окна;
+[сведения и ограничения](QT_NATIVE_REPLAY_ACCEPTANCE.md#наблюдение-от-9-ноября-2026).
+Первопричина и связь двух кодов не установлены. Приоритет — диагностика #544,
+сохранение тестов и успешные три Windows gates; до этого новые PR не сливать.
+
 ## Актуальное состояние и следующий шаг — 6 ноября 2026
 
 Сверка выполнена по коду `main` `5c736bb2ec690a75431d064fce4c493f55de3c4d`,
