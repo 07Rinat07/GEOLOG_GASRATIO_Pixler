@@ -6,6 +6,7 @@ tool applicability, valid saturation or alignment with another dataset.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 import json
 import re
@@ -31,6 +32,15 @@ _FAMILIES = {
 GIS_SAMPLE_FAMILIES = frozenset(_FAMILIES)
 
 
+class GisInventoryCancelled(Exception):
+    """Cooperative cancellation before any partial GIS inventory is returned."""
+
+
+def _check_inventory_cancel(cancelled: Callable[[], bool] | None) -> None:
+    if cancelled is not None and cancelled():
+        raise GisInventoryCancelled
+
+
 def _unique_manifest_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
     result: dict[str, object] = {}
     for key, value in pairs:
@@ -40,21 +50,26 @@ def _unique_manifest_object(pairs: list[tuple[str, object]]) -> dict[str, object
     return result
 
 
-def exact_external_gis_curve_ids(dataset: Dataset) -> frozenset[str]:
+def exact_external_gis_curve_ids(
+    dataset: Dataset, *, cancelled: Callable[[], bool] | None = None,
+) -> frozenset[str]:
     """Identify exact-row external curves backed by an unambiguous import manifest.
 
     This does not establish geological alignment or physical applicability.
     Resampled curves and records without matching provenance remain ineligible.
     """
+    _check_inventory_cancel(cancelled)
     matches: dict[str, int] = {}
     curves_by_id = {curve.metadata.curve_id: curve for curve in dataset.curves.values()}
     duplicate_ids: set[str] = set()
     seen_ids: set[str] = set()
     for curve in dataset.curves.values():
+        _check_inventory_cancel(cancelled)
         if curve.metadata.curve_id in seen_ids:
             duplicate_ids.add(curve.metadata.curve_id)
         seen_ids.add(curve.metadata.curve_id)
     for key, encoded in dataset.parameters.items():
+        _check_inventory_cancel(cancelled)
         if (not key.startswith("EXTERNAL_LAS_IMPORT_") or not isinstance(encoded, str)
                 or len(encoded) > 4_000_000):
             continue
@@ -70,6 +85,7 @@ def exact_external_gis_curve_ids(dataset: Dataset) -> frozenset[str]:
                 or not isinstance(entries, list)):
             continue
         for entry in entries:
+            _check_inventory_cancel(cancelled)
             if not isinstance(entry, dict):
                 continue
             curve_id, source_name, source_unit = (
@@ -91,6 +107,7 @@ def exact_external_gis_curve_ids(dataset: Dataset) -> frozenset[str]:
                     or metadata.provenance != f"external-las:{digest}:{source_name}:{source_unit or ''}"):
                 continue
             matches[curve_id] = matches.get(curve_id, 0) + 1
+    _check_inventory_cancel(cancelled)
     return frozenset(curve_id for curve_id, count in matches.items() if count == 1)
 
 
@@ -127,13 +144,16 @@ class GisInputInventory:
 _GIS_SCAN_CHUNK_ROWS = 65_536
 
 
-def _inspect_depth_axis(depths: np.ndarray) -> tuple[bool, bool]:
+def _inspect_depth_axis(
+    depths: np.ndarray, *, cancelled: Callable[[], bool] | None = None,
+) -> tuple[bool, bool]:
     """Check every MD sample and adjacent pair without whole-axis masks."""
     all_finite = True
     ascending = True
     descending = True
     previous = None
     for start in range(0, len(depths), _GIS_SCAN_CHUNK_ROWS):
+        _check_inventory_cancel(cancelled)
         part = depths[start:start + _GIS_SCAN_CHUNK_ROWS]
         all_finite = bool(np.isfinite(part).all()) and all_finite
         if previous is not None:
@@ -143,17 +163,20 @@ def _inspect_depth_axis(depths: np.ndarray) -> tuple[bool, bool]:
             ascending = ascending and bool(np.all(part[1:] > part[:-1]))
             descending = descending and bool(np.all(part[1:] < part[:-1]))
         previous = part[-1]
+    _check_inventory_cancel(cancelled)
     return all_finite, ascending or descending
 
 
 def _paired_sample_stats(
     depths: np.ndarray, values: np.ndarray, *, allow_bounds: bool,
+    cancelled: Callable[[], bool] | None = None,
 ) -> tuple[int, tuple[float, float] | None]:
     """Count actual finite MD/value pairs and optionally calculate their extrema."""
     count = 0
     minimum = float("inf")
     maximum = float("-inf")
     for start in range(0, len(depths), _GIS_SCAN_CHUNK_ROWS):
+        _check_inventory_cancel(cancelled)
         stop = min(start + _GIS_SCAN_CHUNK_ROWS, len(depths))
         chunk_depths = depths[start:stop]
         valid = np.isfinite(chunk_depths) & np.isfinite(values[start:stop])
@@ -163,10 +186,13 @@ def _paired_sample_stats(
             measured_depths = chunk_depths[valid]
             minimum = min(minimum, float(np.min(measured_depths)))
             maximum = max(maximum, float(np.max(measured_depths)))
+    _check_inventory_cancel(cancelled)
     return count, ((minimum, maximum) if count and allow_bounds else None)
 
 
-def inventory_gis_inputs(dataset: Dataset) -> GisInputInventory:
+def inventory_gis_inputs(
+    dataset: Dataset, *, cancelled: Callable[[], bool] | None = None,
+) -> GisInputInventory:
     """Snapshot existing source evidence without resolving aliases or editing arrays.
 
     Counts and bounds describe actual paired samples, not continuous coverage.
@@ -174,9 +200,13 @@ def inventory_gis_inputs(dataset: Dataset) -> GisInputInventory:
     admit only individually verified exact-row external LAS insertions; no unit
     conversion, interpolation or cross-dataset MD/lag inference occurs here.
     """
+    _check_inventory_cancel(cancelled)
     axis = dataset.active_index
     axis_issues: list[str] = []
-    external_ids = exact_external_gis_curve_ids(dataset) if dataset.kind is not DatasetKind.GIS else frozenset()
+    external_ids = (
+        exact_external_gis_curve_ids(dataset, cancelled=cancelled)
+        if dataset.kind is not DatasetKind.GIS else frozenset()
+    )
     if dataset.kind is not DatasetKind.GIS and not external_ids:
         axis_issues.append("dataset_not_gis")
     if not supports_saved_md_geology(dataset):
@@ -184,7 +214,8 @@ def inventory_gis_inputs(dataset: Dataset) -> GisInputInventory:
     depths = np.asarray(axis.values)
     numeric_axis = depths.ndim == 1 and depths.dtype.kind in "fiu"
     finite_axis, ordered_axis = (
-        _inspect_depth_axis(depths) if numeric_axis and depths.size else (False, False)
+        _inspect_depth_axis(depths, cancelled=cancelled)
+        if numeric_axis and depths.size else (False, False)
     )
     if not finite_axis:
         axis_issues.append("invalid_depth_samples")
@@ -194,6 +225,7 @@ def inventory_gis_inputs(dataset: Dataset) -> GisInputInventory:
     uoms = default_uom_dictionary()
     rows: list[GisCurveInput] = []
     for key, curve in dataset.curves.items():
+        _check_inventory_cancel(cancelled)
         metadata = curve.metadata
         binding = metadata.semantic
         issues: list[str] = []
@@ -233,7 +265,7 @@ def inventory_gis_inputs(dataset: Dataset) -> GisInputInventory:
             and values.shape == depths.shape
         )
         count, bounds = (
-            _paired_sample_stats(depths, values, allow_bounds=not axis_issues)
+            _paired_sample_stats(depths, values, allow_bounds=not axis_issues, cancelled=cancelled)
             if paired else (0, None)
         )
         if not paired:
@@ -256,6 +288,7 @@ def inventory_gis_inputs(dataset: Dataset) -> GisInputInventory:
             sample_md_bounds=bounds,
             issues=tuple(issues),
         ))
+    _check_inventory_cancel(cancelled)
     return GisInputInventory(
         dataset_id=dataset.dataset_id,
         axis_id=axis.index_id,
