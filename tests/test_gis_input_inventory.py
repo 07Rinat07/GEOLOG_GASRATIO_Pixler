@@ -7,6 +7,7 @@ from geoworkbench.domain.models import (
     CalculationState, CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain,
     IndexType,
 )
+from geoworkbench.services import gis_input_inventory as inventory_module
 from geoworkbench.services.gis_input_inventory import inventory_gis_inputs
 from geoworkbench.services.semantic_channels import SemanticChannelDictionary
 from geoworkbench.services.uom_dictionary import QuantityClass
@@ -169,3 +170,67 @@ def test_real_las_inventory_keeps_source_bytes_values_and_unrecognized_units(
     assert imported.source_document.to_bytes() == source.read_bytes() == original
     for key, values in before.items():
         np.testing.assert_array_equal(dataset.curves[key].values, values)
+
+
+def test_large_inventory_uses_bounded_finite_masks(monkeypatch):
+    dataset = _dataset()
+    rows = 150_005
+    depths = np.arange(200.0, 200.0 + rows)
+    values = np.zeros(rows)
+    values[[65_535, 65_536, rows - 1]] = np.nan
+    dataset.active_index.values = depths
+    dataset.depth = depths
+    dataset.curves["GR"].values = values
+    observed_sizes = []
+    original_isfinite = np.isfinite
+
+    def bounded_isfinite(value, *args, **kwargs):
+        size = np.asarray(value).size
+        observed_sizes.append(size)
+        assert size <= 65_536, "GIS inventory must not materialize full-size finite masks"
+        return original_isfinite(value, *args, **kwargs)
+
+    monkeypatch.setattr(inventory_module.np, "isfinite", bounded_isfinite)
+    result = inventory_gis_inputs(dataset)
+    row, = result.curves
+    assert result.axis_issues == row.issues == ()
+    assert row.finite_sample_count == rows - 3
+    assert row.sample_md_bounds == (200.0, 200.0 + rows - 2)
+    assert observed_sizes and max(observed_sizes) <= 65_536
+    assert dataset.active_index.values is depths
+    assert dataset.curves["GR"].values is values
+    assert values[0] == 0.0
+
+
+@pytest.mark.parametrize("direction", [1, -1])
+def test_large_inventory_detects_duplicate_md_at_chunk_boundary(direction):
+    dataset = _dataset()
+    rows = 65_538
+    depths = np.arange(rows, dtype=float)
+    if direction == -1:
+        depths = depths[::-1].copy()
+    depths[65_536] = depths[65_535]
+    dataset.active_index.values = depths
+    dataset.depth = depths
+    dataset.curves["GR"].values = np.zeros(rows)
+    result = inventory_gis_inputs(dataset)
+    assert result.axis_issues == ("ambiguous_depth_order",)
+    row, = result.curves
+    assert row.finite_sample_count == rows
+    assert row.sample_md_bounds is None
+
+
+def test_large_inventory_rejects_nonfinite_md_without_discarding_finite_pair_count():
+    dataset = _dataset()
+    rows = 65_538
+    depths = np.arange(rows, dtype=float)
+    depths[65_536] = np.nan
+    dataset.active_index.values = depths
+    dataset.depth = depths
+    dataset.curves["GR"].values = np.zeros(rows)
+    result = inventory_gis_inputs(dataset)
+    assert "invalid_depth_samples" in result.axis_issues
+    assert "ambiguous_depth_order" not in result.axis_issues
+    row, = result.curves
+    assert row.finite_sample_count == rows - 1
+    assert row.sample_md_bounds is None
