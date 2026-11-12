@@ -1912,6 +1912,8 @@
   "tablet.curve_pencil_active": "Қарындаш белсенді: {curve}. Сол жақ батырмамен сызыңыз; Esc ағымдағы штрихты болдырмайды.",
   "tablet.curve_pencil_apply_points": "Қосу",
   "tablet.curve_pencil_apply_points_tooltip": "Таңдалған нүктелерді тереңдік бойынша қосып, өзгерісті қолдану және тәуелді қисықтарды бірден қайта есептеу.",
+  "tablet.workspace_focus": "Жұмыс аймағы (F11)",
+  "tablet.workspace_focus_hint": "F11 — планшетті көру үшін негізгі панель мен қойындыларды жасыру. Қайта басу қалыпты интерфейсті қайтарады. F4 өңдеу қолжетімді.",
   "tablet.screen_density_auto": "Авто",
   "tablet.screen_density_compact": "Ықшам",
   "tablet.screen_density_full": "Толық көрініс",

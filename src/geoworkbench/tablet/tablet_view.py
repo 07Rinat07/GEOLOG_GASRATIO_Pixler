@@ -13,6 +13,7 @@ import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, QRect, QRectF, Qt, Signal, QTimer
 from PySide6.QtGui import (
+    QAction,
     QColor,
     QCursor,
     QKeyEvent,
@@ -2516,6 +2517,11 @@ class TabletView(QWidget):
         root.setSpacing(0)
         # Keep density and pencil access outside the horizontally scrolling
         # navigation controls, so both remain reachable at narrow widths.
+        self._workspace_focus_active = False
+        self._workspace_focus_button = QToolButton()
+        self._workspace_focus_button.setObjectName("tabletWorkspaceFocusButton")
+        self._workspace_focus_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+        self._workspace_focus_button.hide()
         self._screen_density = QComboBox()
         self._screen_density.setObjectName("tabletScreenDensity")
         for mode in ("auto", "compact", "full"):
@@ -2537,6 +2543,7 @@ class TabletView(QWidget):
         navigation_row.addWidget(self._navigation_scroll, 1)
         navigation_row.addWidget(self._compact_pencil_button)
         navigation_row.addWidget(self._screen_density)
+        navigation_row.addWidget(self._workspace_focus_button)
         root.addLayout(navigation_row)
         root.addWidget(self._curve_pencil_scroll)
         root.addLayout(charts, 1)
@@ -2545,9 +2552,20 @@ class TabletView(QWidget):
     def _compact_screen(self) -> bool:
         if self.property("geoworkbench-print-clone") or not hasattr(self, "_screen_density"):
             return False
-        return tablet_compact_screen(
-            str(self._screen_density.currentData()), self.width(), self.height()
-        )
+        mode = str(self._screen_density.currentData())
+        if self._workspace_focus_active and mode == "auto":
+            return True
+        return tablet_compact_screen(mode, self.width(), self.height())
+
+    def set_workspace_focus_action(self, action: QAction) -> None:
+        """Use MainWindow's single checkable action; standalone/print views omit it."""
+        self._workspace_focus_button.setDefaultAction(action)
+        self._workspace_focus_button.show()
+
+    def set_workspace_focus_active(self, enabled: bool) -> None:
+        self._workspace_focus_active = bool(enabled)
+        self._sync_screen_controls()
+        self._resize_restore_timer.start(0)
 
     def _sync_screen_controls(self) -> None:
         if not hasattr(self, "_compact_pencil_button"):
@@ -2555,6 +2573,9 @@ class TabletView(QWidget):
         compact = self._compact_screen()
         print_clone = bool(self.property("geoworkbench-print-clone"))
         self._screen_density.setVisible(not print_clone)
+        self._workspace_focus_button.setVisible(
+            not print_clone and self._workspace_focus_button.defaultAction() is not None
+        )
         # Never hide active tools, including pending points and commit errors.
         show_pencil = (
             not compact or self._curve_pencil_enabled
