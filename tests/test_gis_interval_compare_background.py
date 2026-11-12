@@ -1,12 +1,14 @@
 from threading import Event, Timer
 
 import numpy as np
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import QCoreApplication, QEvent, QTimer, Qt
 
 from geoworkbench.services.gis_interval_sample_review import review_gis_source_interval_batch
 from geoworkbench.services.gis_interval_snapshot import GisIntervalSnapshot
 from geoworkbench.ui import gis_interval_compare_worker as worker_module
-from geoworkbench.ui.gis_interval_compare_dialog import GisIntervalCompareDialog, _stop_workers_on_exit
+from geoworkbench.ui.gis_interval_compare_dialog import (
+    GisIntervalCompareDialog, _LIVE_WORKERS, _stop_workers_on_exit,
+)
 from test_gis_interval_compare import _two_curves
 from test_gis_interval_compare_ui import _wait_review
 
@@ -209,3 +211,104 @@ def test_queued_gis_review_rejects_inplace_change_after_worker_verification(qapp
             assert dialog.missing_details.text() == dialog._t("missing_select")
         finally:
             dialog.close()
+
+
+def test_repeated_reviews_join_worker_and_remove_cancel_connection(qapp):
+    dialog = GisIntervalCompareDialog(_two_curves(), top="100", bottom="102")
+    try:
+        dialog.table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+        for _ in range(12):
+            dialog.review.click()
+            worker = dialog._worker
+            assert worker is not None and worker in _LIVE_WORKERS
+            assert worker.parent() is not None
+            assert dialog._worker_cancel_connection is not None
+            _wait_review(qapp, dialog)
+            assert dialog._worker_cancel_connection is None
+            assert worker not in _LIVE_WORKERS
+            assert dialog.status.text() == dialog._t("complete")
+    finally:
+        if dialog._worker is not None:
+            _wait_review(qapp, dialog)
+        dialog.close()
+
+
+def test_destroyed_dialog_cancels_without_retaining_worker_wrapper(qapp, monkeypatch):
+    from time import monotonic, sleep
+
+    started, release = _paused_review(monkeypatch)
+    dialog = GisIntervalCompareDialog(_two_curves(), top="100", bottom="102")
+    worker = None
+    try:
+        dialog.table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+        dialog.review.click()
+        assert started.wait(5)
+        worker = dialog._worker
+        assert worker is not None
+        cancel_event = worker._cancel
+        dialog.deleteLater()
+        # Target only this dialog, not every deferred native object in Qt.
+        QCoreApplication.sendPostedEvents(dialog, QEvent.Type.DeferredDelete)
+        assert cancel_event.is_set()
+        assert worker in _LIVE_WORKERS
+    finally:
+        release.set()
+        if worker is not None:
+            deadline = monotonic() + 10
+            while worker in _LIVE_WORKERS and monotonic() < deadline:
+                qapp.processEvents()
+                sleep(0.005)
+            assert worker not in _LIVE_WORKERS
+
+
+def test_numeric_review_runs_on_python_thread_and_returns_to_gui(qapp, monkeypatch):
+    from threading import get_ident
+    from PySide6.QtCore import QThread
+
+    owner = get_ident()
+    seen = []
+    original = worker_module.review_gis_source_interval_batch
+
+    def record(*args, **kwargs):
+        seen.append(get_ident())
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(worker_module, "review_gis_source_interval_batch", record)
+    dialog = GisIntervalCompareDialog(_two_curves(), top="100", bottom="102")
+    try:
+        dialog.table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+        dialog.review.click()
+        worker = dialog._worker
+        assert worker is not None and not isinstance(worker, QThread)
+        _wait_review(qapp, dialog)
+        assert len(seen) == 1 and seen[0] != owner
+        assert dialog.status.text() == dialog._t("complete")
+        assert dialog.table.item(0, 4).text() == "2 / 3"
+        assert worker not in _LIVE_WORKERS
+    finally:
+        if dialog._worker is not None:
+            _wait_review(qapp, dialog)
+        dialog.close()
+
+
+def test_python_thread_start_failure_retires_worker_and_restores_controls(qapp, monkeypatch):
+    def fail_start(_thread):
+        raise RuntimeError("thread allocation failure")
+
+    monkeypatch.setattr(worker_module.Thread, "start", fail_start)
+    dialog = GisIntervalCompareDialog(_two_curves(), top="100", bottom="102")
+    try:
+        dialog.table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+        dialog.review.click()
+        worker = dialog._worker
+        assert worker is not None
+        _wait_review(qapp, dialog)
+        assert worker not in _LIVE_WORKERS
+        assert dialog._worker_cancel_connection is None
+        assert dialog.review.isEnabled() and dialog.table.isEnabled()
+        assert dialog.status.text() == dialog._t("failed")
+        assert dialog.table.item(0, 4).text() == "—"
+    finally:
+        if dialog._worker is not None:
+            _wait_review(qapp, dialog)
+        dialog.close()
