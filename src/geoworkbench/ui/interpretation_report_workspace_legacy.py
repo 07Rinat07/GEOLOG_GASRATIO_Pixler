@@ -935,9 +935,8 @@ class InterpretationReportWorkspace(QWidget):
         gis_button.setVisible(has_reviewable_gis())
         layout.addWidget(gis_button)
 
-        def review_gis() -> None:
+        def validated_gis_bounds() -> tuple[float, float] | None:
             from geoworkbench.services.geology_depth_alignment import supports_saved_md_geology
-            from geoworkbench.ui.gis_reference_dialog import GisReferenceDialog
 
             index = selector.currentData()
             geology_current = False
@@ -960,7 +959,7 @@ class InterpretationReportWorkspace(QWidget):
                     "Дереккөз немесе аралық өзгерді. Есепті жаңартып, аралықты қайта таңдаңыз.",
                     "The source or interval changed. Refresh the report and select the interval again.",
                 ))
-                return
+                return None
             # Report identities do not catch in-place edits to array contents.
             # Rebuild only on this explicit click and require the same candidate.
             try:
@@ -998,13 +997,43 @@ class InterpretationReportWorkspace(QWidget):
                     "Газ аралығы өзгерді немесе қолжетімсіз. Есепті жаңартып, қайта таңдаңыз.",
                     "The gas interval changed or is unavailable. Refresh the report and select it again.",
                 ))
+                return None
+            return candidate.top_depth, candidate.bottom_depth
+
+        def review_gis() -> None:
+            from geoworkbench.ui.gis_reference_dialog import GisReferenceDialog
+
+            bounds = validated_gis_bounds()
+            if bounds is None:
                 return
             review = GisReferenceDialog(dataset, self, language=self.language)
-            review.fields["top"].setText(f"{candidate.top_depth:.17g}")
-            review.fields["base"].setText(f"{candidate.bottom_depth:.17g}")
+            review.fields["top"].setText(f"{bounds[0]:.17g}")
+            review.fields["base"].setText(f"{bounds[1]:.17g}")
             review.exec()
 
         gis_button.clicked.connect(review_gis)
+        combined_button = QPushButton(self._text(
+            "Газ, геология и ГИС: совместный просмотр…",
+            "Газ, геология және ГИС: бірлескен қарау…",
+            "Gas, geology and GIS: combined preview…",
+        ), dialog)
+        combined_button.setObjectName("interpretation-geology-combined-gis")
+        combined_button.setVisible(has_reviewable_gis())
+        layout.addWidget(combined_button)
+
+        def review_combined() -> None:
+            from geoworkbench.ui.gis_geology_evidence_dialog import GisGeologyEvidenceDialog
+
+            bounds = validated_gis_bounds()
+            if bounds is None:
+                return
+            preview = GisGeologyEvidenceDialog(
+                session, dataset, bounds, validated_gis_bounds, dialog,
+                language=self._report_output_language(),
+            )
+            preview.exec()
+
+        combined_button.clicked.connect(review_combined)
         # Field-by-field MD detail is an explicitly chosen read-only preview.
         # Export approvals still refer to the complete verified evidence snapshot.
         field_choice = QComboBox(dialog)
