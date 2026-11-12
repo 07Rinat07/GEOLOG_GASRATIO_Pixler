@@ -2356,8 +2356,24 @@ def _paint_uniform_rock_description(
         return
     painter.save()
     try:
-        _set_scaled_unicode_font_points(painter, text, point_size)
-        font = painter.font()
+        # Work in physical points inside the millimetre page transform.
+        # A 9 pt font in a millimetre canvas has a nominal local pixel
+        # size of 3.175, which Qt quantizes to 3 (about 8.5 physical pt).
+        # A point canvas gives an exact integer local pixel size of 9.
+        content_rect = rect.adjusted(0.6, 0.3, -0.6, -0.3)
+        if content_rect.width() <= 0 or content_rect.height() <= 0:
+            return
+        painter.setClipRect(content_rect, Qt.ClipOperation.IntersectClip)
+        painter.translate(content_rect.topLeft())
+        painter.scale(25.4 / 72.0, 25.4 / 72.0)
+        point_rect = QRectF(
+            0, 0, content_rect.width() * 72.0 / 25.4,
+            content_rect.height() * 72.0 / 25.4,
+        )
+        font = print_font(point_size, text=text)
+        font.setPixelSize(max(1, round(point_size)))
+        font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)
+        font.setStyleStrategy(QFont.StyleStrategy.ForceOutline)
         font.setWeight(QFont.Weight.Normal)
         font.setItalic(False)
         font.setUnderline(False)
@@ -2365,11 +2381,12 @@ def _paint_uniform_rock_description(
         painter.setFont(font)
         painter.setPen(color)
         _draw_fitted_interval_text(
-            painter, rect.adjusted(0.6, 0.3, -0.6, -0.3), text,
+            painter, point_rect, text,
             alignment=Qt.AlignmentFlag.AlignLeft,
             maximum_point_size=point_size,
             minimum_point_size=point_size,
             word_wrap=word_wrap,
+            point_coordinates=True,
         )
     finally:
         painter.restore()
@@ -2554,8 +2571,13 @@ def _draw_fitted_interval_text(
     maximum_point_size: float,
     minimum_point_size: float = 3.5,
     word_wrap: bool = True,
+    point_coordinates: bool = False,
 ) -> None:
-    """Wrap, shrink and finally elide text without painting outside ``rect``."""
+    """Wrap, shrink and finally elide text without painting outside ``rect``.
+
+    Fixed-size descriptions use a physical-point canvas to avoid rounding a
+    9 pt glyph to three pre-transform millimetre pixels.
+    """
 
     content = text.strip()
     if not content or rect.width() <= 0 or rect.height() <= 0:
@@ -2570,7 +2592,10 @@ def _draw_fitted_interval_text(
 
         def fits(candidate: str, point_size: float) -> bool:
             font = QFont(base_font)
-            _set_scaled_font_points(painter, font, point_size)
+            if point_coordinates:
+                font.setPixelSize(max(1, round(point_size)))
+            else:
+                _set_scaled_font_points(painter, font, point_size)
             painter.setFont(font)
             bounds = painter.boundingRect(rect, int(measure_flags), candidate)
             return bounds.width() <= rect.width() + 0.1 and bounds.height() <= rect.height() + 0.1
