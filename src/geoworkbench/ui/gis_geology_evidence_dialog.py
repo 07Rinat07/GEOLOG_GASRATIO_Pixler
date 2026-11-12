@@ -25,6 +25,7 @@ from geoworkbench.services.interpretation_gis_interval_evidence import GasGeolog
 from geoworkbench.services.interpretation_gis_interval_evidence_html import (
     geology_gis_interval_evidence_html,
 )
+from geoworkbench.services.interpretation_gis_evidence_handoff import ConfirmedGisGeologySelection
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.ui.gis_interval_compare_dialog import register_gis_interval_worker
 from geoworkbench.ui.gis_interval_compare_worker import GisIntervalCompareWorker
@@ -63,6 +64,10 @@ class GisGeologyEvidenceDialog(QDialog):
         self, session: ProjectSession, dataset: Dataset, bounds: tuple[float, float],
         validate_bounds: Callable[[], tuple[float, float] | None],
         parent: QWidget | None = None, *, language: AppLanguage = AppLanguage.RU,
+        confirm_html: Callable[
+            [GasGeologyGisIntervalEvidence, GisIntervalSnapshot],
+            ConfirmedGisGeologySelection,
+        ] | None = None,
     ) -> None:
         super().__init__(parent)
         self.session = session
@@ -77,6 +82,9 @@ class GisGeologyEvidenceDialog(QDialog):
         self._geology: GasGeologyIntervalEvidence | None = None
         self._well = session.current_well
         self._keys: tuple[str, ...] = ()
+        self._confirm_html = confirm_html
+        self._reviewed: tuple[GasGeologyGisIntervalEvidence, GisIntervalSnapshot] | None = None
+        self.confirmed_html_selection: ConfirmedGisGeologySelection | None = None
         self._cancel_requested = False
         self._close_after_worker = False
         self.setObjectName("gis-geology-evidence-dialog")
@@ -120,6 +128,17 @@ class GisGeologyEvidenceDialog(QDialog):
         self.viewer.setOpenLinks(False)
         layout.addWidget(self.viewer, 1)
         self.curves.itemChanged.connect(self._clear)
+        captions = {
+            AppLanguage.RU: "Подтвердить наблюдения для HTML",
+            AppLanguage.KK: "Бақылауларды HTML үшін растау",
+            AppLanguage.EN: "Confirm observations for HTML",
+        }
+        self.confirm_html_button = QPushButton(captions[language], self)
+        self.confirm_html_button.setObjectName("gis-geology-confirm-html")
+        self.confirm_html_button.setEnabled(False)
+        self.confirm_html_button.setVisible(confirm_html is not None)
+        self.confirm_html_button.clicked.connect(self._confirm_reviewed_html)
+        layout.addWidget(self.confirm_html_button)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(
             self.localizer.text("common.close")
@@ -132,6 +151,9 @@ class GisGeologyEvidenceDialog(QDialog):
         return self.localizer.text(f"gis_compare.{key}", **values)
 
     def _clear(self, _item: QListWidgetItem | None = None) -> None:
+        self._reviewed = None
+        self.confirmed_html_selection = None
+        self.confirm_html_button.setEnabled(False)
         self.viewer.clear()
         self.status.clear()
         if self._worker is not None:
@@ -238,17 +260,34 @@ class GisGeologyEvidenceDialog(QDialog):
             ):
                 self.status.setText(self.words[4])
                 return
-            html = geology_gis_interval_evidence_html(
-                GasGeologyGisIntervalEvidence(geology, payload), self.language,
-            )
+            evidence = GasGeologyGisIntervalEvidence(geology, payload)
+            html = geology_gis_interval_evidence_html(evidence, self.language)
         except (ValueError, RuntimeError, TypeError, OverflowError):
             self.status.setText(self.words[4])
             return
         if self._cancel_requested or self._worker is None or self._geology is not geology:
             self.status.setText(self._t("cancelled"))
             return
+        self._reviewed = (evidence, snapshot)
         self.viewer.setHtml(html)
         self.status.setText(self._t("complete"))
+
+    def _confirm_reviewed_html(self) -> None:
+        # The approval is bound to the original reviewed arrays, not a new
+        # snapshot of possibly changed values with the same summary.
+        if self._worker is not None or self._reviewed is None or self._confirm_html is None:
+            return
+        evidence, snapshot = self._reviewed
+        self.confirmed_html_selection = None
+        try:
+            if not self._source_current() or self._selected_keys() != snapshot.keys:
+                raise ValueError("Changed preview selection")
+            self.confirmed_html_selection = self._confirm_html(evidence, snapshot)
+        except (ValueError, RuntimeError, TypeError, OverflowError):
+            self._clear()
+            self.status.setText(self.words[4])
+            return
+        self.accept()
 
     @Slot(str)
     def _failed(self, reason: str) -> None:
@@ -261,6 +300,9 @@ class GisGeologyEvidenceDialog(QDialog):
     def _cancel_review(self) -> None:
         if self._worker is not None:
             self._cancel_requested = True
+            self._reviewed = None
+            self.confirmed_html_selection = None
+            self.confirm_html_button.setEnabled(False)
             self.viewer.clear()
             self.cancel.setEnabled(False)
             self.status.setText(self._t("cancelling"))
@@ -279,6 +321,13 @@ class GisGeologyEvidenceDialog(QDialog):
         self._geology = None
         self._keys = ()
         self._set_running(False)
+        self.confirm_html_button.setEnabled(
+            self._confirm_html is not None and self._reviewed is not None
+            and not self._cancel_requested
+            and all(item.review is not None and not item.issues for item in self._reviewed[0].gis)
+            and any(item.review is not None and item.review.finite_count > 0
+                    for item in self._reviewed[0].gis)
+        )
         if self._close_after_worker:
             self._close_after_worker = False
             self.reject()
