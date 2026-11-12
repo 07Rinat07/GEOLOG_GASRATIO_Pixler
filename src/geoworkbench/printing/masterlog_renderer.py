@@ -2181,45 +2181,49 @@ def _paint_calcimetry_column(
             if calcite is None and dolomite is None
             else ((calcite, "#22d3ee"), (dolomite, "#a78bfa"), (residue, "#d1d5db"))
         )
+        orientation = str(column.properties.get(
+            "calcimetry_label_orientation", "vertical_top_to_bottom",
+        ))
+        captions: list[tuple[QRectF, str]] = []
         for value, color in components:
             if value is None:
                 continue
             numeric = min(100.0, max(0.0, float(value)))
             if numeric > 0.0:
                 width = rect.width() * numeric / 100.0
+                cell = QRectF(left, y_top, width, height)
                 fill = QColor(color)
                 fill.setAlpha(150)
-                painter.fillRect(QRectF(left, y_top, width, height), fill)
+                painter.fillRect(cell, fill)
+                if cell.right() <= rect.right() + 1e-9:
+                    captions.append((cell, f"{value:g}"))
                 left += width
             else:
                 painter.setPen(QPen(QColor(color), 0.7))
                 painter.drawLine(QLineF(left, y_top, left, y_bottom))
         painter.setPen(QPen(QColor(visual.palette.border_strong), visual.layout.thin_rule_pt * 25.4 / 72.0))
         painter.drawRect(QRectF(rect.left(), y_top, rect.width(), height))
-        if height >= 5.0:
-            painter.setPen(QColor(visual.palette.text))
-            parts: list[str] = []
-            if calcite is not None:
-                parts.append(f"Ca {calcite:g}%")
-            if dolomite is not None:
-                parts.append(f"Dol {dolomite:g}%")
-            if total is not None:
-                parts.append(f"Σ carb {total:g}%")
-            if residue is not None:
-                parts.append(f"IR {residue:g}%")
-            draw_oriented_text(
-                painter,
-                QRectF(rect.left() + 0.5, y_top, rect.width() - 1.0, height),
-                "  ".join(parts),
-                orientation=str(
-                    column.properties.get(
-                        "calcimetry_label_orientation", "vertical_top_to_bottom"
-                    )
-                ),
-                position="center",
-                padding_x=0.2,
-                padding_y=0.2,
+        # Draw only readable numbers in their own coloured cells. Use a
+        # physical print font and test available space after rotation.
+        painter.setPen(QColor(visual.palette.text))
+        for cell, caption in captions:
+            available_width = cell.width() - 0.6
+            available_height = cell.height() - 0.6
+            if orientation != "horizontal":
+                available_width, available_height = available_height, available_width
+            if available_width <= 0.0 or available_height <= 0.0:
+                continue
+            _set_scaled_unicode_font_points(painter, caption, visual.typography.caption_pt)
+            bounds = painter.boundingRect(
+                QRectF(0, 0, available_width, available_height),
+                int(Qt.TextFlag.TextSingleLine | Qt.TextFlag.TextDontClip),
+                caption,
             )
+            if bounds.width() <= available_width and bounds.height() <= available_height:
+                draw_oriented_text(
+                    painter, cell, caption, orientation=orientation,
+                    word_wrap=False, padding_x=0.3, padding_y=0.3,
+                )
     painter.restore()
 
 

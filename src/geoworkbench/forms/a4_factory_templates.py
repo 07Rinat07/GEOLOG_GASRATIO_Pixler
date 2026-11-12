@@ -69,9 +69,9 @@ _TEXT = {
         "en": "Rock description",
     },
     "calcimetry": {"ru": "Кальциметрия", "kk": "Кальциметрия", "en": "Calcimetry"},
-    "calcite_short": {"ru": "Кальцит", "kk": "Кальцит", "en": "Calcite"},
-    "dolomite_short": {"ru": "Дол.", "kk": "Дол.", "en": "Dol."},
-    "insoluble_short": {"ru": "Н.О.", "kk": "Е.Қ.", "en": "I.R."},
+    "calcite_short": {"ru": "Cal", "kk": "Cal", "en": "Cal"},
+    "dolomite_short": {"ru": "Dol", "kk": "Dol", "en": "Dol"},
+    "insoluble_short": {"ru": "IR", "kk": "IR", "en": "IR"},
     "lba": {"ru": "ЛБА", "kk": "ЛБА", "en": "LBA"},
     "drilling": {"ru": "Бурение", "kk": "Бұрғылау", "en": "Drilling"},
     "gas": {

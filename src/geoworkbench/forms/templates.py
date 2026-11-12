@@ -230,17 +230,9 @@ _TEXT: dict[str, dict[str, str]] = {
         "en": "Absolute gas C1–C5",
     },
     "relative_gas": {"ru": "Относительный газ", "kk": "Салыстырмалы газ", "en": "Relative gas"},
-    "calcite": {"ru": "Кальцит CaCO₃", "kk": "Кальцит CaCO₃", "en": "Calcite CaCO₃"},
-    "dolomite": {
-        "ru": "Доломит CaMg(CO₃)₂",
-        "kk": "Доломит CaMg(CO₃)₂",
-        "en": "Dolomite CaMg(CO₃)₂",
-    },
-    "insoluble_residue": {
-        "ru": "Нерастворимый остаток",
-        "kk": "Ерімейтін қалдық",
-        "en": "Insoluble residue",
-    },
+    "calcite": {"ru": "Cal", "kk": "Cal", "en": "Cal"},
+    "dolomite": {"ru": "Dol", "kk": "Dol", "en": "Dol"},
+    "insoluble_residue": {"ru": "IR", "kk": "IR", "en": "IR"},
     "engineering_control_time": {
         "ru": "Инженерно-технологический мониторинг — временная форма",
         "kk": "Инженерлік-технологиялық мониторинг — уақыттық пішін",

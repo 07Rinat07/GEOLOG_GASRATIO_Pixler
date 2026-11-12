@@ -280,40 +280,31 @@ class TabletTrackPreviewWidget(QWidget):
             body.height() * 0.42,
         )
         left = interval.left()
+        orientation = self._track.calcimetry_label_orientation
         for fraction, color in ((0.55, "#22d3ee"), (0.35, "#a78bfa"), (0.10, "#d1d5db")):
             width = interval.width() * fraction
-            painter.fillRect(
-                QRectF(left, interval.top(), width, interval.height()),
-                QColor(color),
-            )
+            cell = QRectF(left, interval.top(), width, interval.height())
+            painter.fillRect(cell, QColor(color))
+            caption = f"{fraction * 100:g}"
+            metrics = painter.fontMetrics()
+            available_width, available_height = cell.width() - 4, cell.height() - 4
+            if orientation != "horizontal":
+                available_width, available_height = available_height, available_width
+            if metrics.horizontalAdvance(caption) <= available_width and metrics.height() <= available_height:
+                painter.save()
+                painter.setClipRect(cell)
+                painter.setPen(QColor("#0f172a"))
+                painter.translate(cell.center())
+                painter.rotate(text_angle(orientation))
+                if orientation == "horizontal":
+                    target = QRectF(-width / 2, -cell.height() / 2, width, cell.height())
+                else:
+                    target = QRectF(-cell.height() / 2, -width / 2, cell.height(), width)
+                painter.drawText(target, Qt.AlignmentFlag.AlignCenter, caption)
+                painter.restore()
             left += width
         painter.setPen(QPen(QColor("#64748b"), 0.8))
         painter.drawRect(interval)
-        painter.save()
-        painter.setPen(QColor("#0f172a"))
-        orientation = self._track.calcimetry_label_orientation
-        text = "Calcite 55 / Dol. 35 / I.R. 10"
-        if orientation == "horizontal":
-            painter.drawText(
-                interval.adjusted(3, 3, -3, -3),
-                Qt.AlignmentFlag.AlignCenter,
-                text,
-            )
-        else:
-            painter.translate(interval.center())
-            painter.rotate(text_angle(orientation))
-            rotated = QRectF(
-                -interval.height() / 2.0,
-                -interval.width() / 2.0,
-                interval.height(),
-                interval.width(),
-            )
-            painter.drawText(
-                rotated.adjusted(3, 3, -3, -3),
-                Qt.AlignmentFlag.AlignCenter,
-                text,
-            )
-        painter.restore()
 
     @staticmethod
     def _curve_pen(style: CurveStyle, color: str, width_scale: float) -> QPen:
