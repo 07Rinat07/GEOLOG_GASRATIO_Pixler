@@ -70,3 +70,26 @@ def curve_header_overflows(
     max_visible_rows: int = CURVE_HEADER_MAX_VISIBLE_ROWS,
 ) -> bool:
     return max(0, int(row_count)) > max(1, int(max_visible_rows))
+
+
+# Screen-only policy; paper rendering continues to use every configured row.
+TABLET_COMPACT_HEIGHT = 760
+TABLET_COMPACT_WIDTH = 1000
+TABLET_COMPACT_MAX_ROWS = 2
+
+
+def tablet_compact_screen(mode: str, width: int, height: int) -> bool:
+    """Choose density from the actual logical tablet size, not monitor pixels."""
+    if mode == "compact":
+        return True
+    if mode == "full":
+        return False
+    return width < TABLET_COMPACT_WIDTH or height < TABLET_COMPACT_HEIGHT
+
+
+def compact_curve_header_rows(
+    viewport_height: int, title_height: int, *, minimum_plot_height: int = 240,
+) -> int:
+    """Budget whole parameter rows; keep the first row scrollable on small screens."""
+    free = viewport_height - title_height - minimum_plot_height - CURVE_HEADER_BOTTOM_CLEARANCE
+    return max(1, min(TABLET_COMPACT_MAX_ROWS, free // CURVE_HEADER_ROW_HEIGHT))
