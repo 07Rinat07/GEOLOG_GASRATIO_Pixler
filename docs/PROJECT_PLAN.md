@@ -1,5 +1,12 @@
 # Единый план проекта
 
+## Актуальный инкремент INTERP-GIS-01 — 12 ноября 2026
+
+- [#866](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/866): совместный неизменяемый снимок геологии и исходных отсчётов ГИС в одном MD-интервале. PR-head `8fa3921` — [3/3 SUCCESS](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43141803751), интегрирован как `8f7eee4`; [post-merge Release Gate 43145818689](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43145818689) — **3/3 SUCCESS**, завершённая ветка автоматически удалена.
+- [#867](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/867): локализованное RU/KK/EN представление отдельного геологического покрытия и фактических GIS-отсчётов. PR-head `f468e47` — [3/3 SUCCESS](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43145969690), интегрирован как `d421393`; [post-merge Release Gate 43151875771](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43151875771) на момент записи **выполняется**.
+- [#868](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/868) — следующий операторский инкремент: явный выбор до восьми ГИС-кривых из окна газового интервала, отдельный совместный просмотр геологии и ГИС, повторная проверка кандидата и источников до/после расчёта, без автоматического утверждения для отчётов. Синхронный просмотр с wait cursor — не подтверждение отзывчивости на больших LAS. Фоновая обработка/отмена, затем явный подтверждённый handoff в отчёты — следующие отдельные этапы.
+- Для merge #868 требуются 3/3 SUCCESS на точном новом PR-head и текущем main, отсутствие конфликтов, отдельный post-merge gate. Не отключать тесты; Qt #544 и полевая приёмка остаются открытыми.
+
 ## Актуальная стабилизация Windows CI — 11 ноября 2026
 
 - [#858](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/858) интегрирован в `main` как `9d2391c830a80c52eb4139f4794bd7d37059e2a3`: [post-merge Release Gate 42899560016](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/42899560016) завершился **3/3 SUCCESS**.
