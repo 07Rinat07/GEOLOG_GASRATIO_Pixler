@@ -29,13 +29,14 @@ def _dataset(identifier, depth):
     return dataset
 
 
-def _view(dataset, samples, intervals=()):
+def _view(dataset, samples, intervals=(), *, show_borders=True):
     view = TabletView()
     view.resize(640, 650)
     view.set_cuttings(list(samples), refresh=False)
     view.set_lithology(list(intervals), (), refresh=False)
     view.set_layout_and_dataset(TabletLayout([
-        TrackDefinition("rock", "Описание пород", TrackKind.TEXT, width=300),
+        TrackDefinition("rock", "Описание пород", TrackKind.TEXT, width=300,
+                        show_description_borders=show_borders),
     ]), dataset)
     view.show()
     return view
@@ -111,6 +112,35 @@ def test_explicit_no_wrap_preserves_font_and_full_text(qapp):
         _assert_font(item)
         assert item.textItem.document().defaultTextOption().wrapMode() == QTextOption.WrapMode.NoWrap
         assert sample.description.strip() in item.toolTip()
+    finally:
+        view.close()
+
+
+def test_borderless_short_intervals_keep_full_hover_text(qapp):
+    sample = CuttingsSample("tiny", 100, 100.1, description="Известняк <5% пор.")
+    layer = LithologyInterval("tiny-layer", 101, 101.1, "limestone",
+                              description="Плотный известняк.")
+    before = deepcopy((sample, layer))
+    view = _view(_dataset("tiny", np.arange(100, 161)), [sample], [layer],
+                 show_borders=False)
+    try:
+        view.set_visible_depth(100, 160)
+        qapp.processEvents()
+        view._update_lithology_text_visibility(100, 160)
+        rendered = view._rendered["rock"]
+        assert rendered.lithology_description_items is not None
+        assert rendered.description_frames is not None
+        for identity, expected in (("tiny", "Известняк &lt;5% пор."),
+                                   ("tiny-layer", "Плотный известняк.")):
+            item = rendered.lithology_description_items[identity]
+            frame = rendered.description_frames[identity]
+            assert not item.isVisible()
+            assert frame.isVisible() and frame.contains(frame.rect().center())
+            assert expected in frame.toolTip()
+            assert frame.pen().style() == Qt.PenStyle.NoPen
+            assert frame.brush().color().alpha() == 0
+            assert frame.acceptedMouseButtons() == Qt.MouseButton.NoButton
+        assert (sample, layer) == before
     finally:
         view.close()
 

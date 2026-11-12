@@ -10883,7 +10883,9 @@ class TabletView(QWidget):
             axis_top, axis_bottom = self._depth_interval_to_axis(
                 sample.top_depth, sample.bottom_depth
             )
-            if definition.kind is TrackKind.INTERPRETATION or definition.show_description_borders:
+            # Even borderless TEXT intervals need a tooltip hit area when
+            # the fixed-size label is hidden because the interval is too small.
+            if uniform or definition.kind is TrackKind.INTERPRETATION:
                 interval_block = DeviceTiledRectItem(
                     QRectF(
                         0.0,
@@ -10905,6 +10907,8 @@ class TabletView(QWidget):
                 interval_block.setZValue(20.0)
                 track.plot.addItem(interval_block)
                 frames[sample.sample_id] = interval_block
+                if uniform and not definition.show_description_borders:
+                    interval_block.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
                 label.setZValue(21.0)
             label.setPos(0.02, axis_top if uniform else (axis_top + axis_bottom) / 2.0)
             if uniform:
@@ -10955,23 +10959,25 @@ class TabletView(QWidget):
             axis_top, axis_bottom = self._depth_interval_to_axis(
                 interval.top_depth, interval.bottom_depth
             )
-            if definition.show_description_borders:
-                interval_block = DeviceTiledRectItem(
-                    QRectF(
-                        0.0,
-                        axis_top,
-                        1.0,
-                        max(axis_bottom - axis_top, np.finfo(float).eps),
-                    ),
-                    pg.mkBrush(255, 255, 255, 0),
-                    pg.mkPen("#64748b", width=0.8),
-                )
-                interval_block.setZValue(20.0)
-                track.plot.addItem(interval_block)
-                frames[interval.interval_id] = interval_block
-                label.setZValue(21.0)
-            if interval.interval_id in frames:
-                frames[interval.interval_id].setToolTip(tooltip)
+            # Preserve hover access independently of the border preference.
+            interval_block = DeviceTiledRectItem(
+                QRectF(
+                    0.0,
+                    axis_top,
+                    1.0,
+                    max(axis_bottom - axis_top, np.finfo(float).eps),
+                ),
+                pg.mkBrush(255, 255, 255, 0),
+                pg.mkPen("#64748b", width=0.8)
+                if definition.show_description_borders else pg.mkPen(None),
+            )
+            if not definition.show_description_borders:
+                interval_block.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
+            interval_block.setZValue(20.0)
+            interval_block.setToolTip(tooltip)
+            track.plot.addItem(interval_block)
+            frames[interval.interval_id] = interval_block
+            label.setZValue(21.0)
             label.setPos(0.02, axis_top)
             track.plot.addItem(label)
             rendered[interval.interval_id] = label
