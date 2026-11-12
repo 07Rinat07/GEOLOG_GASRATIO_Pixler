@@ -75,7 +75,7 @@ def test_analysis_uses_exact_persisted_revision_for_source(monkeypatch: pytest.M
     session, first, second = _session_with_two_revisions()
     captured: list[str] = []
 
-    def fake_analyze(session_arg, target, source, dictionary, *, source_name, source_sha256):
+    def fake_analyze(session_arg, target, source, dictionary, *, source_name, source_sha256, source_raw_bytes=None):
         del session_arg, target, source, source_name
         captured.append(dictionary.entries[0].name_en)
         payload = dictionary.to_json()
@@ -161,7 +161,7 @@ def test_prepare_revalidates_binding_then_delegates(monkeypatch: pytest.MonkeyPa
     sentinel = object()
     captured: dict[str, object] = {}
 
-    def fake_prepare(session_arg, target, source, plan_arg, *, source_name, source_sha256, append_rows):
+    def fake_prepare(session_arg, target, source, plan_arg, *, source_name, source_sha256, append_rows, source_raw_bytes=None):
         captured.update(
             session=session_arg,
             target=target,

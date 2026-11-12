@@ -7014,6 +7014,7 @@ class TabletView(QWidget):
         self._update_visible_curve_data(*current)
         self._synchronize_vertical_rulers(*current)
         self._update_lithology_text_visibility(*current)
+        self._update_stratigraphy_text_visibility(*current)
         self._update_navigation_controls()
         self._refresh_annotation_overlay()
 
@@ -9878,16 +9879,27 @@ class TabletView(QWidget):
             label_text = "\n".join(value for value in (interval.code, interval_name) if value)
             label = pg.TextItem(
                 label_text,
-                color="#0f172a",
+                color="#ffffff" if QColor(color).lightness() < 110 else "#0f172a",
                 anchor=stratigraphy_text_anchor(interval.text_orientation, interval.text_position),
                 angle=stratigraphy_text_angle(interval.text_orientation),
             )
+            label.setZValue(10)
+            label.textItem.document().setDocumentMargin(1.0)
+            # Keep the original full label in the tooltip even when a narrow
+            # lane can display only its code at the current zoom level.
             label_position = stratigraphy_text_position_fraction(interval.text_position)
             label.setPos(
                 lane + 0.5,
                 axis_top + (axis_bottom - axis_top) * label_position,
             )
-            label.setToolTip(f"{interval.top_depth:g}–{interval.bottom_depth:g} m\n{label_text}")
+            description = localized_text(
+                interval.description_i18n, self._localizer.language, legacy=interval.description,
+            )
+            label.setToolTip(
+                f"{interval.top_depth:g}–{interval.bottom_depth:g} m\n{label_text}"
+                + (f"\n{description}" if description else "")
+            )
+            bar.setToolTip(label.toolTip())
             track.plot.addItem(label)
             rendered[interval.interval_id] = (bar, label)
         return rendered
@@ -11644,30 +11656,115 @@ class TabletView(QWidget):
                     text_item.setVisible(visible)
 
     def _update_stratigraphy_text_visibility(self, top: float, bottom: float) -> None:
+        """Keep a readable caption within the visible part of each rank lane."""
         intervals = {item.interval_id: item for item in self._stratigraphy}
+        ranks = sorted({item.rank or "" for item in self._stratigraphy}, key=stratigraphy_rank_order)
+        lane_by_rank = {rank: index for index, rank in enumerate(ranks)}
+        view_top, view_bottom = sorted((top, bottom))
+        span = view_bottom - view_top
         for rendered in self._rendered.values():
-            if rendered.plot is None:
+            if rendered.plot is None or span <= 0.0:
                 continue
-            viewport_height = rendered.plot.viewport().height()
+            box = rendered.plot.getViewBox()
+            height = float(box.height())
+            # Match the actual 0.94-wide coloured bar, not the full lane.
+            lane_width = float(box.width()) * 0.94 / max(1, len(ranks))
             for interval_id, items in (rendered.stratigraphy_items or {}).items():
                 interval = intervals.get(interval_id)
                 label = next((item for item in items if isinstance(item, pg.TextItem)), None)
                 if label is None:
                     continue
-                axis_interval = (
-                    self._depth_interval_to_axis(interval.top_depth, interval.bottom_depth)
-                    if interval is not None
-                    else None
+                if interval is None:
+                    label.hide()
+                    continue
+                axis_top, axis_bottom = sorted(self._depth_interval_to_axis(
+                    interval.top_depth, interval.bottom_depth,
+                ))
+                visible_top = max(axis_top, view_top)
+                visible_bottom = min(axis_bottom, view_bottom)
+                visible_pixels = (visible_bottom - visible_top) / span * height
+                # A visible coloured interval can have its full midpoint far
+                # outside the viewport. Anchor to the clipped interval instead.
+                if visible_pixels < 12.0 or lane_width < 12.0:
+                    label.hide()
+                    continue
+                name = localized_text(
+                    interval.name_i18n, self._localizer.language, legacy=interval.name,
                 )
-                visible = axis_interval is not None and lithology_label_is_visible(
-                    axis_interval[0],
-                    axis_interval[1],
-                    top,
-                    bottom,
-                    viewport_height,
-                    minimum_pixels=22,
-                )
-                label.setVisible(visible)
+                full_text = "\n".join(value for value in (interval.code, name) if value)
+                # Try the full original text before reducing it to its code.
+                # In a compact lane, a horizontal caption can temporarily read
+                # bottom-to-top; the saved interval orientation stays intact.
+                preferred_angle = stratigraphy_text_angle(interval.text_orientation)
+                single_line = " · ".join(value for value in (interval.code, name) if value)
+                choices = [(full_text, preferred_angle), (single_line, preferred_angle)]
+                if preferred_angle == 0.0:
+                    choices.append((single_line, -90.0))
+                compact_text = interval.code or name
+                choices.append((compact_text, preferred_angle))
+                if preferred_angle == 0.0:
+                    choices.append((compact_text, -90.0))
+                label.textItem.document().setTextWidth(-1.0)
+                font = label.textItem.font()
+                fitted = False
+                rotated = False
+                for caption, angle in dict.fromkeys(choices):
+                    if not caption:
+                        continue
+                    rotated = angle != 0.0
+                    width_limit = (visible_pixels if rotated else lane_width) - 4.0
+                    height_limit = (lane_width if rotated else visible_pixels) - 4.0
+                    for size in (10.0, 9.0, 8.0, 7.0, 6.0):
+                        font.setPointSizeF(size)
+                        label.setFont(font)
+                        label.setText(caption)
+                        rect = label.textItem.boundingRect()
+                        if rect.width() <= width_limit and rect.height() <= height_limit:
+                            label.setAngle(angle)
+                            fitted = True
+                            break
+                    if fitted:
+                        break
+                if not fitted and compact_text:
+                    # An exceptionally long source identifier can still be
+                    # read in abbreviated form. Never replace it with a guessed
+                    # stratigraphic code; the tooltip retains the complete value.
+                    font.setPointSizeF(6.0)
+                    label.setFont(font)
+                    metrics = QFontMetrics(font)
+                    angles = (preferred_angle, -90.0) if preferred_angle == 0.0 else (preferred_angle,)
+                    for angle in angles:
+                        rotated = angle != 0.0
+                        width_limit = (visible_pixels if rotated else lane_width) - 4.0
+                        height_limit = (lane_width if rotated else visible_pixels) - 4.0
+                        if width_limit <= 4.0 or height_limit <= 0.0:
+                            continue
+                        caption = metrics.elidedText(
+                            compact_text.replace("\n", " "), Qt.TextElideMode.ElideRight,
+                            int(width_limit - 2.0),
+                        )
+                        if not caption or caption == "…":
+                            continue
+                        label.setText(caption)
+                        rect = label.textItem.boundingRect()
+                        if rect.width() <= width_limit and rect.height() <= height_limit:
+                            label.setAngle(angle)
+                            fitted = True
+                            break
+                if not fitted:
+                    label.hide()
+                    continue
+                label_height = rect.width() if rotated else rect.height()
+                padding = (label_height / 2.0 + 2.0) / height * span
+                fraction = stratigraphy_text_position_fraction(interval.text_position)
+                requested = visible_top + (visible_bottom - visible_top) * fraction
+                center = min(max(requested, visible_top + padding), visible_bottom - padding)
+                # The fitted rectangle is centered on its chosen position.
+                # The fraction retains top/bottom preferences without clipping.
+                label.anchor = pg.Point(0.5, 0.5)
+                label.setPos(lane_by_rank[interval.rank or ""] + 0.5, center)
+                label.updateTextPos()
+                label.show()
 
     def _synchronize_depth_ranges(self, top: float, bottom: float) -> None:
         self._depth_range_guard = True
