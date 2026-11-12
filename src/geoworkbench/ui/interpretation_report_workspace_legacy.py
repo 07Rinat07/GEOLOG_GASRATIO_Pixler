@@ -73,6 +73,13 @@ from geoworkbench.services.interpretation_geology_field_handoff import (
     confirmed_geology_field_report_html,
     verified_geology_field_html_handoff,
 )
+from geoworkbench.services.gis_interval_snapshot import GisIntervalSnapshot
+from geoworkbench.services.interpretation_gis_interval_evidence import GasGeologyGisIntervalEvidence
+from geoworkbench.services.interpretation_gis_evidence_handoff import (
+    ConfirmedGisGeologySelection,
+    confirm_gis_geology_selection,
+    confirmed_gis_geology_evidence_html,
+)
 from geoworkbench.services.interpretation_geology_interval_evidence_html import (
     geology_interval_evidence_html,
     selectable_geology_evidence_fields,
@@ -935,6 +942,19 @@ class InterpretationReportWorkspace(QWidget):
         gis_button.setVisible(has_reviewable_gis())
         layout.addWidget(gis_button)
 
+        def build_current_gas_report() -> HydrocarbonInterpretationReport:
+            if self._is_opus_mode():
+                lod = self.total_gas_lod.value()
+                return build_opus_interpretation_report(
+                    session, threshold=self.threshold.value(),
+                    depth_interval=getattr(self.controller, "depth_interval", None),
+                    total_gas_lod=lod if lod > 0.0 else None,
+                )
+            return build_hydrocarbon_interpretation_report(
+                session, threshold=self.threshold.value(),
+                depth_interval=getattr(self.controller, "depth_interval", None),
+            )
+
         def validated_gis_bounds(*, notify: bool = True) -> tuple[float, float] | None:
             from geoworkbench.services.geology_depth_alignment import supports_saved_md_geology
 
@@ -966,18 +986,7 @@ class InterpretationReportWorkspace(QWidget):
             try:
                 QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
                 try:
-                    if self._is_opus_mode():
-                        lod = self.total_gas_lod.value()
-                        current = build_opus_interpretation_report(
-                            session, threshold=self.threshold.value(),
-                            depth_interval=getattr(self.controller, "depth_interval", None),
-                            total_gas_lod=lod if lod > 0.0 else None,
-                        )
-                    else:
-                        current = build_hydrocarbon_interpretation_report(
-                            session, threshold=self.threshold.value(),
-                            depth_interval=getattr(self.controller, "depth_interval", None),
-                        )
+                    current = build_current_gas_report()
                 finally:
                     QApplication.restoreOverrideCursor()
                 candidate = report.candidates[index]
@@ -1029,11 +1038,42 @@ class InterpretationReportWorkspace(QWidget):
             bounds = validated_gis_bounds()
             if bounds is None:
                 return
+            def confirm_html(
+                evidence: GasGeologyGisIntervalEvidence, snapshot: GisIntervalSnapshot,
+            ) -> ConfirmedGisGeologySelection:
+                if validated_gis_bounds(notify=False) != bounds:
+                    raise ValueError("Selected gas interval changed")
+                return confirm_gis_geology_selection(
+                    session, report, build_current_gas_report(), evidence, snapshot,
+                    source_key=source_key,
+                )
+
             preview = GisGeologyEvidenceDialog(
                 session, dataset, bounds, lambda: validated_gis_bounds(notify=False), dialog,
-                language=self._report_output_language(),
+                language=self._report_output_language(), confirm_html=confirm_html,
             )
-            preview.exec()
+            try:
+                result = preview.exec()
+                selection = preview.confirmed_html_selection
+                if result != QDialog.DialogCode.Accepted or selection is None:
+                    return
+                if validated_gis_bounds(notify=False) != bounds:
+                    raise ValueError("Selected gas interval changed before HTML handoff")
+                html = confirmed_gis_geology_evidence_html(
+                    session, report, build_current_gas_report(), selection,
+                    self._report_output_language(), source_key=source_key,
+                )
+                if self._geology_evidence_dialog is dialog:
+                    viewer.setHtml(html)
+            except (ValueError, RuntimeError, TypeError, OverflowError):
+                if self._geology_evidence_dialog is dialog:
+                    viewer.setPlainText(self._text(
+                        "Источник изменился. Подтвердите наблюдения заново.",
+                        "Дереккөз өзгерді. Бақылауларды қайта растаңыз.",
+                        "Source changed. Confirm the observations again.",
+                    ))
+            finally:
+                preview.deleteLater()
 
         combined_button.clicked.connect(review_combined)
         # Field-by-field MD detail is an explicitly chosen read-only preview.
