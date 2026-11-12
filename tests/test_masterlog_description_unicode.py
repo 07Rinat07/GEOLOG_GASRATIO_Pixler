@@ -10,6 +10,7 @@ from geoworkbench.domain.models import CuttingsSample, LithologyInterval, Master
 from geoworkbench.printing import masterlog_renderer as renderer
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
 from geoworkbench.printing.unicode_support import resolve_unicode_font_profile
+from geoworkbench.printing.rock_description_presentation import ROCK_DESCRIPTION_POINT_SIZE
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.services.localization import AppLanguage
 from test_masterlog_control_layout import controlled_form
@@ -104,7 +105,11 @@ def test_geology_text_pdf_resolves_actual_unicode_and_keeps_dpi_baseline(
     np.testing.assert_array_equal(session.current_dataset.curve_by_mnemonic("C1").values, source_values)
     assert len(resolved) == 2
     for size, text, families in resolved:
-        assert size == renderer.modern_oilfield_report_profile().typography.body_pt
+        expected_size = (
+            renderer.modern_oilfield_report_profile().typography.body_pt
+            if kind == "interpretation" else ROCK_DESCRIPTION_POINT_SIZE
+        )
+        assert size == expected_size
         assert families == list(resolve_unicode_font_profile(text).families)
         assert "<p" not in text
     assert [span["text"] for span in spans_by_dpi[0]] == [span["text"] for span in spans_by_dpi[1]]

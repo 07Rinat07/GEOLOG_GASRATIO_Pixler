@@ -77,6 +77,10 @@ from geoworkbench.printing.lba_visuals import (
 )
 from geoworkbench.printing.image_asset_rendering import image_asset_pixmap
 from geoworkbench.printing.image_assets import ImageAsset
+from geoworkbench.printing.rock_description_presentation import (
+    ROCK_DESCRIPTION_COLOR, rock_description_font, rock_description_plain_text,
+    rock_description_tooltip,
+)
 from geoworkbench.project.annotation_schema import (
     AnnotationAnchor,
     AnnotationKind,
@@ -267,6 +271,7 @@ from geoworkbench.tablet.selection_interaction import (
 
 _DESCRIPTION_HTML_ROLE = 0x4752
 _DESCRIPTION_WORD_WRAP_ROLE = 0x4753
+_ROCK_DESCRIPTION_TEXT_ROLE = 0x4755
 _DESCRIPTION_MAX_FONT_POINTS = 10.0
 _DESCRIPTION_MIN_FONT_POINTS = 5.5
 _DESCRIPTION_VERTICAL_PADDING_PIXELS = 4.0
@@ -374,6 +379,56 @@ def _fit_interval_description_text(
         return False
     set_shortened(best)
     return True
+
+
+def _set_uniform_rock_description_text(
+    item: pg.TextItem, text: str, width_pixels: float,
+) -> None:
+    """Apply one font and ordinary paragraph style, independently of source HTML."""
+    item.setText(text, color=ROCK_DESCRIPTION_COLOR)
+    item.setFont(rock_description_font(text))
+    document = item.textItem.document()
+    option = document.defaultTextOption()
+    option.setAlignment(Qt.AlignmentFlag.AlignLeft)
+    word_wrap = item.data(_DESCRIPTION_WORD_WRAP_ROLE) is not False
+    option.setWrapMode(
+        QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere
+        if word_wrap else QTextOption.WrapMode.NoWrap
+    )
+    document.setDefaultTextOption(option)
+    document.setDocumentMargin(1.0)
+    document.setTextWidth(width_pixels if word_wrap else -1.0)
+    item.updateTextPos()
+
+
+def _fit_uniform_rock_description_text(
+    item: pg.TextItem, *, width_pixels: float, height_pixels: float,
+) -> bool:
+    """Elide at fixed 9 pt; never squeeze a description to a smaller font."""
+    full_text = item.data(_ROCK_DESCRIPTION_TEXT_ROLE)
+    if not isinstance(full_text, str) or not full_text:
+        return False
+    width = float(width_pixels)
+    height = float(height_pixels) - _DESCRIPTION_VERTICAL_PADDING_PIXELS
+    if width <= 4.0 or height <= 0.0:
+        return False
+
+    def fits(candidate: str) -> bool:
+        _set_uniform_rock_description_text(item, candidate, width)
+        bounds = item.textItem.boundingRect()
+        return bounds.width() <= width + 0.01 and bounds.height() <= height + 0.01
+
+    if fits(full_text):
+        return True
+    low, high, best = 1, len(full_text) - 1, 0
+    while low <= high:
+        middle = (low + high) // 2
+        if fits(full_text[:middle].rstrip() + "…"):
+            best = middle
+            low = middle + 1
+        else:
+            high = middle - 1
+    return best > 0 and fits(full_text[:best].rstrip() + "…")
 
 
 def _qt_object_is_alive(target: object | None) -> bool:
@@ -10796,7 +10851,8 @@ class TabletView(QWidget):
             described_ranges.append((sample.top_depth, sample.bottom_depth))
             if not self._geology_interval_is_loaded(sample.top_depth, sample.bottom_depth):
                 continue
-            label = pg.TextItem(anchor=(0.0, 0.5))
+            uniform = definition.kind is TrackKind.TEXT
+            label = pg.TextItem(anchor=(0.0, 0.0 if uniform else 0.5))
             body = (
                 rich_body(description)
                 if "<" in description and ">" in description
@@ -10811,9 +10867,14 @@ class TabletView(QWidget):
                 _DESCRIPTION_WORD_WRAP_ROLE,
                 sample.description_word_wrap,
             )
-            label.setHtml(display_html)
-            label.textItem.setTextWidth(float(text_width))
-            label.updateTextPos()
+            if uniform:
+                plain = rock_description_plain_text(description)
+                label.setData(_ROCK_DESCRIPTION_TEXT_ROLE, plain)
+                _set_uniform_rock_description_text(label, plain, float(text_width))
+            else:
+                label.setHtml(display_html)
+                label.textItem.setTextWidth(float(text_width))
+                label.updateTextPos()
             axis_top, axis_bottom = self._depth_interval_to_axis(
                 sample.top_depth, sample.bottom_depth
             )
@@ -10840,14 +10901,20 @@ class TabletView(QWidget):
                 track.plot.addItem(interval_block)
                 frames[sample.sample_id] = interval_block
                 label.setZValue(21.0)
-            label.setPos(0.02, (axis_top + axis_bottom) / 2.0)
-            label.setToolTip(
-                self._localizer.text(
-                    "tablet.sample_interval",
-                    top=f"{sample.top_depth:g}",
-                    bottom=f"{sample.bottom_depth:g}",
+            label.setPos(0.02, axis_top if uniform else (axis_top + axis_bottom) / 2.0)
+            if uniform:
+                tooltip = rock_description_tooltip(sample.top_depth, sample.bottom_depth, plain)
+                label.setToolTip(tooltip)
+                if sample.sample_id in frames:
+                    frames[sample.sample_id].setToolTip(tooltip)
+            else:
+                label.setToolTip(
+                    self._localizer.text(
+                        "tablet.sample_interval",
+                        top=f"{sample.top_depth:g}",
+                        bottom=f"{sample.bottom_depth:g}",
+                    )
                 )
-            )
             track.plot.addItem(label)
             rendered[sample.sample_id] = label
 
@@ -10871,15 +10938,13 @@ class TabletView(QWidget):
             description = (
                 self._localized_rock_text(raw_description) if raw_description else fallback
             )
-            label = pg.TextItem(anchor=(0.0, 0.5))
-            display_html = (
-                f'<div style="color:#202020; margin:0; padding:0;">{plain_html(description)}</div>'
-            )
-            label.setData(_DESCRIPTION_HTML_ROLE, display_html)
+            label = pg.TextItem(anchor=(0.0, 0.0))
+            plain = rock_description_plain_text(description)
+            label.setData(_ROCK_DESCRIPTION_TEXT_ROLE, plain)
             label.setData(_DESCRIPTION_WORD_WRAP_ROLE, True)
-            label.setHtml(display_html)
-            label.textItem.setTextWidth(float(text_width))
-            label.updateTextPos()
+            _set_uniform_rock_description_text(label, plain, float(text_width))
+            tooltip = rock_description_tooltip(interval.top_depth, interval.bottom_depth, plain)
+            label.setToolTip(tooltip)
             axis_top, axis_bottom = self._depth_interval_to_axis(
                 interval.top_depth, interval.bottom_depth
             )
@@ -10898,7 +10963,9 @@ class TabletView(QWidget):
                 track.plot.addItem(interval_block)
                 frames[interval.interval_id] = interval_block
                 label.setZValue(21.0)
-            label.setPos(0.02, (axis_top + axis_bottom) / 2.0)
+            if interval.interval_id in frames:
+                frames[interval.interval_id].setToolTip(tooltip)
+            label.setPos(0.02, axis_top)
             track.plot.addItem(label)
             rendered[interval.interval_id] = label
         return rendered, frames
@@ -11445,7 +11512,24 @@ class TabletView(QWidget):
                         viewport_height,
                         minimum_pixels=minimum_pixels,
                     )
-                    if visible and auto_fit and axis_interval is not None:
+                    if auto_fit and rendered.definition.kind is TrackKind.TEXT and axis_interval is not None:
+                        # Fit only the visible part, using the actual plotting area.
+                        view_top, view_bottom = sorted((top, bottom))
+                        clipped_top = max(view_top, axis_interval[0])
+                        clipped_bottom = min(view_bottom, axis_interval[1])
+                        box = rendered.plot.getViewBox()
+                        box_height = float(box.height())
+                        span = view_bottom - view_top
+                        visible = False
+                        if clipped_bottom > clipped_top and box_height > 0.0 and span > 0.0:
+                            visible = _fit_uniform_rock_description_text(
+                                text_item,
+                                width_pixels=float(box.width()) * 0.98 - 4.0,
+                                height_pixels=(clipped_bottom - clipped_top) / span * box_height,
+                            )
+                            if visible:
+                                text_item.setPos(0.02, clipped_top + 2.0 / box_height * span)
+                    elif visible and auto_fit and axis_interval is not None:
                         interval_pixels = (
                             abs(axis_interval[1] - axis_interval[0])
                             / max(abs(bottom - top), np.finfo(float).eps)
