@@ -2815,6 +2815,7 @@ def test_many_curve_headers_remain_named_and_generic_title_is_readable(qapp) -> 
         width=360,
     )
     view = TabletView()
+    view._screen_density.setCurrentIndex(view._screen_density.findData("full"))
     view.set_layout_model(TabletLayout([track]))
     view.set_dataset(dataset)
     qapp.processEvents()
@@ -3293,6 +3294,7 @@ def test_tablet_curve_pencil_is_visible_and_emits_edit_request(qapp) -> None:
     dataset.curves[curve.metadata.curve_id] = curve
     view = TabletView()
     view.resize(900, 650)
+    view._screen_density.setCurrentIndex(view._screen_density.findData("full"))
     view.set_layout_model(
         TabletLayout(
             [

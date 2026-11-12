@@ -918,6 +918,10 @@ class MainWindow(QMainWindow):
         self.edit_history.add_listener(self._update_external_las_insert_actions)
         self._create_home_page()
         self._create_toolbar()
+        self.tablet_view.set_workspace_focus_action(self.tablet_workspace_focus_action)
+        self.tabs.currentChanged.connect(self._sync_tablet_workspace_focus)
+        self.central_stack.currentChanged.connect(self._sync_tablet_workspace_focus)
+        self._sync_tablet_workspace_focus()
         status_bar = QStatusBar()
         status_bar.setObjectName("mainStatusBar")
         self.setStatusBar(status_bar)
@@ -2036,6 +2040,18 @@ class MainWindow(QMainWindow):
         self.hide_side_panels_action.setShortcut("Ctrl+Alt+0")
         self.hide_side_panels_action.triggered.connect(self._hide_side_panels)
         view_menu.addAction(self.hide_side_panels_action)
+
+        self.tablet_workspace_focus_action = self._localized_action(
+            "tablet.workspace_focus", checkable=True
+        )
+        self.tablet_workspace_focus_action.setObjectName("tabletWorkspaceFocusAction")
+        self.tablet_workspace_focus_action.setShortcut("F11")
+        self.tablet_workspace_focus_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_TitleBarMaxButton)
+        )
+        self._set_action_help(self.tablet_workspace_focus_action, "tablet.workspace_focus_hint")
+        self.tablet_workspace_focus_action.toggled.connect(self._set_tablet_workspace_focus)
+        view_menu.addAction(self.tablet_workspace_focus_action)
 
         self.default_tablet_action = self._localized_action("tablet.build_default")
         self.default_tablet_action.triggered.connect(self.build_default_tablet)
@@ -6952,11 +6968,35 @@ class MainWindow(QMainWindow):
         self._update_title()
         self._log(self._t("tablet.default_built", count=len(layout.tracks)))
 
+    def _sync_tablet_workspace_focus(self, *_args: object) -> None:
+        """Restore normal navigation immediately when leaving the tablet."""
+        available = (
+            self.central_stack.currentWidget() is self.tabs
+            and self.tabs.currentWidget() is self.tablet_view
+        )
+        action = self.tablet_workspace_focus_action
+        if not available and action.isChecked():
+            action.setChecked(False)
+        action.setEnabled(available)
+
+    def _set_tablet_workspace_focus(self, enabled: bool) -> None:
+        """Collapse only redundant workspace chrome; preserve edit operations."""
+        self.main_toolbar.setVisible(not enabled)
+        self.tabs.tabBar().setVisible(not enabled)
+        # Keep menus, side-panel access, status, and the actual F4 editing row.
+        # Do not toggle form editing or discard the user's pending pencil points.
+        self.toolbar_host.setVisible(not enabled or self.tablet_edit_mode_action.isChecked())
+        self.tablet_view.set_workspace_focus_active(enabled)
+        self._schedule_toolbar_adaptation()
+
     def _set_tablet_edit_mode(self, enabled: bool) -> None:
         """Show or hide form-structure tools without affecting data navigation."""
 
         enabled = bool(enabled)
         self.form_edit_toolbar.setVisible(enabled)
+        self.toolbar_host.setVisible(
+            enabled or not self.tablet_workspace_focus_action.isChecked()
+        )
         self.tablet_view.set_form_edit_mode(enabled)
         self.save_user_form_action.setEnabled(enabled)
         self.add_curve_track_action.setEnabled(enabled)
