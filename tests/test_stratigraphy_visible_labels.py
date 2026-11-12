@@ -64,3 +64,44 @@ def test_numeric_las_style_stratigraphy_code_visible_in_narrow_lane(qapp):
         assert 110.0 < label.pos().y() < 130.0
     finally:
         view.close()
+
+
+def test_imported_las_name_and_code_fit_compact_column(qapp, tmp_path):
+    from geoworkbench.project.session import ProjectSession
+    from test_las_geology import _base_metadata, _small_geology_las, import_las_with_report
+
+    source = tmp_path / "strat-labels.las"
+    source.write_bytes(_small_geology_las(
+        (" STRAT_CODE.CODE : Stratigraphy",),
+        ("0 7", "1 7"),
+        metadata=_base_metadata(stratigraphy=[{
+            "top": 0.0, "bottom": 1.0, "short": "C1v",
+            "name_ru": "Визейский ярус",
+        }]),
+    ))
+    result = import_las_with_report(source)
+    session = ProjectSession()
+    well = session.add_dataset(
+        result.dataset, "Test", source_document=result.source_document,
+        import_report=result.report, create_new_well=True,
+    )
+    interval, = well.stratigraphy
+    view = TabletView()
+    view.resize(500, 650)
+    try:
+        view.set_layout_model(TabletLayout([
+            TrackDefinition("strat", "Стратиграфия", TrackKind.STRATIGRAPHY, width=48),
+        ]))
+        view.set_stratigraphy(well.stratigraphy)
+        view.set_dataset(result.dataset)
+        view.show()
+        qapp.processEvents()
+        view._update_stratigraphy_text_visibility(*view.visible_depth_range)
+        _, label = view._rendered["strat"].stratigraphy_items[interval.interval_id]
+        assert label.isVisible()
+        assert "C1v" in label.textItem.toPlainText()
+        assert "Визейский ярус" in label.textItem.toPlainText()
+        assert label.angle == -90.0
+        assert interval.text_orientation == "horizontal"
+    finally:
+        view.close()

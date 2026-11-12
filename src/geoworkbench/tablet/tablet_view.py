@@ -6878,6 +6878,7 @@ class TabletView(QWidget):
         self._update_visible_curve_data(*current)
         self._synchronize_vertical_rulers(*current)
         self._update_lithology_text_visibility(*current)
+        self._update_stratigraphy_text_visibility(*current)
         self._update_navigation_controls()
         self._refresh_annotation_overlay()
 
@@ -11508,23 +11509,33 @@ class TabletView(QWidget):
                     interval.name_i18n, self._localizer.language, legacy=interval.name,
                 )
                 full_text = "\n".join(value for value in (interval.code, name) if value)
-                # Preserve requested direction; fit code and name first, then
-                # the original code alone. Never invent a geological name.
-                rotated = interval.text_orientation != "horizontal"
-                width_limit = (visible_pixels if rotated else lane_width) - 4.0
-                height_limit = (lane_width if rotated else visible_pixels) - 4.0
+                # Try the full original text before reducing it to its code.
+                # In a compact lane, a horizontal caption can temporarily read
+                # bottom-to-top; the saved interval orientation stays intact.
+                preferred_angle = stratigraphy_text_angle(interval.text_orientation)
+                choices = [(full_text, preferred_angle)]
+                if preferred_angle == 0.0:
+                    choices.append((" · ".join(value for value in (interval.code, name) if value), -90.0))
+                choices.append((interval.code, preferred_angle))
+                if preferred_angle == 0.0:
+                    choices.append((interval.code, -90.0))
                 label.textItem.document().setTextWidth(-1.0)
                 font = label.textItem.font()
                 fitted = False
-                for caption in dict.fromkeys((full_text, interval.code)):
+                rotated = False
+                for caption, angle in dict.fromkeys(choices):
                     if not caption:
                         continue
+                    rotated = angle != 0.0
+                    width_limit = (visible_pixels if rotated else lane_width) - 4.0
+                    height_limit = (lane_width if rotated else visible_pixels) - 4.0
                     for size in (10.0, 9.0, 8.0, 7.0, 6.0):
                         font.setPointSizeF(size)
                         label.setFont(font)
                         label.setText(caption)
                         rect = label.textItem.boundingRect()
                         if rect.width() <= width_limit and rect.height() <= height_limit:
+                            label.setAngle(angle)
                             fitted = True
                             break
                     if fitted:
