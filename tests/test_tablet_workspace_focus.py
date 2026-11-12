@@ -13,7 +13,7 @@ def test_tablet_workspace_focus_restores_chrome_and_keeps_form_editing(qapp, lan
     window = MainWindow()
     session, layout = make_session()
     bind_session(window, session)
-    window._show_workspace(window.tablet_view)
+    window._show_current_dataset()
     window.resize(1366, 768)
     window.show()
     try:
@@ -50,7 +50,8 @@ def test_tablet_workspace_focus_restores_chrome_and_keeps_form_editing(qapp, lan
         assert window.main_toolbar.isHidden()
         assert window.tablet_edit_mode_action.isChecked()
 
-        view.set_language(language)
+        window.change_language(language)
+        assert action.text() == window._t("tablet.workspace_focus")
         window.resize(1024, 768)
         qapp.processEvents()
         assert view._workspace_focus_button.isVisible()
