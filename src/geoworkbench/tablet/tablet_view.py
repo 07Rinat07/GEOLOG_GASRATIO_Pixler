@@ -11485,7 +11485,8 @@ class TabletView(QWidget):
                 continue
             box = rendered.plot.getViewBox()
             height = float(box.height())
-            lane_width = float(box.width()) / max(1, len(ranks))
+            # Match the actual 0.94-wide coloured bar, not the full lane.
+            lane_width = float(box.width()) * 0.94 / max(1, len(ranks))
             for interval_id, items in (rendered.stratigraphy_items or {}).items():
                 interval = intervals.get(interval_id)
                 label = next((item for item in items if isinstance(item, pg.TextItem)), None)
@@ -11513,12 +11514,14 @@ class TabletView(QWidget):
                 # In a compact lane, a horizontal caption can temporarily read
                 # bottom-to-top; the saved interval orientation stays intact.
                 preferred_angle = stratigraphy_text_angle(interval.text_orientation)
-                choices = [(full_text, preferred_angle)]
+                single_line = " · ".join(value for value in (interval.code, name) if value)
+                choices = [(full_text, preferred_angle), (single_line, preferred_angle)]
                 if preferred_angle == 0.0:
-                    choices.append((" · ".join(value for value in (interval.code, name) if value), -90.0))
-                choices.append((interval.code, preferred_angle))
+                    choices.append((single_line, -90.0))
+                compact_text = interval.code or name
+                choices.append((compact_text, preferred_angle))
                 if preferred_angle == 0.0:
-                    choices.append((interval.code, -90.0))
+                    choices.append((compact_text, -90.0))
                 label.textItem.document().setTextWidth(-1.0)
                 font = label.textItem.font()
                 fitted = False
@@ -11540,6 +11543,32 @@ class TabletView(QWidget):
                             break
                     if fitted:
                         break
+                if not fitted and compact_text:
+                    # An exceptionally long source identifier can still be
+                    # read in abbreviated form. Never replace it with a guessed
+                    # stratigraphic code; the tooltip retains the complete value.
+                    font.setPointSizeF(6.0)
+                    label.setFont(font)
+                    metrics = QFontMetrics(font)
+                    angles = (preferred_angle, -90.0) if preferred_angle == 0.0 else (preferred_angle,)
+                    for angle in angles:
+                        rotated = angle != 0.0
+                        width_limit = (visible_pixels if rotated else lane_width) - 4.0
+                        height_limit = (lane_width if rotated else visible_pixels) - 4.0
+                        if width_limit <= 4.0 or height_limit <= 0.0:
+                            continue
+                        caption = metrics.elidedText(
+                            compact_text.replace("\n", " "), Qt.TextElideMode.ElideRight,
+                            int(width_limit - 2.0),
+                        )
+                        if not caption or caption == "…":
+                            continue
+                        label.setText(caption)
+                        rect = label.textItem.boundingRect()
+                        if rect.width() <= width_limit and rect.height() <= height_limit:
+                            label.setAngle(angle)
+                            fitted = True
+                            break
                 if not fitted:
                     label.hide()
                     continue
