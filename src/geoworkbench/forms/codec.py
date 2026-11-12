@@ -240,7 +240,7 @@ def _track_from_dict(data: object) -> FormTrack:
         lba_label_orientation=_string(
             data,
             "lba_label_orientation",
-            default="vertical_top_to_bottom",
+            default="vertical_bottom_to_top",
         ),
         calcimetry_label_orientation=_string(
             data,
@@ -314,7 +314,7 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
                         track.setdefault("title_position", "center")
                         track.setdefault("show_interval_labels", False)
                         track.setdefault(
-                            "lba_label_orientation", "vertical_top_to_bottom"
+                            "lba_label_orientation", "vertical_bottom_to_top"
                         )
                         track.setdefault(
                             "calcimetry_label_orientation", "vertical_top_to_bottom"
@@ -432,8 +432,15 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
             tracks = column.get("tracks")
             if isinstance(tracks, list):
                 for track in tracks:
-                    if isinstance(track, dict) and track.get("title_position") == "bottom":
+                    if not isinstance(track, dict):
+                        continue
+                    if track.get("title_position") == "bottom":
                         track["title_position"] = "center"
+                    if (
+                        track.get("kind") == TrackKind.LBA.value
+                        and track.get("lba_label_orientation") == "vertical_top_to_bottom"
+                    ):
+                        track["lba_label_orientation"] = "vertical_bottom_to_top"
     migrated["schema_version"] = FORM_SCHEMA_VERSION
     return migrated
 

@@ -22,7 +22,7 @@ from geoworkbench.ui.tablet_track_editor_dialog import TabletTrackEditorDialog
 
 
 def _lba_track(
-    orientation: str = "vertical_top_to_bottom",
+    orientation: str = "vertical_bottom_to_top",
 ) -> TrackDefinition:
     return TrackDefinition(
         "lba",
@@ -33,10 +33,10 @@ def _lba_track(
     )
 
 
-def test_lba_label_orientation_defaults_to_ninety_degrees_and_is_validated() -> None:
+def test_lba_label_orientation_defaults_to_bottom_up_and_is_validated() -> None:
     track = TrackDefinition("lba", "ЛБА", TrackKind.LBA, width=180)
 
-    assert track.lba_label_orientation == "vertical_top_to_bottom"
+    assert track.lba_label_orientation == "vertical_bottom_to_top"
     with pytest.raises(ValueError, match="направление текста"):
         _lba_track("diagonal")
 
@@ -54,7 +54,7 @@ def test_lba_label_orientation_round_trip_and_v22_migration() -> None:
     migrated = layout_from_dict(legacy)
     assert (
         migrated.track_by_id("lba").lba_label_orientation
-        == "vertical_top_to_bottom"
+        == "vertical_bottom_to_top"
     )
 
 
@@ -82,7 +82,7 @@ def test_lba_label_orientation_round_trips_through_forms_and_v14_migration() -> 
     migrated = form_from_dict(legacy)
     assert (
         migrated.columns[0].tracks[0].lba_label_orientation
-        == "vertical_top_to_bottom"
+        == "vertical_bottom_to_top"
     )
 
 
@@ -141,15 +141,15 @@ def test_lba_track_editor_changes_colour_and_bitumen_label_direction(qapp) -> No
     assert not dialog.lba_label_orientation_input.isHidden()
     assert (
         dialog.lba_label_orientation_input.currentData()
-        == "vertical_top_to_bottom"
+        == "vertical_bottom_to_top"
     )
     dialog.lba_label_orientation_input.setCurrentIndex(
-        dialog.lba_label_orientation_input.findData("vertical_bottom_to_top")
+        dialog.lba_label_orientation_input.findData("vertical_top_to_bottom")
     )
 
     candidate = dialog._track_from_controls()
 
-    assert candidate.lba_label_orientation == "vertical_bottom_to_top"
+    assert candidate.lba_label_orientation == "vertical_top_to_bottom"
     dialog.close()
 
 
@@ -164,7 +164,12 @@ def test_non_lba_track_hides_lba_label_direction_control(qapp) -> None:
     dialog.close()
 
 
-def test_tablet_rotates_only_lba_colour_and_bitumen_labels(qapp) -> None:
+@pytest.mark.parametrize("orientation, angle", [
+    ("vertical_bottom_to_top", -90.0),
+    ("vertical_top_to_bottom", 90.0),
+    ("horizontal", 0.0),
+])
+def test_tablet_rotates_only_lba_colour_and_bitumen_labels(qapp, orientation, angle) -> None:
     dataset = Dataset(
         "lba-orientation",
         "LBA orientation",
@@ -174,7 +179,7 @@ def test_tablet_rotates_only_lba_colour_and_bitumen_labels(qapp) -> None:
     )
     view = TabletView()
     view.set_layout_model(
-        TabletLayout([_lba_track("vertical_top_to_bottom")])
+        TabletLayout([_lba_track(orientation)])
     )
     view.set_cuttings(
         [
@@ -198,6 +203,51 @@ def test_tablet_rotates_only_lba_colour_and_bitumen_labels(qapp) -> None:
         if isinstance(item, pg.TextItem)
     }
     assert labels["3"].angle == 0
-    assert labels["ОЖ"].angle == 90.0
-    assert labels["МСБ"].angle == 90.0
+    assert labels["ОЖ"].angle == angle
+    assert labels["МСБ"].angle == angle
     view.close()
+
+
+@pytest.mark.parametrize("old_orientation, expected", [
+    ("vertical_top_to_bottom", "vertical_bottom_to_top"),
+    ("vertical_bottom_to_top", "vertical_bottom_to_top"),
+    ("horizontal", "horizontal"),
+])
+def test_legacy_lba_orientation_migrates_once_in_layout_and_form(old_orientation, expected):
+    layout = TabletLayout([_lba_track(old_orientation)])
+    payload = layout_to_dict(layout)
+    payload["version"] = 25
+    restored = layout_from_dict(payload)
+    assert restored.tracks[0].lba_label_orientation == expected
+    restored.tracks[0].lba_label_orientation = "vertical_top_to_bottom"
+    assert layout_from_dict(layout_to_dict(restored)).tracks[0].lba_label_orientation == "vertical_top_to_bottom"
+
+    form = FormDocument.create("Legacy LBA", FormAxisKind.DEPTH)
+    form.add_column(FormColumn.create("LBA", tracks=[
+        FormTrack.create("LBA", TrackKind.LBA, lba_label_orientation=old_orientation),
+    ]))
+    raw = form_to_dict(form)
+    raw["schema_version"] = 18
+    reopened = form_from_dict(raw)
+    track = reopened.columns[0].tracks[0]
+    assert track.lba_label_orientation == expected
+    track.lba_label_orientation = "vertical_top_to_bottom"
+    assert form_from_dict(form_to_dict(reopened)).columns[0].tracks[0].lba_label_orientation == "vertical_top_to_bottom"
+
+
+def test_new_lba_form_and_layout_default_to_bottom_up():
+    form = FormDocument.create("LBA", FormAxisKind.DEPTH)
+    track = FormTrack.create("LBA", TrackKind.LBA)
+    form.add_column(FormColumn.create("LBA", tracks=[track]))
+    assert track.lba_label_orientation == "vertical_bottom_to_top"
+    assert form_from_dict(form_to_dict(form)).columns[0].tracks[0].lba_label_orientation == "vertical_bottom_to_top"
+    assert _lba_track().lba_label_orientation == "vertical_bottom_to_top"
+
+
+@pytest.mark.parametrize("language", ("ru", "kk", "en"))
+def test_lba_defaults_to_bottom_up_in_all_visible_factory_forms(language):
+    tracks = [
+        track for form in visible_factory_forms(None, language)
+        for column in form.columns for track in column.tracks if track.kind is TrackKind.LBA
+    ]
+    assert tracks and all(track.lba_label_orientation == "vertical_bottom_to_top" for track in tracks)

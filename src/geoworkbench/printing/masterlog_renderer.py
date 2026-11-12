@@ -2298,7 +2298,7 @@ def _paint_lba_column(
         )
         orientation = str(
             column.properties.get(
-                "lba_label_orientation", "vertical_top_to_bottom"
+                "lba_label_orientation", "vertical_bottom_to_top"
             )
         )
         color_code = lba_color_code(sample.lba_color) or ""

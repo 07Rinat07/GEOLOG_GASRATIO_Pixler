@@ -339,15 +339,15 @@ def test_structure_editor_dialog_edits_lba_label_direction(
     assert dialog.lba_label_orientation_combo.isHidden() is False
     assert (
         dialog.lba_label_orientation_combo.currentData()
-        == "vertical_top_to_bottom"
+        == "vertical_bottom_to_top"
     )
     dialog.lba_label_orientation_combo.setCurrentIndex(
-        dialog.lba_label_orientation_combo.findData("vertical_bottom_to_top")
+        dialog.lba_label_orientation_combo.findData("vertical_top_to_bottom")
     )
     qapp.processEvents()
 
     _column, edited = dialog.editor.track(track.track_id)
-    assert edited.lba_label_orientation == "vertical_bottom_to_top"
+    assert edited.lba_label_orientation == "vertical_top_to_bottom"
     dialog.close()
 
 
