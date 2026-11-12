@@ -13,7 +13,7 @@ from geoworkbench.project.daily_las_growth_controller import DailyLasGrowthContr
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.daily_las_growth import DailyLasGrowthError
 from geoworkbench.services.well_geology_update import analyze_well_geology_update, prepare_well_geology_update
-from test_daily_las_growth import _dataset, _add_curve
+from test_daily_las_growth import _add_curve
 from test_las_geology import _base_metadata, _small_geology_las
 from test_well_geology_update import profile, session_and_source
 
@@ -160,5 +160,6 @@ def test_controller_appends_real_las_descriptions_only_in_confirmed_geology_upda
         bottom_depth=new.bottom_depth, description="Исправлено геологом.")
     assert new.description == "Исправлено геологом." and old == saved
     fresh = controller.analyze_numerical(incoming, target.dataset_id, geology_profile_path=dictionary)
-    assert not controller.geology_plan.additions
-    assert controller.apply_numerical(fresh, geology_plan=controller.geology_plan).geology_record is None
+    repeated = controller.geology_plan
+    assert repeated is not None and not repeated.additions
+    assert controller.apply_numerical(fresh, geology_plan=repeated).geology_record is None
