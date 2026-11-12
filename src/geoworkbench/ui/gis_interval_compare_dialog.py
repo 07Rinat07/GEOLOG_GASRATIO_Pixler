@@ -35,6 +35,17 @@ def _stop_workers_on_exit() -> None:
         worker.wait()
 
 
+def register_gis_interval_worker(worker: GisIntervalCompareWorker) -> None:
+    """Keep any GIS interval review worker alive through dialog destruction."""
+    _LIVE_WORKERS.add(worker)
+    app = QCoreApplication.instance()
+    if app is not None and not app.property("gis_compare_shutdown_connected"):
+        app.aboutToQuit.connect(_stop_workers_on_exit)
+        app.setProperty("gis_compare_shutdown_connected", True)
+    worker.finished.connect(lambda: _LIVE_WORKERS.discard(worker))
+    worker.finished.connect(worker.deleteLater)
+
+
 class GisIntervalCompareDialog(QDialog):
     def __init__(
         self, dataset: Dataset, parent: QWidget | None = None, *,
@@ -182,17 +193,11 @@ class GisIntervalCompareDialog(QDialog):
         self.status.setText(self._t("preparing"))
         worker = GisIntervalCompareWorker(self.dataset, keys, top, bottom)
         self._worker = worker
-        _LIVE_WORKERS.add(worker)
-        app = QCoreApplication.instance()
-        if app is not None and not app.property("gis_compare_shutdown_connected"):
-            app.aboutToQuit.connect(_stop_workers_on_exit)
-            app.setProperty("gis_compare_shutdown_connected", True)
+        register_gis_interval_worker(worker)
         worker.progress.connect(self._progress)
         worker.completed.connect(self._completed)
         worker.failed.connect(self._failed)
         worker.finished.connect(self._worker_finished)
-        worker.finished.connect(lambda: _LIVE_WORKERS.discard(worker))
-        worker.finished.connect(worker.deleteLater)
         self.destroyed.connect(worker.request_cancel)
         worker.start()
 

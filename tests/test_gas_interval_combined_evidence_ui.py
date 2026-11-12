@@ -10,6 +10,7 @@ from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.gis_geology_evidence_dialog import GisGeologyEvidenceDialog
 from test_gas_interval_gis_review_ui import _with_inserted_gis
 from test_interpretation_geology_evidence_operator_ui import _workspace
+from test_gis_interval_compare_ui import _wait_review
 
 
 @pytest.mark.parametrize("language", list(AppLanguage))
@@ -37,6 +38,7 @@ def test_combined_preview_is_explicit_same_md_and_read_only(
         )
         choice.setCheckState(Qt.CheckState.Checked)
         dialog.review.click()
+        _wait_review(qapp, dialog)
         content = dialog.viewer.toPlainText()
         assert "lith-test" in content and key in content and "API" in content
         expected_bounds = "0.0–2.0" if selected_index == 0 else "2.0–2.0"
@@ -98,7 +100,7 @@ def test_combined_preview_hidden_without_eligible_gis(qapp, monkeypatch):
 
 
 def test_preview_rejects_more_than_eight_selected_curves(qapp, monkeypatch, tmp_path):
-    from geoworkbench.ui import gis_geology_evidence_dialog as module
+    from geoworkbench.ui import gis_interval_compare_worker as module
 
     workspace, session, _, dataset = _with_inserted_gis(monkeypatch, tmp_path, AppLanguage.EN)
     preview = GisGeologyEvidenceDialog(
@@ -106,7 +108,7 @@ def test_preview_rejects_more_than_eight_selected_curves(qapp, monkeypatch, tmp_
         language=AppLanguage.EN,
     )
     monkeypatch.setattr(
-        module, "review_gas_geology_gis_interval",
+        module, "review_gis_source_interval_batch",
         lambda *args, **kwargs: pytest.fail("Invalid selection must not run the review"),
     )
     try:
@@ -119,6 +121,8 @@ def test_preview_rejects_more_than_eight_selected_curves(qapp, monkeypatch, tmp_
         assert preview.status.text() == preview.words[3]
         assert not preview.viewer.toPlainText()
     finally:
+        if preview._worker is not None:
+            _wait_review(qapp, preview)
         preview.close()
         workspace.close()
 
@@ -126,7 +130,7 @@ def test_preview_rejects_more_than_eight_selected_curves(qapp, monkeypatch, tmp_
 def test_preview_drops_completed_result_when_candidate_changes_during_review(
     qapp, monkeypatch, tmp_path,
 ):
-    from geoworkbench.ui import gis_geology_evidence_dialog as module
+    from geoworkbench.ui import gis_interval_compare_worker as module
 
     workspace, session, _, dataset = _with_inserted_gis(monkeypatch, tmp_path, AppLanguage.EN)
     valid = [True]
@@ -135,17 +139,18 @@ def test_preview_drops_completed_result_when_candidate_changes_during_review(
         lambda: (100.0, 102.0) if valid[0] else None,
         language=AppLanguage.EN,
     )
-    original = module.review_gas_geology_gis_interval
+    original = module.review_gis_source_interval_batch
 
     def change_candidate(*args, **kwargs):
         result = original(*args, **kwargs)
         valid[0] = False
         return result
 
-    monkeypatch.setattr(module, "review_gas_geology_gis_interval", change_candidate)
+    monkeypatch.setattr(module, "review_gis_source_interval_batch", change_candidate)
     try:
         preview.curves.item(0).setCheckState(Qt.CheckState.Checked)
         preview.review.click()
+        _wait_review(qapp, preview)
         assert preview.status.text() == preview.words[4]
         assert not preview.viewer.toPlainText()
         assert QApplication.overrideCursor() is None
