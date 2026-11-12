@@ -1,4 +1,4 @@
-name: Windows CurveView native failure diagnostic
+name: Windows GIS native failure diagnostic
 
 on:
   push:
@@ -21,19 +21,17 @@ env:
 
 jobs:
   qt-native-replay:
-    name: CurveView native replay (${{ matrix.case }})
+    name: GIS native replay (${{ matrix.case }})
     runs-on: windows-latest
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
         include:
-          - case: passport
-            sha: 53372e67b0bcf613733a81090a93bb16b6b6acf6
-            selector: tests/test_well_passport_dialog.py
-          - case: las3-reopen
-            sha: 10ad68167cc4698145885c31b93c64add9307494
-            selector: tests/test_las3_modal_reopen_acceptance.py
+          - case: failed-pr-872
+            sha: a302f18b902feb603bd9f69ee00852bce22876b5
+          - case: green-main-control
+            sha: f031d93b723e23d918cbb90af43654a0e06e28e3
     steps:
       - name: Check out source
         uses: actions/checkout@v6
@@ -85,33 +83,84 @@ jobs:
           .\.venv\Scripts\python.exe tools/capture_windows_native_runtime.py --output build/ci-artifacts/qt-replay/native-runtime.json --commit "${{ matrix.sha }}"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Replay exact failing file in a shared Qt process, three clean repetitions
+      - name: Replay exact PR 872 shard without debugger and under CDB
         shell: pwsh
-        env:
-          GEOLOG_SELECTOR: ${{ matrix.selector }}
-          QT_QPA_PLATFORM: offscreen
-          QT_OPENGL: software
-          QT_QUICK_BACKEND: software
-          LIBGL_ALWAYS_SOFTWARE: "1"
-          GEOLOG_DISABLE_UNSAVED_PROMPT: "1"
         run: |
           $OutputDir = "build/ci-artifacts/qt-replay"
           New-Item -ItemType Directory -Force $OutputDir | Out-Null
-          $failed = $false
-          for ($i = 1; $i -le 3; $i++) {
-            & .\.venv\Scripts\python.exe -X faulthandler -m pytest -vv -p no:cacheprovider $env:GEOLOG_SELECTOR *>&1 |
-              Tee-Object -FilePath "$OutputDir/repetition-$i.txt"
-            $code = $LASTEXITCODE
-            "attempt=$i exit=$code" | Add-Content "$OutputDir/exit-codes.txt"
-            if ($code -ne 0) { $failed = $true }
-          }
-          if ($failed) { exit 1 }
+          @'
+          from tools.diagnose_qt_masterlog_shard import _run_plain_target, _run_debugged_target
+          from scripts.run_tests import _configure_environment
+          import os
+          from pathlib import Path
+          selectors = (
+              "tests/test_form_library_visibility_078.py",
+              "tests/test_form_live_preview.py",
+              "tests/test_form_manager_print_layout.py",
+              "tests/test_form_materialize.py",
+              "tests/test_form_naming.py",
+              "tests/test_form_render_hotfix.py",
+              "tests/test_form_structure_editor.py",
+              "tests/test_form_switch_qt_lifecycle_hotfix_0750.py",
+              "tests/test_form_width_advisor.py",
+              "tests/test_format_capabilities.py",
+              "tests/test_formula_dialog.py",
+              "tests/test_formula_execution_controller.py",
+              "tests/test_formula_method_audit.py",
+              "tests/test_formula_profiles.py",
+              "tests/test_full_report_preview_marks.py",
+              "tests/test_gas_07_golden_acceptance.py",
+              "tests/test_gas_architecture_contract.py",
+              "tests/test_gas_conditioning.py",
+              "tests/test_gas_conditioning_benchmark.py",
+              "tests/test_gas_conditioning_qc.py",
+              "tests/test_gas_conditioning_qc_persistence.py",
+              "tests/test_gas_conditioning_qc_validation.py",
+              "tests/test_gas_context_event_dialog.py",
+              "tests/test_gas_context_event_editor.py",
+              "tests/test_gas_context_legend_typography.py",
+              "tests/test_gas_context_negative_depth_acceptance.py",
+              "tests/test_gas_context_print_track.py",
+              "tests/test_gas_context_report_identities.py",
+              "tests/test_gas_context_track_typography.py",
+              "tests/test_gas_context_workspace_reopen.py",
+              "tests/test_gas_curve_rendering_continuity.py",
+              "tests/test_gas_interval_combined_evidence_ui.py",
+              "tests/test_gas_interval_gis_review_ui.py",
+              "tests/test_gas_interval_gis_source_review_ui.py",
+              "tests/test_gas_mixture_document_control.py",
+              "tests/test_gas_mixture_line_patterns.py",
+              "tests/test_gas_mixture_output_language.py",
+              "tests/test_gas_mixture_ramp_report.py",
+              "tests/test_gas_mixture_raster_typography.py",
+              "tests/test_gas_mixture_report_visual_profile.py",
+              "tests/test_gas_mixture_workspace_language.py",
+              "tests/test_gas_ratio_interpretation.py",
+              "tests/test_gas_ratio_project_controller.py",
+              "tests/test_gas_ratio_reference.py",
+              "tests/test_gas_update_coverage.py",
+              "tests/test_geology_docx_shared_footer.py",
+              "tests/test_geology_legend_visual_profile.py",
+          )
+          if any(not Path(path).is_file() for path in selectors):
+              raise RuntimeError('Exact failing shard is missing files')
+          _configure_environment()
+          environment = os.environ.copy()
+          print('Exact failed shard from run 43261567112, without debugger', flush=True)
+          plain = _run_plain_target(selectors, environment)
+          print(f'Plain replay exit={plain}; now replay under CDB', flush=True)
+          debugged = _run_debugged_target(selectors, environment)
+          raise SystemExit(1 if plain or debugged else 0)
+          '@ | Set-Content -Encoding utf8 "$OutputDir/replay-gis-shard.py"
+          Get-Content -Raw "$OutputDir/replay-gis-shard.py" | & .\.venv\Scripts\python.exe - *>&1 |
+            Tee-Object -FilePath "$OutputDir/shard-replay.log"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload replay logs and version evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: qt-curveview-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: qt-gis-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/ci-artifacts/qt-replay
           if-no-files-found: ignore
           retention-days: 7
@@ -120,7 +169,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: qt-curveview-dumps-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: qt-gis-dumps-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/geolog-replay-dumps/*.dmp
           if-no-files-found: ignore
           retention-days: 3
