@@ -53,7 +53,7 @@ def _patch_import(monkeypatch, *, source_sha256: str, source: Dataset) -> None:
     imported = SimpleNamespace(
         dataset=source,
         report=SimpleNamespace(source=SimpleNamespace(sha256=source_sha256)),
-        source_document=SimpleNamespace(size_bytes=len(b"daily-las-source")),
+        source_document=SimpleNamespace(size_bytes=len(b"daily-las-source"), raw_bytes=b"daily-las-source"),
     )
     monkeypatch.setattr(
         "geoworkbench.project.daily_las_growth_controller.import_las_with_report",
@@ -84,7 +84,9 @@ def _patch_persisted_preview(monkeypatch, calls: list[tuple[str, str]]) -> None:
         *,
         source_name: str,
         source_sha256: str,
+        source_raw_bytes: bytes | None = None,
     ) -> SimpleNamespace:
+        assert source_raw_bytes == b"daily-las-source"
         binding = actual_session.rock_code_source_bindings[source_sha256]
         calls.append((source_name, binding.profile_sha256))
         return SimpleNamespace(profile_sha256=binding.profile_sha256)
