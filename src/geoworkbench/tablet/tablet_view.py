@@ -11532,16 +11532,24 @@ class TabletView(QWidget):
                         clipped_bottom = min(view_bottom, axis_interval[1])
                         box = rendered.plot.getViewBox()
                         box_height = float(box.height())
+                        box_width = float(box.width())
                         span = view_bottom - view_top
                         visible = False
-                        if clipped_bottom > clipped_top and box_height > 0.0 and span > 0.0:
+                        if clipped_bottom > clipped_top and box_height > 0.0 and box_width > 4.0 and span > 0.0:
+                            # Use one two-pixel inset on each side in the actual
+                            # ViewBox, not a percentage of the geological x axis.
+                            # This keeps the text inside the track at every width.
                             visible = _fit_uniform_rock_description_text(
                                 text_item,
-                                width_pixels=float(box.width()) * 0.98 - 4.0,
+                                width_pixels=box_width - 4.0,
                                 height_pixels=(clipped_bottom - clipped_top) / span * box_height,
                             )
                             if visible:
-                                text_item.setPos(0.02, clipped_top + 2.0 / box_height * span)
+                                x_left, x_right = box.viewRange()[0]
+                                text_item.setPos(
+                                    x_left + 2.0 / box_width * (x_right - x_left),
+                                    clipped_top + 2.0 / box_height * span,
+                                )
                     elif visible and auto_fit and axis_interval is not None:
                         interval_pixels = (
                             abs(axis_interval[1] - axis_interval[0])
