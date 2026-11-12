@@ -50,6 +50,21 @@ def _same_array(source: np.ndarray, saved: np.ndarray, cancelled: Callable[[], b
     return True
 
 
+def _copy_array_bounded(source: np.ndarray, cancelled: Callable[[], bool]) -> np.ndarray:
+    """Create one C-order snapshot, copying at most 65,536 elements per step.
+
+    The completed copy has the same shape and dtype as np.array(copy=True,
+    order="C"), while cancellation is checked *inside* a large LAS copy.
+    """
+    original = np.asarray(source)
+    copied = np.empty(original.shape, dtype=original.dtype, order="C")
+    for start in range(0, original.size, 65_536):
+        _check_cancel(cancelled)
+        copied.flat[start:start + 65_536] = original.flat[start:start + 65_536]
+    _check_cancel(cancelled)
+    return copied
+
+
 class GisIntervalSnapshot:
     """Own selected numeric copies and detect source changes without editing them.
 
@@ -75,12 +90,12 @@ class GisIntervalSnapshot:
             for key, curve in source.curves.items()
         }
         copied_axis = copy(self.axis)
-        copied_axis.values = np.array(self.axis_values, copy=True, order="C")
+        copied_axis.values = _copy_array_bounded(self.axis_values, cancelled)
         _check_cancel(cancelled)
         copied_curves: dict[str, CurveData] = {}
         for key, state in self.curves.items():
             _check_cancel(cancelled)
-            values = np.array(state.values, copy=True, order="C") if key in keys else np.empty(0)
+            values = _copy_array_bounded(state.values, cancelled) if key in keys else np.empty(0)
             copied_curves[key] = CurveData(state.metadata, values, state.version, state.state)
         snapshot = copy(source)
         snapshot.depth = copied_axis.values
