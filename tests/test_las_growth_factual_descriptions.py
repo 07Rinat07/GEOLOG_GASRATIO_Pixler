@@ -116,24 +116,43 @@ def test_changed_source_bytes_and_existing_text_reject_old_preview():
         _prepare(session, target, source, raw, plan)
 
 
-def test_controller_appends_real_las_descriptions_only_in_confirmed_geology_update(tmp_path):
+def _growth_las(rows, descriptions, *, legacy):
+    if not legacy:
+        return _small_geology_las(
+            (" ROP.M/H : Rate", " GEO_DESC_ID.CODE : Description"), rows,
+            metadata=_base_metadata(descriptions=descriptions),
+        )
+    header = [
+        "~Version Information", " VERS. 2.0 : LAS 2.0", " WRAP. NO : One row",
+        "~Well Information", " STRT.M 0 : Start", f" STOP.M {len(rows) - 1} : Stop",
+        " STEP.M 1 : Step", " NULL. -999.25 : Null", " WELL. Test : Well",
+        "~Curve Information", " DEPT.M : Depth", " ROP.M/H : Rate",
+        " ОПИСАНИЕ_ID.CODE : ID описания", "~Other information",
+    ]
+    for identity, record in descriptions.items():
+        header.append(
+            f"# DESC id={identity}; top={record['top']}; bottom={record['bottom']}; "
+            f"text={record['text_ru']}"
+        )
+    return "\n".join((*header, "~ASCII Log Data", *rows, "")).encode("cp1251")
+
+
+@pytest.mark.parametrize("legacy", (False, True), ids=("portable", "legacy-cp1251"))
+@pytest.mark.parametrize("numeric_first", (False, True), ids=("combined", "numeric-then-geology"))
+def test_controller_appends_real_las_descriptions_only_in_confirmed_geology_update(
+    tmp_path, legacy, numeric_first,
+):
     initial = tmp_path / "initial.las"
     incoming = tmp_path / "incoming.las"
-    initial.write_bytes(_small_geology_las(
-        (" ROP.M/H : Rate", " GEO_DESC_ID.CODE : Description"),
-        ("0 1 1", "1 1 1", "2 1 1"),
-        metadata=_base_metadata(descriptions={
-            "1": {"top": 0, "bottom": 2, "text_ru": "Старый текст."},
-        }),
-    ))
-    incoming.write_bytes(_small_geology_las(
-        (" ROP.M/H : Rate", " GEO_DESC_ID.CODE : Description"),
-        ("0 1 1", "1 1 1", "2 1 1", "3 1 2", "4 1 2"),
-        metadata=_base_metadata(descriptions={
-            "1": {"top": 0, "bottom": 2, "text_ru": "Не перезаписывать"},
-            "2": {"top": 2, "bottom": 4, "text_ru": "Новый текст."},
-        }),
-    ))
+    initial_raw = _growth_las(("0 1 1", "1 1 1", "2 1 1"), {
+        "1": {"top": 0, "bottom": 2, "text_ru": "Старый текст."},
+    }, legacy=legacy)
+    incoming_raw = _growth_las(("0 1 1", "1 1 1", "2 1 1", "3 1 2", "4 1 2"), {
+        "1": {"top": 0, "bottom": 2, "text_ru": "Не перезаписывать"},
+        "2": {"top": 2, "bottom": 4, "text_ru": "Новый текст."},
+    }, legacy=legacy)
+    initial.write_bytes(initial_raw)
+    incoming.write_bytes(incoming_raw)
     imported = import_las_with_report(initial)
     session = ProjectSession()
     well = session.add_dataset(imported.dataset, "Test", create_new_well=True,
@@ -146,11 +165,17 @@ def test_controller_appends_real_las_descriptions_only_in_confirmed_geology_upda
     dictionary = tmp_path / "profile.json"
     dictionary.write_text(profile().to_json(), encoding="utf-8")
     controller = DailyLasGrowthController(session)
+    if numeric_first:
+        numeric = controller.analyze_numerical(incoming, target.dataset_id)
+        assert controller.geology_plan is None
+        assert controller.apply_numerical(numeric, append_rows=True).geology_record is None
+        assert target.depth.tolist() == [0, 1, 2, 3, 4]
+        assert well.cuttings == [saved]
     plan = controller.analyze_numerical(incoming, target.dataset_id, geology_profile_path=dictionary)
     geology = controller.geology_plan
     assert geology is not None
     assert [(a.top, a.bottom, a.description) for a in geology.additions] == [(2.5, 4, "Новый текст.")]
-    outcome = controller.apply_numerical(plan, append_rows=True, geology_plan=geology)
+    outcome = controller.apply_numerical(plan, append_rows=not numeric_first, geology_plan=geology)
     assert outcome.geology_record is not None
     assert well.cuttings[0] is old and old == saved
     assert target.depth.tolist() == [0, 1, 2, 3, 4]
@@ -163,3 +188,5 @@ def test_controller_appends_real_las_descriptions_only_in_confirmed_geology_upda
     repeated = controller.geology_plan
     assert repeated is not None and not repeated.additions
     assert controller.apply_numerical(fresh, geology_plan=repeated).geology_record is None
+    assert initial.read_bytes() == initial_raw
+    assert incoming.read_bytes() == incoming_raw
