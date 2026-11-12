@@ -34,6 +34,7 @@ def analyze_persisted_well_geology_update(
     *,
     source_name: str,
     source_sha256: str,
+    source_raw_bytes: bytes | None = None,
 ) -> WellGeologyUpdatePlan:
     """Analyze geology using only the exact profile persisted for ``source_sha256``."""
 
@@ -45,6 +46,7 @@ def analyze_persisted_well_geology_update(
         resolved.dictionary,
         source_name=source_name,
         source_sha256=source_sha256,
+        source_raw_bytes=source_raw_bytes,
     )
 
 
@@ -57,6 +59,7 @@ def prepare_persisted_well_geology_update(
     source_name: str,
     source_sha256: str,
     append_rows: bool,
+    source_raw_bytes: bytes | None = None,
 ) -> PreparedGeologyUpdate | None:
     """Revalidate the persisted binding, then prepare the already-reviewed update.
 
@@ -79,4 +82,5 @@ def prepare_persisted_well_geology_update(
         source_name=source_name,
         source_sha256=source_sha256,
         append_rows=append_rows,
+        source_raw_bytes=source_raw_bytes,
     )
