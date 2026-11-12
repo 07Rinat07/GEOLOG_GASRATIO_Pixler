@@ -42,15 +42,6 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         # unrelated Qt report/dialog tests in a shared process. Run the exact
         # viewport assertions in a fresh Qt process, not as a skipped test.
         "tests/test_gas_viewport_hotpath.py",
-        # Main 43165782367 attempts 1/2 and #871 43166767757 attempts
-        # 1/2 crashed in QThread.__init__ in the combined preview after
-        # earlier unrelated GUI tests in a mixed Windows offscreen shard.
-        # Keep every test function mandatory with a fresh native heap.
-        # Repeated reviews within one test still exercise actual lifetimes.
-        # Containment only: no root-cause claim, native exits still fail.
-        "tests/test_gas_interval_combined_evidence_ui.py",
-        "tests/test_gis_interval_compare_ui.py",
-        "tests/test_gis_interval_compare_background.py",
         # Run 38433521074 aborted in ViewBoxMenu.__init__ while constructing
         # the geodata tablet after earlier Qt report cases. Retain every test
         # in a fresh process; a native crash is still a failing child status.
