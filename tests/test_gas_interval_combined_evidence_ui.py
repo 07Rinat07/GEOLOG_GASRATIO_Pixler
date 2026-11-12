@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QComboBox, QDialog, QMessageBox, QPushButton
+from PySide6.QtWidgets import QApplication, QComboBox, QDialog, QListWidgetItem, QMessageBox, QPushButton
 
 from geoworkbench.domain.models import LithologyInterval
 from geoworkbench.services.localization import AppLanguage
@@ -39,7 +39,8 @@ def test_combined_preview_is_explicit_same_md_and_read_only(
         dialog.review.click()
         content = dialog.viewer.toPlainText()
         assert "lith-test" in content and key in content and "API" in content
-        assert "0.0–2.0" in content if selected_index == 0 else "2.0–2.0" in content
+        expected_bounds = "0.0–2.0" if selected_index == 0 else "2.0–2.0"
+        assert expected_bounds in content
         choice.setCheckState(Qt.CheckState.Unchecked)
         assert dialog.viewer.toPlainText() == ""
         seen.append(True)
@@ -93,4 +94,61 @@ def test_combined_preview_hidden_without_eligible_gis(qapp, monkeypatch):
             QPushButton, "interpretation-geology-combined-gis",
         ).isHidden()
     finally:
+        workspace.close()
+
+
+def test_preview_rejects_more_than_eight_selected_curves(qapp, monkeypatch, tmp_path):
+    from geoworkbench.ui import gis_geology_evidence_dialog as module
+
+    workspace, session, _, dataset = _with_inserted_gis(monkeypatch, tmp_path, AppLanguage.EN)
+    preview = GisGeologyEvidenceDialog(
+        session, dataset, (100.0, 102.0), lambda: (100.0, 102.0),
+        language=AppLanguage.EN,
+    )
+    monkeypatch.setattr(
+        module, "review_gas_geology_gis_interval",
+        lambda *args, **kwargs: pytest.fail("Invalid selection must not run the review"),
+    )
+    try:
+        for i in range(9):
+            item = QListWidgetItem(f"extra-{i}")
+            item.setData(Qt.ItemDataRole.UserRole, f"extra-{i}")
+            item.setCheckState(Qt.CheckState.Checked)
+            preview.curves.addItem(item)
+        preview.review.click()
+        assert preview.status.text() == preview.words[3]
+        assert not preview.viewer.toPlainText()
+    finally:
+        preview.close()
+        workspace.close()
+
+
+def test_preview_drops_completed_result_when_candidate_changes_during_review(
+    qapp, monkeypatch, tmp_path,
+):
+    from geoworkbench.ui import gis_geology_evidence_dialog as module
+
+    workspace, session, _, dataset = _with_inserted_gis(monkeypatch, tmp_path, AppLanguage.EN)
+    valid = [True]
+    preview = GisGeologyEvidenceDialog(
+        session, dataset, (100.0, 102.0),
+        lambda: (100.0, 102.0) if valid[0] else None,
+        language=AppLanguage.EN,
+    )
+    original = module.review_gas_geology_gis_interval
+
+    def change_candidate(*args, **kwargs):
+        result = original(*args, **kwargs)
+        valid[0] = False
+        return result
+
+    monkeypatch.setattr(module, "review_gas_geology_gis_interval", change_candidate)
+    try:
+        preview.curves.item(0).setCheckState(Qt.CheckState.Checked)
+        preview.review.click()
+        assert preview.status.text() == preview.words[4]
+        assert not preview.viewer.toPlainText()
+        assert QApplication.overrideCursor() is None
+    finally:
+        preview.close()
         workspace.close()
