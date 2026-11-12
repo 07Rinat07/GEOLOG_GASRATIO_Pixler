@@ -27,7 +27,7 @@ _LIVE_WORKERS: set[GisIntervalCompareWorker] = set()
 
 
 def _stop_workers_on_exit() -> None:
-    # Qt must not destroy a running QThread during application shutdown.
+    # Join numeric workers before their GUI-owned signal bridges are destroyed.
     workers = tuple(_LIVE_WORKERS)
     for worker in workers:
         worker.request_cancel()
@@ -36,15 +36,15 @@ def _stop_workers_on_exit() -> None:
 
 
 class _GisWorkerRegistry(QObject):
-    """Own worker cleanup on the GUI thread, not inside QThread.finished."""
+    """Own worker cleanup on the GUI thread, not inside the worker thread."""
 
     @Slot()
     def retire(self) -> None:
         worker = self.sender()
         if not isinstance(worker, GisIntervalCompareWorker) or worker not in _LIVE_WORKERS:
             return
-        # finished is emitted before all native thread-local cleanup is done.
-        # Wait for the actual thread exit before releasing the owning reference.
+        # Terminal delivery can precede the final return from Thread.run.
+        # Join before releasing the GUI-owned signal bridge.
         worker.wait()
         _LIVE_WORKERS.discard(worker)
         worker.deleteLater()

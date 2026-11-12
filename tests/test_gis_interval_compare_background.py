@@ -259,3 +259,56 @@ def test_destroyed_dialog_cancels_without_retaining_worker_wrapper(qapp, monkeyp
                 qapp.processEvents()
                 sleep(0.005)
             assert worker not in _LIVE_WORKERS
+
+
+def test_numeric_review_runs_on_python_thread_and_returns_to_gui(qapp, monkeypatch):
+    from threading import get_ident
+    from PySide6.QtCore import QThread
+
+    owner = get_ident()
+    seen = []
+    original = worker_module.review_gis_source_interval_batch
+
+    def record(*args, **kwargs):
+        seen.append(get_ident())
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(worker_module, "review_gis_source_interval_batch", record)
+    dialog = GisIntervalCompareDialog(_two_curves(), top="100", bottom="102")
+    try:
+        dialog.table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+        dialog.review.click()
+        worker = dialog._worker
+        assert worker is not None and not isinstance(worker, QThread)
+        _wait_review(qapp, dialog)
+        assert len(seen) == 1 and seen[0] != owner
+        assert dialog.status.text() == dialog._t("complete")
+        assert dialog.table.item(0, 4).text() == "2 / 3"
+        assert worker not in _LIVE_WORKERS
+    finally:
+        if dialog._worker is not None:
+            _wait_review(qapp, dialog)
+        dialog.close()
+
+
+def test_python_thread_start_failure_retires_worker_and_restores_controls(qapp, monkeypatch):
+    def fail_start(_thread):
+        raise RuntimeError("thread allocation failure")
+
+    monkeypatch.setattr(worker_module.Thread, "start", fail_start)
+    dialog = GisIntervalCompareDialog(_two_curves(), top="100", bottom="102")
+    try:
+        dialog.table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+        dialog.review.click()
+        worker = dialog._worker
+        assert worker is not None
+        _wait_review(qapp, dialog)
+        assert worker not in _LIVE_WORKERS
+        assert dialog._worker_cancel_connection is None
+        assert dialog.review.isEnabled() and dialog.table.isEnabled()
+        assert dialog.status.text() == dialog._t("failed")
+        assert dialog.table.item(0, 4).text() == "—"
+    finally:
+        if dialog._worker is not None:
+            _wait_review(qapp, dialog)
+        dialog.close()
