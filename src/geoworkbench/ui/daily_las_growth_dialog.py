@@ -724,6 +724,9 @@ class DailyLasGrowthDialog(QDialog):
                 record = mapping[code]
                 name = self._text(record.name_ru, record.name_kk, record.name_en)
                 names.append(f"{code}: {name} ({amount:g}%)")
+            description = dict(item.description_i18n).get(self.language.value, item.description)
+            if description:
+                names.append(self._text("Описание", "Сипаттама", "Description") + ": " + description)
             lines.append(f"{layer}: {item.top:g} … {item.bottom:g} m — " + ", ".join(names))
         if len(plan.additions) > 200:
             lines.append(self._text(

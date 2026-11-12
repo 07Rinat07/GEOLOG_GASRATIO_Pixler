@@ -26,6 +26,12 @@ from geoworkbench.services.daily_las_growth import (
     DailyLasGrowthError, dataset_append_state_sha256, _validate_well_identity,
 )
 from geoworkbench.services.las_geology import _code
+from geoworkbench.services.las_geology_dialect import (
+    GeologyChannelRole, normalize_geology_mnemonic, resolve_geology_channel,
+)
+from geoworkbench.services.las_geology_metadata import (
+    LasGeologyDescription, geology_metadata_from_las_bytes,
+)
 from geoworkbench.services.rock_code_dictionary import RockCodeDictionary
 
 
@@ -35,6 +41,8 @@ class GeologyAddition:
     top: float
     bottom: float
     components: tuple[tuple[int, float], ...]
+    description: str | None = None
+    description_i18n: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,7 +119,7 @@ class _Coverage:
 
 def analyze_well_geology_update(
     session: ProjectSession, target: Dataset, source: Dataset, profile: RockCodeDictionary,
-    *, source_name: str, source_sha256: str,
+    *, source_name: str, source_sha256: str, source_raw_bytes: bytes | None = None,
 ) -> WellGeologyUpdatePlan:
     well = session.current_well
     if well is None or well.datasets.get(target.dataset_id) is not target:
@@ -147,6 +155,52 @@ def analyze_well_geology_update(
             raise DailyLasGrowthError(f"Длина геологического канала не совпадает: {name}")
         return array[::-1] if reverse else array
 
+    metadata = None
+    if source_raw_bytes is not None:
+        if sha256(source_raw_bytes).hexdigest() != source_sha256:
+            raise DailyLasGrowthError("Текстовые метаданные LAS не соответствуют проверенному источнику")
+        metadata = geology_metadata_from_las_bytes(source_raw_bytes)
+
+    def description_values(role: GeologyChannelRole) -> np.ndarray | None:
+        if metadata is None:
+            return None
+        matches = []
+        for curve in source.curves.values():
+            mnemonic = normalize_geology_mnemonic(curve.metadata.original_mnemonic)
+            match = resolve_geology_channel(
+                curve.metadata.original_mnemonic,
+                description=curve.metadata.description or "",
+                unit=curve.metadata.unit or "",
+            )
+            # LITH_DESC_ID occurs in two historic alias lists. Its explicit
+            # lithology identity must not be used as a cuttings description.
+            actual_role = (
+                GeologyChannelRole.LITHOLOGY_DESCRIPTION_ID
+                if mnemonic in {"LITH_DESC_ID", "LITHOLOGY_DESCRIPTION_ID", "ОПИСАНИЕ_ПОРОДЫ_ID"}
+                else match.role if match is not None else None
+            )
+            if actual_role is role and match is not None:
+                matches.append((match.confidence, curve))
+        if not matches:
+            return None
+        strongest = max(score for score, _ in matches)
+        selected = [curve for score, curve in matches if score == strongest]
+        if len(selected) != 1:
+            raise DailyLasGrowthError("Неоднозначный канал текстовых описаний LAS")
+        array = np.asarray(selected[0].values, dtype=float)
+        if array.shape != depth.shape:
+            raise DailyLasGrowthError("Длина канала описаний не совпадает с глубиной")
+        return array[::-1] if reverse else array
+
+    def description_at(array: np.ndarray | None, row: int) -> LasGeologyDescription | None:
+        if metadata is None or array is None:
+            return None
+        code = _code(float(array[row]))
+        return metadata.descriptions.get(code) if code is not None else None
+
+    cuttings_descriptions = description_values(GeologyChannelRole.DESCRIPTION_ID)
+    lithology_descriptions = description_values(GeologyChannelRole.LITHOLOGY_DESCRIPTION_ID)
+
     primary = values("КОД_ПОРОДЫ")
     slots = [(values(f"ПОРОДА{i}_КОД"), values(f"ПОРОДА{i}_КОЛИЧ")) for i in range(1, 6)]
     profile_json = profile.to_json()
@@ -161,21 +215,57 @@ def analyze_well_geology_update(
     invalid = invalid_primary = 0
     total = 0
 
-    def add(layer: str, top: float, bottom: float, components: tuple[tuple[int, float], ...]):
+    def add(
+        layer: str, top: float, bottom: float, components: tuple[tuple[int, float], ...],
+        description: LasGeologyDescription | None = None,
+    ) -> None:
         nonlocal total
         unknown.update(code for code, _ in components if code not in entries)
         if any(code not in entries for code, _ in components):
+            if layer != "cuttings" or description is None:
+                return
+            # Keep the actual independent text, never invent a composition.
+            components = ()
+        if not components and (layer != "cuttings" or description is None):
             return
+        text = (description.text or description.text_ru) if description is not None else None
+        texts = tuple(sorted(description.text_i18n.items())) if description is not None else ()
         for left, right in coverage[layer].gaps(top, bottom):
             items = additions[layer]
-            if items and items[-1].bottom == left and items[-1].components == components:
+            candidate = GeologyAddition(layer, left, right, components, text, texts)
+            if (
+                items and items[-1].bottom == left
+                and items[-1].components == components
+                and items[-1].description == text
+                and items[-1].description_i18n == texts
+            ):
                 items[-1] = replace(items[-1], bottom=right)
             else:
                 if total >= 10_000:
                     raise DailyLasGrowthError("Более 10000 новых интервалов: разделите исходный LAS")
-                items.append(GeologyAddition(layer, left, right, components))
+                items.append(candidate)
                 total += 1
             used.update(code for code, _ in components)
+
+    def add_with_description(
+        layer: str, top: float, bottom: float, components: tuple[tuple[int, float], ...],
+        description: LasGeologyDescription | None,
+    ) -> None:
+        # The source ID and its explicit MD interval must agree. Never copy
+        # a description outside its stated interval or across a missing row.
+        if description is None:
+            add(layer, top, bottom, components)
+            return
+        left = max(top, description.top_depth)
+        right = min(bottom, description.bottom_depth)
+        if right <= left:
+            add(layer, top, bottom, components)
+            return
+        if top < left:
+            add(layer, top, left, components)
+        add(layer, left, right, components, description)
+        if right < bottom:
+            add(layer, right, bottom, components)
 
     for row, value in enumerate(depth):
         top = float(edges[row] if row == 0 or (value - depth[row - 1]) / step <= 3 else value)
@@ -184,7 +274,8 @@ def analyze_well_geology_update(
             continue
         code = _code(float(primary[row])) if primary is not None else None
         if code is not None:
-            add("lithology", top, bottom, ((code, 100.0),))
+            add_with_description("lithology", top, bottom, ((code, 100.0),),
+                                 description_at(lithology_descriptions, row))
         elif primary is not None and not np.isnan(primary[row]):
             invalid_primary += 1
         composition: dict[int, float] = {}
@@ -205,8 +296,10 @@ def analyze_well_geology_update(
             composition[rock] = composition.get(rock, 0.0) + amount
         if not valid or (composition and abs(sum(composition.values()) - 100) > 1e-6):
             invalid += 1
-        elif composition:
-            add("cuttings", top, bottom, tuple(sorted(composition.items())))
+            composition = {}
+        description = description_at(cuttings_descriptions, row)
+        if composition or description is not None:
+            add_with_description("cuttings", top, bottom, tuple(sorted(composition.items())), description)
     # Profile identity separates vendors. Unique project export codes keep the
     # existing portable LAS dictionary unambiguous without changing source bytes.
     occupied_codes = {int(record.code) for record in session.project.lithotypes.values()
@@ -257,10 +350,11 @@ class PreparedGeologyUpdate:
 def prepare_well_geology_update(
     session: ProjectSession, target: Dataset, source: Dataset, plan: WellGeologyUpdatePlan,
     *, source_name: str, source_sha256: str, append_rows: bool,
+    source_raw_bytes: bytes | None = None,
 ) -> PreparedGeologyUpdate | None:
     current = analyze_well_geology_update(
         session, target, source, RockCodeDictionary.from_json(plan.profile_json),
-        source_name=source_name, source_sha256=source_sha256,
+        source_name=source_name, source_sha256=source_sha256, source_raw_bytes=source_raw_bytes,
     )
     if current != plan:
         raise DailyLasGrowthError("Геология, профиль или источник изменились; повторите анализ")
@@ -284,11 +378,15 @@ def prepare_well_geology_update(
         identity = str(uuid4())
         if item.layer == "lithology":
             lithology.append(LithologyInterval(identity, item.top, item.bottom,
-                                              mapping[item.components[0][0]].lithotype_id))
+                                              mapping[item.components[0][0]].lithotype_id,
+                                              description=item.description,
+                                              description_i18n=dict(item.description_i18n)))
             lithology_ids.append(identity)
         else:
             components = [CuttingsComponent(mapping[code].lithotype_id, amount) for code, amount in item.components]
-            cuttings.append(CuttingsSample(identity, item.top, item.bottom, components))
+            cuttings.append(CuttingsSample(identity, item.top, item.bottom, components,
+                                           description=item.description,
+                                           description_i18n=dict(item.description_i18n)))
             cuttings_ids.append(identity)
     staged_well = replace(well, lithology=lithology, cuttings=cuttings, content_revision=well.content_revision + 1)
     record = GeologyUpdateRecord(
