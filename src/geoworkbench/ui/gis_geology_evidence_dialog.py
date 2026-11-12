@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import QSize, Qt, Slot
+from PySide6.QtCore import QObject, QSize, Qt, Slot
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QDialog, QDialogButtonBox, QLabel, QListWidget, QListWidgetItem,
@@ -73,6 +73,7 @@ class GisGeologyEvidenceDialog(QDialog):
         self.words = _TEXT[language]
         self.localizer = Localizer.create(language)
         self._worker: GisIntervalCompareWorker | None = None
+        self._worker_cancel_connection = None
         self._geology: GasGeologyIntervalEvidence | None = None
         self._well = session.current_well
         self._keys: tuple[str, ...] = ()
@@ -184,12 +185,12 @@ class GisGeologyEvidenceDialog(QDialog):
         worker = GisIntervalCompareWorker(self.dataset, keys, *self.bounds)
         self._worker = worker
         # Use the established lifetime registry and shutdown cancellation.
-        worker.progress.connect(self._progress)
-        worker.completed.connect(self._completed)
-        worker.failed.connect(self._failed)
-        worker.finished.connect(self._worker_finished)
+        worker.progress.connect(self._progress, Qt.ConnectionType.QueuedConnection)
+        worker.completed.connect(self._completed, Qt.ConnectionType.QueuedConnection)
+        worker.failed.connect(self._failed, Qt.ConnectionType.QueuedConnection)
+        worker.finished.connect(self._worker_finished, Qt.ConnectionType.QueuedConnection)
         register_gis_interval_worker(worker)
-        self.destroyed.connect(worker.request_cancel)
+        self._worker_cancel_connection = self.destroyed.connect(worker.cancellation_callback())
         worker.start()
 
     def _set_running(self, running: bool) -> None:
@@ -267,6 +268,13 @@ class GisGeologyEvidenceDialog(QDialog):
 
     @Slot()
     def _worker_finished(self) -> None:
+        worker = self._worker
+        if worker is not None:
+            # Do not allow a new review or dialog disposal before native exit.
+            worker.wait()
+        if self._worker_cancel_connection is not None:
+            QObject.disconnect(self._worker_cancel_connection)
+            self._worker_cancel_connection = None
         self._worker = None
         self._geology = None
         self._keys = ()

@@ -1,5 +1,11 @@
 # Единый план проекта
 
+## Стабилизация GIS worker и очередь планшета — 12 ноября 2026
+
+- `main` `f226b39` (после #869) и PR #871 `cf72195` получили native access violation `0xC0000005` в `GisIntervalCompareWorker.__init__` при совместном просмотре ГИС/геологии. [main run 43165782367](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43165782367) и [#871 run 43166767757](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43166767757) повторно запущены без исключения тестов. Причина Qt #544 пока не доказана.
+- [#870](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/870) `3c3b4df`, [#872](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/872) `51a2bdc`, [#873](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/873) `f8256d1` — все три обязательных gate SUCCESS; слияние блокируется красным текущим main. Сначала точный main 3/3, затем последовательное слияние, post-merge gate и синхронизация остальных веток.
+- Отдельное укрепление жизненного цикла GIS worker: GUI-owned QObject registry, queued finished, wait до удаления, отмена при уничтожении окна без ссылки на Qt wrapper, отключение завершённого cancel callback. Добавить повторные расчёты и уничтожение активного окна в тесты. Это целевое исправление риска, не доказанное устранение нативного сбоя. Не отключать тесты.
+
 ## Актуальный инкремент INTERP-GIS-01 — 12 ноября 2026
 
 - [#866](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/866): совместный неизменяемый снимок геологии и исходных отсчётов ГИС в одном MD-интервале. PR-head `8fa3921` — [3/3 SUCCESS](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43141803751), интегрирован как `8f7eee4`; [post-merge Release Gate 43145818689](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43145818689) — **3/3 SUCCESS**, завершённая ветка автоматически удалена.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from threading import Event
+from collections.abc import Callable
 
 from PySide6.QtCore import QThread, Signal
 
@@ -29,6 +30,15 @@ class GisIntervalCompareWorker(QThread):
         self.top = top
         self.bottom = bottom
         self._cancel = Event()
+
+    def cancellation_callback(self) -> Callable[..., None]:
+        """Return a plain Python callback that never retains the Qt wrapper."""
+        event = self._cancel
+
+        def cancel(*_args: object) -> None:
+            event.set()
+
+        return cancel
 
     def request_cancel(self) -> None:
         self._cancel.set()
