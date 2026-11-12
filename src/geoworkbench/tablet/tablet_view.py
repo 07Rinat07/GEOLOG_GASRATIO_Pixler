@@ -13,6 +13,7 @@ import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, QRect, QRectF, Qt, Signal, QTimer
 from PySide6.QtGui import (
+    QAction,
     QColor,
     QCursor,
     QKeyEvent,
@@ -174,6 +175,8 @@ from geoworkbench.tablet.header_geometry import (
     curve_header_content_height,
     curve_header_overflows,
     curve_header_viewport_height,
+    compact_curve_header_rows,
+    tablet_compact_screen,
 )
 from geoworkbench.tablet.screen_style import (
     muted_screen_curve_color,
@@ -2512,9 +2515,94 @@ class TabletView(QWidget):
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
-        root.addWidget(self._navigation_scroll)
+        # Keep density and pencil access outside the horizontally scrolling
+        # navigation controls, so both remain reachable at narrow widths.
+        self._workspace_focus_active = False
+        self._workspace_focus_button = QToolButton()
+        self._workspace_focus_button.setObjectName("tabletWorkspaceFocusButton")
+        self._workspace_focus_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+        self._workspace_focus_button.hide()
+        self._screen_density = QComboBox()
+        self._screen_density.setObjectName("tabletScreenDensity")
+        for mode in ("auto", "compact", "full"):
+            self._screen_density.addItem(
+                self._localizer.text(f"tablet.screen_density_{mode}"), mode
+            )
+        self._screen_density.setToolTip(self._localizer.text("tablet.screen_density_hint"))
+        self._screen_density.currentIndexChanged.connect(self._screen_density_changed)
+        self._compact_pencil_button = QToolButton()
+        self._compact_pencil_button.setObjectName("tabletCompactPencil")
+        self._compact_pencil_button.setText(self._localizer.text("tablet.curve_pencil_button"))
+        self._compact_pencil_button.setToolTip(self._localizer.text("tablet.curve_pencil_tooltip"))
+        self._compact_pencil_button.clicked.connect(
+            lambda _checked=False: self._curve_pencil_button.click()
+        )
+        navigation_row = QHBoxLayout()
+        navigation_row.setContentsMargins(0, 0, 4, 0)
+        navigation_row.setSpacing(4)
+        navigation_row.addWidget(self._navigation_scroll, 1)
+        navigation_row.addWidget(self._compact_pencil_button)
+        navigation_row.addWidget(self._screen_density)
+        navigation_row.addWidget(self._workspace_focus_button)
+        root.addLayout(navigation_row)
         root.addWidget(self._curve_pencil_scroll)
         root.addLayout(charts, 1)
+        self._sync_screen_controls()
+
+    def _compact_screen(self) -> bool:
+        if self.property("geoworkbench-print-clone") or not hasattr(self, "_screen_density"):
+            return False
+        mode = str(self._screen_density.currentData())
+        if self._workspace_focus_active and mode == "auto":
+            return True
+        return tablet_compact_screen(mode, self.width(), self.height())
+
+    def set_workspace_focus_action(self, action: QAction) -> None:
+        """Use MainWindow's single checkable action; standalone/print views omit it."""
+        self._workspace_focus_button.setDefaultAction(action)
+        self._workspace_focus_button.show()
+
+    def set_workspace_focus_active(self, enabled: bool) -> None:
+        self._workspace_focus_active = bool(enabled)
+        self._sync_screen_controls()
+        self._resize_restore_timer.start(0)
+
+    def _sync_screen_controls(self) -> None:
+        if not hasattr(self, "_compact_pencil_button"):
+            return
+        compact = self._compact_screen()
+        print_clone = bool(self.property("geoworkbench-print-clone"))
+        self._screen_density.setVisible(not print_clone)
+        self._workspace_focus_button.setVisible(
+            not print_clone and self._workspace_focus_button.defaultAction() is not None
+        )
+        # Never hide active tools, including pending points and commit errors.
+        show_pencil = (
+            not compact or self._curve_pencil_enabled
+            or bool(self._curve_pencil_commit_error)
+        )
+        self._curve_pencil_scroll.setVisible(show_pencil)
+        self._compact_pencil_button.setVisible(compact and not show_pencil)
+        self._compact_pencil_button.setEnabled(self._curve_pencil_button.isEnabled())
+        self._navigation_help_label.setVisible(not compact)
+        self._axis_combo.setMinimumWidth(160 if compact else 220)
+        self._range_label.setMinimumWidth(160 if compact else 220)
+        self._span_combo.setMinimumWidth(100 if compact else 132)
+        navigation = self._navigation_bar.layout()
+        if navigation is not None:
+            if compact:
+                navigation.setContentsMargins(4, 2, 4, 2)
+            else:
+                navigation.setContentsMargins(6, 4, 6, 4)
+        self._navigation_scroll.setFixedHeight(
+            self._navigation_bar.sizeHint().height()
+            + self._navigation_scroll.horizontalScrollBar().sizeHint().height()
+        )
+
+    def _screen_density_changed(self, _row: int) -> None:
+        self._sync_screen_controls()
+        # Reuse the existing resize restoration path; do not rebuild plots.
+        self._resize_restore_timer.start(0)
 
     def set_language(self, language: AppLanguage) -> None:
         previous_localizer = self._localizer
@@ -2529,6 +2617,11 @@ class TabletView(QWidget):
         if self._interval_creation_type == previous_default_type:
             self._interval_creation_type = self._localizer.text("interpretations.default_type")
 
+        for row, mode in enumerate(("auto", "compact", "full")):
+            self._screen_density.setItemText(row, self._localizer.text(f"tablet.screen_density_{mode}"))
+        self._screen_density.setToolTip(self._localizer.text("tablet.screen_density_hint"))
+        self._compact_pencil_button.setText(self._localizer.text("tablet.curve_pencil_button"))
+        self._compact_pencil_button.setToolTip(self._localizer.text("tablet.curve_pencil_tooltip"))
         self._vertical_axis_label.setText(self._localizer.text("tablet.vertical_axis"))
         self._goto_button.setText(self._localizer.text("tablet.goto"))
         self._zoom_in_button.setToolTip(self._localizer.text("tablet.zoom_in"))
@@ -2617,6 +2710,8 @@ class TabletView(QWidget):
         # and crash in PlotItem.__init__ (0xC0000005). Only captions, tooltips
         # and localized overlays change; data/curve geometry stays untouched.
         self._retranslate_rendered_view()
+        self._sync_screen_controls()
+        self._resize_restore_timer.start(0)
 
     def _retranslate_rendered_view(self) -> None:
         """Relabel existing plots in place while retaining Qt plot ownership."""
@@ -4161,6 +4256,11 @@ class TabletView(QWidget):
             self._curve_pencil_status.setProperty("statusRole", "muted")
         self._update_curve_pencil_bar_style()
         self._update_curve_pencil_mode_controls()
+        if hasattr(self, "_compact_pencil_button"):
+            was_hidden = self._curve_pencil_scroll.isHidden()
+            self._sync_screen_controls()
+            if was_hidden != self._curve_pencil_scroll.isHidden():
+                self._resize_restore_timer.start(0)
 
     def mark_curve_pencil_unsaved(self) -> None:
         self._curve_pencil_state.mark_unsaved()
@@ -6816,9 +6916,31 @@ class TabletView(QWidget):
             (entry.widget.natural_curve_header_height for entry in self._rendered.values()),
             default=0,
         )
+        compact = self._compact_screen() and not any(
+            entry.widget._print_mode for entry in self._rendered.values()
+        )
+        rows = CURVE_HEADER_MAX_VISIBLE_ROWS
+        if compact:
+            group_height = self._group_header_container.height() if self._group_header_container.isVisible() else 0
+            rows = compact_curve_header_rows(
+                self._scroll.viewport().height() - group_height, title_height,
+                minimum_plot_height=SCREEN_PLOT_MINIMUM_HEIGHT,
+            )
+            curve_height = min(curve_height, curve_header_viewport_height(rows))
         for rendered in self._rendered.values():
-            rendered.widget.set_synchronized_title_header_height(title_height)
-            rendered.widget.set_synchronized_header_height(curve_height)
+            track = rendered.widget
+            track.set_synchronized_title_header_height(title_height)
+            track.set_synchronized_header_height(curve_height)
+            if not track._print_mode:
+                count = len(track._curve_header_labels)
+                visible_rows = min(rows, count)
+                track.curve_header_scroll.verticalScrollBar().setPageStep(
+                    max(1, visible_rows) * CURVE_HEADER_EDITOR_HEIGHT
+                )
+                track.curve_header_scroll.setToolTip(
+                    self._localizer.text("tablet.curve_header_scroll_hint", hidden=count - visible_rows)
+                    if count > visible_rows else ""
+                )
 
     def _synchronize_track_heights(self) -> None:
         """Give every track one identical chart-body height.
@@ -6831,11 +6953,22 @@ class TabletView(QWidget):
         """
 
         group_height = 30 if self._group_header_container.isVisible() else 0
-        height = max(self._scroll.viewport().height() - group_height, 240)
+        screen = not self.property("geoworkbench-print-clone")
+        available = self._scroll.viewport().height() - group_height
+        height = max(available, 1 if screen else 240)
         self._tracks_container.setFixedHeight(height)
         self._container.setFixedHeight(height + group_height)
         for rendered in self._rendered.values():
-            rendered.widget.setFixedHeight(height)
+            track = rendered.widget
+            if not track._print_mode:
+                # At very small heights a fixed 240 px plot would overflow
+                # its parent. Keep the body inside the actual scroll viewport.
+                header = sum(track.synchronized_header_heights)
+                track.plot.setMinimumHeight(
+                    max(1, min(SCREEN_PLOT_MINIMUM_HEIGHT, height - header - 2))
+                    if screen else SCREEN_PLOT_MINIMUM_HEIGHT
+                )
+            track.setFixedHeight(height)
 
     def _register_wheel_targets(self, root: QWidget, plot: pg.PlotWidget) -> None:
         """Route wheel navigation from every visible part of a tablet column.
@@ -6853,6 +6986,7 @@ class TabletView(QWidget):
 
     def resizeEvent(self, event) -> None:  # type: ignore[override]
         super().resizeEvent(event)
+        self._sync_screen_controls()
         self._synchronize_track_heights()
         self._sync_annotation_overlay_geometry()
         # pyqtgraph may briefly recalculate a ViewBox while the form/tablet is
@@ -6861,6 +6995,7 @@ class TabletView(QWidget):
         self._resize_restore_timer.start(0)
 
     def _restore_visible_depth_after_resize(self) -> None:
+        self._sync_screen_controls()
         if not self._rendered:
             return
         previous_widths = tuple(item.widget.display_width for item in self._rendered.values())
@@ -7085,6 +7220,7 @@ class TabletView(QWidget):
             widget.setEnabled(control_state.enabled)
         if not control_state.enabled or current is None or bounds is None:
             self._range_label.setText("—")
+            self._range_label.setToolTip("")
             self._vertical_scrollbar.setRange(0, 0)
             return
         top, bottom = current
@@ -7096,6 +7232,7 @@ class TabletView(QWidget):
                 span=self._format_vertical_span(control_state.visible_span),
             )
         )
+        self._range_label.setToolTip(self._range_label.text())
         descriptor = self._axis_descriptor()
         self._goto_value.setPlaceholderText(
             self._localizer.text(
