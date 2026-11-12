@@ -33,7 +33,7 @@ def _view(dataset, samples, intervals=()):
     view = TabletView()
     view.resize(640, 650)
     view.set_cuttings(list(samples), refresh=False)
-    view.set_lithology(list(intervals), refresh=False)
+    view.set_lithology(list(intervals), (), refresh=False)
     view.set_layout_and_dataset(TabletLayout([
         TrackDefinition("rock", "Описание пород", TrackKind.TEXT, width=300),
     ]), dataset)
@@ -52,6 +52,7 @@ def test_source_text_normalization_is_display_only(qapp):
     assert rock_description_plain_text("Пор <5% >2%\r\nCaCO₃") == "Пор <5% >2%\nCaCO₃"
     rich = '<p style="font-size:22pt"><b>Известняк</b></p><p>Құмтас &amp; sandstone</p>'
     assert rock_description_plain_text(rich) == "Известняк\nҚұмтас & sandstone"
+    assert rock_description_plain_text("Песчаник <b>средний</b>", rich=False) == "Песчаник <b>средний</b>"
 
 
 def test_short_long_and_fallback_descriptions_share_font_and_reflow(qapp):
@@ -185,3 +186,38 @@ def test_pdf_uses_same_physical_size_for_short_and_elided_text(qapp, tmp_path, d
         assert spans
         assert all(s["size"] == pytest.approx(ROCK_DESCRIPTION_POINT_SIZE, abs=0.3) for s in spans)
     assert well.cuttings == before
+
+
+def test_real_las_description_import_uses_uniform_style(qapp, tmp_path):
+    from geoworkbench.data.las_adapter import import_las_with_report
+
+    source = tmp_path / "description.las"
+    raw = "\n".join((
+        "~Version Information", " VERS. 2.0 : LAS 2.0", " WRAP. NO : One row",
+        "~Well Information", " STRT.M 100 : Start", " STOP.M 104 : Stop",
+        " STEP.M 1 : Step", " NULL. -999.25 : Null", " WELL. Test : Well",
+        "~Curve Information", " DEPT.M : Depth",
+        " ОПИСАНИЕ_ID.CODE : ID описания",
+        "~Other information",
+        "# DESC id=1; top=100; bottom=104; text=Известняк плотный, CaCO3 97%.",
+        "~ASCII Log Data", "100 1", "101 1", "102 1", "103 1", "104 1", "",
+    )).encode("cp1251")
+    source.write_bytes(raw)
+    imported = import_las_with_report(source)
+    session = ProjectSession()
+    well = session.add_dataset(imported.dataset, "Test", create_new_well=True,
+                               source_document=imported.source_document,
+                               import_report=imported.report)
+    sample, = well.cuttings
+    assert sample.description == "Известняк плотный, CaCO3 97%."
+    view = _view(imported.dataset, well.cuttings)
+    try:
+        view.set_visible_depth(100, 104)
+        qapp.processEvents()
+        view._update_lithology_text_visibility(100, 104)
+        item = view._rendered["rock"].lithology_description_items[sample.sample_id]
+        assert item.toPlainText() == sample.description
+        _assert_font(item)
+        assert source.read_bytes() == raw
+    finally:
+        view.close()

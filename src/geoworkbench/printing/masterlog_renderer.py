@@ -2348,10 +2348,10 @@ def _paint_lba_column(
 
 def _paint_uniform_rock_description(
     painter: QPainter, rect: QRectF, description: str, color: QColor,
-    *, word_wrap: bool = True,
+    *, word_wrap: bool = True, rich: bool = True,
 ) -> None:
     """Print readable plain text at one physical size, clipped per interval."""
-    text = rock_description_plain_text(description)
+    text = rock_description_plain_text(description, rich=rich)
     if not text:
         return
     painter.save()
@@ -2415,7 +2415,7 @@ def _paint_lithology_descriptions(
             painter.drawRect(interval_rect)
         if interval_rect.height() >= 3.0:
             _paint_uniform_rock_description(
-                painter, interval_rect, description, QColor(visual.palette.text),
+                painter, interval_rect, description, QColor(visual.palette.text), rich=False,
             )
     painter.restore()
 

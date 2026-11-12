@@ -10939,7 +10939,9 @@ class TabletView(QWidget):
                 self._localized_rock_text(raw_description) if raw_description else fallback
             )
             label = pg.TextItem(anchor=(0.0, 0.0))
-            plain = rock_description_plain_text(description)
+            # Lithology descriptions are historically plain text, even when
+            # they contain literal angle-bracket strings.
+            plain = rock_description_plain_text(description, rich=False)
             label.setData(_ROCK_DESCRIPTION_TEXT_ROLE, plain)
             label.setData(_DESCRIPTION_WORD_WRAP_ROLE, True)
             _set_uniform_rock_description_text(label, plain, float(text_width))

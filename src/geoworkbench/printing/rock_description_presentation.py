@@ -21,10 +21,10 @@ _RICH_TEXT = re.compile(
 )
 
 
-def rock_description_plain_text(value: str | None) -> str:
+def rock_description_plain_text(value: str | None, *, rich: bool = True) -> str:
     """Extract readable text for display, keeping stored source untouched."""
     text = (value or "").replace("\r\n", "\n").replace("\r", "\n")
-    if _RICH_TEXT.search(text):
+    if rich and _RICH_TEXT.search(text):
         document = QTextDocument()
         document.setHtml(text)
         text = document.toPlainText()
