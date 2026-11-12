@@ -96,7 +96,6 @@ def gis_interval_evidence_table(
             source is None or review.source != source or item.issues
             or review.top_md_m != evidence.geology.gas_top
             or review.bottom_md_m != evidence.geology.gas_bottom
-            or source.source_dataset_id != evidence.geology.dataset_id
         ):
             raise ValueError("GIS evidence source or MD interval mismatch")
         if (

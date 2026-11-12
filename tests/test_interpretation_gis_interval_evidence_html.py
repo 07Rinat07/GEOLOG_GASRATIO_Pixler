@@ -69,11 +69,8 @@ def test_blocked_no_rows_and_all_missing_have_distinct_states(monkeypatch, tmp_p
         session, top_depth=100.0, bottom_depth=102.0, curve_keys=(key,),
     )
     row, = gis_interval_evidence_table(evidence, AppLanguage.EN).rows
-    # A source with no finite samples may be blocked by inventory rules;
-    # it must never be displayed as a measured zero.
-    assert row[6] in {"0", "—"}
-    assert row[9] == "—"
-    assert row[-1] == "No finite values" or row[-1].startswith("Blocked")
+    assert row[5:10] == ("3", "0", "3", "—", "—")
+    assert row[-1] == "No finite values"
 
 
 def test_foreign_or_inconsistent_review_is_rejected(monkeypatch, tmp_path):
@@ -91,3 +88,17 @@ def test_foreign_or_inconsistent_review_is_rejected(monkeypatch, tmp_path):
     bad_counts = replace(item, review=replace(item.review, missing_count=100))
     with pytest.raises(ValueError, match="sample counts"):
         gis_interval_evidence_table(replace(evidence, gis=(bad_counts,)))
+
+
+def test_original_source_dataset_identity_need_not_be_current_dataset(monkeypatch, tmp_path):
+    session, _, _, _, key = _combined(monkeypatch, tmp_path)
+    evidence = review_gas_geology_gis_interval(
+        session, top_depth=100.0, bottom_depth=102.0, curve_keys=(key,),
+    )
+    item, = evidence.gis
+    assert item.source is not None and item.review is not None
+    # Source dataset ID is provenance, not a second axis or current dataset ID.
+    source = replace(item.source, source_dataset_id="original-source-id")
+    item = replace(item, source=source, review=replace(item.review, source=source))
+    row, = gis_interval_evidence_table(replace(evidence, gis=(item,))).rows
+    assert row[2] == "original-source-id"
