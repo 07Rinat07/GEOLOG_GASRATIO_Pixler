@@ -312,3 +312,36 @@ def test_python_thread_start_failure_retires_worker_and_restores_controls(qapp, 
         if dialog._worker is not None:
             _wait_review(qapp, dialog)
         dialog.close()
+
+
+def test_worker_signals_are_emitted_only_on_gui_thread(qapp, monkeypatch):
+    """Direct connections expose the emitting thread, not queued receiver affinity."""
+    from threading import get_ident
+
+    started, release = _paused_review(monkeypatch)
+    owner = get_ident()
+    dialog = GisIntervalCompareDialog(_two_curves(), top="100", bottom="102")
+    seen = []
+    try:
+        dialog.table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+        dialog.review.click()
+        assert started.wait(5)
+        worker = dialog._worker
+        assert worker is not None
+        direct = Qt.ConnectionType.DirectConnection
+        worker.progress.connect(lambda *_: seen.append(("progress", get_ident())), direct)
+        worker.completed.connect(lambda *_: seen.append(("completed", get_ident())), direct)
+        worker.failed.connect(lambda *_: seen.append(("failed", get_ident())), direct)
+        worker.finished.connect(lambda: seen.append(("finished", get_ident())), direct)
+        release.set()
+        _wait_review(qapp, dialog)
+        assert seen
+        assert {thread for _, thread in seen} == {owner}
+        assert [kind for kind, _ in seen if kind != "progress"] == ["completed", "finished"]
+        assert dialog.status.text() == dialog._t("complete")
+        assert worker not in _LIVE_WORKERS
+    finally:
+        release.set()
+        if dialog._worker is not None:
+            _wait_review(qapp, dialog)
+        dialog.close()
