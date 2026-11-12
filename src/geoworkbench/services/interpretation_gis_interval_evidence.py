@@ -89,6 +89,22 @@ def review_gas_geology_gis_interval(
         snapshot.dataset, curve_keys=curve_keys,
         top_md_m=geology.gas_top, bottom_md_m=geology.gas_bottom,
     )
+    if session.current_dataset is not dataset or session.current_well is not well:
+        raise GisIntervalSourceChanged("GIS and geology source selection changed")
+
+    # The well object may remain selected while its observations are edited.
+    # Rebuild the validated evidence (including live stratigraphy) rather than
+    # relying on well identity or the GIS-only snapshot to detect those edits.
+    try:
+        current_geology = correlate_gas_interval_with_well_geology(
+            session, top_depth=geology.gas_top, bottom_depth=geology.gas_bottom,
+        )
+    except ValueError as exc:
+        raise GisIntervalSourceChanged(
+            "Geology or MD source changed during combined interval review"
+        ) from exc
+    if current_geology != geology:
+        raise GisIntervalSourceChanged("Geology source changed during combined interval review")
     if (
         session.current_dataset is not dataset or session.current_well is not well
         or not snapshot.matches(lambda: False)

@@ -5,7 +5,9 @@ from dataclasses import FrozenInstanceError
 import numpy as np
 import pytest
 
-from geoworkbench.domain.models import CuttingsComponent, CuttingsSample, LithologyInterval
+from geoworkbench.domain.models import (
+    CuttingsComponent, CuttingsSample, LithologyInterval, StratigraphyInterval,
+)
 from geoworkbench.services import interpretation_gis_interval_evidence as service
 from geoworkbench.services.gis_interval_snapshot import GisIntervalSourceChanged
 from test_gis_external_exact_review import _copy
@@ -131,3 +133,35 @@ def test_changed_live_gis_during_combined_review_never_returns_stale_evidence(mo
         service.review_gas_geology_gis_interval(
             session, top_depth=100.0, bottom_depth=102.0, curve_keys=(key,),
         )
+
+
+@pytest.mark.parametrize("kind", ("lithology", "lba", "calcimetry", "stratigraphy", "invalid"))
+def test_changed_live_geology_during_gis_review_never_returns_stale_evidence(
+    monkeypatch, tmp_path, kind,
+):
+    session, _, _, dataset, key = _combined(monkeypatch, tmp_path)
+    well = session.current_well
+    well.stratigraphy = [StratigraphyInterval("stratum-1", 100.0, 102.0, "C1")]
+    original_review = service.review_gis_source_interval_batch
+    before = dataset.curves[key].values.copy()
+
+    def change_geology(*args, **kwargs):
+        result = original_review(*args, **kwargs)
+        if kind == "lithology":
+            well.lithology[0].lithotype_id = "sandstone"
+        elif kind == "lba":
+            well.cuttings[0].lba_intensity = 0
+        elif kind == "calcimetry":
+            well.cuttings[0].calcite_percent = 25.0
+        elif kind == "stratigraphy":
+            well.stratigraphy[0].code = "C2"
+        else:
+            well.cuttings[0].calcite_percent = -1.0
+        return result
+
+    monkeypatch.setattr(service, "review_gis_source_interval_batch", change_geology)
+    with pytest.raises(GisIntervalSourceChanged, match="Geology (source|or MD source) changed"):
+        service.review_gas_geology_gis_interval(
+            session, top_depth=100.0, bottom_depth=102.0, curve_keys=(key,),
+        )
+    np.testing.assert_array_equal(dataset.curves[key].values, before)
