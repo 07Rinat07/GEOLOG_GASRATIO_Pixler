@@ -4,21 +4,30 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QSize, Qt, Slot
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
-    QApplication, QDialog, QDialogButtonBox, QLabel, QListWidget, QListWidgetItem,
-    QPushButton, QTextBrowser, QVBoxLayout, QWidget,
+    QDialog, QDialogButtonBox, QLabel, QListWidget, QListWidgetItem,
+    QProgressBar, QPushButton, QTextBrowser, QVBoxLayout, QWidget,
 )
 
 from geoworkbench.domain.models import Dataset
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.gis_input_inventory import GIS_SAMPLE_FAMILIES
-from geoworkbench.services.gis_interval_sample_review import MAX_GIS_INTERVAL_CURVES
-from geoworkbench.services.interpretation_gis_interval_evidence import review_gas_geology_gis_interval
+from geoworkbench.services.gis_interval_sample_review import (
+    MAX_GIS_INTERVAL_CURVES, GisSourceIntervalBatchItem,
+)
+from geoworkbench.services.gis_interval_snapshot import GisIntervalSnapshot
+from geoworkbench.services.interpretation_geology_interval_evidence import (
+    GasGeologyIntervalEvidence, correlate_gas_interval_with_well_geology,
+)
+from geoworkbench.services.interpretation_gis_interval_evidence import GasGeologyGisIntervalEvidence
 from geoworkbench.services.interpretation_gis_interval_evidence_html import (
     geology_gis_interval_evidence_html,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.gis_interval_compare_dialog import register_gis_interval_worker
+from geoworkbench.ui.gis_interval_compare_worker import GisIntervalCompareWorker
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
@@ -62,6 +71,13 @@ class GisGeologyEvidenceDialog(QDialog):
         self.validate_bounds = validate_bounds
         self.language = language
         self.words = _TEXT[language]
+        self.localizer = Localizer.create(language)
+        self._worker: GisIntervalCompareWorker | None = None
+        self._geology: GasGeologyIntervalEvidence | None = None
+        self._well = session.current_well
+        self._keys: tuple[str, ...] = ()
+        self._cancel_requested = False
+        self._close_after_worker = False
         self.setObjectName("gis-geology-evidence-dialog")
         self.setWindowTitle(self.words[0])
         layout = QVBoxLayout(self)
@@ -89,6 +105,15 @@ class GisGeologyEvidenceDialog(QDialog):
         self.status.setTextFormat(Qt.TextFormat.PlainText)
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
+        self.progress = QProgressBar(self)
+        self.progress.setObjectName("gis-geology-evidence-progress")
+        self.progress.hide()
+        layout.addWidget(self.progress)
+        self.cancel = QPushButton(self._t("cancel"), self)
+        self.cancel.setObjectName("gis-geology-evidence-cancel")
+        self.cancel.clicked.connect(self._cancel_review)
+        self.cancel.hide()
+        layout.addWidget(self.cancel)
         self.viewer = QTextBrowser(self)
         self.viewer.setObjectName("gis-geology-evidence-content")
         self.viewer.setOpenLinks(False)
@@ -96,42 +121,171 @@ class GisGeologyEvidenceDialog(QDialog):
         self.curves.itemChanged.connect(self._clear)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(
-            Localizer.create(language).text("common.close")
+            self.localizer.text("common.close")
         )
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
         fit_window_to_screen(self, preferred=QSize(1100, 720), minimum=QSize(520, 360))
 
+    def _t(self, key: str, **values: object) -> str:
+        return self.localizer.text(f"gis_compare.{key}", **values)
+
     def _clear(self, _item: QListWidgetItem | None = None) -> None:
         self.viewer.clear()
         self.status.clear()
+        if self._worker is not None:
+            self._cancel_review()
 
-    def _review(self) -> None:
-        self._clear()
-        keys = tuple(
+    def _selected_keys(self) -> tuple[str, ...]:
+        return tuple(
             self.curves.item(row).data(Qt.ItemDataRole.UserRole)
             for row in range(self.curves.count())
             if self.curves.item(row).checkState() == Qt.CheckState.Checked
         )
-        if not 1 <= len(keys) <= MAX_GIS_INTERVAL_CURVES:
+
+    def _source_current(self) -> bool:
+        return (
+            self.session.current_dataset is self.dataset
+            and self.session.current_well is self._well
+            and self.validate_bounds() == self.bounds
+        )
+
+    def _read_geology(self) -> GasGeologyIntervalEvidence:
+        # Session and well observations are accessed only on the GUI thread.
+        return correlate_gas_interval_with_well_geology(
+            self.session, top_depth=self.bounds[0], bottom_depth=self.bounds[1],
+        )
+
+    def _review(self) -> None:
+        if self._worker is not None:
+            return
+        self._clear()
+        keys = self._selected_keys()
+        if (
+            not 1 <= len(keys) <= MAX_GIS_INTERVAL_CURVES
+            or any(not isinstance(key, str) or not key.strip() for key in keys)
+            or len(set(keys)) != len(keys)
+        ):
             self.status.setText(self.words[3])
             return
-        if self.session.current_dataset is not self.dataset or self.validate_bounds() != self.bounds:
-            self.status.setText(self.words[4])
-            return
-        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
-            evidence = review_gas_geology_gis_interval(
-                self.session, top_depth=self.bounds[0], bottom_depth=self.bounds[1],
-                curve_keys=keys,
-            )
-            html = geology_gis_interval_evidence_html(evidence, self.language)
+            if not self._source_current():
+                self.status.setText(self.words[4])
+                return
+            self._geology = self._read_geology()
         except (ValueError, RuntimeError, TypeError, OverflowError):
             self.status.setText(self.words[5])
             return
-        finally:
-            QApplication.restoreOverrideCursor()
-        if self.session.current_dataset is not self.dataset or self.validate_bounds() != self.bounds:
+        self._keys = keys
+        self._cancel_requested = False
+        self._close_after_worker = False
+        self._set_running(True)
+        self.status.setText(self._t("preparing"))
+        worker = GisIntervalCompareWorker(self.dataset, keys, *self.bounds)
+        self._worker = worker
+        # Use the established lifetime registry and shutdown cancellation.
+        worker.progress.connect(self._progress)
+        worker.completed.connect(self._completed)
+        worker.failed.connect(self._failed)
+        worker.finished.connect(self._worker_finished)
+        register_gis_interval_worker(worker)
+        self.destroyed.connect(worker.request_cancel)
+        worker.start()
+
+    def _set_running(self, running: bool) -> None:
+        self.curves.setEnabled(not running)
+        self.review.setEnabled(not running)
+        self.cancel.setVisible(running)
+        self.cancel.setEnabled(running)
+        self.progress.setVisible(running)
+        if running:
+            self.progress.setRange(0, 0)
+
+    @Slot(str, int, int)
+    def _progress(self, stage: str, current: int, total: int) -> None:
+        if self._cancel_requested:
+            return
+        if stage == "reviewing" and total > 0:
+            self.progress.setRange(0, total)
+            self.progress.setValue(current)
+            self.status.setText(self._t("progress", current=current, total=total))
+        elif stage in {"preparing", "checking", "verifying"}:
+            self.progress.setRange(0, 0)
+            self.status.setText(self._t(stage))
+
+    @Slot(object, object)
+    def _completed(self, snapshot: object, payload: object) -> None:
+        if self._cancel_requested:
+            self.status.setText(self._t("cancelled"))
+            return
+        try:
+            geology = self._geology
+            if (
+                geology is None or not self._source_current()
+                or self._selected_keys() != self._keys
+                or not isinstance(snapshot, GisIntervalSnapshot)
+                or snapshot.source is not self.dataset or snapshot.keys != self._keys
+                or snapshot.dataset_id != geology.dataset_id
+                or snapshot.active_index_id != geology.depth_axis_id
+                or not isinstance(payload, tuple)
+                or any(not isinstance(item, GisSourceIntervalBatchItem) for item in payload)
+                or tuple(item.curve_key for item in payload) != self._keys
+                or self._read_geology() != geology
+                # Check numeric arrays again at queued GUI delivery, not only
+                # identity or the worker's earlier freshness check.
+                or not snapshot.matches(lambda: False)
+            ):
+                self.status.setText(self.words[4])
+                return
+            html = geology_gis_interval_evidence_html(
+                GasGeologyGisIntervalEvidence(geology, payload), self.language,
+            )
+        except (ValueError, RuntimeError, TypeError, OverflowError):
             self.status.setText(self.words[4])
             return
+        if self._cancel_requested or self._worker is None or self._geology is not geology:
+            self.status.setText(self._t("cancelled"))
+            return
         self.viewer.setHtml(html)
+        self.status.setText(self._t("complete"))
+
+    @Slot(str)
+    def _failed(self, reason: str) -> None:
+        if self._cancel_requested or reason == "cancelled":
+            self.status.setText(self._t("cancelled"))
+        else:
+            self.status.setText(self.words[4 if reason == "changed" else 5])
+
+    @Slot()
+    def _cancel_review(self) -> None:
+        if self._worker is not None:
+            self._cancel_requested = True
+            self.viewer.clear()
+            self.cancel.setEnabled(False)
+            self.status.setText(self._t("cancelling"))
+            self._worker.request_cancel()
+
+    @Slot()
+    def _worker_finished(self) -> None:
+        self._worker = None
+        self._geology = None
+        self._keys = ()
+        self._set_running(False)
+        if self._close_after_worker:
+            self._close_after_worker = False
+            self.reject()
+
+    def reject(self) -> None:
+        if self._worker is not None:
+            self._close_after_worker = True
+            self._cancel_review()
+            return
+        super().reject()
+
+    def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 - Qt API
+        if self._worker is not None:
+            self._close_after_worker = True
+            self._cancel_review()
+            event.ignore()
+            return
+        super().closeEvent(event)
