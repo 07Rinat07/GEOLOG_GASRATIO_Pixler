@@ -121,3 +121,27 @@ def test_confirmation_rejects_blocked_and_all_missing_sources(monkeypatch, tmp_p
                 session, report, replace(report), replace(evidence, gis=gis),
                 snapshot, source_key=("source",),
             )
+
+
+@pytest.mark.parametrize("change", ("curve", "axis"))
+def test_approval_rejects_matching_edits_to_live_and_copied_arrays(monkeypatch, tmp_path, change):
+    session, _, dataset, key, report, snapshot, evidence = _reviewed(monkeypatch, tmp_path)
+    source_key = ("source",)
+    selection = confirm_gis_geology_selection(
+        session, report, replace(report), evidence, snapshot, source_key=source_key,
+    )
+    if change == "curve":
+        dataset.curves[key].values[1] = 1.5
+        snapshot.dataset.curves[key].values[1] = 1.5
+    else:
+        dataset.active_index.values[1] = 101.5
+        snapshot.dataset.active_index.values[1] = 101.5
+    assert snapshot.matches(lambda: False)
+    summary = review_gis_source_interval_batch(
+        snapshot.dataset, curve_keys=(key,), top_md_m=100.0, bottom_md_m=102.0,
+    )
+    assert summary == evidence.gis
+    with pytest.raises(ValueError, match="approved numeric fingerprint"):
+        verified_gis_geology_handoff(
+            session, report, replace(report), selection, source_key=source_key,
+        )

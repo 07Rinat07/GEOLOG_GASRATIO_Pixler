@@ -9,6 +9,9 @@ No report file or export approval is produced implicitly.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from hashlib import sha256
+
+import numpy as np
 
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.gis_interval_sample_review import (
@@ -34,6 +37,26 @@ class ConfirmedGisGeologySelection:
     source_key: tuple[object, ...]
     evidence: GasGeologyGisIntervalEvidence
     snapshot: GisIntervalSnapshot
+    numeric_sha256: tuple[str, ...]
+
+
+def _array_sha256(values: np.ndarray) -> str:
+    """Hash original numeric bytes with dtype/shape, in bounded chunks."""
+    array = np.asarray(values)
+    if array.dtype.kind not in "biufc":
+        raise ValueError("GIS confirmation requires numeric source arrays")
+    digest = sha256()
+    digest.update(repr((array.dtype.str, array.shape)).encode("ascii"))
+    for start in range(0, array.size, 65_536):
+        digest.update(array.flat[start:start + 65_536].tobytes())
+    return digest.hexdigest()
+
+
+def _numeric_fingerprint(snapshot: GisIntervalSnapshot) -> tuple[str, ...]:
+    return (
+        _array_sha256(snapshot.dataset.active_index.values),
+        *(_array_sha256(snapshot.dataset.curves[key].values) for key in snapshot.keys),
+    )
 
 
 def _verify_candidate(
@@ -117,7 +140,10 @@ def confirm_gis_geology_selection(
     if not isinstance(source_key, tuple) or not source_key:
         raise ValueError("Confirmation requires an identified report source")
     _verify_evidence(session, report, current_report, evidence, snapshot)
-    return ConfirmedGisGeologySelection(report, source_key, evidence, snapshot)
+    fingerprint = _numeric_fingerprint(snapshot)
+    if not snapshot.matches(lambda: False):
+        raise ValueError("Confirmed GIS evidence has changed source arrays")
+    return ConfirmedGisGeologySelection(report, source_key, evidence, snapshot, fingerprint)
 
 
 def verified_gis_geology_handoff(
@@ -136,6 +162,13 @@ def verified_gis_geology_handoff(
     ):
         raise ValueError("Confirmed GIS evidence has a stale report or source key")
     _verify_evidence(session, report, current_report, selection.evidence, selection.snapshot)
+    # A frozen selection still references a mutable snapshot object. Even if
+    # live and copied arrays are edited together, the approved bytes must match.
+    if (
+        _numeric_fingerprint(selection.snapshot) != selection.numeric_sha256
+        or not selection.snapshot.matches(lambda: False)
+    ):
+        raise ValueError("Confirmed GIS evidence has changed approved numeric fingerprint")
     return selection.evidence
 
 
