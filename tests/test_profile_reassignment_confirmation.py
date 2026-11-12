@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 from PySide6.QtWidgets import QDialogButtonBox, QMessageBox
 
+from geoworkbench.data.lossless_las import read_lossless_las
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain, Project, Well
 from geoworkbench.domain.rock_code_profiles import RockCodeSourceBindingRecord
 from geoworkbench.project.daily_las_growth_controller import DailyLasGrowthController
@@ -44,7 +45,12 @@ def _session() -> tuple[ProjectSession, Dataset]:
 
 
 def _write_source(path: Path) -> str:
-    path.write_bytes(b"daily-las-source")
+    path.write_bytes(
+        b"~Version Information\n VERS. 2.0 : LAS 2.0\n WRAP. NO : One row\n"
+        b"~Well Information\n STRT.M 100 : Start\n STOP.M 101 : Stop\n"
+        b" STEP.M 1 : Step\n NULL. -999.25 : Null\n WELL. Well : Well\n"
+        b"~Curve Information\n DEPT.M : Depth\n~ASCII Log Data\n100\n101\n"
+    )
     return sha256(path.read_bytes()).hexdigest()
 
 
@@ -53,14 +59,18 @@ def _write_profile(path: Path, dictionary: RockCodeDictionary) -> None:
 
 
 def _patch_import(monkeypatch, *, source_sha256: str, source: Dataset) -> None:
-    imported = SimpleNamespace(
-        dataset=source,
-        report=SimpleNamespace(source=SimpleNamespace(sha256=source_sha256)),
-        source_document=SimpleNamespace(size_bytes=len(b"daily-las-source")),
-    )
+    def import_source(path, **_kwargs):
+        document = read_lossless_las(path)
+        assert sha256(document.raw_bytes).hexdigest() == source_sha256
+        return SimpleNamespace(
+            dataset=source,
+            report=SimpleNamespace(source=SimpleNamespace(sha256=source_sha256)),
+            source_document=document,
+        )
+
     monkeypatch.setattr(
         "geoworkbench.project.daily_las_growth_controller.import_las_with_report",
-        lambda *_args, **_kwargs: imported,
+        import_source,
     )
 
 
@@ -81,8 +91,10 @@ def _patch_analysis(monkeypatch, target: Dataset) -> SimpleNamespace:
         _source: Dataset,
         *,
         source_sha256: str,
+        source_raw_bytes: bytes,
         **_kwargs,
     ) -> SimpleNamespace:
+        assert sha256(source_raw_bytes).hexdigest() == source_sha256
         binding = actual_session.rock_code_source_bindings[source_sha256]
         return SimpleNamespace(profile_sha256=binding.profile_sha256)
 
@@ -146,8 +158,11 @@ def test_controller_requires_explicit_reassignment_preview_and_commits_exact_rev
         actual_session: ProjectSession,
         *_args,
         source_sha256: str,
+        source_raw_bytes: bytes,
         **_kwargs,
     ) -> None:
+        assert source_raw_bytes == source_path.read_bytes()
+        assert sha256(source_raw_bytes).hexdigest() == source_sha256
         assert actual_session.rock_code_source_bindings[source_sha256].profile_sha256 == (
             expected_new_sha256
         )

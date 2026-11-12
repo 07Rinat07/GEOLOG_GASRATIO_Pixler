@@ -354,6 +354,7 @@ class DailyLasGrowthController:
                     imported.dataset,
                     source_name=path.name,
                     source_sha256=digest,
+                    source_raw_bytes=imported.source_document.raw_bytes,
                 )
             finally:
                 self.session.rock_code_profiles.clear()
@@ -448,6 +449,7 @@ class DailyLasGrowthController:
                         source_name=self._source_path.name,
                         source_sha256=digest,
                         append_rows=append_rows,
+                        source_raw_bytes=self._source.source_document.raw_bytes,
                     )
 
                 outcome = apply_well_numerical_update(
