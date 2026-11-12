@@ -935,7 +935,7 @@ class InterpretationReportWorkspace(QWidget):
         gis_button.setVisible(has_reviewable_gis())
         layout.addWidget(gis_button)
 
-        def validated_gis_bounds() -> tuple[float, float] | None:
+        def validated_gis_bounds(*, notify: bool = True) -> tuple[float, float] | None:
             from geoworkbench.services.geology_depth_alignment import supports_saved_md_geology
 
             index = selector.currentData()
@@ -954,11 +954,12 @@ class InterpretationReportWorkspace(QWidget):
                 or not has_reviewable_gis()
                 or not geology_current
             ):
-                QMessageBox.information(self, gis_button.text(), self._text(
-                    "Источник или интервал изменился. Обновите отчёт и выберите интервал заново.",
-                    "Дереккөз немесе аралық өзгерді. Есепті жаңартып, аралықты қайта таңдаңыз.",
-                    "The source or interval changed. Refresh the report and select the interval again.",
-                ))
+                if notify:
+                    QMessageBox.information(self, gis_button.text(), self._text(
+                        "Источник или интервал изменился. Обновите отчёт и выберите интервал заново.",
+                        "Дереккөз немесе аралық өзгерді. Есепті жаңартып, аралықты қайта таңдаңыз.",
+                        "The source or interval changed. Refresh the report and select the interval again.",
+                    ))
                 return None
             # Report identities do not catch in-place edits to array contents.
             # Rebuild only on this explicit click and require the same candidate.
@@ -992,11 +993,12 @@ class InterpretationReportWorkspace(QWidget):
                 ):
                     raise ValueError("The selected interval is stale or invalid")
             except (RuntimeError, ValueError, TypeError, OverflowError):
-                QMessageBox.information(self, gis_button.text(), self._text(
-                    "Газовый интервал изменился или недоступен. Обновите отчёт и выберите его заново.",
-                    "Газ аралығы өзгерді немесе қолжетімсіз. Есепті жаңартып, қайта таңдаңыз.",
-                    "The gas interval changed or is unavailable. Refresh the report and select it again.",
-                ))
+                if notify:
+                    QMessageBox.information(self, gis_button.text(), self._text(
+                        "Газовый интервал изменился или недоступен. Обновите отчёт и выберите его заново.",
+                        "Газ аралығы өзгерді немесе қолжетімсіз. Есепті жаңартып, қайта таңдаңыз.",
+                        "The gas interval changed or is unavailable. Refresh the report and select it again.",
+                    ))
                 return None
             return candidate.top_depth, candidate.bottom_depth
 
@@ -1028,7 +1030,7 @@ class InterpretationReportWorkspace(QWidget):
             if bounds is None:
                 return
             preview = GisGeologyEvidenceDialog(
-                session, dataset, bounds, validated_gis_bounds, dialog,
+                session, dataset, bounds, lambda: validated_gis_bounds(notify=False), dialog,
                 language=self._report_output_language(),
             )
             preview.exec()

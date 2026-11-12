@@ -243,9 +243,7 @@ class GisGeologyEvidenceDialog(QDialog):
         except (ValueError, RuntimeError, TypeError, OverflowError):
             self.status.setText(self.words[4])
             return
-        # Source checks may display a modal message. Cancellation/closure
-        # during that nested event loop must never publish the old payload.
-        if self._cancel_requested:
+        if self._cancel_requested or self._worker is None or self._geology is not geology:
             self.status.setText(self._t("cancelled"))
             return
         self.viewer.setHtml(html)

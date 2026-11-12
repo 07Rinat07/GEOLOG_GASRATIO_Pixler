@@ -193,11 +193,11 @@ class GisIntervalCompareDialog(QDialog):
         self.status.setText(self._t("preparing"))
         worker = GisIntervalCompareWorker(self.dataset, keys, top, bottom)
         self._worker = worker
-        register_gis_interval_worker(worker)
         worker.progress.connect(self._progress)
         worker.completed.connect(self._completed)
         worker.failed.connect(self._failed)
         worker.finished.connect(self._worker_finished)
+        register_gis_interval_worker(worker)
         self.destroyed.connect(worker.request_cancel)
         worker.start()
 

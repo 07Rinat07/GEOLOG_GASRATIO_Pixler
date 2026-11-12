@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import QApplication, QComboBox, QDialog, QListWidgetItem, QMessageBox, QPushButton
 
 from geoworkbench.domain.models import LithologyInterval
@@ -11,6 +11,7 @@ from geoworkbench.ui.gis_geology_evidence_dialog import GisGeologyEvidenceDialog
 from test_gas_interval_gis_review_ui import _with_inserted_gis
 from test_interpretation_geology_evidence_operator_ui import _workspace
 from test_gis_interval_compare_ui import _wait_review
+from test_gis_interval_compare_background import _paused_review
 
 
 @pytest.mark.parametrize("language", list(AppLanguage))
@@ -74,7 +75,7 @@ def test_combined_preview_rejects_changed_gas_candidate_after_open(qapp, monkeyp
         dialog.review.click()
         assert not dialog.viewer.toPlainText()
         assert dialog.status.text() == dialog.words[4]
-        assert messages and "changed" in messages[-1]
+        assert not messages  # combined preview reports staleness inline
         return QDialog.DialogCode.Rejected
 
     monkeypatch.setattr(GisGeologyEvidenceDialog, "exec", inspect)
@@ -83,7 +84,7 @@ def test_combined_preview_rejects_changed_gas_candidate_after_open(qapp, monkeyp
         workspace._geology_evidence_dialog.findChild(
             QPushButton, "interpretation-geology-combined-gis",
         ).click()
-        assert messages
+        assert not messages
     finally:
         workspace.close()
 
@@ -154,6 +155,108 @@ def test_preview_drops_completed_result_when_candidate_changes_during_review(
         assert preview.status.text() == preview.words[4]
         assert not preview.viewer.toPlainText()
         assert QApplication.overrideCursor() is None
+    finally:
+        preview.close()
+        workspace.close()
+
+
+@pytest.mark.parametrize("close", (False, True))
+def test_combined_background_cancel_or_close_discards_results(qapp, monkeypatch, tmp_path, close):
+    workspace, session, _, dataset = _with_inserted_gis(monkeypatch, tmp_path, AppLanguage.EN)
+    started, release = _paused_review(monkeypatch)
+    preview = GisGeologyEvidenceDialog(
+        session, dataset, (100.0, 102.0), lambda: (100.0, 102.0),
+        language=AppLanguage.EN,
+    )
+    preview.show()
+    try:
+        preview.curves.item(0).setCheckState(Qt.CheckState.Checked)
+        preview.review.click()
+        assert started.wait(5)
+        heartbeat = []
+        QTimer.singleShot(0, lambda: heartbeat.append(True))
+        qapp.processEvents()
+        assert heartbeat == [True]
+        assert not preview.curves.isEnabled() and not preview.review.isEnabled()
+        if close:
+            preview.close()
+            assert preview.isVisible()
+        else:
+            preview.cancel.click()
+        assert preview.status.text() == preview._t("cancelling")
+        release.set()
+        _wait_review(qapp, preview)
+        assert not preview.viewer.toPlainText()
+        assert preview.status.text() == preview._t("cancelled")
+        assert preview.curves.isEnabled()
+        assert preview.isVisible() is not close
+    finally:
+        release.set()
+        if preview._worker is not None:
+            _wait_review(qapp, preview)
+        preview.close()
+        workspace.close()
+
+
+@pytest.mark.parametrize("change", ("geology", "gis", "axis"))
+def test_combined_background_rejects_changed_sources(qapp, monkeypatch, tmp_path, change):
+    workspace, session, _, dataset = _with_inserted_gis(monkeypatch, tmp_path, AppLanguage.EN)
+    started, release = _paused_review(monkeypatch)
+    preview = GisGeologyEvidenceDialog(
+        session, dataset, (100.0, 102.0), lambda: (100.0, 102.0),
+        language=AppLanguage.EN,
+    )
+    try:
+        item = preview.curves.item(0)
+        key = item.data(Qt.ItemDataRole.UserRole)
+        item.setCheckState(Qt.CheckState.Checked)
+        preview.review.click()
+        assert started.wait(5)
+        if change == "geology":
+            session.current_well.lithology.append(
+                LithologyInterval("new-lith", 100.0, 102.0, "sandstone"),
+            )
+        elif change == "gis":
+            dataset.curves[key].values[0] = 99.0
+        else:
+            dataset.active_index.values[0] = 99.0
+        release.set()
+        _wait_review(qapp, preview)
+        assert preview.status.text() == preview.words[4]
+        assert not preview.viewer.toPlainText()
+    finally:
+        release.set()
+        if preview._worker is not None:
+            _wait_review(qapp, preview)
+        preview.close()
+        workspace.close()
+
+
+def test_combined_rechecks_arrays_after_worker_verification(qapp, monkeypatch, tmp_path):
+    from geoworkbench.services.gis_interval_sample_review import review_gis_source_interval_batch
+    from geoworkbench.services.gis_interval_snapshot import GisIntervalSnapshot
+
+    workspace, session, _, dataset = _with_inserted_gis(monkeypatch, tmp_path, AppLanguage.EN)
+    preview = GisGeologyEvidenceDialog(
+        session, dataset, (100.0, 102.0), lambda: (100.0, 102.0),
+        language=AppLanguage.EN,
+    )
+    try:
+        item = preview.curves.item(0)
+        key = item.data(Qt.ItemDataRole.UserRole)
+        item.setCheckState(Qt.CheckState.Checked)
+        preview._keys = (key,)
+        preview._geology = preview._read_geology()
+        snapshot = GisIntervalSnapshot(dataset, (key,), lambda: False)
+        payload = review_gis_source_interval_batch(
+            snapshot.dataset, curve_keys=(key,), top_md_m=100.0, bottom_md_m=102.0,
+        )
+        assert snapshot.matches(lambda: False)
+        dataset.curves[key].values[0] = 99.0
+        assert snapshot.structure_matches()
+        preview._completed(snapshot, payload)
+        assert preview.status.text() == preview.words[4]
+        assert not preview.viewer.toPlainText()
     finally:
         preview.close()
         workspace.close()
