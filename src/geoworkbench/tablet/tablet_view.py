@@ -16,6 +16,7 @@ from PySide6.QtGui import (
     QColor,
     QCursor,
     QKeyEvent,
+    QFont,
     QFontMetrics,
     QMouseEvent,
     QPainter,
@@ -382,11 +383,11 @@ def _fit_interval_description_text(
 
 
 def _set_uniform_rock_description_text(
-    item: pg.TextItem, text: str, width_pixels: float,
+    item: pg.TextItem, text: str, width_pixels: float, *, font: QFont | None = None,
 ) -> None:
     """Apply one font and ordinary paragraph style, independently of source HTML."""
     item.setText(text, color=ROCK_DESCRIPTION_COLOR)
-    item.setFont(rock_description_font(text))
+    item.setFont(font if font is not None else rock_description_font(text))
     document = item.textItem.document()
     option = document.defaultTextOption()
     option.setAlignment(Qt.AlignmentFlag.AlignLeft)
@@ -413,8 +414,12 @@ def _fit_uniform_rock_description_text(
     if width <= 4.0 or height <= 0.0:
         return False
 
+    # Reuse the same full-source font stack during all fit attempts. A
+    # truncated string must not select a different primary font.
+    font = rock_description_font(full_text)
+
     def fits(candidate: str) -> bool:
-        _set_uniform_rock_description_text(item, candidate, width)
+        _set_uniform_rock_description_text(item, candidate, width, font=font)
         bounds = item.textItem.boundingRect()
         return bounds.width() <= width + 0.01 and bounds.height() <= height + 0.01
 

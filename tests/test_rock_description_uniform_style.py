@@ -25,7 +25,7 @@ from geoworkbench.ui.rock_description_dialog import RockDescriptionDialog
 def _dataset(identifier, depth):
     dataset = Dataset(identifier, identifier, DatasetKind.GTI, DepthDomain.MD,
                       np.asarray(depth, dtype=float), headers={"WELL": "Test"})
-    dataset.upsert_curve("ROP", np.asarray(depth, dtype=float), unit="m/h")
+    dataset.upsert_curve("ROP", np.asarray(depth, dtype=float), unit="m/h", provenance="source")
     return dataset
 
 
