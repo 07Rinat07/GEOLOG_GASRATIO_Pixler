@@ -3,7 +3,7 @@ from __future__ import annotations
 from geoworkbench.printing.masterlog_document_control import MasterlogDocumentControlLayout, masterlog_document_control_layout
 from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.printing.rock_description_presentation import (
-    ROCK_DESCRIPTION_POINT_SIZE, rock_description_plain_text,
+    rock_description_plain_text,
 )
 from geoworkbench.services.lba_standard import lba_color_code
 import os
@@ -2348,7 +2348,7 @@ def _paint_lba_column(
 
 def _paint_uniform_rock_description(
     painter: QPainter, rect: QRectF, description: str, color: QColor,
-    *, word_wrap: bool = True, rich: bool = True,
+    *, point_size: float, word_wrap: bool = True, rich: bool = True,
 ) -> None:
     """Print readable plain text at one physical size, clipped per interval."""
     text = rock_description_plain_text(description, rich=rich)
@@ -2356,7 +2356,7 @@ def _paint_uniform_rock_description(
         return
     painter.save()
     try:
-        _set_scaled_unicode_font_points(painter, text, ROCK_DESCRIPTION_POINT_SIZE)
+        _set_scaled_unicode_font_points(painter, text, point_size)
         font = painter.font()
         font.setWeight(QFont.Weight.Normal)
         font.setItalic(False)
@@ -2367,8 +2367,8 @@ def _paint_uniform_rock_description(
         _draw_fitted_interval_text(
             painter, rect.adjusted(0.6, 0.3, -0.6, -0.3), text,
             alignment=Qt.AlignmentFlag.AlignLeft,
-            maximum_point_size=ROCK_DESCRIPTION_POINT_SIZE,
-            minimum_point_size=ROCK_DESCRIPTION_POINT_SIZE,
+            maximum_point_size=point_size,
+            minimum_point_size=point_size,
             word_wrap=word_wrap,
         )
     finally:
@@ -2415,7 +2415,8 @@ def _paint_lithology_descriptions(
             painter.drawRect(interval_rect)
         if interval_rect.height() >= 3.0:
             _paint_uniform_rock_description(
-                painter, interval_rect, description, QColor(visual.palette.text), rich=False,
+                painter, interval_rect, description, QColor(visual.palette.text),
+                point_size=visual.typography.rock_description_pt, rich=False,
             )
     painter.restore()
 
@@ -2457,6 +2458,7 @@ def _paint_cuttings_descriptions(
         if sample_rect.height() >= 3.0:
             _paint_uniform_rock_description(
                 painter, sample_rect, description, QColor(visual.palette.text),
+                point_size=visual.typography.rock_description_pt,
                 word_wrap=sample.description_word_wrap,
             )
     painter.restore()

@@ -7,10 +7,10 @@ import re
 
 from PySide6.QtGui import QFont, QTextDocument
 
+from geoworkbench.printing.report_visual_system import ROCK_DESCRIPTION_POINT_SIZE as ROCK_DESCRIPTION_POINT_SIZE
 from geoworkbench.printing.unicode_support import print_font
 
 
-ROCK_DESCRIPTION_POINT_SIZE = 9.0
 ROCK_DESCRIPTION_COLOR = "#202020"
 # Legacy rich-text editor output contains these tags. Do not treat a plain
 # geological comparison such as "<5% ... >2%" as HTML.
