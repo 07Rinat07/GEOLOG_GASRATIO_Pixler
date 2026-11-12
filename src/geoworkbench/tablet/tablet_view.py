@@ -6932,9 +6932,9 @@ class TabletView(QWidget):
         """
 
         group_height = 30 if self._group_header_container.isVisible() else 0
-        compact = self._compact_screen()
+        screen = not self.property("geoworkbench-print-clone")
         available = self._scroll.viewport().height() - group_height
-        height = max(available, 1 if compact else 240)
+        height = max(available, 1 if screen else 240)
         self._tracks_container.setFixedHeight(height)
         self._container.setFixedHeight(height + group_height)
         for rendered in self._rendered.values():
@@ -6945,7 +6945,7 @@ class TabletView(QWidget):
                 header = sum(track.synchronized_header_heights)
                 track.plot.setMinimumHeight(
                     max(1, min(SCREEN_PLOT_MINIMUM_HEIGHT, height - header - 2))
-                    if compact else SCREEN_PLOT_MINIMUM_HEIGHT
+                    if screen else SCREEN_PLOT_MINIMUM_HEIGHT
                 )
             track.setFixedHeight(height)
 
