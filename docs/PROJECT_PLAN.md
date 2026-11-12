@@ -1,5 +1,9 @@
 # Единый план проекта
 
+## Центрирование заголовков планшета — 12 ноября 2026
+
+- Новые заводские формы: все заголовки колонок и треков центрированы. Form schema v19 / tablet layout v26: однократная миграция старого `title_position=bottom` в `center`; направление текста, ширина, данные и положение подписей геологических интервалов не меняются. Явные настройки новых форм сохраняются. Слияние только после полного Release Gate на точном PR-head и текущем main.
+
 ## Актуальный инкремент INTERP-GIS-01 — 12 ноября 2026
 
 - [#866](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/866): совместный неизменяемый снимок геологии и исходных отсчётов ГИС в одном MD-интервале. PR-head `8fa3921` — [3/3 SUCCESS](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43141803751), интегрирован как `8f7eee4`; [post-merge Release Gate 43145818689](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43145818689) — **3/3 SUCCESS**, завершённая ветка автоматически удалена.
@@ -3634,7 +3638,7 @@ WELL-04/05 закрываются по этой сквозной матрице,
 
 ## Текущая база
 
-- пакет `0.7.96`; project `v38`; form `v18`; tablet layout `v25`;
+- пакет `0.7.96`; project `v38`; form `v19`; tablet layout `v26`;
 - desktop-модульный монолит: Python 3.11, PySide6, PyQtGraph, NumPy;
 - WITS0, WITSML 1.4.1.1, WITSML 2.x/ETP foundation, GS2/Paradox, LAS, планшет, формы,
   расчёты и отчёты реализованы;
@@ -4982,7 +4986,7 @@ placeholder names между RU/KK/EN. Руководство Print Center на 
 строк или физической приёмки. #604: три Windows gates SUCCESS на d6a97ef5,
 интегрирован в main 41c4ac9d.
 
-<!-- runtime-contract: package=0.7.96; project=v38; form=v18; layout=v25 -->
+<!-- runtime-contract: package=0.7.96; project=v38; form=v19; layout=v26 -->
 
 #### INTERP-GEO-01 — числовые наблюдения ЛБА (на проверке)
 

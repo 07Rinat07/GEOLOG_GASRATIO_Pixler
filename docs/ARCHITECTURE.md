@@ -67,7 +67,7 @@ well/dataset/axis IDs prevent cross-source reuse. Every evaluation rereads curre
 state before producing LithologyObservation. Quality and UNKNOWN_OR_MIXED remain
 explicit. No name inference, persistence, UI, lag alignment or field certification.
 
-<!-- runtime-contract: package=0.7.96; project=v38; form=v18; layout=v25 -->
+<!-- runtime-contract: package=0.7.96; project=v38; form=v19; layout=v26 -->
 # Архитектура
 
 ## INTERP-FUSION-01: общий coverage sweep для литологии и evidence
