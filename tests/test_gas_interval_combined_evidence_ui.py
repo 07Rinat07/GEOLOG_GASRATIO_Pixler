@@ -260,3 +260,45 @@ def test_combined_rechecks_arrays_after_worker_verification(qapp, monkeypatch, t
     finally:
         preview.close()
         workspace.close()
+
+
+def test_combined_repeated_open_review_close_keeps_workers_retired(qapp, monkeypatch, tmp_path):
+    """Exercise native lifetime in one process, across languages and dialogs."""
+    from PySide6.QtCore import QCoreApplication, QEvent
+    from geoworkbench.ui.gis_interval_compare_dialog import _LIVE_WORKERS
+
+    workspace, session, _, dataset = _with_inserted_gis(monkeypatch, tmp_path, AppLanguage.EN)
+    before = set(_LIVE_WORKERS)
+    key = next(key for key, curve in dataset.curves.items()
+               if curve.metadata.original_mnemonic == "GR")
+    source = dataset.curves[key].values.copy()
+    try:
+        for language in list(AppLanguage) * 4:
+            dialog = GisGeologyEvidenceDialog(
+                session, dataset, (100.0, 102.0), lambda: (100.0, 102.0),
+                language=language,
+            )
+            try:
+                choice = next(
+                    dialog.curves.item(i) for i in range(dialog.curves.count())
+                    if dialog.curves.item(i).data(Qt.ItemDataRole.UserRole) == key
+                )
+                choice.setCheckState(Qt.CheckState.Checked)
+                for _ in range(2):
+                    dialog.review.click()
+                    worker = dialog._worker
+                    assert worker is not None and worker in _LIVE_WORKERS
+                    _wait_review(qapp, dialog)
+                    assert dialog.status.text() == dialog._t("complete")
+                    assert key in dialog.viewer.toPlainText()
+                    assert dialog._worker_cancel_connection is None
+                    assert set(_LIVE_WORKERS) == before
+            finally:
+                if dialog._worker is not None:
+                    _wait_review(qapp, dialog)
+                dialog.close()
+                dialog.deleteLater()
+                QCoreApplication.sendPostedEvents(dialog, QEvent.Type.DeferredDelete)
+        np.testing.assert_array_equal(dataset.curves[key].values, source)
+    finally:
+        workspace.close()

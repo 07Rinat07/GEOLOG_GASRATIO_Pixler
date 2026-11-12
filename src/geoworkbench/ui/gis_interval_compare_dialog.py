@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from math import isfinite
 
-from PySide6.QtCore import QCoreApplication, QSize, Qt, Slot
+from PySide6.QtCore import QCoreApplication, QMetaObject, QObject, QSize, Qt, Slot
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QDialog, QDialogButtonBox, QFormLayout, QHeaderView, QLabel, QLineEdit, QProgressBar,
@@ -27,7 +27,7 @@ _LIVE_WORKERS: set[GisIntervalCompareWorker] = set()
 
 
 def _stop_workers_on_exit() -> None:
-    # Qt must not destroy a running QThread during application shutdown.
+    # Join numeric workers before their GUI-owned signal bridges are destroyed.
     workers = tuple(_LIVE_WORKERS)
     for worker in workers:
         worker.request_cancel()
@@ -35,15 +35,38 @@ def _stop_workers_on_exit() -> None:
         worker.wait()
 
 
+class _GisWorkerRegistry(QObject):
+    """Own worker cleanup on the GUI thread, not inside the worker thread."""
+
+    @Slot()
+    def retire(self) -> None:
+        worker = self.sender()
+        if not isinstance(worker, GisIntervalCompareWorker) or worker not in _LIVE_WORKERS:
+            return
+        # Terminal delivery can precede the final return from Thread.run.
+        # Join before releasing the GUI-owned signal bridge.
+        worker.wait()
+        _LIVE_WORKERS.discard(worker)
+        worker.deleteLater()
+
+
+_WORKER_REGISTRY: _GisWorkerRegistry | None = None
+
+
 def register_gis_interval_worker(worker: GisIntervalCompareWorker) -> None:
     """Keep any GIS interval review worker alive through dialog destruction."""
-    _LIVE_WORKERS.add(worker)
+    global _WORKER_REGISTRY
     app = QCoreApplication.instance()
-    if app is not None and not app.property("gis_compare_shutdown_connected"):
+    if app is None:
+        raise RuntimeError("GIS review requires a Qt application")
+    if _WORKER_REGISTRY is None:
+        _WORKER_REGISTRY = _GisWorkerRegistry(app)
         app.aboutToQuit.connect(_stop_workers_on_exit)
-        app.setProperty("gis_compare_shutdown_connected", True)
-    worker.finished.connect(lambda: _LIVE_WORKERS.discard(worker))
-    worker.finished.connect(worker.deleteLater)
+    worker.setParent(_WORKER_REGISTRY)
+    _LIVE_WORKERS.add(worker)
+    # A real QObject receiver with queued delivery prevents a Python lambda
+    # from releasing the last wrapper reference on the emitting native thread.
+    worker.finished.connect(_WORKER_REGISTRY.retire, Qt.ConnectionType.QueuedConnection)
 
 
 class GisIntervalCompareDialog(QDialog):
@@ -55,6 +78,7 @@ class GisIntervalCompareDialog(QDialog):
         self.dataset = dataset
         self.localizer = Localizer.create(language)
         self._worker: GisIntervalCompareWorker | None = None
+        self._worker_cancel_connection: QMetaObject.Connection | None = None
         self._cancel_requested = False
         self._close_after_worker = False
         self._missing_details: dict[int, str] = {}
@@ -193,12 +217,12 @@ class GisIntervalCompareDialog(QDialog):
         self.status.setText(self._t("preparing"))
         worker = GisIntervalCompareWorker(self.dataset, keys, top, bottom)
         self._worker = worker
-        worker.progress.connect(self._progress)
-        worker.completed.connect(self._completed)
-        worker.failed.connect(self._failed)
-        worker.finished.connect(self._worker_finished)
+        worker.progress.connect(self._progress, Qt.ConnectionType.QueuedConnection)
+        worker.completed.connect(self._completed, Qt.ConnectionType.QueuedConnection)
+        worker.failed.connect(self._failed, Qt.ConnectionType.QueuedConnection)
+        worker.finished.connect(self._worker_finished, Qt.ConnectionType.QueuedConnection)
         register_gis_interval_worker(worker)
-        self.destroyed.connect(worker.request_cancel)
+        self._worker_cancel_connection = self.destroyed.connect(worker.cancellation_callback())
         worker.start()
 
     def _set_running(self, running: bool) -> None:
@@ -271,6 +295,13 @@ class GisIntervalCompareDialog(QDialog):
 
     @Slot()
     def _worker_finished(self) -> None:
+        worker = self._worker
+        if worker is not None:
+            # Do not allow a new review or dialog disposal before native exit.
+            worker.wait()
+        if self._worker_cancel_connection is not None:
+            QObject.disconnect(self._worker_cancel_connection)
+            self._worker_cancel_connection = None
         self._worker = None
         self._set_running(False)
         if self._close_after_worker:

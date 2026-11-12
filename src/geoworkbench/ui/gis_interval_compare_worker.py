@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
-from threading import Event
+from threading import Event, Thread
+from collections.abc import Callable
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import QObject, Signal
 
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.gis_interval_sample_review import (
@@ -17,10 +18,12 @@ from geoworkbench.services.gis_interval_snapshot import GisIntervalSnapshot, Gis
 _LOG = logging.getLogger(__name__)
 
 
-class GisIntervalCompareWorker(QThread):
+class GisIntervalCompareWorker(QObject):
+    """GUI-owned signal bridge; numeric review runs on a Python thread."""
     progress = Signal(str, int, int)
     completed = Signal(object, object)
     failed = Signal(str)
+    finished = Signal()
 
     def __init__(self, dataset: Dataset, keys: tuple[str, ...], top: float, bottom: float) -> None:
         super().__init__()
@@ -29,6 +32,38 @@ class GisIntervalCompareWorker(QThread):
         self.top = top
         self.bottom = bottom
         self._cancel = Event()
+        self._started = False
+        self._thread = Thread(target=self.run, name="gis-interval-review", daemon=False)
+
+    def start(self) -> None:
+        if self._started:
+            raise RuntimeError("A GIS review worker can only start once")
+        self._started = True
+        try:
+            self._thread.start()
+        except RuntimeError:
+            _LOG.exception("Could not start background GIS interval review")
+            self.failed.emit("failed")
+            self.finished.emit()
+
+    def wait(self) -> bool:
+        # Thread.join is invalid before a successful start. The GUI receives
+        # terminal signals via queued connections, so it never joins itself.
+        if self._thread.ident is not None:
+            self._thread.join()
+        return not self._thread.is_alive()
+
+    def isFinished(self) -> bool:  # noqa: N802 - existing worker interface
+        return self._started and not self._thread.is_alive()
+
+    def cancellation_callback(self) -> Callable[..., None]:
+        """Return a plain Python callback that never retains the Qt wrapper."""
+        event = self._cancel
+
+        def cancel(*_args: object) -> None:
+            event.set()
+
+        return cancel
 
     def request_cancel(self) -> None:
         self._cancel.set()
@@ -57,3 +92,5 @@ class GisIntervalCompareWorker(QThread):
             # Worker errors are reported generically; source paths are not shown in the UI.
             _LOG.exception("Background GIS interval review failed")
             self.failed.emit("failed")
+        finally:
+            self.finished.emit()
