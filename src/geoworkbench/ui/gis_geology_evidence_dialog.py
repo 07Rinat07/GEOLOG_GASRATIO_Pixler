@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import QObject, QSize, Qt, Slot
+from PySide6.QtCore import QMetaObject, QObject, QSize, Qt, Slot
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QDialog, QDialogButtonBox, QLabel, QListWidget, QListWidgetItem,
@@ -73,7 +73,7 @@ class GisGeologyEvidenceDialog(QDialog):
         self.words = _TEXT[language]
         self.localizer = Localizer.create(language)
         self._worker: GisIntervalCompareWorker | None = None
-        self._worker_cancel_connection = None
+        self._worker_cancel_connection: QMetaObject.Connection | None = None
         self._geology: GasGeologyIntervalEvidence | None = None
         self._well = session.current_well
         self._keys: tuple[str, ...] = ()

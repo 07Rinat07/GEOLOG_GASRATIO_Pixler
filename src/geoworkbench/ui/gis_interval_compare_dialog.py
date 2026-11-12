@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from math import isfinite
 
-from PySide6.QtCore import QCoreApplication, QObject, QSize, Qt, Slot
+from PySide6.QtCore import QCoreApplication, QMetaObject, QObject, QSize, Qt, Slot
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QDialog, QDialogButtonBox, QFormLayout, QHeaderView, QLabel, QLineEdit, QProgressBar,
@@ -78,7 +78,7 @@ class GisIntervalCompareDialog(QDialog):
         self.dataset = dataset
         self.localizer = Localizer.create(language)
         self._worker: GisIntervalCompareWorker | None = None
-        self._worker_cancel_connection = None
+        self._worker_cancel_connection: QMetaObject.Connection | None = None
         self._cancel_requested = False
         self._close_after_worker = False
         self._missing_details: dict[int, str] = {}

@@ -52,6 +52,9 @@ def test_native_isolation_keeps_masterlog_mapping_out_of_regular_shards() -> Non
     "relative_path",
     (
         "tests/test_daily_las_growth_autosave.py",
+        "tests/test_gas_interval_combined_evidence_ui.py",
+        "tests/test_gis_interval_compare_ui.py",
+        "tests/test_gis_interval_compare_background.py",
         "tests/test_lithology_drag_editor.py",
         "tests/test_lithology_mapping_dialog.py",
         "tests/test_localization.py",
