@@ -1,0 +1,126 @@
+name: Windows CurveView native failure diagnostic
+
+on:
+  push:
+    branches:
+      - codex/qt-curveview-native-diagnostic
+    paths:
+      - .github/workflows/qt-curveview-native-diagnostic.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qt-curveview-native-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHONUTF8: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  qt-native-replay:
+    name: CurveView native replay (${{ matrix.case }})
+    runs-on: windows-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - case: passport
+            sha: 53372e67b0bcf613733a81090a93bb16b6b6acf6
+            selector: tests/test_well_passport_dialog.py
+          - case: las3-reopen
+            sha: 10ad68167cc4698145885c31b93c64add9307494
+            selector: tests/test_las3_modal_reopen_acceptance.py
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          ref: ${{ matrix.sha }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: "0.11.29"
+          enable-cache: true
+          cache-dependency-glob: requirements/release.lock
+
+      - name: Install the hashed release environment
+        shell: pwsh
+        run: |
+          uv venv .venv --python 3.11
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          uv pip sync requirements/release.lock --python .venv --require-hashes
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          uv pip install --python .venv setuptools==83.0.0 wheel==0.47.0 pytest==9.1.1 pytest-asyncio==1.4.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          uv pip install --python .venv --no-deps --no-build-isolation --editable .
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Enable bounded WER minidumps on the hosted runner
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_ACTIONS -ne "true" -or $env:RUNNER_OS -ne "Windows") {
+            throw "Native dumps require a disposable Windows Actions runner"
+          }
+          $DumpFolder = Join-Path $env:RUNNER_TEMP "geolog-replay-dumps"
+          New-Item -ItemType Directory -Force $DumpFolder | Out-Null
+          $DumpKey = "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\python.exe"
+          New-Item -Path $DumpKey -Force | Out-Null
+          New-ItemProperty -Path $DumpKey -Name DumpFolder -Value $DumpFolder -PropertyType ExpandString -Force | Out-Null
+          New-ItemProperty -Path $DumpKey -Name DumpType -Value 1 -PropertyType DWord -Force | Out-Null
+          New-ItemProperty -Path $DumpKey -Name DumpCount -Value 2 -PropertyType DWord -Force | Out-Null
+
+      - name: Capture native runtime versions
+        shell: pwsh
+        run: |
+          .\.venv\Scripts\python.exe tools/capture_windows_native_runtime.py --output build/ci-artifacts/qt-replay/native-runtime.json --commit "${{ matrix.sha }}"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Replay exact failing file in a shared Qt process, three clean repetitions
+        shell: pwsh
+        env:
+          GEOLOG_SELECTOR: ${{ matrix.selector }}
+          QT_QPA_PLATFORM: offscreen
+          QT_OPENGL: software
+          QT_QUICK_BACKEND: software
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          GEOLOG_DISABLE_UNSAVED_PROMPT: "1"
+        run: |
+          $OutputDir = "build/ci-artifacts/qt-replay"
+          New-Item -ItemType Directory -Force $OutputDir | Out-Null
+          $failed = $false
+          for ($i = 1; $i -le 3; $i++) {
+            & .\.venv\Scripts\python.exe -X faulthandler -m pytest -vv -p no:cacheprovider $env:GEOLOG_SELECTOR *>&1 |
+              Tee-Object -FilePath "$OutputDir/repetition-$i.txt"
+            $code = $LASTEXITCODE
+            "attempt=$i exit=$code" | Add-Content "$OutputDir/exit-codes.txt"
+            if ($code -ne 0) { $failed = $true }
+          }
+          if ($failed) { exit 1 }
+
+      - name: Upload replay logs and version evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: qt-curveview-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/ci-artifacts/qt-replay
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload bounded native crash dumps
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: qt-curveview-dumps-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/geolog-replay-dumps/*.dmp
+          if-no-files-found: ignore
+          retention-days: 3
