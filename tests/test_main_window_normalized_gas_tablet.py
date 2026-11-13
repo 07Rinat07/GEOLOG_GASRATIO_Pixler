@@ -78,6 +78,10 @@ def test_show_normalized_gas_button_opens_tablet_and_adds_track(qapp) -> None:
     window.project_controller.session = _session()
     window._bind_project_session()
     window._show_current_dataset()
+    view = window.tablet_view
+    depth_track = view._rendered["depth"]
+    view.set_visible_depth(1_010.0, 1_040.0)
+    original_range = view.visible_depth_range
     workspace = window.interpretation_report_workspace
     index = workspace.normalized_gas_mode.findData(
         NormalizedGasCalculationMode.COMPARE.value
@@ -98,4 +102,23 @@ def test_show_normalized_gas_button_opens_tablet_and_adds_track(qapp) -> None:
     ]
     assert "NORMALIZED_TOTAL_GAS" in workspace.server_curve_status.text()
     assert "TG_NORM_CALC" in workspace.local_curve_status.text()
+    assert view._rendered["depth"] is depth_track
+    assert view.visible_depth_range == original_range
+    gas_track = view._rendered[track.track_id]
+    assert tuple(gas_track.curve_items or {}) == tuple(track.curve_mnemonics)
+    # Reopening and changing the calculation mode must retain both native
+    # plot trees, update curve membership and keep the operator's MD window.
+    for mode in (NormalizedGasCalculationMode.SERVER, NormalizedGasCalculationMode.COMPARE):
+        workspace.normalized_gas_mode.setCurrentIndex(workspace.normalized_gas_mode.findData(mode.value))
+        workspace.show_normalized_gas_on_tablet()
+        qapp.processEvents()
+        assert view._rendered["depth"] is depth_track
+        assert view._rendered[track.track_id] is gas_track
+        assert view.visible_depth_range == original_range
+        expected = ("NORMALIZED_TOTAL_GAS",) if mode is NormalizedGasCalculationMode.SERVER else (
+            "NORMALIZED_TOTAL_GAS", "TG_NORM_CALC",
+        )
+        assert tuple(track.curve_mnemonics) == expected
+        assert tuple(gas_track.curve_items or {}) == expected
+        assert view.rendered_track_ids == ("depth", track.track_id)
     window.close()
