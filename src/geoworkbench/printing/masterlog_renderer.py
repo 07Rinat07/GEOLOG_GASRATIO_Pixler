@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from geoworkbench.printing.masterlog_document_control import MasterlogDocumentControlLayout, masterlog_document_control_layout
 from geoworkbench.printing.unicode_support import print_font
+from geoworkbench.printing.rock_description_presentation import (
+    rock_description_plain_text,
+)
 from geoworkbench.services.lba_standard import lba_color_code
 import os
 import tempfile
@@ -2347,6 +2350,52 @@ def _paint_lba_column(
     painter.restore()
 
 
+def _paint_uniform_rock_description(
+    painter: QPainter, rect: QRectF, description: str, color: QColor,
+    *, point_size: float, word_wrap: bool = True, rich: bool = True,
+) -> None:
+    """Print readable plain text at one physical size, clipped per interval."""
+    text = rock_description_plain_text(description, rich=rich)
+    if not text:
+        return
+    painter.save()
+    try:
+        # Work in physical points inside the millimetre page transform.
+        # A 9 pt font in a millimetre canvas has a nominal local pixel
+        # size of 3.175, which Qt quantizes to 3 (about 8.5 physical pt).
+        # A point canvas gives an exact integer local pixel size of 9.
+        content_rect = rect.adjusted(0.6, 0.3, -0.6, -0.3)
+        if content_rect.width() <= 0 or content_rect.height() <= 0:
+            return
+        painter.setClipRect(content_rect, Qt.ClipOperation.IntersectClip)
+        painter.translate(content_rect.topLeft())
+        painter.scale(25.4 / 72.0, 25.4 / 72.0)
+        point_rect = QRectF(
+            0, 0, content_rect.width() * 72.0 / 25.4,
+            content_rect.height() * 72.0 / 25.4,
+        )
+        font = print_font(point_size, text=text)
+        font.setPixelSize(max(1, round(point_size)))
+        font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)
+        font.setStyleStrategy(QFont.StyleStrategy.ForceOutline)
+        font.setWeight(QFont.Weight.Normal)
+        font.setItalic(False)
+        font.setUnderline(False)
+        font.setStrikeOut(False)
+        painter.setFont(font)
+        painter.setPen(color)
+        _draw_fitted_interval_text(
+            painter, point_rect, text,
+            alignment=Qt.AlignmentFlag.AlignLeft,
+            maximum_point_size=point_size,
+            minimum_point_size=point_size,
+            word_wrap=word_wrap,
+            point_coordinates=True,
+        )
+    finally:
+        painter.restore()
+
+
 def _paint_lithology_descriptions(
     painter: QPainter,
     rect: QRectF,
@@ -2386,13 +2435,9 @@ def _paint_lithology_descriptions(
             painter.setPen(QPen(QColor(visual.palette.border), visual.layout.thin_rule_pt * 25.4 / 72.0))
             painter.drawRect(interval_rect)
         if interval_rect.height() >= 3.0:
-            _set_scaled_unicode_font_points(painter, description, visual.typography.body_pt,
-                                            fit_rect=interval_rect.adjusted(1.0, 0.5, -1.0, -0.5))
-            painter.setPen(QColor(visual.palette.text))
-            painter.drawText(
-                interval_rect.adjusted(1.0, 0.5, -1.0, -0.5),
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap,
-                description,
+            _paint_uniform_rock_description(
+                painter, interval_rect, description, QColor(visual.palette.text),
+                point_size=visual.typography.rock_description_pt, rich=False,
             )
     painter.restore()
 
@@ -2432,15 +2477,9 @@ def _paint_cuttings_descriptions(
             painter.setPen(QPen(QColor(visual.palette.border), visual.layout.thin_rule_pt * 25.4 / 72.0))
             painter.drawRect(sample_rect)
         if sample_rect.height() >= 3.0:
-            text = _rich_text_to_plain(description)
-            _set_scaled_unicode_font_points(painter, text, visual.typography.body_pt)
-            painter.setPen(QColor(visual.palette.text))
-            _draw_fitted_interval_text(
-                painter,
-                sample_rect.adjusted(0.6, 0.3, -0.6, -0.3),
-                text,
-                alignment=_rich_text_alignment(description),
-                maximum_point_size=visual.typography.body_pt,
+            _paint_uniform_rock_description(
+                painter, sample_rect, description, QColor(visual.palette.text),
+                point_size=visual.typography.rock_description_pt,
                 word_wrap=sample.description_word_wrap,
             )
     painter.restore()
@@ -2536,8 +2575,13 @@ def _draw_fitted_interval_text(
     maximum_point_size: float,
     minimum_point_size: float = 3.5,
     word_wrap: bool = True,
+    point_coordinates: bool = False,
 ) -> None:
-    """Wrap, shrink and finally elide text without painting outside ``rect``."""
+    """Wrap, shrink and finally elide text without painting outside ``rect``.
+
+    Fixed-size descriptions use a physical-point canvas to avoid rounding a
+    9 pt glyph to three pre-transform millimetre pixels.
+    """
 
     content = text.strip()
     if not content or rect.width() <= 0 or rect.height() <= 0:
@@ -2552,7 +2596,10 @@ def _draw_fitted_interval_text(
 
         def fits(candidate: str, point_size: float) -> bool:
             font = QFont(base_font)
-            _set_scaled_font_points(painter, font, point_size)
+            if point_coordinates:
+                font.setPixelSize(max(1, round(point_size)))
+            else:
+                _set_scaled_font_points(painter, font, point_size)
             painter.setFont(font)
             bounds = painter.boundingRect(rect, int(measure_flags), candidate)
             return bounds.width() <= rect.width() + 0.1 and bounds.height() <= rect.height() + 0.1

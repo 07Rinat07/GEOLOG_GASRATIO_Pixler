@@ -6357,7 +6357,16 @@ class MainWindow(QMainWindow):
         self._after_curve_edit(outcome)
 
     def _after_header_history_change(self, description: str) -> None:
-        self._show_current_dataset()
+        dataset = self.session.current_dataset
+        if dataset is None or self.tablet_view._dataset is not dataset:
+            # A newly bound session may not have installed its view yet.
+            self._show_current_dataset()
+        else:
+            # Header commands change only header dictionaries and the well name.
+            # Keep the current plot tree, depth window, and active editing tools.
+            # The LAS editor and report workspace read the updated dataset.
+            self.las_table_editor.set_dataset(dataset)
+            self.interpretation_report_workspace.refresh()
         self._refresh_tree()
         self._update_title()
         self.statusBar().showMessage(description)
