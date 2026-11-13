@@ -23,7 +23,7 @@ from geoworkbench.tablet.vertical_ruler import (
 )
 
 
-LAYOUT_FORMAT_VERSION = 25
+LAYOUT_FORMAT_VERSION = 26
 
 
 class TabletLayoutFormatError(ValueError):
@@ -217,7 +217,7 @@ def _track_from_dict(data: object) -> TrackDefinition:
     title_position = data.get("title_position", "center")
     show_interval_labels = data.get("show_interval_labels", False)
     lba_label_orientation = data.get(
-        "lba_label_orientation", "vertical_top_to_bottom"
+        "lba_label_orientation", "vertical_bottom_to_top"
     )
     calcimetry_label_orientation = data.get(
         "calcimetry_label_orientation", "vertical_top_to_bottom"
@@ -379,7 +379,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     if version == LAYOUT_FORMAT_VERSION:
         return data
     if version not in (
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25
     ):
         raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
     migrated = deepcopy(data)
@@ -537,13 +537,25 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
         for track in tracks:
             if isinstance(track, dict):
                 track.setdefault(
-                    "lba_label_orientation", "vertical_top_to_bottom"
+                    "lba_label_orientation", "vertical_bottom_to_top"
                 )
                 track.setdefault(
                     "calcimetry_label_orientation", "vertical_top_to_bottom"
                 )
                 track.setdefault("show_description_borders", True)
                 track.setdefault("show_x_scale", True)
+    # Reset bottom-anchored old headers once; current-schema overrides survive.
+    if version <= 25 and isinstance(tracks, list):
+        for track in tracks:
+            if not isinstance(track, dict):
+                continue
+            if track.get("title_position") == "bottom":
+                track["title_position"] = "center"
+            if (
+                track.get("kind") == TrackKind.LBA.value
+                and track.get("lba_label_orientation") == "vertical_top_to_bottom"
+            ):
+                track["lba_label_orientation"] = "vertical_bottom_to_top"
     migrated["version"] = LAYOUT_FORMAT_VERSION
     return migrated
 

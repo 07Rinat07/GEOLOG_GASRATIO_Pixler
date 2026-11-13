@@ -173,6 +173,19 @@ def test_combined_background_cancel_or_close_discards_results(qapp, monkeypatch,
         preview.curves.item(0).setCheckState(Qt.CheckState.Checked)
         preview.review.click()
         assert started.wait(5)
+        from geoworkbench.ui.gis_interval_compare_dialog import _LIVE_WORKERS
+
+        worker = preview._worker
+        assert worker is not None and worker in _LIVE_WORKERS
+        terminal = []
+
+        def observe_terminal():
+            # Direct observer runs after the registered GUI completion and
+            # retirement slots, before DeferredDelete can destroy the emitter.
+            terminal.append((preview._worker, worker in _LIVE_WORKERS,
+                             preview._worker_cancel_connection))
+
+        worker.finished.connect(observe_terminal, Qt.ConnectionType.DirectConnection)
         heartbeat = []
         QTimer.singleShot(0, lambda: heartbeat.append(True))
         qapp.processEvents()
@@ -186,6 +199,7 @@ def test_combined_background_cancel_or_close_discards_results(qapp, monkeypatch,
         assert preview.status.text() == preview._t("cancelling")
         release.set()
         _wait_review(qapp, preview)
+        assert terminal == [(None, False, None)]
         assert not preview.viewer.toPlainText()
         assert preview.status.text() == preview._t("cancelled")
         assert preview.curves.isEnabled()

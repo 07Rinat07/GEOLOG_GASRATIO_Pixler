@@ -67,7 +67,9 @@ well/dataset/axis IDs prevent cross-source reuse. Every evaluation rereads curre
 state before producing LithologyObservation. Quality and UNKNOWN_OR_MIXED remain
 explicit. No name inference, persistence, UI, lag alignment or field certification.
 
-<!-- runtime-contract: package=0.7.96; project=v38; form=v18; layout=v25 -->
+<!-- runtime-contract: package=0.7.96; project=v38; form=v19; layout=v26 -->
+
+В form v19 и tablet layout v26 стандарт подписей цвета и битума ЛБА — `vertical_bottom_to_top` (−90°). Старое направление сверху вниз у ЛБА мигрирует однократно; горизонтальные и новые явно заданные направления сохраняются. Баллы интенсивности не поворачиваются. PDF использует направление формы либо тот же default.
 # Архитектура
 
 ## INTERP-FUSION-01: общий coverage sweep для литологии и evidence

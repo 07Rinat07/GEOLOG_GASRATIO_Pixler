@@ -123,3 +123,27 @@ def test_geology_labels_export_after_package_reopen(qapp, tmp_path, language, pa
         assert "LEGACY" not in text
     assert (saved, restored.current_well.stratigraphy, restored.current_well.cuttings) == before
     np.testing.assert_array_equal(restored.current_dataset.curve_by_mnemonic("C1").values, source_values)
+
+
+def test_masterlog_lba_default_print_direction_bottom_up(qapp, tmp_path, monkeypatch):
+    session, template = _fixture()
+    column = template.columns[1]
+    column.properties.pop("lba_label_orientation", None)
+    calls = []
+    original = renderer.draw_oriented_text
+
+    def capture(painter, rect, text, **kwargs):
+        calls.append((text, kwargs.get("orientation")))
+        return original(painter, rect, text, **kwargs)
+
+    monkeypatch.setattr(renderer, "draw_oriented_text", capture)
+    writer = QPdfWriter(str(tmp_path / "lba-default.pdf"))
+    writer.setResolution(72)
+    painter = QPainter(writer)
+    try:
+        painter.scale(72 / 25.4, 72 / 25.4)
+        renderer._paint_lba_column(painter, QRectF(0, 0, 90, 80), column, session, (130, 170), AppLanguage.RU)
+    finally:
+        painter.end()
+    assert ("БГ", "vertical_bottom_to_top") in calls
+    assert ("ЛБ", "vertical_bottom_to_top") in calls
