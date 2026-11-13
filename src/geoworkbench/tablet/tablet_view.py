@@ -5901,6 +5901,41 @@ class TabletView(QWidget):
         if refresh:
             self.refresh_view()
 
+    def refresh_lithology_history(
+        self, intervals: list[LithologyInterval], catalog: tuple[CatalogLithotype, ...]
+    ) -> None:
+        """Update lithology graphics without replacing the existing plot tree."""
+        self.set_lithology(intervals, catalog, refresh=False)
+        self.cancel_lithology_interaction()
+        for rendered in self._rendered.values():
+            plot = rendered.plot
+            if plot is None:
+                continue
+            track_id = rendered.definition.track_id
+            if rendered.definition.kind is TrackKind.LITHOLOGY:
+                for item in (rendered.lithology_items or {}).values():
+                    plot.removeItem(item)
+                for item in (rendered.lithology_label_items or {}).values():
+                    self._overlay_layers.unregister(
+                        OverlayLayerKind.ANNOTATION, track_id, item
+                    )
+                    plot.removeItem(item)
+                rendered.lithology_items = self._populate_lithology(
+                    rendered.widget, rendered.definition
+                )
+                rendered.lithology_label_items = self._populate_lithology_labels(
+                    rendered.widget, rendered.definition
+                )
+                for item in rendered.lithology_label_items.values():
+                    self._overlay_layers.register(
+                        OverlayLayerKind.ANNOTATION, track_id, item
+                    )
+            elif rendered.definition.kind in {TrackKind.TEXT, TrackKind.INTERPRETATION}:
+                self._refresh_interpretation_descriptions(rendered)
+        current = self.visible_depth_range
+        if current is not None:
+            self._update_lithology_text_visibility(*current)
+
     @property
     def geological_input_mode(self) -> GeologicalInputMode:
         return self._geological_input_mode

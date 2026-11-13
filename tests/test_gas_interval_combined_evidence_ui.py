@@ -178,12 +178,18 @@ def test_combined_background_cancel_or_close_discards_results(qapp, monkeypatch,
         worker = preview._worker
         assert worker is not None and worker in _LIVE_WORKERS
         terminal = []
+        close_order = []
+        preview.rejected.connect(lambda: close_order.append("rejected"))
 
         def observe_terminal():
             # Direct observer runs after the registered GUI completion and
             # retirement slots, before DeferredDelete can destroy the emitter.
             terminal.append((preview._worker, worker in _LIVE_WORKERS,
                              preview._worker_cancel_connection))
+            # Closing must not run while the worker's direct terminal signal
+            # is still on the stack, even after registry retirement.
+            assert preview.isVisible()
+            close_order.append("terminal")
 
         worker.finished.connect(observe_terminal, Qt.ConnectionType.DirectConnection)
         heartbeat = []
@@ -200,6 +206,7 @@ def test_combined_background_cancel_or_close_discards_results(qapp, monkeypatch,
         release.set()
         _wait_review(qapp, preview)
         assert terminal == [(None, False, None)]
+        assert close_order == (["terminal", "rejected"] if close else ["terminal"])
         assert not preview.viewer.toPlainText()
         assert preview.status.text() == preview._t("cancelled")
         assert preview.curves.isEnabled()

@@ -1203,6 +1203,44 @@ def test_window_global_undo_routes_lithology_edits(qapp) -> None:
     window.close()
 
 
+def test_lithology_history_preserves_plot_widgets_and_refreshes_descriptions(qapp) -> None:
+    window = MainWindow()
+    session, layout = make_session()
+    layout.track_by_id("curve").curve_mnemonics = ["ROP"]
+    layout.tracks.extend([
+        TrackDefinition("lith", "Lithology", TrackKind.LITHOLOGY, width=120),
+        TrackDefinition("text", "Description", TrackKind.TEXT, width=240),
+    ])
+    bind_session(window, session)
+    window._show_current_dataset()
+    view = window.tablet_view
+    try:
+        interval = window.lithology_controller.add(
+            100.0, 101.0, "sandstone", description="Песчаник"
+        )
+        view.set_lithology(
+            session.current_well.lithology,
+            window.lithotype_catalog_controller.available(),
+        )
+        qapp.processEvents()
+        widgets = {key: entry.widget for key, entry in view._rendered.items()}
+        bounds = view.visible_depth_range
+        before = view.dirty_render_stats().full_updates
+        assert interval.interval_id in view.rendered_lithology_ids("lith")
+        for _ in range(3):
+            window.undo_project_edit()
+            assert interval.interval_id not in view.rendered_lithology_ids("lith")
+            assert not view.rendered_lithology_descriptions("text")
+            window.redo_project_edit()
+            assert interval.interval_id in view.rendered_lithology_ids("lith")
+            assert "Песчаник" in view.rendered_lithology_descriptions("text")
+            assert view.visible_depth_range == bounds
+            assert view.dirty_render_stats().full_updates == before
+            assert all(view._rendered[key].widget is widget for key, widget in widgets.items())
+    finally:
+        window.close()
+
+
 def test_external_las_actions_follow_shared_history_domain(qapp, monkeypatch) -> None:
     window = MainWindow()
     session, _ = make_session()

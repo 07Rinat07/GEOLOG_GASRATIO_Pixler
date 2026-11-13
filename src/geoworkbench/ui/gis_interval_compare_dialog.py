@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from math import isfinite
 
-from PySide6.QtCore import QCoreApplication, QMetaObject, QObject, QSize, Qt, Slot
+from PySide6.QtCore import QCoreApplication, QMetaObject, QObject, QSize, Qt, QTimer, Slot
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QDialog, QDialogButtonBox, QFormLayout, QHeaderView, QLabel, QLineEdit, QProgressBar,
@@ -82,6 +82,9 @@ class GisIntervalCompareDialog(QDialog):
         self._worker_cancel_connection: QMetaObject.Connection | None = None
         self._cancel_requested = False
         self._close_after_worker = False
+        self._close_timer = QTimer(self)
+        self._close_timer.setSingleShot(True)
+        self._close_timer.timeout.connect(self._finish_deferred_close)
         self._missing_details: dict[int, str] = {}
         self.setObjectName("gis-interval-compare-dialog")
         self.setWindowTitle(self._t("title"))
@@ -185,7 +188,7 @@ class GisIntervalCompareDialog(QDialog):
             self.status.clear()
 
     def _review(self) -> None:
-        if self._worker is not None:
+        if self._worker is not None or self._close_after_worker:
             return
         self._clear_results()
         selected: list[str] = []
@@ -309,13 +312,24 @@ class GisIntervalCompareDialog(QDialog):
         self._worker = None
         self._set_running(False)
         if self._close_after_worker:
+            # The worker is still emitting finished: the registry and other
+            # direct observers have not returned yet. Closing a modal dialog
+            # here can re-enter its owner and destroy Qt receivers mid-signal.
+            # A dialog-owned timer runs after this terminal delivery.
+            self._close_timer.start(0)
+
+    @Slot()
+    def _finish_deferred_close(self) -> None:
+        if self._worker is None and self._close_after_worker:
             self._close_after_worker = False
-            self.reject()
+            super().reject()
 
     def reject(self) -> None:
         if self._worker is not None:
             self._close_after_worker = True
             self._cancel_review()
+            return
+        if self._close_after_worker:
             return
         super().reject()
 
@@ -323,6 +337,9 @@ class GisIntervalCompareDialog(QDialog):
         if self._worker is not None:
             self._close_after_worker = True
             self._cancel_review()
+            event.ignore()
+            return
+        if self._close_after_worker:
             event.ignore()
             return
         super().closeEvent(event)

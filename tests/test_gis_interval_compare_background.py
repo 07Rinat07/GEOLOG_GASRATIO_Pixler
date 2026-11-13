@@ -98,12 +98,24 @@ def test_closing_during_review_cancels_and_waits_without_blocking(qapp, monkeypa
         dialog.table.item(0, 0).setCheckState(Qt.CheckState.Checked)
         dialog.review.click()
         assert started.wait(5)
+        worker = dialog._worker
+        assert worker is not None
+        order = []
+
+        def observe_terminal():
+            assert dialog.isVisible()
+            assert dialog._worker is None and worker not in _LIVE_WORKERS
+            order.append("terminal")
+
+        worker.finished.connect(observe_terminal, Qt.ConnectionType.DirectConnection)
+        dialog.rejected.connect(lambda: order.append("rejected"))
         dialog.close()
         assert dialog.isVisible() and dialog._worker is not None
         assert dialog.status.text() == dialog._t("cancelling")
         release.set()
         _wait_review(qapp, dialog)
         assert not dialog.isVisible()
+        assert order == ["terminal", "rejected"]
     finally:
         release.set()
         if dialog._worker is not None:
