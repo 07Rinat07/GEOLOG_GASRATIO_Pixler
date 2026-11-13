@@ -7691,7 +7691,9 @@ class MainWindow(QMainWindow):
         )
         self.curve_view.show_dataset(dataset, visible or None)
         self.las_table_editor.set_dataset(dataset)
-        self.tablet_view.set_layout_and_dataset(layout, dataset)
+        self.tablet_view.refresh_interpretation_tracks(
+            layout, dataset, tuple(dict.fromkeys((*visible, *result.changed))),
+        )
         self._refresh_tree()
         self._update_title()
         changed = ", ".join(result.changed) or "—"

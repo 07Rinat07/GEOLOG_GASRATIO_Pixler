@@ -6479,6 +6479,86 @@ class TabletView(QWidget):
         self._layout_mutations.remove_track(track_id)
         self.refresh_view()
 
+    def refresh_interpretation_tracks(
+        self, layout: TabletLayout, dataset: Dataset, mnemonics: tuple[str, ...],
+    ) -> None:
+        """Append calculated tracks without retiring the live tablet plot tree.
+
+        Calculation mutates the current layout in place and may append tracks
+        or change their curve membership. Form replacement, axis changes and
+        any other topology change still use the full transactional render.
+        """
+        visible = layout.visible_tracks()
+        existing_ids = tuple(self._rendered)
+        requested_ids = tuple(definition.track_id for definition in visible)
+        current = self.visible_depth_range
+        if (
+            self._dataset is not dataset
+            or self._layout_model is not layout
+            or not existing_ids
+            or requested_ids[:len(existing_ids)] != existing_ids
+            or current is None
+            or self._layout_rebuild_active
+            or any(
+                self._rendered[definition.track_id].definition is not definition
+                or not _qt_object_is_alive(self._rendered[definition.track_id].widget)
+                or not _qt_object_is_alive(self._rendered[definition.track_id].plot)
+                for definition in visible[:len(existing_ids)]
+            )
+        ):
+            self.set_layout_and_dataset(layout, dataset)
+            return
+
+        # Refresh data and changed curve membership using the established
+        # in-place rendering path. Include all calculated curve bindings,
+        # not only newly created mnemonics (a calculation may overwrite data).
+        self.refresh_dataset_curves(dataset, mnemonics)
+        appended = visible[len(existing_ids):]
+        if not appended:
+            return
+
+        top, bottom = current
+        axis_descriptor = self._axis_descriptor()
+        # Creating a view can emit a range signal; do not let the new view's
+        # default range overwrite the retained tracks' synchronized MD window.
+        previous_guard = self._depth_range_guard
+        self._depth_range_guard = True
+        try:
+            created = self._track_lifecycle.create_entries(
+                appended,
+                identify=lambda definition: definition.track_id,
+                create=lambda definition: self._create_rendered_track(
+                    definition, top, bottom, axis_descriptor,
+                ),
+                rollback=self._dispose_rendered_track,
+                on_rollback_error=lambda track_id, exc: log_exception(
+                    "tablet.track.rollback.failed", exc, track_id=track_id
+                ),
+            )
+        finally:
+            self._depth_range_guard = previous_guard
+        self._rendered.update(created)
+        for rendered in created.values():
+            self._tracks_layout.addWidget(rendered.widget)
+        self._update_track_canvas_width()
+        self._rebuild_group_headers()
+        self._synchronize_track_header_bands()
+        self._apply_geological_mode_cursors()
+        self._synchronize_track_heights()
+        self._synchronize_depth_ranges(top, bottom)
+        self._synchronize_vertical_rulers(top, bottom)
+        self._update_lithology_text_visibility(top, bottom)
+        self._update_stratigraphy_text_visibility(top, bottom)
+        self._apply_interpretation_selection_style()
+        self._apply_track_selection_style()
+        self._apply_curve_selection_style()
+        if self._cursor_depth is not None:
+            self._update_cursor_labels(self._cursor_depth)
+        self._update_navigation_controls()
+        self._refresh_curve_pencil_targets()
+        self._refresh_annotation_overlay()
+        self._resize_restore_timer.start(0)
+
     def _create_rendered_track(
         self,
         definition: TrackDefinition,
