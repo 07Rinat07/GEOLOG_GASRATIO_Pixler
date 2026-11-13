@@ -37,6 +37,16 @@ def text_angle(value: str | None) -> float:
     }[orientation]
 
 
+def pyqtgraph_angle_from_qt(angle: float) -> float:
+    """Convert a QPainter angle to pyqtgraph.TextItem's counterclockwise angle.
+
+    TextItem.updateTransform rotates by minus its angle after cancelling the
+    parent transform. The sign therefore differs even in an inverted MD view.
+    Keep the domain orientation and QPainter/print convention unchanged.
+    """
+    return -angle
+
+
 def text_position_fraction(value: str | None) -> float:
     position = normalize_text_vertical_position(value)
     return {"top": 0.15, "center": 0.5, "bottom": 0.85}[position]

@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pyqtgraph as pg
 import pytest
+from PySide6.QtCore import QPointF
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain, StratigraphyInterval
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
@@ -36,7 +37,15 @@ def test_stratigraphy_caption_stays_inside_visible_portion(qapp, orientation):
             assert top < label.pos().y() < bottom
             assert label.textItem.toPlainText() == "C₁v\nВизейский ярус"
             assert "5600–5900" in label.toolTip()
-            assert label.angle == {"horizontal": 0, "vertical_bottom_to_top": -90, "vertical_top_to_bottom": 90}[orientation]
+            assert label.angle == {"horizontal": 0, "vertical_bottom_to_top": 90, "vertical_top_to_bottom": -90}[orientation]
+            label.updateTransform(force=True)
+            delta = label.mapToScene(QPointF(1, 0)) - label.mapToScene(QPointF(0, 0))
+            if orientation == "horizontal":
+                assert delta.x() > 0 and abs(delta.y()) < 1e-6
+            elif orientation == "vertical_bottom_to_top":
+                assert delta.y() < 0 and abs(delta.x()) < 1e-6
+            else:
+                assert delta.y() > 0 and abs(delta.x()) < 1e-6
     finally:
         view.close()
 
@@ -101,7 +110,10 @@ def test_imported_las_name_and_code_fit_compact_column(qapp, tmp_path):
         assert label.isVisible()
         assert "C1v" in label.textItem.toPlainText()
         assert "Визейский ярус" in label.textItem.toPlainText()
-        assert label.angle == -90.0
+        assert label.angle == 90.0
+        label.updateTransform(force=True)
+        delta = label.mapToScene(QPointF(1, 0)) - label.mapToScene(QPointF(0, 0))
+        assert delta.y() < 0 and abs(delta.x()) < 1e-6
         assert interval.text_orientation == "horizontal"
     finally:
         view.close()

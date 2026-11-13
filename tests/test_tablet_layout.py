@@ -121,7 +121,7 @@ def test_layout_v24_migrates_x_scale_visibility_to_visible_default() -> None:
     assert (track.x_min, track.x_max) == (1.0, 100.0)
     assert track.title_orientation == "vertical_bottom_to_top"
     assert track.title_position == "center"
-    assert encoded["version"] == 26
+    assert encoded["version"] == 27
     assert encoded["tracks"][0]["show_x_scale"] is True
     assert "show_x_scale" not in payload["tracks"][0]
 
@@ -514,4 +514,4 @@ def test_layout_v18_migrates_track_and_curve_log_scales_to_linear() -> None:
     assert settings.x_scale is XScale.LINEAR
     assert settings.x_min == 0.0
     assert settings.x_max == 100.0
-    assert layout_to_dict(restored)["version"] == 26
+    assert layout_to_dict(restored)["version"] == 27

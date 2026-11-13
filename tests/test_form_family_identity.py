@@ -71,10 +71,28 @@ def test_form_family_id_round_trips_in_current_schema() -> None:
     payload = form_to_dict(form)
     restored = form_from_dict(payload)
 
-    assert FORM_SCHEMA_VERSION == 19
+    assert FORM_SCHEMA_VERSION == 20
+    assert payload["schema_version"] == FORM_SCHEMA_VERSION
     assert payload["family_id"] == "customer-family"
     assert restored.family_id == "customer-family"
     assert restored.preferred_page_orientation is FormPageOrientation.LANDSCAPE
+
+
+def test_v19_form_migration_preserves_existing_family_and_orientation() -> None:
+    form = FormDocument.create(
+        "Legacy family member",
+        FormAxisKind.DEPTH,
+        preferred_page_orientation=FormPageOrientation.LANDSCAPE,
+    )
+    form.family_id = "existing-family"
+    payload = form_to_dict(form)
+    payload["schema_version"] = 19
+
+    restored = form_from_dict(payload)
+
+    assert restored.family_id == "existing-family"
+    assert restored.preferred_page_orientation is FormPageOrientation.LANDSCAPE
+    assert form_to_dict(restored)["schema_version"] == 20
 
 
 def test_v17_form_migrates_to_safe_singleton_family() -> None:

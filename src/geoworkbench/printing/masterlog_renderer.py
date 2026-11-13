@@ -2185,7 +2185,7 @@ def _paint_calcimetry_column(
             else ((calcite, "#22d3ee"), (dolomite, "#a78bfa"), (residue, "#d1d5db"))
         )
         orientation = str(column.properties.get(
-            "calcimetry_label_orientation", "vertical_top_to_bottom",
+            "calcimetry_label_orientation", "vertical_bottom_to_top",
         ))
         captions: list[tuple[QRectF, str]] = []
         for value, color in components:
