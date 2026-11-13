@@ -44,6 +44,12 @@ from geoworkbench.services.interpretation_geology_field_handoff import (
     verified_geology_field_html_handoff,
 )
 from geoworkbench.services.interpretation_geology_evidence_export import verified_report_geology_evidence
+from geoworkbench.services.interpretation_gis_evidence_handoff import (
+    ConfirmedGisGeologySelection,
+    verified_gis_geology_handoff,
+)
+from geoworkbench.services.interpretation_gis_interval_evidence import GasGeologyGisIntervalEvidence
+from geoworkbench.services.interpretation_gis_interval_evidence_html import gis_interval_evidence_table
 from geoworkbench.services.interpretation_geology_interval_evidence_html import geology_interval_evidence_table
 from geoworkbench.services.interpretation_method_comparison import MethodComparisonInterval
 from geoworkbench.services.interpretation_method_comparison_html import method_comparison_table
@@ -230,6 +236,9 @@ def export_hydrocarbon_interpretation_docx(
     session: ProjectSession | None = None,
     geology_field_selection: ConfirmedGeologyFieldSelection | None = None,
     geology_source_key: tuple[object, ...] | None = None,
+    gis_selection: ConfirmedGisGeologySelection | None = None,
+    gis_source_key: tuple[object, ...] | None = None,
+    current_gis_report: Callable[[], HydrocarbonInterpretationReport] | None = None,
 ) -> Path:
     if orientation not in ("landscape", "portrait"):
         raise ValueError("Word page orientation must be landscape or portrait")
@@ -247,6 +256,15 @@ def export_hydrocarbon_interpretation_docx(
         geology_evidence = confirmed
     elif geology_source_key is not None:
         raise ValueError("Word source key requires confirmed measured fields")
+    gis_evidence = _verified_word_gis_selection(
+        session, report, gis_selection, gis_source_key, current_gis_report,
+    )
+    if gis_evidence is not None:
+        if geology_field_selection is not None:
+            raise ValueError("Word combined GIS evidence requires its own geology selection")
+        if geology_evidence and geology_evidence != (gis_evidence.geology,):
+            raise ValueError("Word GIS and geology observations use different selections")
+        geology_evidence = (gis_evidence.geology,)
     verified_report_geology_evidence(report, geology_evidence)
     progress_prepare, progress_statistics, progress_save, progress_ready, error_export = (
         _DOCX_PROGRESS[language]
@@ -267,6 +285,8 @@ def export_hydrocarbon_interpretation_docx(
             writer = partial(writer, geology_evidence=geology_evidence)
         if selected_fields:
             writer = partial(writer, geology_fields=selected_fields)
+        if gis_evidence is not None:
+            writer = partial(writer, gis_evidence=gis_evidence)
         writer(temporary, report, dataset, language, orientation=orientation)
         _notify_export_progress(progress, progress_save, 90, 100)
         # Progress callbacks and writers can mutate the live project: verify
@@ -279,6 +299,10 @@ def export_hydrocarbon_interpretation_docx(
             )
             if current != geology_evidence or current_fields != selected_fields:
                 raise ValueError("Word measured field approval changed during export")
+        if gis_evidence is not None and _verified_word_gis_selection(
+            session, report, gis_selection, gis_source_key, current_gis_report,
+        ) != gis_evidence:
+            raise ValueError("Word combined GIS evidence changed during export")
         os.replace(temporary, destination)
         _notify_export_progress(progress, progress_ready, 100, 100)
     except Exception as exc:
@@ -289,6 +313,25 @@ def export_hydrocarbon_interpretation_docx(
             f"{error_export}: {destination}"
         ) from exc
     return destination
+
+
+def _verified_word_gis_selection(
+    session: ProjectSession | None,
+    report: HydrocarbonInterpretationReport,
+    selection: ConfirmedGisGeologySelection | None,
+    source_key: tuple[object, ...] | None,
+    current_report: Callable[[], HydrocarbonInterpretationReport] | None,
+) -> GasGeologyGisIntervalEvidence | None:
+    """Require a separate Word approval and rebuild the live gas report."""
+    if selection is None:
+        if source_key is not None or current_report is not None:
+            raise ValueError("Word GIS source requires a confirmed selection")
+        return None
+    if session is None or source_key is None or not callable(current_report):
+        raise ValueError("Word GIS selection requires a live session, source key and report builder")
+    return verified_gis_geology_handoff(
+        session, report, current_report(), selection, source_key=source_key, target="word",
+    )
 
 
 def _notify_export_progress(
@@ -310,6 +353,7 @@ def _write_docx(
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
     geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
     geology_fields: tuple[tuple[EvidenceKind, str], ...] = (),
+    gis_evidence: GasGeologyGisIntervalEvidence | None = None,
     orientation: Literal["landscape", "portrait"] = "portrait",
 ) -> None:
     interval = getattr(report, "analysis_depth_interval", None)
@@ -387,6 +431,19 @@ def _write_docx(
         body.append(
             _table(presentation.headings, presentation.rows, widths=(1800, 2200, 2500, 2500, 5000))
         )
+    if gis_evidence is not None:
+        presentation = gis_interval_evidence_table(gis_evidence, language)
+        body.extend((
+            _paragraph(presentation.title, style="Heading1"),
+            _paragraph(presentation.notice),
+        ))
+        # A narrow two-column table per source remains legible in portrait.
+        for row in presentation.rows:
+            body.append(_table(
+                (presentation.headings[0], row[0]),
+                tuple(zip(presentation.headings[1:], row[1:], strict=True)),
+                widths=(4800, 9200),
+            ))
     body.append(_paragraph(labels.prospective_heading, style="Heading1"))
     if report.candidates:
         body.append(

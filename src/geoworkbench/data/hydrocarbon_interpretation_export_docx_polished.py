@@ -15,6 +15,7 @@ from geoworkbench.data.hydrocarbon_interpretation_export import (
     export_hydrocarbon_interpretation_docx,
     _PORTRAIT_TABLE_WIDTH_TWIPS,
     _resize_docx_tables,
+    _verified_word_gis_selection,
 )
 from geoworkbench.domain.models import Dataset
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
@@ -37,6 +38,7 @@ from geoworkbench.services.interpretation_geology_field_handoff import (
     verified_geology_field_html_handoff,
 )
 from geoworkbench.services.interpretation_geology_evidence_export import verified_report_geology_evidence
+from geoworkbench.services.interpretation_gis_evidence_handoff import ConfirmedGisGeologySelection
 from geoworkbench.services.interpretation_method_comparison import MethodComparisonInterval
 
 
@@ -59,6 +61,9 @@ def export_polished_hydrocarbon_interpretation_docx(
     session: ProjectSession | None = None,
     geology_field_selection: ConfirmedGeologyFieldSelection | None = None,
     geology_source_key: tuple[object, ...] | None = None,
+    gis_selection: ConfirmedGisGeologySelection | None = None,
+    gis_source_key: tuple[object, ...] | None = None,
+    current_gis_report: Callable[[], HydrocarbonInterpretationReport] | None = None,
 ) -> Path:
     """Export Word with its existing cover and optional preverified comparison."""
 
@@ -75,6 +80,15 @@ def export_polished_hydrocarbon_interpretation_docx(
         geology_evidence = confirmed
     elif geology_source_key is not None:
         raise ValueError("Word source key requires confirmed measured fields")
+    gis_evidence = _verified_word_gis_selection(
+        session, report, gis_selection, gis_source_key, current_gis_report,
+    )
+    if gis_evidence is not None:
+        if geology_field_selection is not None:
+            raise ValueError("Word combined GIS evidence requires its own geology selection")
+        if geology_evidence and geology_evidence != (gis_evidence.geology,):
+            raise ValueError("Word GIS and geology observations use different selections")
+        geology_evidence = (gis_evidence.geology,)
     verified_report_geology_evidence(report, geology_evidence)
     destination = Path(target)
     if destination.suffix.casefold() != ".docx":
@@ -99,6 +113,11 @@ def export_polished_hydrocarbon_interpretation_docx(
                 geology_field_selection=geology_field_selection,
                 geology_source_key=geology_source_key,
             )
+        if gis_evidence is not None:
+            export_writer = partial(
+                export_writer, session=session, gis_selection=gis_selection,
+                gis_source_key=gis_source_key, current_gis_report=current_gis_report,
+            )
         export_writer(
             report,
             source,
@@ -116,6 +135,10 @@ def export_polished_hydrocarbon_interpretation_docx(
             )
             if current != geology_evidence:
                 raise ValueError("Word field source changed during cover rewrite")
+        if gis_evidence is not None and _verified_word_gis_selection(
+            session, report, gis_selection, gis_source_key, current_gis_report,
+        ) != gis_evidence:
+            raise ValueError("Word combined GIS evidence changed during export")
         os.replace(rewritten, destination)
     finally:
         source.unlink(missing_ok=True)
