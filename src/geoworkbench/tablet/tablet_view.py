@@ -270,6 +270,7 @@ from geoworkbench.tablet.selection_interaction import (
 
 _DESCRIPTION_HTML_ROLE = 0x4752
 _DESCRIPTION_WORD_WRAP_ROLE = 0x4753
+_CALCIMETRY_SEGMENT_WIDTH_ROLE = 0x4754
 _DESCRIPTION_MAX_FONT_POINTS = 10.0
 _DESCRIPTION_MIN_FONT_POINTS = 5.5
 _DESCRIPTION_VERTICAL_PADDING_PIXELS = 4.0
@@ -10550,6 +10551,17 @@ class TabletView(QWidget):
                 )
                 if initialize_track:
                     track.set_curve_headers(headers)
+                    for key, name in (
+                        ("__calcite__", "tablet.calcimetry_calcite"),
+                        ("__dolomite__", "tablet.calcimetry_dolomite"),
+                        ("__total_carbonate__", "tablet.calcimetry_total"),
+                        ("__residue__", "tablet.calcimetry_residue"),
+                    ):
+                        header = track._curve_header_labels.get(key)
+                        if header is not None:
+                            header.setToolTip(
+                                self._localizer.text(name) + " · 0–100 %"
+                            )
         else:
             # GeoData-style LBA track: three synchronized subcolumns for
             # score, fluorescence color and bitumoid type.  This is a
@@ -10668,9 +10680,24 @@ class TabletView(QWidget):
                             brush=pg.mkBrush(color),
                             pen=pg.mkPen("#334155", width=0.55),
                         )
-                        bar.setToolTip(f"{tooltip}\n{label}: {numeric:g} %")
+                        bar.setToolTip(f"{tooltip}\n{label}: {value:g} %")
                         track.plot.addItem(bar)
                         items.append(bar)
+                        # One number belongs to one colour segment. Never
+                        # concatenate component names across a sample row.
+                        caption = pg.TextItem(
+                            f"{value:g}", color="#0f172a", anchor=(0.5, 0.5),
+                        )
+                        caption.textItem.document().setDocumentMargin(0.0)
+                        caption.setAngle(text_angle(definition.calcimetry_label_orientation))
+                        caption.setPos(left + numeric / 2.0, center)
+                        caption.setData(_CALCIMETRY_SEGMENT_WIDTH_ROLE, numeric)
+                        caption.setToolTip(tooltip)
+                        caption.setZValue(10)
+                        # The final ViewBox geometry decides whether text fits.
+                        caption.hide()
+                        track.plot.addItem(caption)
+                        items.append(caption)
                     else:
                         zero = pg.PlotDataItem(
                             [left, left],
@@ -10683,33 +10710,6 @@ class TabletView(QWidget):
                         items.append(zero)
                     left += numeric
 
-                text_values = []
-                if calcite is not None:
-                    text_values.append(
-                        f"{self._localizer.text('tablet.calcimetry_short_calcite')} {calcite:g}"
-                    )
-                if dolomite is not None:
-                    text_values.append(
-                        f"{self._localizer.text('tablet.calcimetry_short_dolomite')} {dolomite:g}"
-                    )
-                if total is not None:
-                    text_values.append(
-                        f"{self._localizer.text('tablet.calcimetry_short_total')} {total:g}"
-                    )
-                if residue is not None:
-                    text_values.append(
-                        f"{self._localizer.text('tablet.calcimetry_short_residue')} {residue:g}"
-                    )
-                label = pg.TextItem(
-                    " / ".join(text_values),
-                    color="#0f172a",
-                    anchor=(0.5, 0.5),
-                )
-                label.setAngle(text_angle(definition.calcimetry_label_orientation))
-                label.setPos(50.0, center)
-                label.setToolTip(tooltip)
-                track.plot.addItem(label)
-                items.append(label)
             else:
                 fields = [
                     f"{self._localizer.text('tablet.lba_group')}: {sample.lba_group}"
@@ -11546,7 +11546,52 @@ class TabletView(QWidget):
                     self._populate_lithology_descriptions(rendered.widget, rendered.definition)
                 )
 
+    def _update_calcimetry_text_visibility(self, top: float, bottom: float) -> None:
+        """Fit numeric captions inside their own visible sample segments."""
+        low, high = sorted((top, bottom))
+        span = high - low
+        if span <= 0.0:
+            return
+        samples = {sample.sample_id: sample for sample in self._loaded_cuttings()}
+        for rendered in self._rendered.values():
+            if rendered.definition.kind is not TrackKind.CALCIMETRY or rendered.plot is None:
+                continue
+            box = rendered.plot.getViewBox()
+            for sample_id, items in (rendered.analysis_items or {}).items():
+                sample = samples.get(sample_id)
+                if sample is None:
+                    continue
+                axis_top, axis_bottom = sorted(self._depth_interval_to_axis(
+                    sample.top_depth, sample.bottom_depth,
+                ))
+                visible_top = max(low, axis_top)
+                visible_bottom = min(high, axis_bottom)
+                height = max(0.0, visible_bottom - visible_top) / span * float(box.height())
+                for item in items:
+                    if not isinstance(item, pg.TextItem):
+                        continue
+                    width = item.data(_CALCIMETRY_SEGMENT_WIDTH_ROLE)
+                    if not isinstance(width, (int, float)):
+                        continue
+                    # Respect the plot's fixed 0–100 percent domain even if
+                    # an inconsistent source has components summing over 100.
+                    x = item.pos().x()
+                    visible_width = max(0.0, min(100.0, x + width / 2.0) - max(0.0, x - width / 2.0))
+                    width_px = visible_width / 100.0 * float(box.width())
+                    bounds = item.textItem.boundingRect()
+                    rotated = item.angle != 0.0
+                    text_width = bounds.height() if rotated else bounds.width()
+                    text_height = bounds.width() if rotated else bounds.height()
+                    fits = width_px >= text_width + 4.0 and height >= text_height + 4.0
+                    # The original x center stays fixed; don't label a segment
+                    # partially outside the percentage scale.
+                    fits = fits and visible_width >= width - 1e-9
+                    if fits:
+                        item.setPos(x, (visible_top + visible_bottom) / 2.0)
+                    item.setVisible(fits)
+
     def _update_lithology_text_visibility(self, top: float, bottom: float) -> None:
+        self._update_calcimetry_text_visibility(top, bottom)
         lithology_intervals = {item.interval_id: item for item in self._lithology}
         visible_ids = {
             identifier

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import pyqtgraph as pg
+import pytest
 from PySide6.QtCore import QRectF
 from PySide6.QtGui import QImage, QPainter
 
@@ -239,9 +240,9 @@ def test_tablet_rotates_calcimetry_interval_label(qapp) -> None:
     items = view._rendered["calc"].analysis_items
     assert items is not None
     labels = [item for item in items["sample"] if isinstance(item, pg.TextItem)]
-    assert len(labels) == 1
-    assert labels[0].angle == 90.0
-    assert "Н.О." in labels[0].textItem.toPlainText()
+    assert len(labels) == 3
+    assert all(label.angle == 90.0 for label in labels)
+    assert {label.textItem.toPlainText() for label in labels} == {"55", "35", "10"}
     view.close()
 
 
@@ -394,3 +395,78 @@ def test_masterlog_calcimetry_uses_las_curve_when_no_sample_analysis(
     painter.end()
 
     assert curve_paint_calls == 1
+
+
+@pytest.mark.parametrize("language", ("ru", "kk", "en"))
+def test_compact_calcimetry_headers_and_numeric_labels(qapp, language):
+    from geoworkbench.services.localization import AppLanguage
+
+    dataset = Dataset("calc-readable", "Calc", DatasetKind.GTI, DepthDomain.MD,
+                      np.arange(100.0, 201.0))
+    view = TabletView(language=AppLanguage(language))
+    view.resize(600, 600)
+    try:
+        view.set_layout_model(TabletLayout([
+            TrackDefinition("calc", "Calcimetry", TrackKind.CALCIMETRY, width=100),
+        ]))
+        samples = [
+            CuttingsSample("a", 100.0, 101.0, calcite_percent=55.0, dolomite_percent=35.0),
+            CuttingsSample("b", 101.0, 102.0, calcite_percent=0.0, dolomite_percent=100.0),
+        ]
+        view.set_cuttings(samples)
+        view.set_dataset(dataset)
+        view.show()
+        qapp.processEvents()
+        view.set_visible_depth(100.0, 200.0)
+        qapp.processEvents()
+        view._update_calcimetry_text_visibility(100.0, 200.0)
+        rendered = view._rendered["calc"]
+        headers = rendered.widget._curve_header_labels
+        assert [headers[key].text() for key in ("__calcite__", "__dolomite__", "__residue__")] == [
+            "Cal\n0–100%", "Dol\n0–100%", "IR\n0–100%",
+        ]
+        assert "CaCO" in headers["__calcite__"].toolTip()
+        labels = [item for item in rendered.analysis_items["a"] if isinstance(item, pg.TextItem)]
+        assert {item.textItem.toPlainText() for item in labels} == {"55", "35", "10"}
+        assert not any(item.isVisible() for item in labels)
+        assert all("55" in item.toolTip() and "35" in item.toolTip() for item in labels)
+        # Zoom in: numbers are visible only when their own segment fits.
+        view.set_visible_depth(100.0, 102.0)
+        qapp.processEvents()
+        view._update_calcimetry_text_visibility(100.0, 102.0)
+        assert any(item.isVisible() for item in labels)
+        assert all(item.pos().y() == 100.5 for item in labels if item.isVisible())
+        zero_items = rendered.analysis_items["b"]
+        assert any(isinstance(item, pg.PlotDataItem) and "0 %" in item.toolTip() for item in zero_items)
+        assert samples[0].calcite_percent == 55.0 and samples[1].calcite_percent == 0.0
+    finally:
+        view.close()
+
+
+def test_calcimetry_print_only_numbers_that_fit_segments(qapp, monkeypatch):
+    dataset = Dataset("calc-print-fit", "Calc", DatasetKind.GTI, DepthDomain.MD,
+                      np.array([100.0, 101.0, 102.0]))
+    session = ProjectSession()
+    well = session.add_dataset(dataset, "Test", create_new_well=True)
+    well.cuttings = [
+        CuttingsSample("a", 100.0, 101.0, calcite_percent=55.0, dolomite_percent=35.0),
+    ]
+    column = MasterlogColumnTemplate("calc", "Calc", "calcimetry", 50.0)
+    calls = []
+    monkeypatch.setattr(masterlog_renderer, "draw_oriented_text",
+                        lambda _painter, rect, text, **kwargs: calls.append((rect, text)))
+    image = QImage(400, 800, QImage.Format.Format_ARGB32_Premultiplied)
+    painter = QPainter(image)
+    try:
+        masterlog_renderer._paint_calcimetry_column(
+            painter, QRectF(0, 0, 50, 0.5), column, dataset, session, (100, 101), {},
+        )
+        assert calls == []
+        masterlog_renderer._paint_calcimetry_column(
+            painter, QRectF(0, 0, 100, 100), column, dataset, session, (100, 101), {},
+        )
+        assert {text for _, text in calls} == {"55", "35", "10"}
+        assert all(left.right() <= right.left() + 1e-9
+                   for (left, _), (right, _) in zip(calls, calls[1:]))
+    finally:
+        painter.end()
