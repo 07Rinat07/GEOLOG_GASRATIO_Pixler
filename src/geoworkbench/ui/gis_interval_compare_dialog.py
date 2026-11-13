@@ -64,9 +64,10 @@ def register_gis_interval_worker(worker: GisIntervalCompareWorker) -> None:
         app.aboutToQuit.connect(_stop_workers_on_exit)
     worker.setParent(_WORKER_REGISTRY)
     _LIVE_WORKERS.add(worker)
-    # A real QObject receiver with queued delivery prevents a Python lambda
-    # from releasing the last wrapper reference on the emitting native thread.
-    worker.finished.connect(_WORKER_REGISTRY.retire, Qt.ConnectionType.QueuedConnection)
+    # Registration follows the dialog's terminal slot. Both now run on the
+    # GUI thread. Retire only after the dialog releases its worker reference;
+    # deleteLater leaves the signal emitter alive until its timer slot returns.
+    worker.finished.connect(_WORKER_REGISTRY.retire, Qt.ConnectionType.DirectConnection)
 
 
 class GisIntervalCompareDialog(QDialog):
@@ -217,10 +218,13 @@ class GisIntervalCompareDialog(QDialog):
         self.status.setText(self._t("preparing"))
         worker = GisIntervalCompareWorker(self.dataset, keys, top, bottom)
         self._worker = worker
-        worker.progress.connect(self._progress, Qt.ConnectionType.QueuedConnection)
-        worker.completed.connect(self._completed, Qt.ConnectionType.QueuedConnection)
-        worker.failed.connect(self._failed, Qt.ConnectionType.QueuedConnection)
-        worker.finished.connect(self._worker_finished, Qt.ConnectionType.QueuedConnection)
+        # The worker's timer emits exclusively on the owning GUI thread.
+        # Deliver synchronously so terminal slots finish before retirement;
+        # no queued Python payload or stale dialog callback survives completion.
+        worker.progress.connect(self._progress, Qt.ConnectionType.DirectConnection)
+        worker.completed.connect(self._completed, Qt.ConnectionType.DirectConnection)
+        worker.failed.connect(self._failed, Qt.ConnectionType.DirectConnection)
+        worker.finished.connect(self._worker_finished, Qt.ConnectionType.DirectConnection)
         register_gis_interval_worker(worker)
         self._worker_cancel_connection = self.destroyed.connect(worker.cancellation_callback())
         worker.start()

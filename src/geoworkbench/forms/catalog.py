@@ -85,12 +85,12 @@ def _apply_factory_presentation_defaults(
     """
 
     for column in form.columns:
+        column.title_position = "center"
         for track in column.tracks:
+            track.title_position = "center"
             if track.kind in COMPACT_TRACK_KINDS:
                 column.title_orientation = "vertical_bottom_to_top"
-                column.title_position = "center"
                 track.title_orientation = "vertical_bottom_to_top"
-                track.title_position = "center"
             if track.kind is TrackKind.LBA:
                 track.lba_label_orientation = "vertical_bottom_to_top"
             if track.kind is TrackKind.CALCIMETRY:

@@ -60,7 +60,7 @@ def test_editable_copy_starts_new_singleton_family() -> None:
     )
 
 
-def test_form_family_id_round_trips_in_schema_v18() -> None:
+def test_form_family_id_round_trips_in_current_schema() -> None:
     form = FormDocument.create(
         "Customer family member",
         FormAxisKind.DEPTH,
@@ -71,7 +71,7 @@ def test_form_family_id_round_trips_in_schema_v18() -> None:
     payload = form_to_dict(form)
     restored = form_from_dict(payload)
 
-    assert FORM_SCHEMA_VERSION == 18
+    assert FORM_SCHEMA_VERSION == 19
     assert payload["family_id"] == "customer-family"
     assert restored.family_id == "customer-family"
     assert restored.preferred_page_orientation is FormPageOrientation.LANDSCAPE
