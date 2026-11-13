@@ -25,7 +25,9 @@ from geoworkbench.services.interpretation_gis_interval_evidence import GasGeolog
 from geoworkbench.services.interpretation_gis_interval_evidence_html import (
     geology_gis_interval_evidence_html,
 )
-from geoworkbench.services.interpretation_gis_evidence_handoff import ConfirmedGisGeologySelection
+from geoworkbench.services.interpretation_gis_evidence_handoff import (
+    ConfirmedGisGeologySelection, GisEvidenceTarget,
+)
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.ui.gis_interval_compare_dialog import register_gis_interval_worker
 from geoworkbench.ui.gis_interval_compare_worker import GisIntervalCompareWorker
@@ -68,6 +70,10 @@ class GisGeologyEvidenceDialog(QDialog):
             [GasGeologyGisIntervalEvidence, GisIntervalSnapshot],
             ConfirmedGisGeologySelection,
         ] | None = None,
+        confirm_word: Callable[
+            [GasGeologyGisIntervalEvidence, GisIntervalSnapshot],
+            ConfirmedGisGeologySelection,
+        ] | None = None,
     ) -> None:
         super().__init__(parent)
         self.session = session
@@ -83,8 +89,10 @@ class GisGeologyEvidenceDialog(QDialog):
         self._well = session.current_well
         self._keys: tuple[str, ...] = ()
         self._confirm_html = confirm_html
+        self._confirm_word = confirm_word
         self._reviewed: tuple[GasGeologyGisIntervalEvidence, GisIntervalSnapshot] | None = None
         self.confirmed_html_selection: ConfirmedGisGeologySelection | None = None
+        self.confirmed_word_selection: ConfirmedGisGeologySelection | None = None
         self._cancel_requested = False
         self._close_after_worker = False
         self._close_timer = QTimer(self)
@@ -142,6 +150,17 @@ class GisGeologyEvidenceDialog(QDialog):
         self.confirm_html_button.setVisible(confirm_html is not None)
         self.confirm_html_button.clicked.connect(self._confirm_reviewed_html)
         layout.addWidget(self.confirm_html_button)
+        word_captions = {
+            AppLanguage.RU: "Подтвердить наблюдения для Word",
+            AppLanguage.KK: "Бақылауларды Word үшін растау",
+            AppLanguage.EN: "Confirm observations for Word",
+        }
+        self.confirm_word_button = QPushButton(word_captions[language], self)
+        self.confirm_word_button.setObjectName("gis-geology-confirm-word")
+        self.confirm_word_button.setEnabled(False)
+        self.confirm_word_button.setVisible(confirm_word is not None)
+        self.confirm_word_button.clicked.connect(self._confirm_reviewed_word)
+        layout.addWidget(self.confirm_word_button)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(
             self.localizer.text("common.close")
@@ -156,7 +175,9 @@ class GisGeologyEvidenceDialog(QDialog):
     def _clear(self, _item: QListWidgetItem | None = None) -> None:
         self._reviewed = None
         self.confirmed_html_selection = None
+        self.confirmed_word_selection = None
         self.confirm_html_button.setEnabled(False)
+        self.confirm_word_button.setEnabled(False)
         self.viewer.clear()
         self.status.clear()
         if self._worker is not None:
@@ -279,16 +300,33 @@ class GisGeologyEvidenceDialog(QDialog):
         self.status.setText(self._t("complete"))
 
     def _confirm_reviewed_html(self) -> None:
-        # The approval is bound to the original reviewed arrays, not a new
-        # snapshot of possibly changed values with the same summary.
-        if self._worker is not None or self._reviewed is None or self._confirm_html is None:
+        self._confirm_reviewed("html")
+
+    def _confirm_reviewed_word(self) -> None:
+        self._confirm_reviewed("word")
+
+    def _confirm_reviewed(self, target: GisEvidenceTarget) -> None:
+        # Keep the original reviewed arrays and exact output target. Never
+        # promote an HTML approval into a Word approval (or vice versa).
+        confirm = self._confirm_html if target == "html" else self._confirm_word
+        if (
+            self._worker is not None or self._reviewed is None
+            or confirm is None or self._close_after_worker or self._cancel_requested
+        ):
             return
         evidence, snapshot = self._reviewed
         self.confirmed_html_selection = None
+        self.confirmed_word_selection = None
         try:
             if not self._source_current() or self._selected_keys() != snapshot.keys:
                 raise ValueError("Changed preview selection")
-            self.confirmed_html_selection = self._confirm_html(evidence, snapshot)
+            selection = confirm(evidence, snapshot)
+            if selection.target != target:
+                raise ValueError("Confirmed GIS evidence has a different output target")
+            if target == "html":
+                self.confirmed_html_selection = selection
+            else:
+                self.confirmed_word_selection = selection
         except (ValueError, RuntimeError, TypeError, OverflowError):
             self._clear()
             self.status.setText(self.words[4])
@@ -308,7 +346,9 @@ class GisGeologyEvidenceDialog(QDialog):
             self._cancel_requested = True
             self._reviewed = None
             self.confirmed_html_selection = None
+            self.confirmed_word_selection = None
             self.confirm_html_button.setEnabled(False)
+            self.confirm_word_button.setEnabled(False)
             self.viewer.clear()
             self.cancel.setEnabled(False)
             self.status.setText(self._t("cancelling"))
@@ -327,13 +367,15 @@ class GisGeologyEvidenceDialog(QDialog):
         self._geology = None
         self._keys = ()
         self._set_running(False)
-        self.confirm_html_button.setEnabled(
-            self._confirm_html is not None and self._reviewed is not None
-            and not self._cancel_requested
+        can_confirm = (
+            self._reviewed is not None
+            and not self._cancel_requested and not self._close_after_worker
             and all(item.review is not None and not item.issues for item in self._reviewed[0].gis)
             and any(item.review is not None and item.review.finite_count > 0
                     for item in self._reviewed[0].gis)
         )
+        self.confirm_html_button.setEnabled(self._confirm_html is not None and can_confirm)
+        self.confirm_word_button.setEnabled(self._confirm_word is not None and can_confirm)
         if self._close_after_worker:
             # The worker is still emitting finished: the registry and other
             # direct observers have not returned yet. Closing a modal dialog
