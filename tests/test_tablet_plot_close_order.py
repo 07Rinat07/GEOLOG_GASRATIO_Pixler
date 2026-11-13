@@ -106,7 +106,10 @@ def test_empty_tablet_placeholder_retires_before_restoring_dataset(qapp):
             assert isinstance(previous, QLabel) and isValid(previous)
             view.set_dataset(dataset)
             assert not isValid(previous)
-            assert view.rendered_track_ids()
+            assert view.rendered_track_ids == tuple(
+                definition.track_id for definition in view.layout_model.visible_tracks()
+            )
+            assert view.rendered_track_ids
             assert all(isValid(entry.plot) for entry in view._rendered.values())
     finally:
         window.close()
