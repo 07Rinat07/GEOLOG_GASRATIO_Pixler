@@ -21,6 +21,7 @@ from geoworkbench.project.interpretation_calculation_controller import (
 )
 from geoworkbench.services.drilling_input_plan import InputSourceMode
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.hydrocarbon_interpretation_legacy import HydrocarbonInterpretationReport
 from geoworkbench.services.interpretation_geology_interval_evidence import GasGeologyIntervalEvidence
 from geoworkbench.ui.drilling_calculation_dialog import DrillingCalculationDialog
 from geoworkbench.ui.interpretation_report_workspace_final import (
@@ -119,6 +120,7 @@ class InterpretationReportWorkspace(_FinalInterpretationReportWorkspace):
         original_well_id = self.controller.session.current_well_id
         confirmed_geology = self._geology_word_evidence
         confirmed_field_selection = self._geology_word_field_selection
+        confirmed_gis = self._gis_word_selection
         identity = self._select_report_identity(report)
         if identity is None:
             return
@@ -189,6 +191,39 @@ class InterpretationReportWorkspace(_FinalInterpretationReportWorkspace):
                         geology_field_selection=approved_fields,
                         geology_source_key=field_source_key,
                     )
+                if confirmed_gis is not None:
+                    if selected_geology or confirmed_field_selection is not None:
+                        raise HydrocarbonInterpretationExportError(
+                            "Combined Word GIS and separate geology approvals must not be mixed"
+                        )
+                    gis_source_key = self._method_comparison_source_key(report)
+                    if (
+                        self._gis_word_selection is not confirmed_gis
+                        or gis_source_key is None or gis_source_key != confirmed_gis.source_key
+                    ):
+                        self._clear_geology_evidence()
+                        raise HydrocarbonInterpretationExportError(
+                            "Confirmed Word GIS evidence was revoked during preparation"
+                        )
+
+                    def current_gis_report() -> HydrocarbonInterpretationReport:
+                        # The exporter repeats this guard before atomic replacement.
+                        if (
+                            self._gis_word_selection is not confirmed_gis
+                            or self._method_comparison_source_key(report) != gis_source_key
+                            or self.controller.session.current_dataset is not dataset
+                        ):
+                            raise ValueError("Confirmed Word GIS source or approval changed")
+                        try:
+                            return self._build_current_gis_gas_report()
+                        except (RuntimeError, TypeError, OverflowError) as exc:
+                            raise ValueError("Could not rebuild the current gas report") from exc
+
+                    word_exporter = partial(
+                        word_exporter, session=self.controller.session,
+                        gis_selection=confirmed_gis, gis_source_key=gis_source_key,
+                        current_gis_report=current_gis_report,
+                    )
                 exported = word_exporter(
                     report,
                     target,
@@ -199,6 +234,8 @@ class InterpretationReportWorkspace(_FinalInterpretationReportWorkspace):
                     orientation=self.word_orientation.currentData() or "portrait",
                 )
         except (OSError, FileExistsError, ValueError, HydrocarbonInterpretationExportError) as exc:
+            if confirmed_gis is not None:
+                self._clear_geology_evidence()
             self._show_export_error(exc)
             return
         self._show_export_success(exported)
