@@ -432,16 +432,16 @@ def _write_docx(
             _table(presentation.headings, presentation.rows, widths=(1800, 2200, 2500, 2500, 5000))
         )
     if gis_evidence is not None:
-        presentation = gis_interval_evidence_table(gis_evidence, language)
+        gis_presentation = gis_interval_evidence_table(gis_evidence, language)
         body.extend((
-            _paragraph(presentation.title, style="Heading1"),
-            _paragraph(presentation.notice),
+            _paragraph(gis_presentation.title, style="Heading1"),
+            _paragraph(gis_presentation.notice),
         ))
         # A narrow two-column table per source remains legible in portrait.
-        for row in presentation.rows:
+        for row in gis_presentation.rows:
             body.append(_table(
-                (presentation.headings[0], row[0]),
-                tuple(zip(presentation.headings[1:], row[1:], strict=True)),
+                (gis_presentation.headings[0], row[0]),
+                tuple(zip(gis_presentation.headings[1:], row[1:], strict=True)),
                 widths=(4800, 9200),
             ))
     body.append(_paragraph(labels.prospective_heading, style="Heading1"))

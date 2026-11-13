@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pyqtgraph as pg
 import pytest
-from PySide6.QtCore import QRectF
+from PySide6.QtCore import QPointF, QRectF
 from PySide6.QtGui import QImage, QPainter
 
 from geoworkbench.domain.models import (
@@ -106,7 +106,7 @@ def test_calcimetry_orientation_and_description_borders_round_trip() -> None:
     migrated = layout_from_dict(legacy)
     assert (
         migrated.track_by_id("calc").calcimetry_label_orientation
-        == "vertical_top_to_bottom"
+        == "vertical_bottom_to_top"
     )
     assert migrated.track_by_id("description").show_description_borders is True
 
@@ -203,7 +203,12 @@ def test_calcimetry_track_editor_changes_label_direction(qapp) -> None:
     dialog.close()
 
 
-def test_tablet_rotates_calcimetry_interval_label(qapp) -> None:
+@pytest.mark.parametrize("orientation, angle", [
+    ("vertical_bottom_to_top", 90.0),
+    ("vertical_top_to_bottom", -90.0),
+    ("horizontal", 0.0),
+])
+def test_tablet_rotates_calcimetry_interval_label(qapp, orientation, angle) -> None:
     dataset = Dataset(
         "calc-orientation",
         "Calc orientation",
@@ -219,7 +224,7 @@ def test_tablet_rotates_calcimetry_interval_label(qapp) -> None:
                     "calc",
                     "Calcimetry",
                     TrackKind.CALCIMETRY,
-                    calcimetry_label_orientation="vertical_top_to_bottom",
+                    calcimetry_label_orientation=orientation,
                 )
             ]
         )
@@ -241,8 +246,24 @@ def test_tablet_rotates_calcimetry_interval_label(qapp) -> None:
     assert items is not None
     labels = [item for item in items["sample"] if isinstance(item, pg.TextItem)]
     assert len(labels) == 3
-    assert all(label.angle == 90.0 for label in labels)
+    assert all(label.angle == angle for label in labels)
     assert {label.textItem.toPlainText() for label in labels} == {"55", "35", "10"}
+    view.resize(800, 650)
+    view.show()
+    qapp.processEvents()
+    view.set_visible_depth(100.0, 110.0)
+    qapp.processEvents()
+    view._update_calcimetry_text_visibility(100.0, 110.0)
+    visible = [label for label in labels if label.isVisible()]
+    assert visible
+    for label in visible:
+        label.updateTransform(force=True)
+        delta = label.mapToScene(QPointF(1, 0)) - label.mapToScene(QPointF(0, 0))
+        if orientation == "horizontal":
+            assert delta.x() > 0 and abs(delta.y()) < 1e-6
+        else:
+            assert abs(delta.x()) < 1e-6
+            assert (delta.y() < 0) == (orientation == "vertical_bottom_to_top")
     view.close()
 
 
@@ -470,3 +491,40 @@ def test_calcimetry_print_only_numbers_that_fit_segments(qapp, monkeypatch):
                    for (left, _), (right, _) in zip(calls, calls[1:]))
     finally:
         painter.end()
+
+
+@pytest.mark.parametrize("old_orientation, expected", [
+    ("vertical_top_to_bottom", "vertical_bottom_to_top"),
+    ("vertical_bottom_to_top", "vertical_bottom_to_top"),
+    ("horizontal", "horizontal"),
+])
+def test_calcimetry_legacy_direction_migrates_once(old_orientation, expected):
+    layout = TabletLayout([TrackDefinition("calc", "Calc", TrackKind.CALCIMETRY,
+                                          calcimetry_label_orientation=old_orientation)])
+    raw = layout_to_dict(layout)
+    raw["version"] = 26
+    restored = layout_from_dict(raw)
+    assert restored.tracks[0].calcimetry_label_orientation == expected
+    restored.tracks[0].calcimetry_label_orientation = "vertical_top_to_bottom"
+    assert layout_from_dict(layout_to_dict(restored)).tracks[0].calcimetry_label_orientation == "vertical_top_to_bottom"
+    form = FormDocument.create("Calc", FormAxisKind.DEPTH)
+    form.add_column(FormColumn.create("Calc", tracks=[FormTrack.create(
+        "Calc", TrackKind.CALCIMETRY, calcimetry_label_orientation=old_orientation,
+    )]))
+    raw_form = form_to_dict(form)
+    raw_form["schema_version"] = 19
+    restored_form = form_from_dict(raw_form)
+    track = restored_form.columns[0].tracks[0]
+    assert track.calcimetry_label_orientation == expected
+    track.calcimetry_label_orientation = "vertical_top_to_bottom"
+    assert form_from_dict(form_to_dict(restored_form)).columns[0].tracks[0].calcimetry_label_orientation == "vertical_top_to_bottom"
+
+
+def test_calcimetry_new_defaults_match_compact_title_direction():
+    assert TrackDefinition("calc", "Calc", TrackKind.CALCIMETRY).calcimetry_label_orientation == "vertical_bottom_to_top"
+    assert FormTrack.create("Calc", TrackKind.CALCIMETRY).calcimetry_label_orientation == "vertical_bottom_to_top"
+    for form in (*factory_templates("ru").values(), *a4_factory_templates("ru").values()):
+        for column in form.columns:
+            for track in column.tracks:
+                if track.kind is TrackKind.CALCIMETRY:
+                    assert track.calcimetry_label_orientation == "vertical_bottom_to_top"

@@ -186,7 +186,7 @@ class TrackDefinition:
         default_factory=VerticalRulerTrackSettings
     )
     lba_label_orientation: str = "vertical_bottom_to_top"
-    calcimetry_label_orientation: str = "vertical_top_to_bottom"
+    calcimetry_label_orientation: str = "vertical_bottom_to_top"
     calcimetry_show_total: bool | None = None
     show_description_borders: bool = True
 
