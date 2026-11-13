@@ -107,7 +107,8 @@ _PYTEST_COLLECTED = re.compile(
     re.IGNORECASE,
 )
 _PYTEST_COMPLETE = re.compile(
-    r"(?m)^=+\s*([1-9]\d*) passed\b[^\r\n]*\bin\s+\d+(?:\.\d+)?s\s*=+[ \t]*$",
+    r"(?m)^=+\s*([1-9]\d*) passed\b[^\r\n]*\bin\s+\d+(?:\.\d+)?s"
+    r"(?:[ \t]+\(\d+:[0-5]\d:[0-5]\d\))?[ \t]*=+[ \t]*$",
     re.IGNORECASE,
 )
 # Any incomplete execution invalidates a diagnostic success, even if pytest
