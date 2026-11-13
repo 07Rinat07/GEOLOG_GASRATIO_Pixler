@@ -1,5 +1,7 @@
 from geoworkbench.domain.text_presentation import (
+    pyqtgraph_angle_from_qt,
     rotated_text_alignment,
+    text_angle,
     text_graphics_anchor,
 )
 
@@ -24,3 +26,10 @@ def test_horizontal_anchor_uses_original_vertical_axis() -> None:
     assert text_graphics_anchor("horizontal", "top") == (0.5, 0.0)
     assert text_graphics_anchor("horizontal", "center") == (0.5, 0.5)
     assert text_graphics_anchor("horizontal", "bottom") == (0.5, 1.0)
+
+
+def test_pyqtgraph_and_painter_use_opposite_rotation_signs() -> None:
+    for orientation, angle in (("horizontal", 0.0), ("vertical_bottom_to_top", -90.0),
+                               ("vertical_top_to_bottom", 90.0)):
+        assert text_angle(orientation) == angle
+        assert pyqtgraph_angle_from_qt(angle) == -angle

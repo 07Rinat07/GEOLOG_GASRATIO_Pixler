@@ -29,7 +29,7 @@ from geoworkbench.tablet.vertical_ruler import (
 )
 
 
-FORM_SCHEMA_VERSION = 19
+FORM_SCHEMA_VERSION = 20
 
 
 class FormFormatError(ValueError):
@@ -245,7 +245,7 @@ def _track_from_dict(data: object) -> FormTrack:
         calcimetry_label_orientation=_string(
             data,
             "calcimetry_label_orientation",
-            default="vertical_top_to_bottom",
+            default="vertical_bottom_to_top",
         ),
         calcimetry_show_total=_optional_boolean(data, "calcimetry_show_total"),
         show_description_borders=_boolean(data, "show_description_borders", default=True),
@@ -289,7 +289,7 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("schema_version", 0)
     if version == FORM_SCHEMA_VERSION:
         return data
-    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18):
+    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19):
         raise FormFormatError("Неподдерживаемая версия схемы формы")
     migrated = deepcopy(data)
     if version == 0:
@@ -317,7 +317,7 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
                             "lba_label_orientation", "vertical_bottom_to_top"
                         )
                         track.setdefault(
-                            "calcimetry_label_orientation", "vertical_top_to_bottom"
+                            "calcimetry_label_orientation", "vertical_bottom_to_top"
                         )
                         track.setdefault("show_description_borders", True)
                         track.setdefault("show_x_scale", True)
@@ -441,6 +441,21 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
                         and track.get("lba_label_orientation") == "vertical_top_to_bottom"
                     ):
                         track["lba_label_orientation"] = "vertical_bottom_to_top"
+    # Match the corrected tablet and print direction once for older forms.
+    if version <= 19 and isinstance(columns, list):
+        for column in columns:
+            if not isinstance(column, dict):
+                continue
+            tracks = column.get("tracks")
+            if not isinstance(tracks, list):
+                continue
+            for track in tracks:
+                if (
+                    isinstance(track, dict)
+                    and track.get("kind") == TrackKind.CALCIMETRY.value
+                    and track.get("calcimetry_label_orientation") == "vertical_top_to_bottom"
+                ):
+                    track["calcimetry_label_orientation"] = "vertical_bottom_to_top"
     migrated["schema_version"] = FORM_SCHEMA_VERSION
     return migrated
 

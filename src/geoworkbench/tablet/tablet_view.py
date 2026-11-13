@@ -64,7 +64,7 @@ from geoworkbench.domain.models import (
     WellInterpretation,
 )
 from geoworkbench.domain.localized_content import localized_text
-from geoworkbench.domain.text_presentation import text_angle
+from geoworkbench.domain.text_presentation import pyqtgraph_angle_from_qt, text_angle
 from geoworkbench.data.number_format import format_decimal_number
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.project.stratigraphy_controller import (
@@ -10074,7 +10074,7 @@ class TabletView(QWidget):
                 label_text,
                 color="#ffffff" if QColor(color).lightness() < 110 else "#0f172a",
                 anchor=stratigraphy_text_anchor(interval.text_orientation, interval.text_position),
-                angle=stratigraphy_text_angle(interval.text_orientation),
+                angle=pyqtgraph_angle_from_qt(stratigraphy_text_angle(interval.text_orientation)),
             )
             label.setZValue(10)
             label.textItem.document().setDocumentMargin(1.0)
@@ -10882,7 +10882,9 @@ class TabletView(QWidget):
                             f"{value:g}", color="#0f172a", anchor=(0.5, 0.5),
                         )
                         caption.textItem.document().setDocumentMargin(0.0)
-                        caption.setAngle(text_angle(definition.calcimetry_label_orientation))
+                        caption.setAngle(pyqtgraph_angle_from_qt(
+                            text_angle(definition.calcimetry_label_orientation)
+                        ))
                         caption.setPos(left + numeric / 2.0, center)
                         caption.setData(_CALCIMETRY_SEGMENT_WIDTH_ROLE, numeric)
                         caption.setToolTip(tooltip)
@@ -11035,7 +11037,7 @@ class TabletView(QWidget):
                         fluorescence_code, color=foreground, anchor=(0.5, 0.5)
                     )
                     color_label.setAngle(
-                        text_angle(definition.lba_label_orientation)
+                        pyqtgraph_angle_from_qt(text_angle(definition.lba_label_orientation))
                     )
                     color_label.setPos(1.5, center)
                     color_label.setToolTip(tooltip)
@@ -11056,7 +11058,9 @@ class TabletView(QWidget):
                 items.append(bitumen_cell)
                 label_color = "#0f172a" if style.code in {"ЛБ", "МБ", "МСБ"} else "#ffffff"
                 label = pg.TextItem(style.code, color=label_color, anchor=(0.5, 0.5))
-                label.setAngle(text_angle(definition.lba_label_orientation))
+                label.setAngle(pyqtgraph_angle_from_qt(
+                    text_angle(definition.lba_label_orientation)
+                ))
                 label.setPos(2.5, center)
                 label.setToolTip(tooltip)
                 track.plot.addItem(label)
@@ -11958,7 +11962,7 @@ class TabletView(QWidget):
                         label.setText(caption)
                         rect = label.textItem.boundingRect()
                         if rect.width() <= width_limit and rect.height() <= height_limit:
-                            label.setAngle(angle)
+                            label.setAngle(pyqtgraph_angle_from_qt(angle))
                             fitted = True
                             break
                     if fitted:
@@ -11986,7 +11990,7 @@ class TabletView(QWidget):
                         label.setText(caption)
                         rect = label.textItem.boundingRect()
                         if rect.width() <= width_limit and rect.height() <= height_limit:
-                            label.setAngle(angle)
+                            label.setAngle(pyqtgraph_angle_from_qt(angle))
                             fitted = True
                             break
                 if not fitted:

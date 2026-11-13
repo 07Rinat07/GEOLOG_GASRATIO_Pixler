@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pyqtgraph as pg
 import pytest
+from PySide6.QtCore import QPointF
 
 from geoworkbench.domain.models import (
     CuttingsSample,
@@ -165,8 +166,8 @@ def test_non_lba_track_hides_lba_label_direction_control(qapp) -> None:
 
 
 @pytest.mark.parametrize("orientation, angle", [
-    ("vertical_bottom_to_top", -90.0),
-    ("vertical_top_to_bottom", 90.0),
+    ("vertical_bottom_to_top", 90.0),
+    ("vertical_top_to_bottom", -90.0),
     ("horizontal", 0.0),
 ])
 def test_tablet_rotates_only_lba_colour_and_bitumen_labels(qapp, orientation, angle) -> None:
@@ -205,6 +206,15 @@ def test_tablet_rotates_only_lba_colour_and_bitumen_labels(qapp, orientation, an
     assert labels["3"].angle == 0
     assert labels["ОЖ"].angle == angle
     assert labels["МСБ"].angle == angle
+    for code in ("ОЖ", "МСБ"):
+        label = labels[code]
+        label.updateTransform(force=True)
+        delta = label.mapToScene(QPointF(1, 0)) - label.mapToScene(QPointF(0, 0))
+        if orientation == "horizontal":
+            assert delta.x() > 0 and abs(delta.y()) < 1e-6
+        else:
+            assert abs(delta.x()) < 1e-6
+            assert (delta.y() < 0) == (orientation == "vertical_bottom_to_top")
     view.close()
 
 

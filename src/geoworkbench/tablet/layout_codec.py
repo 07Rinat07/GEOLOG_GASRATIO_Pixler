@@ -23,7 +23,7 @@ from geoworkbench.tablet.vertical_ruler import (
 )
 
 
-LAYOUT_FORMAT_VERSION = 26
+LAYOUT_FORMAT_VERSION = 27
 
 
 class TabletLayoutFormatError(ValueError):
@@ -220,7 +220,7 @@ def _track_from_dict(data: object) -> TrackDefinition:
         "lba_label_orientation", "vertical_bottom_to_top"
     )
     calcimetry_label_orientation = data.get(
-        "calcimetry_label_orientation", "vertical_top_to_bottom"
+        "calcimetry_label_orientation", "vertical_bottom_to_top"
     )
     calcimetry_show_total = data.get("calcimetry_show_total")
     show_description_borders = data.get("show_description_borders", True)
@@ -379,7 +379,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     if version == LAYOUT_FORMAT_VERSION:
         return data
     if version not in (
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26
     ):
         raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
     migrated = deepcopy(data)
@@ -540,7 +540,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
                     "lba_label_orientation", "vertical_bottom_to_top"
                 )
                 track.setdefault(
-                    "calcimetry_label_orientation", "vertical_top_to_bottom"
+                    "calcimetry_label_orientation", "vertical_bottom_to_top"
                 )
                 track.setdefault("show_description_borders", True)
                 track.setdefault("show_x_scale", True)
@@ -556,6 +556,16 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
                 and track.get("lba_label_orientation") == "vertical_top_to_bottom"
             ):
                 track["lba_label_orientation"] = "vertical_bottom_to_top"
+    # Old calcimetry defaults used the opposite named direction. Upgrade once;
+    # preserve horizontal settings and later explicit current-schema overrides.
+    if version <= 26 and isinstance(tracks, list):
+        for track in tracks:
+            if (
+                isinstance(track, dict)
+                and track.get("kind") == TrackKind.CALCIMETRY.value
+                and track.get("calcimetry_label_orientation") == "vertical_top_to_bottom"
+            ):
+                track["calcimetry_label_orientation"] = "vertical_bottom_to_top"
     migrated["version"] = LAYOUT_FORMAT_VERSION
     return migrated
 
