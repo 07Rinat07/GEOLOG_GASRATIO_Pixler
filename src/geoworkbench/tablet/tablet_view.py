@@ -11,7 +11,7 @@ from typing import cast
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, QRect, QRectF, Qt, Signal, QTimer
+from PySide6.QtCore import QCoreApplication, QEvent, QObject, QPoint, QPointF, QRect, QRectF, Qt, Signal, QTimer
 from PySide6.QtGui import (
     QAction,
     QColor,
@@ -479,6 +479,34 @@ def _safe_delete_later(target: object | None) -> bool:
     except (RuntimeError, TypeError):
         return False
     return True
+
+
+def _clear_passive_tablet_layout(layout: QHBoxLayout) -> None:
+    """Release passive captions and placeholders before building replacements.
+
+    QLayout.removeWidget keeps ownership of its QWidgetItem in Qt; takeAt
+    transfers that item to Python. In the normal widget path avoid retaining a
+    detached item, hide its widget immediately and finish only that label's
+    deferred deletion. Interactive tracks have their own disposal path.
+    """
+    while layout.count():
+        item = layout.itemAt(0)
+        if item is None:
+            break
+        widget = item.widget()
+        del item
+        if widget is None:
+            # These two layouts normally contain only widgets. Dispose any
+            # spacer item without transferring ownership to a long-lived local.
+            layout.takeAt(0)
+            continue
+        layout.removeWidget(widget)
+        widget.hide()
+        if _safe_delete_later(widget) and isinstance(widget, QLabel):
+            # Group headers and empty-state labels have no editor callbacks.
+            # Never pump unrelated events or synchronously delete an active
+            # interactive widget that might be the current signal sender.
+            QCoreApplication.sendPostedEvents(widget, QEvent.Type.DeferredDelete)
 
 
 CURVE_HEADER_EDITOR_HEIGHT = CURVE_HEADER_ROW_HEIGHT
@@ -6632,13 +6660,7 @@ class TabletView(QWidget):
         self._wheel_targets.clear()
         self._interpretation_viewports.clear()
         for layout in (self._group_header_layout, self._tracks_layout):
-            while layout.count():
-                item = layout.takeAt(0)
-                if item is None:
-                    continue
-                widget = item.widget()
-                if widget is not None:
-                    _safe_delete_later(widget)
+            _clear_passive_tablet_layout(layout)
 
     def refresh_view(self) -> None:
         if self._layout_rebuild_active:
@@ -6920,11 +6942,7 @@ class TabletView(QWidget):
     def _rebuild_group_headers(self) -> None:
         """Build merged section captions aligned with contiguous form columns."""
 
-        while self._group_header_layout.count():
-            item = self._group_header_layout.takeAt(0)
-            widget = item.widget() if item is not None else None
-            if widget is not None:
-                widget.deleteLater()
+        _clear_passive_tablet_layout(self._group_header_layout)
 
         visible = self._layout_model.visible_tracks()
         if not visible or not any(track.group_title.strip() for track in visible):
