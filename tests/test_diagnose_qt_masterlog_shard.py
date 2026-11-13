@@ -300,3 +300,25 @@ def test_diagnostic_selector_tracks_real_windows_runner_partition() -> None:
     else:
         assert len(regular_matches) == 1
         assert selected == regular_matches[0]
+
+
+@pytest.mark.parametrize(
+    ("status", "summary", "extra", "expected"),
+    (
+        (0, "873 passed in 137.56s (0:02:17)", "", True),
+        (0, "873 passed, 1 warning in 137.56s (0:02:17)", "", True),
+        (0, "872 passed in 137.56s (0:02:17)", "", False),
+        (0, "872 passed, 1 skipped in 137.56s (0:02:17)", "", False),
+        (0, "873 passed in 137.56s (0:99:17)", "", False),
+        (0, "873 passed in 137.56s (not a duration)", "", False),
+        (0, "873 passed in 137.56s (0:02:17)", "\nGEOLOG_CDB_NATIVE_EXCEPTION", False),
+        (0, "873 passed in 137.56s (0:02:17)", "\nExceptionCode: c0000005", False),
+        (1, "873 passed in 137.56s (0:02:17)", "", False),
+    ),
+)
+def test_cdb_long_pytest_summary_preserves_strict_completion(
+    status: int, summary: str, extra: str, expected: bool,
+) -> None:
+    # Real summary from Windows GIS diagnostic 43263249385.
+    output = f"GEOLOG_CDB_ARMED\ncollected 873 items\n==== {summary} ===={extra}"
+    assert debugger_replay_passed(status, output) is expected
