@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import QMetaObject, QObject, QSize, Qt, Slot
+from PySide6.QtCore import QMetaObject, QObject, QSize, Qt, QTimer, Slot
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QDialog, QDialogButtonBox, QLabel, QListWidget, QListWidgetItem,
@@ -87,6 +87,9 @@ class GisGeologyEvidenceDialog(QDialog):
         self.confirmed_html_selection: ConfirmedGisGeologySelection | None = None
         self._cancel_requested = False
         self._close_after_worker = False
+        self._close_timer = QTimer(self)
+        self._close_timer.setSingleShot(True)
+        self._close_timer.timeout.connect(self._finish_deferred_close)
         self.setObjectName("gis-geology-evidence-dialog")
         self.setWindowTitle(self.words[0])
         layout = QVBoxLayout(self)
@@ -180,7 +183,7 @@ class GisGeologyEvidenceDialog(QDialog):
         )
 
     def _review(self) -> None:
-        if self._worker is not None:
+        if self._worker is not None or self._close_after_worker:
             return
         self._clear()
         keys = self._selected_keys()
@@ -332,13 +335,24 @@ class GisGeologyEvidenceDialog(QDialog):
                     for item in self._reviewed[0].gis)
         )
         if self._close_after_worker:
+            # The worker is still emitting finished: the registry and other
+            # direct observers have not returned yet. Closing a modal dialog
+            # here can re-enter its owner and destroy Qt receivers mid-signal.
+            # A dialog-owned timer runs after this terminal delivery.
+            self._close_timer.start(0)
+
+    @Slot()
+    def _finish_deferred_close(self) -> None:
+        if self._worker is None and self._close_after_worker:
             self._close_after_worker = False
-            self.reject()
+            super().reject()
 
     def reject(self) -> None:
         if self._worker is not None:
             self._close_after_worker = True
             self._cancel_review()
+            return
+        if self._close_after_worker:
             return
         super().reject()
 
@@ -346,6 +360,9 @@ class GisGeologyEvidenceDialog(QDialog):
         if self._worker is not None:
             self._close_after_worker = True
             self._cancel_review()
+            event.ignore()
+            return
+        if self._close_after_worker:
             event.ignore()
             return
         super().closeEvent(event)
