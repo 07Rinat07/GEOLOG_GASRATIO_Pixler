@@ -207,10 +207,13 @@ class GisGeologyEvidenceDialog(QDialog):
         worker = GisIntervalCompareWorker(self.dataset, keys, *self.bounds)
         self._worker = worker
         # Use the established lifetime registry and shutdown cancellation.
-        worker.progress.connect(self._progress, Qt.ConnectionType.QueuedConnection)
-        worker.completed.connect(self._completed, Qt.ConnectionType.QueuedConnection)
-        worker.failed.connect(self._failed, Qt.ConnectionType.QueuedConnection)
-        worker.finished.connect(self._worker_finished, Qt.ConnectionType.QueuedConnection)
+        # The worker's timer emits exclusively on the owning GUI thread.
+        # Deliver synchronously so terminal slots finish before retirement;
+        # no queued Python payload or stale dialog callback survives completion.
+        worker.progress.connect(self._progress, Qt.ConnectionType.DirectConnection)
+        worker.completed.connect(self._completed, Qt.ConnectionType.DirectConnection)
+        worker.failed.connect(self._failed, Qt.ConnectionType.DirectConnection)
+        worker.finished.connect(self._worker_finished, Qt.ConnectionType.DirectConnection)
         register_gis_interval_worker(worker)
         self._worker_cancel_connection = self.destroyed.connect(worker.cancellation_callback())
         worker.start()
