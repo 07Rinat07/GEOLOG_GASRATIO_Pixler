@@ -11,7 +11,7 @@ from geoworkbench.services.interpretation_geology_interval_evidence import (
     correlate_gas_interval_with_well_geology,
 )
 from geoworkbench.services.interpretation_gis_evidence_handoff import (
-    confirm_gis_geology_selection, confirmed_gis_geology_evidence_html,
+    GisEvidenceTarget, confirm_gis_geology_selection, confirmed_gis_geology_evidence_html,
     verified_gis_geology_handoff,
 )
 from geoworkbench.services.interpretation_gis_interval_evidence import GasGeologyGisIntervalEvidence
@@ -144,4 +144,85 @@ def test_approval_rejects_matching_edits_to_live_and_copied_arrays(monkeypatch, 
     with pytest.raises(ValueError, match="approved numeric fingerprint"):
         verified_gis_geology_handoff(
             session, report, replace(report), selection, source_key=source_key,
+        )
+
+
+_TARGETS: tuple[GisEvidenceTarget, ...] = ("html", "word", "pdf", "excel", "print")
+
+
+@pytest.mark.parametrize("target", _TARGETS)
+def test_confirmation_is_bound_to_one_output_target(monkeypatch, tmp_path, target):
+    session, receiver, dataset, key, report, snapshot, evidence = _reviewed(monkeypatch, tmp_path)
+    source_key = ("source",)
+    before = dataset.curves[key].values.copy()
+    dirty = session.dirty
+    selection = confirm_gis_geology_selection(
+        session, report, replace(report), evidence, snapshot,
+        source_key=source_key, target=target,
+    )
+    assert selection.target == target
+    for output in _TARGETS:
+        if output == target:
+            assert verified_gis_geology_handoff(
+                session, report, replace(report), selection,
+                source_key=source_key, target=output,
+            ) == evidence
+        else:
+            with pytest.raises(ValueError, match="different output target"):
+                verified_gis_geology_handoff(
+                    session, report, replace(report), selection,
+                    source_key=source_key, target=output,
+                )
+    if target != "html":
+        with pytest.raises(ValueError, match="different output target"):
+            confirmed_gis_geology_evidence_html(
+                session, report, replace(report), selection, AppLanguage.EN,
+                source_key=source_key,
+            )
+    assert session.dirty == dirty and receiver.curves == {}
+    np.testing.assert_array_equal(dataset.curves[key].values, before)
+
+
+@pytest.mark.parametrize("target", _TARGETS[1:])
+@pytest.mark.parametrize("change", ("gis", "geology", "candidate"))
+def test_export_target_revalidates_reviewed_sources(monkeypatch, tmp_path, target, change):
+    session, _, dataset, key, report, snapshot, evidence = _reviewed(monkeypatch, tmp_path)
+    source_key = ("source",)
+    selection = confirm_gis_geology_selection(
+        session, report, replace(report), evidence, snapshot,
+        source_key=source_key, target=target,
+    )
+    current = replace(report)
+    if change == "gis":
+        dataset.curves[key].values[1] = 1.5
+    elif change == "geology":
+        session.current_well.cuttings[0].calcite_percent = 25.0
+    else:
+        current = replace(report, candidates=(replace(report.candidates[0], max_primary_value=999.0),))
+    with pytest.raises(ValueError):
+        verified_gis_geology_handoff(
+            session, report, current, selection, source_key=source_key, target=target,
+        )
+
+
+def test_default_html_confirmation_cannot_authorize_exports(monkeypatch, tmp_path):
+    session, _, _, _, report, snapshot, evidence = _reviewed(monkeypatch, tmp_path)
+    selection = confirm_gis_geology_selection(
+        session, report, replace(report), evidence, snapshot, source_key=("source",),
+    )
+    assert selection.target == "html"
+    for target in _TARGETS[1:]:
+        with pytest.raises(ValueError, match="different output target"):
+            verified_gis_geology_handoff(
+                session, report, replace(report), selection, source_key=("source",), target=target,
+            )
+    with pytest.raises(ValueError, match="Unknown GIS evidence confirmation target"):
+        confirm_gis_geology_selection(
+            session, report, replace(report), evidence, snapshot,
+            source_key=("source",), target="docx",  # type: ignore[arg-type]
+        )
+    with pytest.raises(ValueError, match="Unknown GIS evidence confirmation target"):
+        verified_gis_geology_handoff(
+            session, report, replace(report), selection,
+            source_key=("source",), target="docx",  # type: ignore[arg-type]
         )
