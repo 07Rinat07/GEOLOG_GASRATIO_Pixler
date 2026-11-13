@@ -60,7 +60,7 @@ def _case(tmp_path, language, kind):
     expected = [DESCRIPTIONS[language.value]]
     if kind == "interpretation":
         expected.append(CONCLUSIONS[language.value])
-    return paint, expected, ["body_pt"]
+    return paint, expected, ["body_pt" if kind == "interpretation" else "rock_description_pt"]
 
 
 @pytest.mark.parametrize("language", list(AppLanguage))
@@ -103,6 +103,11 @@ def test_all_masterlog_default_roles_follow_profile_in_real_pdf(qapp, tmp_path, 
                 assert span["bbox"][3] <= 80 * 72 / 25.4 + 0.3
             snapshots.append(spans)
     assert calls
+    if kind in ("lithology", "cuttings"):
+        # Fixed physical description role must not inherit custom body size.
+        assert visual.typography.rock_description_pt == 9.0
+        assert all(span["size"] == pytest.approx(9.0, abs=0.3)
+                   for spans in snapshots for span in spans)
     assert {size for size, _ in calls} == {getattr(visual.typography, role) for role in roles}
     assert [s["text"] for s in snapshots[0]] == [s["text"] for s in snapshots[1]]
     for baseline, actual in zip(*snapshots):

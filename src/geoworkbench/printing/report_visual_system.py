@@ -8,6 +8,8 @@ import re
 
 from geoworkbench.brand import REPORT_BRAND_WORDMARK
 from geoworkbench.domain.report_composition import ReportLayoutProfile
+ROCK_DESCRIPTION_POINT_SIZE = 9.0
+
 _HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 
@@ -68,6 +70,11 @@ class ReportTypography:
     table_pt: float = 7.6
     caption_pt: float = 7.2
     footer_pt: float = 7.0
+
+    @property
+    def rock_description_pt(self) -> float:
+        """Fixed tablet/MASTERLOG geology role, independent of body typography."""
+        return ROCK_DESCRIPTION_POINT_SIZE
 
     def __post_init__(self) -> None:
         for item in fields(self):
@@ -168,6 +175,7 @@ def modern_oilfield_report_profile(*, grayscale: bool = False) -> ReportVisualPr
 
 __all__ = [
     "REPORT_BRAND_WORDMARK",
+    "ROCK_DESCRIPTION_POINT_SIZE",
     "ReportLayoutMetrics",
     "ReportPalette",
     "ReportTypography",

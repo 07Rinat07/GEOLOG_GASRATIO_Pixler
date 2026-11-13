@@ -276,6 +276,11 @@ def test_cuttings_description_is_visible_and_wrapped_in_text_track(qapp) -> None
     assert rendered.plot is not None
     assert item.textItem.textWidth() == float(rendered.plot.viewport().width() - 4)
     assert item.boundingRect().height() > 25.0
+    # A pixel inset must remain constant when the track width changes.
+    box = rendered.plot.getViewBox()
+    x_left, x_right = box.viewRange()[0]
+    assert abs((item.pos().x() - x_left) * box.width() / (x_right - x_left) - 2.0) < 0.01
+    assert item.textItem.textWidth() + 4.0 == box.width()
     view.close()
 
 

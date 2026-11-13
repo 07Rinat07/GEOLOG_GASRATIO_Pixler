@@ -1067,6 +1067,44 @@ def test_window_global_undo_routes_header_and_curve_edits_in_chronological_order
     window.close()
 
 
+def test_header_history_preserves_rendered_tablet_and_depth_window(qapp) -> None:
+    window = MainWindow()
+    session, layout = make_session()
+    layout.track_by_id("curve").curve_mnemonics = ["ROP"]
+    bind_session(window, session)
+    window._show_current_dataset()
+    qapp.processEvents()
+    dataset = session.current_dataset
+    well = session.current_well
+    assert dataset is not None and well is not None
+    dataset.headers["WELL"] = well.name
+    original_name = well.name
+    rendered = {key: entry.widget for key, entry in window.tablet_view._rendered.items()}
+    assert "curve" in rendered
+    before = window.tablet_view.dirty_render_stats()
+    view_layout = window.tablet_view.layout_model
+    bounds = (view_layout.visible_depth_top, view_layout.visible_depth_bottom)
+    try:
+        window.header_editing_controller.update(
+            HeaderSection.WELL, "WELL", "WELL", "Renamed Well",
+        )
+        for action, expected in (
+            (window.undo_project_edit, original_name),
+            (window.redo_project_edit, "Renamed Well"),
+        ):
+            action()
+            qapp.processEvents()
+            assert well.name == expected and dataset.headers["WELL"] == expected
+            assert window.tablet_view.layout_model is view_layout
+            assert (view_layout.visible_depth_top, view_layout.visible_depth_bottom) == bounds
+            assert set(window.tablet_view._rendered) == set(rendered)
+            assert all(window.tablet_view._rendered[key].widget is widget
+                       for key, widget in rendered.items())
+            assert window.tablet_view.dirty_render_stats().full_updates == before.full_updates
+    finally:
+        window.close()
+
+
 def test_window_global_undo_routes_curve_metadata_edits(qapp) -> None:
     window = MainWindow()
     session, _ = make_session()
