@@ -3,13 +3,14 @@
 The caller must rebuild the gas report using its current settings before
 confirmation and again before handoff. This boundary checks the chosen gas
 candidate, original GIS snapshot and measured geology, not a fluid diagnosis.
-No report file or export approval is produced implicitly.
+No report file or approval for another output target is produced implicitly.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha256
+from typing import Literal
 
 import numpy as np
 
@@ -29,15 +30,24 @@ from geoworkbench.services.interpretation_gis_interval_evidence_html import (
 from geoworkbench.services.localization import AppLanguage
 
 
+GisEvidenceTarget = Literal["html", "word", "pdf", "excel", "print"]
+
+
+def _validate_target(target: GisEvidenceTarget) -> None:
+    if target not in ("html", "word", "pdf", "excel", "print"):
+        raise ValueError("Unknown GIS evidence confirmation target")
+
+
 @dataclass(frozen=True, slots=True)
 class ConfirmedGisGeologySelection:
-    """One explicit approval bound to the original report and reviewed arrays."""
+    """One explicit approval bound to one output, report and reviewed arrays."""
 
     report: HydrocarbonInterpretationReport
     source_key: tuple[object, ...]
     evidence: GasGeologyGisIntervalEvidence
     snapshot: GisIntervalSnapshot
     numeric_sha256: tuple[str, ...]
+    target: GisEvidenceTarget = "html"
 
 
 def _array_sha256(values: np.ndarray) -> str:
@@ -135,15 +145,21 @@ def confirm_gis_geology_selection(
     snapshot: GisIntervalSnapshot,
     *,
     source_key: tuple[object, ...],
+    target: GisEvidenceTarget = "html",
 ) -> ConfirmedGisGeologySelection:
-    """Confirm only an explicit preview with its original numeric snapshot."""
+    """Confirm the original reviewed snapshot for exactly one output target.
+
+    Non-HTML callers must explicitly request their own operator confirmation;
+    the default preserves the existing HTML-only preview contract.
+    """
+    _validate_target(target)
     if not isinstance(source_key, tuple) or not source_key:
         raise ValueError("Confirmation requires an identified report source")
     _verify_evidence(session, report, current_report, evidence, snapshot)
     fingerprint = _numeric_fingerprint(snapshot)
     if not snapshot.matches(lambda: False):
         raise ValueError("Confirmed GIS evidence has changed source arrays")
-    return ConfirmedGisGeologySelection(report, source_key, evidence, snapshot, fingerprint)
+    return ConfirmedGisGeologySelection(report, source_key, evidence, snapshot, fingerprint, target)
 
 
 def verified_gis_geology_handoff(
@@ -153,14 +169,18 @@ def verified_gis_geology_handoff(
     selection: ConfirmedGisGeologySelection,
     *,
     source_key: tuple[object, ...],
+    target: GisEvidenceTarget = "html",
 ) -> GasGeologyGisIntervalEvidence:
-    """Reject changed reports, settings, geology and numeric GIS sources."""
+    """Reject mismatched output targets and changed reports or source data."""
+    _validate_target(target)
     if (
         not isinstance(selection, ConfirmedGisGeologySelection)
         or selection.report is not report
         or not source_key or selection.source_key != source_key
     ):
         raise ValueError("Confirmed GIS evidence has a stale report or source key")
+    if selection.target != target:
+        raise ValueError("Confirmed GIS evidence has a different output target")
     _verify_evidence(session, report, current_report, selection.evidence, selection.snapshot)
     # A frozen selection still references a mutable snapshot object. Even if
     # live and copied arrays are edited together, the approved bytes must match.
@@ -189,6 +209,7 @@ def confirmed_gis_geology_evidence_html(
 
 
 __all__ = [
+    "GisEvidenceTarget",
     "ConfirmedGisGeologySelection",
     "confirm_gis_geology_selection",
     "verified_gis_geology_handoff",
