@@ -6388,7 +6388,21 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(description)
 
     def _after_lithology_history_change(self, description: str) -> None:
-        self._show_current_dataset()
+        dataset = self.session.current_dataset
+        well = self.session.current_well
+        if (
+            dataset is None
+            or well is None
+            or self.tablet_view._dataset is not dataset
+            or self.tablet_view.layout_model is not self.session.current_tablet_layout
+        ):
+            self._show_current_dataset()
+        else:
+            self.tablet_view.refresh_lithology_history(
+                well.lithology, self.lithotype_catalog_controller.available()
+            )
+            self.interpretation_report_workspace.refresh()
+        self._refresh_tree()
         self._update_title()
         self.statusBar().showMessage(description)
 
