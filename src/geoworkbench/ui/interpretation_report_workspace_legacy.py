@@ -79,6 +79,7 @@ from geoworkbench.services.interpretation_gis_evidence_handoff import (
     ConfirmedGisGeologySelection,
     confirm_gis_geology_selection,
     confirmed_gis_geology_evidence_html,
+    verified_gis_geology_handoff,
 )
 from geoworkbench.services.interpretation_geology_interval_evidence_html import (
     geology_interval_evidence_html,
@@ -113,6 +114,7 @@ class InterpretationReportWorkspace(QWidget):
         self._geology_pdf_field_selection: ConfirmedGeologyFieldSelection | None = None
         self._geology_print_field_selection: ConfirmedGeologyFieldSelection | None = None
         self._geology_word_field_selection: ConfirmedGeologyFieldSelection | None = None
+        self._gis_word_selection: ConfirmedGisGeologySelection | None = None
         self._geology_excel_field_selection: ConfirmedGeologyFieldSelection | None = None
         self._geology_pdf_evidence: tuple[GasGeologyIntervalEvidence, ...] = ()
         self._geology_pdf_source_key: tuple[object, ...] | None = None
@@ -601,6 +603,7 @@ class InterpretationReportWorkspace(QWidget):
         self._geology_html_field_selection = None
         self._geology_pdf_field_selection = None
         self._geology_word_field_selection = None
+        self._gis_word_selection = None
         self._geology_excel_field_selection = None
         self._geology_print_field_selection = None
         self._geology_word_evidence = ()
@@ -864,6 +867,21 @@ class InterpretationReportWorkspace(QWidget):
         self._comparison_dialog = dialog
         dialog.show()
 
+    def _build_current_gis_gas_report(self) -> HydrocarbonInterpretationReport:
+        """Recompute the live gas candidate using the explicit report controls."""
+        session = self.controller.session
+        if self._is_opus_mode():
+            lod = self.total_gas_lod.value()
+            return build_opus_interpretation_report(
+                session, threshold=self.threshold.value(),
+                depth_interval=getattr(self.controller, "depth_interval", None),
+                total_gas_lod=lod if lod > 0.0 else None,
+            )
+        return build_hydrocarbon_interpretation_report(
+            session, threshold=self.threshold.value(),
+            depth_interval=getattr(self.controller, "depth_interval", None),
+        )
+
     def _show_geology_evidence(self) -> None:
         """Expose measured MD intersections only after an operator click.
 
@@ -942,19 +960,6 @@ class InterpretationReportWorkspace(QWidget):
         gis_button.setVisible(has_reviewable_gis())
         layout.addWidget(gis_button)
 
-        def build_current_gas_report() -> HydrocarbonInterpretationReport:
-            if self._is_opus_mode():
-                lod = self.total_gas_lod.value()
-                return build_opus_interpretation_report(
-                    session, threshold=self.threshold.value(),
-                    depth_interval=getattr(self.controller, "depth_interval", None),
-                    total_gas_lod=lod if lod > 0.0 else None,
-                )
-            return build_hydrocarbon_interpretation_report(
-                session, threshold=self.threshold.value(),
-                depth_interval=getattr(self.controller, "depth_interval", None),
-            )
-
         def validated_gis_bounds(*, notify: bool = True) -> tuple[float, float] | None:
             from geoworkbench.services.geology_depth_alignment import supports_saved_md_geology
 
@@ -986,7 +991,7 @@ class InterpretationReportWorkspace(QWidget):
             try:
                 QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
                 try:
-                    current = build_current_gas_report()
+                    current = self._build_current_gis_gas_report()
                 finally:
                     QApplication.restoreOverrideCursor()
                 candidate = report.candidates[index]
@@ -1031,6 +1036,10 @@ class InterpretationReportWorkspace(QWidget):
         combined_button.setObjectName("interpretation-geology-combined-gis")
         combined_button.setVisible(has_reviewable_gis())
         layout.addWidget(combined_button)
+        word_gis_status = QLabel(dialog)
+        word_gis_status.setObjectName("interpretation-geology-word-gis-status")
+        word_gis_status.setWordWrap(True)
+        layout.addWidget(word_gis_status)
 
         def review_combined() -> None:
             from geoworkbench.ui.gis_geology_evidence_dialog import GisGeologyEvidenceDialog
@@ -1044,28 +1053,64 @@ class InterpretationReportWorkspace(QWidget):
                 if validated_gis_bounds(notify=False) != bounds:
                     raise ValueError("Selected gas interval changed")
                 return confirm_gis_geology_selection(
-                    session, report, build_current_gas_report(), evidence, snapshot,
+                    session, report, self._build_current_gis_gas_report(), evidence, snapshot,
                     source_key=source_key,
+                )
+
+            def confirm_word(
+                evidence: GasGeologyGisIntervalEvidence, snapshot: GisIntervalSnapshot,
+            ) -> ConfirmedGisGeologySelection:
+                if validated_gis_bounds(notify=False) != bounds:
+                    raise ValueError("Selected gas interval changed")
+                return confirm_gis_geology_selection(
+                    session, report, self._build_current_gis_gas_report(), evidence, snapshot,
+                    source_key=source_key, target="word",
                 )
 
             preview = GisGeologyEvidenceDialog(
                 session, dataset, bounds, lambda: validated_gis_bounds(notify=False), dialog,
                 language=self._report_output_language(), confirm_html=confirm_html,
+                confirm_word=confirm_word,
             )
             try:
                 result = preview.exec()
                 selection = preview.confirmed_html_selection
-                if result != QDialog.DialogCode.Accepted or selection is None:
+                word_selection = preview.confirmed_word_selection
+                if result != QDialog.DialogCode.Accepted:
+                    return
+                if word_selection is not None:
+                    if validated_gis_bounds(notify=False) != bounds:
+                        raise ValueError("Selected gas interval changed before Word handoff")
+                    verified_gis_geology_handoff(
+                        session, report, self._build_current_gis_gas_report(), word_selection,
+                        source_key=source_key, target="word",
+                    )
+                    self._geology_word_field_selection = None
+                    self._geology_word_evidence = ()
+                    self._geology_word_source_key = None
+                    self._gis_word_selection = word_selection
+                    include_word.setText(word_caption)
+                    confirm_word_field.setText(word_field_caption)
+                    word_gis_status.setText(self._text(
+                        "Совместные наблюдения ГИС и геологии подтверждены для Word.",
+                        "ГИС және геология бақылаулары Word үшін расталды.",
+                        "Combined GIS and geology observations confirmed for Word.",
+                    ))
+                    return
+                if selection is None:
                     return
                 if validated_gis_bounds(notify=False) != bounds:
                     raise ValueError("Selected gas interval changed before HTML handoff")
                 html = confirmed_gis_geology_evidence_html(
-                    session, report, build_current_gas_report(), selection,
+                    session, report, self._build_current_gis_gas_report(), selection,
                     self._report_output_language(), source_key=source_key,
                 )
                 if self._geology_evidence_dialog is dialog:
                     viewer.setHtml(html)
             except (ValueError, RuntimeError, TypeError, OverflowError):
+                if preview.confirmed_word_selection is not None:
+                    self._gis_word_selection = None
+                    word_gis_status.clear()
                 if self._geology_evidence_dialog is dialog:
                     viewer.setPlainText(self._text(
                         "Источник изменился. Подтвердите наблюдения заново.",
@@ -1182,6 +1227,8 @@ class InterpretationReportWorkspace(QWidget):
             self._geology_html_field_selection = None
             self._geology_pdf_field_selection = None
             self._geology_word_field_selection = None
+            self._gis_word_selection = None
+            word_gis_status.clear()
             self._geology_excel_field_selection = None
             self._geology_print_field_selection = None
             confirm_field.setText(confirm_field_caption)
@@ -1266,6 +1313,8 @@ class InterpretationReportWorkspace(QWidget):
                 self._geology_pdf_source_key = None
                 self._geology_pdf_field_selection = None
                 self._geology_word_field_selection = None
+                self._gis_word_selection = None
+                word_gis_status.clear()
                 self._geology_word_evidence = ()
                 self._geology_word_source_key = None
                 self._geology_excel_field_selection = None
@@ -1298,6 +1347,8 @@ class InterpretationReportWorkspace(QWidget):
                 ))
                 return
             if output == "word":
+                self._gis_word_selection = None
+                word_gis_status.clear()
                 self._geology_word_field_selection = None
                 confirm_word_field.setText(word_field_caption)
                 self._geology_word_evidence = (observed,)
@@ -1444,6 +1495,8 @@ class InterpretationReportWorkspace(QWidget):
                 if self._geology_evidence_dialog is dialog:
                     viewer.setHtml(f"<p>{escape(str(exc))}</p>")
                 return
+            self._gis_word_selection = None
+            word_gis_status.clear()
             self._geology_word_evidence = ()
             self._geology_word_source_key = None
             include_word.setText(word_caption)
