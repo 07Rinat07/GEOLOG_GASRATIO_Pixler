@@ -416,6 +416,61 @@ jobs:
           ''',
               encoding="utf-8",
           )
+          # The two fatal dumps agree on Shiboken releaseWrapper during
+          # QListWidget destruction via DeferredDelete. Identify the exact
+          # owning widget before choosing a product lifetime fix.
+          conftest = Path("tests/conftest.py")
+          original_conftest = conftest.read_bytes()
+          trace = '''
+          import pytest
+          from PySide6.QtCore import QObject, QEvent
+          from PySide6.QtWidgets import QWidget, QListWidget
+          from shiboken6 import getCppPointer, isValid
+
+          class _NativeDeleteTrace(QObject):
+              def eventFilter(self, watched, event):
+                  if event.type() != QEvent.Type.DeferredDelete:
+                      return False
+                  if not isinstance(watched, QWidget) or not isValid(watched):
+                      return False
+                  lists = watched.findChildren(QListWidget)
+                  if isinstance(watched, QListWidget):
+                      lists.insert(0, watched)
+                  if not lists:
+                      return False
+                  print(
+                      f"NATIVE_DELETE root={type(watched).__name__} "
+                      f"name={watched.objectName()!r} cpp={getCppPointer(watched)[0]:#x}",
+                      flush=True,
+                  )
+                  for widget in lists:
+                      if not isValid(widget):
+                          continue
+                      print(
+                          f"NATIVE_DELETE list={widget.objectName()!r} "
+                          f"cpp={getCppPointer(widget)[0]:#x} count={widget.count()}",
+                          flush=True,
+                      )
+                      for row in range(widget.count()):
+                          item = widget.item(row)
+                          if item is not None and isValid(item):
+                              print(
+                                  f"NATIVE_DELETE item row={row} "
+                                  f"cpp={getCppPointer(item)[0]:#x} py={id(item):#x}",
+                                  flush=True,
+                              )
+                  return False
+
+          @pytest.fixture(scope="session", autouse=True)
+          def _native_delete_trace(qapp):
+              observer = _NativeDeleteTrace(qapp)
+              qapp.installEventFilter(observer)
+              try:
+                  yield
+              finally:
+                  qapp.removeEventFilter(observer)
+          '''
+          conftest.write_bytes(original_conftest + b"\\n" + trace.encode("utf-8"))
           selectors = (*prefix, stress.as_posix())
           _configure_environment()
           environment = os.environ.copy()
@@ -432,6 +487,7 @@ jobs:
                       raise SystemExit(result)
               raise SystemExit(0)
           finally:
+              conftest.write_bytes(original_conftest)
               stress.unlink()
           '@ | Set-Content -Encoding utf8 "$OutputDir/modal-replay.py"
           Get-Content -Raw "$OutputDir/modal-replay.py" | & .\.venv\Scripts\python.exe - *>&1 |
