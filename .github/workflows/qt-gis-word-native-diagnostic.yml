@@ -1,4 +1,4 @@
-name: Windows GIS Word confirmation native diagnostic
+name: Windows LAS3 tablet native diagnostic
 
 on:
   push:
@@ -21,17 +21,19 @@ env:
 
 jobs:
   qt-native-replay:
-    name: GIS Word fixed native exception replay (${{ matrix.case }})
+    name: LAS3 tablet native exception replay (${{ matrix.case }})
     runs-on: windows-latest
     timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
         include:
-          # Preserve the old failing runs as evidence; validate the actual fix
-          # on the exact merge commit that passed all mandatory gates.
-          - case: fixed-pr-887-workspace
-            sha: c9cd7d951f0d118594ed6e4888624c94f8772e43
+          # Replay the exact failed main and the proposed fix independently.
+          # A crash in either case must remain a failing job.
+          - case: failed-main-las3
+            sha: 5ba8acaca257b568b85bc1efc5ee53d2848f7af8
+          - case: fixed-pr-889
+            sha: 05a7a0681dab5948484873a41560755577ebbe46
     steps:
       - name: Check out source
         uses: actions/checkout@v6
@@ -274,10 +276,11 @@ jobs:
             throw "Control dump did not contain the expected AV exception context"
           }
 
-      - name: Exercise actual modal GIS Word dialog and native parent destruction
+      - name: Replay exact failing LAS3 modal import and reopen batch
         shell: pwsh
         env:
           REPLAY_SHA: ${{ matrix.sha }}
+          REPLAY_CASE: ${{ matrix.case }}
         run: |
           $ActualSha = (git rev-parse HEAD).Trim()
           if ($LASTEXITCODE -ne 0 -or $ActualSha -ne $env:REPLAY_SHA) {
@@ -292,158 +295,32 @@ jobs:
           from tools.diagnose_qt_masterlog_shard import _run_plain_target
           from scripts.run_tests import _configure_environment
 
-          prefix = (
-              "tests/test_geology_saved_interval_reedit_20260929.py",
-              "tests/test_geology_track_visual_profile.py",
-              "tests/test_geology_xlsx_unit_heading.py",
-              "tests/test_geometry_cache_byte_budget.py",
-              "tests/test_geosensor_reference_contracts.py",
-              "tests/test_geosensor_wits_catalog_tool.py",
-              "tests/test_gis_calibration_records.py",
-              "tests/test_gis_external_exact_review.py",
-              "tests/test_gis_geology_confirmed_html_ui.py",
-              "tests/test_gis_geology_confirmed_word_ui.py",
-          )
-          if any(not Path(p).is_file() for p in prefix):
-              raise RuntimeError("Missing original failing shard prefix")
-          # Keep the original ten files in their original order even if the
-          # new regression tests change the default shard distribution.
-          # The two tracked disposal regressions are included in the Word file.
-
-          # The preceding lifetime tests invoke buttons without entering
-          # QDialog.exec(). Exercise the actual nested modal event loop and
-          # its parent/child destruction ordering, not another identical run.
-          stress = Path("tests/test_diagnostic_gis_modal_lifetime.py")
-          if stress.exists():
-              raise RuntimeError("Refusing to overwrite a repository test")
-          stress.write_text(
-              '''from dataclasses import replace
-          import numpy as np
-          import pytest
-          from PySide6.QtCore import QCoreApplication, QEvent, QTimer, Qt
-          from PySide6.QtWidgets import QDialog, QListView, QListWidget, QWidget
-          from shiboken6 import isValid
-          from geoworkbench.services.interpretation_gis_evidence_handoff import (
-              confirm_gis_geology_selection, verified_gis_geology_handoff,
-          )
-          from geoworkbench.services.localization import AppLanguage
-          from geoworkbench.ui.gis_geology_evidence_dialog import GisGeologyEvidenceDialog
-          from test_interpretation_gis_evidence_handoff import _reviewed
-
-          @pytest.mark.parametrize("cycle", range(1, 6))
-          @pytest.mark.parametrize("language", tuple(AppLanguage))
-          @pytest.mark.parametrize("disposal", ("close", "parent-delete"))
-          def test_modal_word_lifetime(qapp, monkeypatch, tmp_path, cycle, language, disposal):
-              session, receiver, dataset, key, report, _, _ = _reviewed(monkeypatch, tmp_path)
-              before = dataset.curves[key].values.copy()
-              dirty = session.dirty
-              source_key = ("modal-word-diagnostic", report.dataset_id)
-              owner = QWidget()
-              owner.show()
-
-              def confirm(evidence, snapshot):
-                  return confirm_gis_geology_selection(
-                      session, report, replace(report), evidence, snapshot,
-                      source_key=source_key, target="word",
-                  )
-
-              dialog = GisGeologyEvidenceDialog(
-                  session, dataset, (100.0, 102.0), lambda: (100.0, 102.0),
-                  parent=owner, language=language, confirm_word=confirm,
-              )
-              assert isinstance(dialog.curves, QListView)
-              assert not isinstance(dialog.curves, QListWidget)
-              view = dialog.curves
-              model = view.model()
-              state = {"started": False, "timed_out": False}
-              tick = QTimer(dialog)
-              tick.setInterval(10)
-              deadline = QTimer(dialog)
-              deadline.setSingleShot(True)
-
-              def advance():
-                  if not state["started"]:
-                      state["started"] = True
-                      item = next(
-                          dialog.curves.item(i) for i in range(dialog.curves.count())
-                          if dialog.curves.item(i).data(Qt.ItemDataRole.UserRole) == key
-                      )
-                      item.setCheckState(Qt.CheckState.Checked)
-                      print("GIS_MODAL phase=review", flush=True)
-                      dialog.review.click()
-                  elif dialog._worker is None and dialog.confirm_word_button.isEnabled():
-                      tick.stop()
-                      deadline.stop()
-                      print("GIS_MODAL phase=confirm", flush=True)
-                      dialog.confirm_word_button.click()
-
-              def timeout():
-                  state["timed_out"] = True
-                  tick.stop()
-                  dialog.reject()
-
-              tick.timeout.connect(advance)
-              deadline.timeout.connect(timeout)
-              try:
-                  print(f"GIS_MODAL phase=exec cycle={cycle} language={language.value} disposal={disposal}", flush=True)
-                  tick.start()
-                  deadline.start(30000)
-                  result = dialog.exec()
-                  tick.stop()
-                  deadline.stop()
-                  print("GIS_MODAL phase=exec-return", flush=True)
-                  assert not state["timed_out"]
-                  assert result == QDialog.DialogCode.Accepted
-                  assert dialog._worker is None
-                  selected = dialog.confirmed_word_selection
-                  assert selected is not None and selected.target == "word"
-                  assert dialog.confirmed_html_selection is None
-                  assert verified_gis_geology_handoff(
-                      session, report, replace(report), selected,
-                      source_key=source_key, target="word",
-                  ) == selected.evidence
-                  np.testing.assert_array_equal(dataset.curves[key].values, before)
-                  assert session.dirty == dirty and receiver.curves == {}
-                  if disposal == "parent-delete":
-                      print("GIS_MODAL phase=parent-deferred-delete", flush=True)
-                      owner.deleteLater()
-                      QCoreApplication.sendPostedEvents(owner, QEvent.Type.DeferredDelete)
-                      assert not isValid(owner) and not isValid(dialog)
-                      assert not isValid(view) and not isValid(model)
-                      print("GIS_MODAL phase=parent-deleted", flush=True)
-              finally:
-                  if isValid(dialog):
-                      tick.stop()
-                      deadline.stop()
-                      dialog.close()
-                  if isValid(owner):
-                      owner.close()
-          ''',
-              encoding="utf-8",
-          )
-          # Preserve the reproduced workload in its original order, then
-          # exercise the newly integrated workspace-to-DOCX tests in the
-          # same process. No assertions or mandatory runner are modified.
-          workspace = "tests/test_gis_word_workspace_docx.py"
-          if not Path(workspace).is_file():
-              raise RuntimeError("Missing workspace-to-DOCX regression file")
-          selectors = (*prefix, stress.as_posix(), workspace)
+          # Exact selector from main quality job 132450335481. Keep all six
+          # parametrizations in the same process and in their original order.
+          path = "tests/test_las3_modal_reopen_acceptance.py"
+          selectors = (path + "::test_pilot_real_modal_apply_reopen_and_cancel_preserve_source",)
+          if not Path(path).is_file():
+              raise RuntimeError("Missing original LAS3 acceptance file")
           _configure_environment()
           environment = os.environ.copy()
           tool = Path(os.environ["RUNNER_TEMP"]) / "geolog-native-capture"
           environment["PYTHONPATH"] = str(tool) + os.pathsep + environment.get("PYTHONPATH", "")
           environment["GEOLOG_NATIVE_DUMP_DIR"] = str(Path(os.environ["RUNNER_TEMP"]) / "geolog-replay-dumps")
-          try:
-              # No live debugger: the previous native crash disappeared under CDB.
-              # Stop on first failure, even if another attempt would pass.
-              for attempt in range(1, 5):
-                  print(f"NATIVE_REPLAY attempt={attempt}/4", flush=True)
-                  result = _run_plain_target(selectors, environment)
-                  if result:
-                      raise SystemExit(result)
-              raise SystemExit(0)
-          finally:
-              stress.unlink()
+          # No live debugger. Stop at the first failure and preserve its dump.
+          for attempt in range(1, 9):
+              print(f"NATIVE_REPLAY attempt={attempt}/8", flush=True)
+              result = _run_plain_target(selectors, environment)
+              if result:
+                  raise SystemExit(result)
+          # The new constructor regression is an additional independent check;
+          # it never changes or replaces the original failing workload.
+          if os.environ["REPLAY_CASE"] == "fixed-pr-889":
+              result = _run_plain_target((
+                  "tests/test_track_resize.py::test_tablet_track_never_constructs_unused_viewbox_menu",
+              ), environment)
+              if result:
+                  raise SystemExit(result)
+          raise SystemExit(0)
           '@ | Set-Content -Encoding utf8 "$OutputDir/modal-replay.py"
           Get-Content -Raw "$OutputDir/modal-replay.py" | & .\.venv\Scripts\python.exe - *>&1 |
             Tee-Object -FilePath "$OutputDir/modal-replay.log"
@@ -479,7 +356,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: qt-gis-word-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: qt-las3-tablet-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/ci-artifacts/qt-replay
           if-no-files-found: ignore
           retention-days: 7
@@ -488,7 +365,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: qt-gis-word-dumps-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: qt-las3-tablet-dumps-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/geolog-replay-dumps/*.dmp
           if-no-files-found: ignore
           retention-days: 3
