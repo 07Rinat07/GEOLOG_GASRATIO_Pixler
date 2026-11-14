@@ -21,7 +21,7 @@ env:
 
 jobs:
   qt-native-replay:
-    name: GIS Word GC boundary replay (${{ matrix.case }})
+    name: GIS Word modal lifetime replay (${{ matrix.case }})
     runs-on: windows-latest
     timeout-minutes: 120
     strategy:
@@ -91,7 +91,7 @@ jobs:
           .\.venv\Scripts\python.exe tools/capture_windows_native_runtime.py --output build/ci-artifacts/qt-replay/native-runtime.json --commit "${{ matrix.sha }}"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Probe native lifetime at Python GC and pytest phase boundaries
+      - name: Exercise actual modal GIS Word dialog and native parent destruction
         shell: pwsh
         env:
           REPLAY_SHA: ${{ matrix.sha }}
@@ -127,64 +127,126 @@ jobs:
               if _test_file_shards(16)[5][:len(prefix)] != prefix:
                   raise RuntimeError("Failed shard prefix changed")
 
-          # Diagnostic-only hook in a disposable checkout. Preserve every
-          # original fixture/assertion. No QObject wrappers are retained.
-          # Previous runs found no lingering GIS worker objects or threads.
-          # Test a separate hypothesis: cyclic GC reclaims a Python wrapper
-          # with native ownership at a test boundary, after its last use.
-          conftest = Path("tests/conftest.py")
-          original = conftest.read_bytes()
-          hook = '''
-          # Diagnostic-only GC phase probe, not part of the release runner.
-          import gc as _diagnostic_gc
-          import os as _diagnostic_os
+          # The preceding lifetime tests invoke buttons without entering
+          # QDialog.exec(). Exercise the actual nested modal event loop and
+          # its parent/child destruction ordering, not another identical run.
+          stress = Path("tests/test_diagnostic_gis_modal_lifetime.py")
+          if stress.exists():
+              raise RuntimeError("Refusing to overwrite a repository test")
+          stress.write_text(
+              '''from dataclasses import replace
+          import numpy as np
+          import pytest
+          from PySide6.QtCore import QCoreApplication, QEvent, QTimer, Qt
+          from PySide6.QtWidgets import QDialog, QWidget
+          from shiboken6 import isValid
+          from geoworkbench.services.interpretation_gis_evidence_handoff import (
+              confirm_gis_geology_selection, verified_gis_geology_handoff,
+          )
+          from geoworkbench.services.localization import AppLanguage
+          from geoworkbench.ui.gis_geology_evidence_dialog import GisGeologyEvidenceDialog
+          from test_interpretation_gis_evidence_handoff import _reviewed
 
-          def _diagnostic_gc_probe(item, phase):
-              if not any(name in item.nodeid for name in (
-                  "test_gis_geology_confirmed_html_ui.py",
-                  "test_gis_geology_confirmed_word_ui.py",
-              )):
-                  return
-              mode = _diagnostic_os.environ["GEOLOG_DIAGNOSTIC_GC_MODE"]
-              print(f"GIS_GC mode={mode} node={item.nodeid} phase={phase} "
-                    f"counts={_diagnostic_gc.get_count()}", flush=True)
-              if mode == "forced":
-                  collected = _diagnostic_gc.collect(2)
-                  print(f"GIS_GC completed node={item.nodeid} phase={phase} "
-                        f"collected={collected}", flush=True)
+          @pytest.mark.parametrize("cycle", range(1, 6))
+          @pytest.mark.parametrize("language", tuple(AppLanguage))
+          @pytest.mark.parametrize("disposal", ("close", "parent-delete"))
+          def test_modal_word_lifetime(qapp, monkeypatch, tmp_path, cycle, language, disposal):
+              session, receiver, dataset, key, report, _, _ = _reviewed(monkeypatch, tmp_path)
+              before = dataset.curves[key].values.copy()
+              dirty = session.dirty
+              source_key = ("modal-word-diagnostic", report.dataset_id)
+              owner = QWidget()
+              owner.show()
 
-          @pytest.hookimpl(wrapper=True)
-          def pytest_runtest_call(item):
-              _diagnostic_gc_probe(item, "before-call")
+              def confirm(evidence, snapshot):
+                  return confirm_gis_geology_selection(
+                      session, report, replace(report), evidence, snapshot,
+                      source_key=source_key, target="word",
+                  )
+
+              dialog = GisGeologyEvidenceDialog(
+                  session, dataset, (100.0, 102.0), lambda: (100.0, 102.0),
+                  parent=owner, language=language, confirm_word=confirm,
+              )
+              state = {"started": False, "timed_out": False}
+              tick = QTimer(dialog)
+              tick.setInterval(10)
+              deadline = QTimer(dialog)
+              deadline.setSingleShot(True)
+
+              def advance():
+                  if not state["started"]:
+                      state["started"] = True
+                      item = next(
+                          dialog.curves.item(i) for i in range(dialog.curves.count())
+                          if dialog.curves.item(i).data(Qt.ItemDataRole.UserRole) == key
+                      )
+                      item.setCheckState(Qt.CheckState.Checked)
+                      print("GIS_MODAL phase=review", flush=True)
+                      dialog.review.click()
+                  elif dialog._worker is None and dialog.confirm_word_button.isEnabled():
+                      tick.stop()
+                      deadline.stop()
+                      print("GIS_MODAL phase=confirm", flush=True)
+                      dialog.confirm_word_button.click()
+
+              def timeout():
+                  state["timed_out"] = True
+                  tick.stop()
+                  dialog.reject()
+
+              tick.timeout.connect(advance)
+              deadline.timeout.connect(timeout)
               try:
-                  return (yield)
+                  print(f"GIS_MODAL phase=exec cycle={cycle} language={language.value} disposal={disposal}", flush=True)
+                  tick.start()
+                  deadline.start(30000)
+                  result = dialog.exec()
+                  tick.stop()
+                  deadline.stop()
+                  print("GIS_MODAL phase=exec-return", flush=True)
+                  assert not state["timed_out"]
+                  assert result == QDialog.DialogCode.Accepted
+                  assert dialog._worker is None
+                  selected = dialog.confirmed_word_selection
+                  assert selected is not None and selected.target == "word"
+                  assert dialog.confirmed_html_selection is None
+                  assert verified_gis_geology_handoff(
+                      session, report, replace(report), selected,
+                      source_key=source_key, target="word",
+                  ) == selected.evidence
+                  np.testing.assert_array_equal(dataset.curves[key].values, before)
+                  assert session.dirty == dirty and receiver.curves == {}
+                  if disposal == "parent-delete":
+                      print("GIS_MODAL phase=parent-deferred-delete", flush=True)
+                      owner.deleteLater()
+                      QCoreApplication.sendPostedEvents(owner, QEvent.Type.DeferredDelete)
+                      assert not isValid(owner) and not isValid(dialog)
+                      print("GIS_MODAL phase=parent-deleted", flush=True)
               finally:
-                  _diagnostic_gc_probe(item, "after-call")
-
-          @pytest.hookimpl(wrapper=True)
-          def pytest_runtest_teardown(item, nextitem):
-              _diagnostic_gc_probe(item, "before-teardown")
-              try:
-                  return (yield)
-              finally:
-                  _diagnostic_gc_probe(item, "after-teardown")
-          '''
+                  if isValid(dialog):
+                      tick.stop()
+                      deadline.stop()
+                      dialog.close()
+                  if isValid(owner):
+                      owner.close()
+          ''',
+              encoding="utf-8",
+          )
+          selectors = (*prefix, stress.as_posix())
           _configure_environment()
           environment = os.environ.copy()
           try:
-              conftest.write_bytes(original + b"\n" + hook.encode("utf-8"))
-              environment["GEOLOG_DIAGNOSTIC_GC_MODE"] = "natural"
-              print("Natural GC phase trace, original prefix, plain process", flush=True)
-              plain = _run_plain_target(prefix, environment)
-              environment["GEOLOG_DIAGNOSTIC_GC_MODE"] = "forced"
-              print("Forced full GC at call/teardown boundaries, original prefix, CDB", flush=True)
-              debugged = _run_debugged_target(prefix, environment)
+              print("Modal lifetime diagnostic: ordinary process", flush=True)
+              plain = _run_plain_target(selectors, environment)
+              print("Modal lifetime diagnostic: identical sequence under CDB", flush=True)
+              debugged = _run_debugged_target(selectors, environment)
               raise SystemExit(1 if plain or debugged else 0)
           finally:
-              conftest.write_bytes(original)
-          '@ | Set-Content -Encoding utf8 "$OutputDir/gc-boundary-replay.py"
-          Get-Content -Raw "$OutputDir/gc-boundary-replay.py" | & .\.venv\Scripts\python.exe - *>&1 |
-            Tee-Object -FilePath "$OutputDir/gc-boundary-replay.log"
+              stress.unlink()
+          '@ | Set-Content -Encoding utf8 "$OutputDir/modal-replay.py"
+          Get-Content -Raw "$OutputDir/modal-replay.py" | & .\.venv\Scripts\python.exe - *>&1 |
+            Tee-Object -FilePath "$OutputDir/modal-replay.log"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Capture Python crash events
