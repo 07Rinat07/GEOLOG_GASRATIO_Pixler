@@ -21,7 +21,7 @@ env:
 
 jobs:
   qt-native-replay:
-    name: GIS Word full page-heap replay (${{ matrix.case }})
+    name: GIS Word repeated lifetime replay (${{ matrix.case }})
     runs-on: windows-latest
     timeout-minutes: 120
     strategy:
@@ -91,14 +91,11 @@ jobs:
           .\.venv\Scripts\python.exe tools/capture_windows_native_runtime.py --output build/ci-artifacts/qt-replay/native-runtime.json --commit "${{ matrix.sha }}"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Detect early native heap faults under full page heap and CDB
+      - name: Stress repeated GIS Word dialog lifetimes within one Qt process
         shell: pwsh
         env:
           REPLAY_SHA: ${{ matrix.sha }}
         run: |
-          if ($env:GITHUB_ACTIONS -ne "true" -or $env:RUNNER_OS -ne "Windows") {
-            throw "Page heap diagnostics require a disposable Windows Actions runner"
-          }
           $ActualSha = (git rev-parse HEAD).Trim()
           if ($LASTEXITCODE -ne 0 -or $ActualSha -ne $env:REPLAY_SHA) {
             throw "Unexpected checkout: $ActualSha; expected $env:REPLAY_SHA"
@@ -106,33 +103,15 @@ jobs:
           $OutputDir = "build/ci-artifacts/qt-replay"
           New-Item -ItemType Directory -Force $OutputDir | Out-Null
           $ActualSha | Out-File -Encoding utf8 "$OutputDir/checkout-sha.txt"
-          $GFlags = Join-Path ${env:ProgramFiles(x86)} "Windows Kits/10/Debuggers/x64/gflags.exe"
-          if (-not (Test-Path $GFlags)) {
-            throw "GFlags is unavailable; page heap was not tested"
-          }
-          # New hypothesis: a prior native write or use-after-free corrupts the
-          # heap before the observed Word EN test. Full page heap adds guard
-          # pages to detect invalid access closer to its origin.
-          & $GFlags /p /enable python.exe /full *>&1 |
-            Tee-Object -FilePath "$OutputDir/pageheap-enable.txt"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          try {
-            $PageHeap = & $GFlags /p *>&1 | Out-String
-            if ($LASTEXITCODE -ne 0) { throw "Could not query page heap settings" }
-            $PageHeap | Tee-Object -FilePath "$OutputDir/pageheap-state.txt"
-            if ($PageHeap -notmatch '(?im)^\s*python\.exe[^\r\n]*full') {
-              throw "Full page heap for python.exe not confirmed"
-            }
-            @'
+          @'
           import os
           from pathlib import Path
-          import tools.diagnose_qt_masterlog_shard as replay
+          from tools.diagnose_qt_masterlog_shard import _run_plain_target, _run_debugged_target
           from scripts.run_tests import _configure_environment, _test_file_shards
 
-          # Exact prefix of the original failed mandatory shard, including
-          # all earlier files and the complete Word test module. Keep the
-          # identical manifest on the comparison commit.
-          selectors = (
+          # Exact original pre-failure prefix. Validate before adding the
+          # temporary diagnostic test, which would change shard weights.
+          prefix = (
               "tests/test_geology_saved_interval_reedit_20260929.py",
               "tests/test_geology_track_visual_profile.py",
               "tests/test_geology_xlsx_unit_heading.py",
@@ -144,41 +123,67 @@ jobs:
               "tests/test_gis_geology_confirmed_html_ui.py",
               "tests/test_gis_geology_confirmed_word_ui.py",
           )
-          if any(not Path(p).is_file() for p in selectors):
-              raise RuntimeError("Missing exact pre-failure selectors")
+          if any(not Path(p).is_file() for p in prefix):
+              raise RuntimeError("Missing original failing shard prefix")
           if os.environ["REPLAY_SHA"] == "7b96588a36ea75769fa9d39e45c85777cea1dfce":
-              if _test_file_shards(16)[5][:len(selectors)] != selectors:
-                  raise RuntimeError("Failed shard prefix does not match the recorded run")
+              if _test_file_shards(16)[5][:len(prefix)] != prefix:
+                  raise RuntimeError("Failed shard prefix changed")
+          stress = Path("tests/test_diagnostic_gis_word_lifetime.py")
+          if stress.exists():
+              raise RuntimeError("Refusing to overwrite a repository test")
+          # The old replays used fresh native processes per iteration. This
+          # time one QApplication handles 30 consecutive RU/KK/EN rounds
+          # after the original prefix, with normal fixtures and cleanup.
+          # Record registry/thread/GC state without forcing event delivery,
+          # retaining QObject wrappers or changing production behavior.
+          stress.write_text(
+              '''import gc
+          import threading
+          import pytest
+          from geoworkbench.services.localization import AppLanguage
+          from geoworkbench.ui import gis_interval_compare_dialog as registry
+          from test_gis_geology_confirmed_word_ui import (
+              test_combined_confirmation_is_explicit_and_target_specific as original_word_case,
+          )
 
-          # Only this diagnostic strengthens the debugger filters. A first
-          # chance AV or verifier breakpoint is evidence to inspect, not
-          # automatically the original fatal exception.
-          original_startup = replay._cdb_startup_commands
+          def report_lifetime(cycle, language, phase):
+              owner = registry._WORKER_REGISTRY
+              children = len(owner.children()) if owner is not None else 0
+              threads = sum(t.name == "gis-interval-review" for t in threading.enumerate())
+              print(
+                  f"GIS_LIFETIME cycle={cycle} language={language.value} phase={phase} "
+                  f"live_workers={len(registry._LIVE_WORKERS)} "
+                  f"registry_children={children} review_threads={threads} "
+                  f"gc={gc.get_count()}",
+                  flush=True,
+              )
 
-          def pageheap_startup(dump_path):
-              commands = original_startup(dump_path)
-              av_line = next(line for line in commands.splitlines() if line.endswith(" av"))
-              capture = av_line.removeprefix('sxd -c2 "').removesuffix('" av')
-              if capture == av_line or not capture.startswith(".echo GEOLOG_CDB_NATIVE_EXCEPTION"):
-                  raise RuntimeError("Unexpected CDB capture commands")
-              commands = commands.replace(av_line, f'sxe -c "{capture}" av')
-              return commands.replace("sxn ibp\n", f'sxn ibp\nsxe -c "{capture}" bpe\n')
-
-          replay._cdb_startup_commands = pageheap_startup
+          @pytest.mark.parametrize(
+              "cycle,language",
+              [(cycle, language) for cycle in range(1, 31) for language in AppLanguage],
+          )
+          def test_repeated_word_lifetime(qapp, monkeypatch, tmp_path, cycle, language):
+              report_lifetime(cycle, language, "before")
+              original_word_case(qapp, monkeypatch, tmp_path, language, "word")
+              report_lifetime(cycle, language, "after")
+          ''',
+              encoding="utf-8",
+          )
+          selectors = (*prefix, stress.as_posix())
           _configure_environment()
-          print("Full page heap; CDB first-chance AV and verifier breakpoint capture", flush=True)
-          print("Exact pre-failure shard prefix:", ", ".join(selectors), flush=True)
-          raise SystemExit(replay._run_debugged_target(selectors, os.environ.copy()))
-          '@ | Set-Content -Encoding utf8 "$OutputDir/pageheap-replay.py"
-            Get-Content -Raw "$OutputDir/pageheap-replay.py" | & .\.venv\Scripts\python.exe - *>&1 |
-              Tee-Object -FilePath "$OutputDir/pageheap-cdb.log"
-            $ReplayExit = $LASTEXITCODE
-            if ($ReplayExit -ne 0) { throw "Page heap diagnostic failed or was incomplete: $ReplayExit" }
-          } finally {
-            & $GFlags /p /disable python.exe *>&1 |
-              Tee-Object -FilePath "$OutputDir/pageheap-disable.txt"
-            if ($LASTEXITCODE -ne 0) { throw "Failed to disable diagnostic page heap" }
-          }
+          environment = os.environ.copy()
+          try:
+              print("Lifetime stress, natural Qt event delivery, plain process", flush=True)
+              plain = _run_plain_target(selectors, environment)
+              print("Lifetime stress, identical sequence under CDB", flush=True)
+              debugged = _run_debugged_target(selectors, environment)
+              raise SystemExit(1 if plain or debugged else 0)
+          finally:
+              stress.unlink()
+          '@ | Set-Content -Encoding utf8 "$OutputDir/lifetime-replay.py"
+          Get-Content -Raw "$OutputDir/lifetime-replay.py" | & .\.venv\Scripts\python.exe - *>&1 |
+            Tee-Object -FilePath "$OutputDir/lifetime-replay.log"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Capture Python crash events
         if: always()
