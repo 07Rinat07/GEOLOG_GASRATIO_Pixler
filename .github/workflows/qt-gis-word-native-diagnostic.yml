@@ -21,7 +21,7 @@ env:
 
 jobs:
   qt-native-replay:
-    name: GIS Word modal lifetime replay (${{ matrix.case }})
+    name: GIS Word postmortem replay (${{ matrix.case }})
     runs-on: windows-latest
     timeout-minutes: 120
     strategy:
@@ -91,6 +91,71 @@ jobs:
           .\.venv\Scripts\python.exe tools/capture_windows_native_runtime.py --output build/ci-artifacts/qt-replay/native-runtime.json --commit "${{ matrix.sha }}"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Install and validate postmortem capture without a live debugger
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_ACTIONS -ne "true" -or $env:RUNNER_OS -ne "Windows") {
+            throw "Postmortem debugger registration is restricted to a disposable Windows Actions runner"
+          }
+          $ToolDir = Join-Path $env:RUNNER_TEMP "geolog-procdump"
+          $DumpDir = Join-Path $env:RUNNER_TEMP "geolog-replay-dumps"
+          $Output = "build/ci-artifacts/qt-replay"
+          New-Item -ItemType Directory -Force $ToolDir, $DumpDir, $Output | Out-Null
+          Invoke-WebRequest -Uri "https://download.sysinternals.com/files/Procdump.zip" -OutFile "$ToolDir/procdump.zip"
+          Expand-Archive -Path "$ToolDir/procdump.zip" -DestinationPath $ToolDir -Force
+          $ProcDump = Join-Path $ToolDir "procdump64.exe"
+          $Signature = Get-AuthenticodeSignature $ProcDump
+          if ($Signature.Status -ne "Valid" -or $Signature.SignerCertificate.Subject -notmatch 'Microsoft Corporation') {
+            throw "ProcDump signature verification failed"
+          }
+          Get-FileHash -Algorithm SHA256 $ProcDump | Format-List | Out-File "$Output/procdump-identity.txt"
+          (Get-Item $ProcDump).VersionInfo | Format-List | Out-File "$Output/procdump-identity.txt" -Append
+          & $ProcDump -accepteula -mm -i $DumpDir *>&1 | Tee-Object "$Output/procdump-install.txt"
+          if ($LASTEXITCODE -ne 0) { throw "ProcDump registration failed" }
+          New-Item -ItemType File -Force "$ToolDir/registered" | Out-Null
+          # Verify capture on a disposable synthetic Python subprocess before
+          # running project tests. Native invalid thread entry is unhandled;
+          # this is NOT an application failure and its dump is kept separate.
+          @'
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          target = r"""
+          import ctypes
+          from ctypes import wintypes
+          k = ctypes.WinDLL("kernel32", use_last_error=True)
+          k.CreateThread.argtypes = (ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p,
+                                     ctypes.c_void_p, wintypes.DWORD, ctypes.c_void_p)
+          k.CreateThread.restype = wintypes.HANDLE
+          k.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+          k.WaitForSingleObject.restype = wintypes.DWORD
+          thread = k.CreateThread(None, 0, ctypes.c_void_p(1), None, 0, None)
+          if not thread:
+              raise ctypes.WinError(ctypes.get_last_error())
+          k.WaitForSingleObject(thread, 30000)
+          raise SystemExit(3)
+          """
+          folder = Path(os.environ["RUNNER_TEMP"]) / "geolog-replay-dumps"
+          if list(folder.glob("*.dmp")):
+              raise RuntimeError("Unexpected preexisting dumps")
+          result = subprocess.run([sys.executable, "-c", target], timeout=90, check=False)
+          status = result.returncode & 0xffffffff
+          print(f"POSTMORTEM_CONTROL status=0x{status:08X}", flush=True)
+          if status not in (0xc0000005, 0xc0000409):
+              raise RuntimeError("Synthetic native failure did not occur as expected")
+          dumps = list(folder.glob("*.dmp"))
+          if not dumps or any(p.stat().st_size == 0 for p in dumps):
+              raise RuntimeError("Postmortem capture not verified; do not run application replay")
+          control = folder.parent / "geolog-procdump" / "synthetic-control"
+          control.mkdir()
+          for dump in dumps:
+              print(f"POSTMORTEM_CONTROL dump={dump.name} bytes={dump.stat().st_size}", flush=True)
+              dump.rename(control / dump.name)
+          '@ | & .\.venv\Scripts\python.exe - *>&1 | Tee-Object "$Output/procdump-control.txt"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Exercise actual modal GIS Word dialog and native parent destruction
         shell: pwsh
         env:
@@ -106,7 +171,7 @@ jobs:
           @'
           import os
           from pathlib import Path
-          from tools.diagnose_qt_masterlog_shard import _run_plain_target, _run_debugged_target
+          from tools.diagnose_qt_masterlog_shard import _run_plain_target
           from scripts.run_tests import _configure_environment, _test_file_shards
 
           prefix = (
@@ -237,17 +302,47 @@ jobs:
           _configure_environment()
           environment = os.environ.copy()
           try:
-              print("Modal lifetime diagnostic: ordinary process", flush=True)
-              plain = _run_plain_target(selectors, environment)
-              print("Modal lifetime diagnostic: identical sequence under CDB", flush=True)
-              debugged = _run_debugged_target(selectors, environment)
-              raise SystemExit(1 if plain or debugged else 0)
+              # No live debugger: the previous native crash disappeared under CDB.
+              # Stop on first failure, even if another attempt would pass.
+              for attempt in range(1, 5):
+                  print(f"POSTMORTEM_REPLAY attempt={attempt}/4", flush=True)
+                  result = _run_plain_target(selectors, environment)
+                  if result:
+                      raise SystemExit(result)
+              raise SystemExit(0)
           finally:
               stress.unlink()
           '@ | Set-Content -Encoding utf8 "$OutputDir/modal-replay.py"
           Get-Content -Raw "$OutputDir/modal-replay.py" | & .\.venv\Scripts\python.exe - *>&1 |
             Tee-Object -FilePath "$OutputDir/modal-replay.log"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Analyze captured application dumps and restore postmortem settings
+        if: always()
+        shell: pwsh
+        run: |
+          $ToolDir = Join-Path $env:RUNNER_TEMP "geolog-procdump"
+          $ProcDump = Join-Path $ToolDir "procdump64.exe"
+          $Output = "build/ci-artifacts/qt-replay"
+          $DumpDir = Join-Path $env:RUNNER_TEMP "geolog-replay-dumps"
+          try {
+            $Dumps = @(Get-ChildItem -Path $DumpDir -Filter "*.dmp" -ErrorAction SilentlyContinue)
+            if ($Dumps.Count -eq 0) {
+              "No application dump captured" | Out-File "$Output/postmortem-analysis.txt"
+            } else {
+              $Cdb = Join-Path ${env:ProgramFiles(x86)} "Windows Kits/10/Debuggers/x64/cdb.exe"
+              foreach ($Dump in $Dumps) {
+                & $Cdb -z $Dump.FullName -c ".exr -1; .ecxr; kv; lm; q" *>&1 |
+                  Tee-Object -FilePath "$Output/postmortem-$($Dump.BaseName).txt"
+                if ($LASTEXITCODE -ne 0) { throw "CDB dump analysis failed" }
+              }
+            }
+          } finally {
+            if (Test-Path "$ToolDir/registered") {
+              & $ProcDump -accepteula -u *>&1 | Tee-Object "$Output/procdump-uninstall.txt"
+              if ($LASTEXITCODE -ne 0) { throw "Failed to restore postmortem settings" }
+            }
+          }
 
       - name: Capture Python crash events
         if: always()
