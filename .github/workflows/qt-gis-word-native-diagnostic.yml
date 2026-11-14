@@ -459,6 +459,23 @@ jobs:
                                   f"cpp={getCppPointer(item)[0]:#x} py={id(item):#x}",
                                   flush=True,
                               )
+                  # The previous dump matched the exact item pointer and
+                  # Python wrapper id. Test explicit ownership transfer before
+                  # the native list destructor, only for the confirmed dialog.
+                  if watched.objectName() == "gis-geology-evidence-dialog":
+                      from shiboken6 import delete
+                      for widget in lists:
+                          if widget.objectName() != "gis-geology-evidence-curves":
+                              continue
+                          while widget.count():
+                              item = widget.takeItem(0)
+                              if item is None or not isValid(item):
+                                  raise RuntimeError("Invalid detached curve item")
+                              print(f"NATIVE_DETACH cpp={getCppPointer(item)[0]:#x} py={id(item):#x}", flush=True)
+                              delete(item)
+                              if isValid(item):
+                                  raise RuntimeError("Detached item was not destroyed")
+                          print("NATIVE_DETACH complete", flush=True)
                   return False
 
           @pytest.fixture(scope="session", autouse=True)
