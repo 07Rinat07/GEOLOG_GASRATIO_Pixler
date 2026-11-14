@@ -470,7 +470,7 @@ jobs:
               finally:
                   qapp.removeEventFilter(observer)
           '''
-          conftest.write_bytes(original_conftest + b"\\n" + trace.encode("utf-8"))
+          conftest.write_bytes(original_conftest + bytes([10]) + trace.encode("utf-8"))
           selectors = (*prefix, stress.as_posix())
           _configure_environment()
           environment = os.environ.copy()
