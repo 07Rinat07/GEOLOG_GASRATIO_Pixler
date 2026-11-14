@@ -3,8 +3,9 @@ from dataclasses import replace
 
 import numpy as np
 import pytest
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDialog
+from PySide6.QtCore import QCoreApplication, QEvent, Qt
+from PySide6.QtWidgets import QDialog, QListView, QListWidget, QWidget
+from shiboken6 import delete, isValid
 
 from geoworkbench.services.interpretation_gis_evidence_handoff import (
     confirm_gis_geology_selection, verified_gis_geology_handoff,
@@ -101,3 +102,69 @@ def test_word_confirmation_not_available_without_explicit_callback(qapp, monkeyp
         assert not dialog.confirm_word_button.isEnabled()
     finally:
         dialog.close()
+
+
+@pytest.mark.parametrize("disposal", ("direct", "deferred-parent"))
+def test_curve_selection_has_value_rows_and_survives_native_disposal(
+    qapp, monkeypatch, tmp_path, disposal,
+):
+    session, receiver, dataset, key, report, _, _ = _reviewed(monkeypatch, tmp_path)
+    before = dataset.curves[key].values.copy()
+    dirty = session.dirty
+    parent = QWidget()
+    dialog = GisGeologyEvidenceDialog(
+        session, dataset, (100.0, 102.0), lambda: (100.0, 102.0), parent=parent,
+        confirm_word=lambda evidence, snapshot: confirm_gis_geology_selection(
+            session, report, replace(report), evidence, snapshot,
+            source_key=("native-disposal", report.dataset_id), target="word",
+        ),
+    )
+    try:
+        # The old dialog had native-owned QListWidgetItem wrappers, the
+        # destruction path identified in both native crash dumps. Enforce
+        # the absence of that ownership path, not merely a lucky clean run.
+        assert isinstance(dialog.curves, QListView)
+        assert not isinstance(dialog.curves, QListWidget)
+        view = dialog.curves
+        model = view.model()
+        row = next(i for i in range(view.count())
+                   if view.item(i).data(Qt.ItemDataRole.UserRole) == key)
+        index = model.index(row, 0)
+        assert model.data(index, Qt.ItemDataRole.CheckStateRole) == Qt.CheckState.Unchecked.value
+        assert model.setData(index, Qt.CheckState.Checked.value, Qt.ItemDataRole.CheckStateRole)
+        assert view.item(row).checkState() == Qt.CheckState.Checked
+        dialog.review.click()
+        _wait_review(qapp, dialog)
+        assert dialog.confirm_word_button.isEnabled()
+        assert model.setData(index, Qt.CheckState.Unchecked.value, Qt.ItemDataRole.CheckStateRole)
+        assert not dialog.confirm_word_button.isEnabled()
+        assert model.setData(index, Qt.CheckState.Checked.value, Qt.ItemDataRole.CheckStateRole)
+        dialog.review.click()
+        _wait_review(qapp, dialog)
+        assert dialog.confirm_word_button.isEnabled()
+        dialog.confirm_word_button.click()
+        selected = dialog.confirmed_word_selection
+        assert selected is not None and selected.target == "word"
+        assert verified_gis_geology_handoff(
+            session, report, replace(report), selected,
+            source_key=("native-disposal", report.dataset_id), target="word",
+        ) == selected.evidence
+        assert session.dirty == dirty and receiver.curves == {}
+        np.testing.assert_array_equal(dataset.curves[key].values, before)
+        # Keep view/model wrappers alive across actual native destruction,
+        # including the parent-driven path that bypasses dialog.close().
+        if disposal == "direct":
+            delete(dialog)
+        else:
+            parent.deleteLater()
+            QCoreApplication.sendPostedEvents(parent, QEvent.Type.DeferredDelete)
+        assert not isValid(dialog)
+        assert not isValid(view)
+        assert not isValid(model)
+    finally:
+        if isValid(dialog):
+            if dialog._worker is not None:
+                _wait_review(qapp, dialog)
+            dialog.close()
+        if isValid(parent):
+            parent.close()
