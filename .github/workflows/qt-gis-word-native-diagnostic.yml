@@ -30,8 +30,8 @@ jobs:
         include:
           # Preserve the old failing runs as evidence; validate the actual fix
           # on the exact merge commit that passed all mandatory gates.
-          - case: fixed-pr-886
-            sha: 6b569954fd70465718aa069ef8ced19525919476
+          - case: fixed-pr-887-workspace
+            sha: c9cd7d951f0d118594ed6e4888624c94f8772e43
     steps:
       - name: Check out source
         uses: actions/checkout@v6
@@ -421,7 +421,13 @@ jobs:
           ''',
               encoding="utf-8",
           )
-          selectors = (*prefix, stress.as_posix())
+          # Preserve the reproduced workload in its original order, then
+          # exercise the newly integrated workspace-to-DOCX tests in the
+          # same process. No assertions or mandatory runner are modified.
+          workspace = "tests/test_gis_word_workspace_docx.py"
+          if not Path(workspace).is_file():
+              raise RuntimeError("Missing workspace-to-DOCX regression file")
+          selectors = (*prefix, stress.as_posix(), workspace)
           _configure_environment()
           environment = os.environ.copy()
           tool = Path(os.environ["RUNNER_TEMP"]) / "geolog-native-capture"
