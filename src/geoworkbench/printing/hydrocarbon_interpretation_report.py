@@ -26,7 +26,7 @@ from geoworkbench.domain.report_composition import (
 )
 from geoworkbench.domain.report_annotations import ReportAnnotationRecord, report_annotation_scope_id
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_renderer import (
-    render_hydrocarbon_interpretation_report,
+    append_gis_evidence_pdf_html, render_hydrocarbon_interpretation_report,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_geology import (
     InterpretationGeologySnapshot,
@@ -64,6 +64,10 @@ from geoworkbench.services.report_passport import (
 )
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.interpretation_method_comparison import MethodComparisonInterval
+from geoworkbench.services.interpretation_gis_evidence_handoff import (
+    ConfirmedGisGeologySelection, verified_gis_geology_handoff,
+)
+from geoworkbench.services.interpretation_gis_interval_evidence import GasGeologyGisIntervalEvidence
 from geoworkbench.services.interpretation_geology_interval_evidence import (
     EvidenceKind,
     GasGeologyIntervalEvidence,
@@ -118,6 +122,9 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
     geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
     geology_field_selection: ConfirmedGeologyFieldSelection | None = None,
     geology_source_key: tuple[object, ...] | None = None,
+    gis_selection: ConfirmedGisGeologySelection | None = None,
+    gis_source_key: tuple[object, ...] | None = None,
+    current_gis_report: Callable[[], HydrocarbonInterpretationReport] | None = None,
     overwrite: bool = False,
 ) -> ReportOutputTransactionResult:
     labels = hydrocarbon_report_print_labels(language)
@@ -144,6 +151,28 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
         raise HydrocarbonInterpretationPdfError(
             "PDF field source key requires operator-confirmed measured fields"
         )
+    def verify_combined() -> GasGeologyGisIntervalEvidence | None:
+        if gis_selection is None:
+            if gis_source_key is not None or current_gis_report is not None:
+                raise HydrocarbonInterpretationPdfError("PDF GIS source requires explicit approval")
+            return None
+        if gis_source_key is None or current_gis_report is None:
+            raise HydrocarbonInterpretationPdfError("PDF GIS approval requires its live report source")
+        try:
+            return verified_gis_geology_handoff(
+                session, report, current_gis_report(), gis_selection,
+                source_key=gis_source_key, target="pdf",
+            )
+        except (ValueError, RuntimeError, TypeError, OverflowError) as exc:
+            raise HydrocarbonInterpretationPdfError(str(exc)) from exc
+
+    if gis_selection is not None and (geology_evidence or geology_field_selection is not None):
+        raise HydrocarbonInterpretationPdfError(
+            "Combined PDF GIS and separate geology approvals must not be mixed"
+        )
+    combined = verify_combined()
+    if combined is not None:
+        geology_evidence = (combined.geology,)
     try:
         verified_session_geology_evidence(session, report, geology_evidence)
     except ValueError as exc:
@@ -204,6 +233,12 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
             f"{labels.pdf_invalid_interval}: {exc}"
         ) from exc
 
+    if combined is not None and (
+        combined.geology.gas_top < depth_range.top_depth
+        or combined.geology.gas_bottom > depth_range.bottom_depth
+    ):
+        raise HydrocarbonInterpretationPdfError("PDF interval excludes confirmed GIS evidence")
+
     render_options: tuple[tuple[str, str], ...] = (
         ("geology_cuttings", geology_track_settings.cuttings.value),
         ("geology_lba", geology_track_settings.lba.value),
@@ -216,6 +251,8 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
         render_options = (*render_options, ("method_comparison_intervals", str(len(method_comparisons))))
     if geology_evidence:
         render_options = (*render_options, ("measured_geology_intervals", str(len(geology_evidence))))
+    if combined is not None:
+        render_options = (*render_options, ("confirmed_gis_curves", str(len(combined.gis))))
     if selected_fields:
         render_options = (*render_options, (
             "measured_geology_fields",
@@ -248,11 +285,15 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
                 options=render_options,
             ),
             interval=(depth_range.top_depth, depth_range.bottom_depth),
-            curve_mnemonics=_interpretation_passport_curve_mnemonics(report),
+            # Mnemonics may be ambiguous after GIS insertion. For a combined
+            # approval fingerprint all current curves, including exact GIS IDs.
+            curve_mnemonics=None if combined is not None else _interpretation_passport_curve_mnemonics(report),
         ),
     )
 
     def produce_staged_pdf(staged: Path) -> Path:
+        if combined is not None and verify_combined() != combined:
+            raise HydrocarbonInterpretationPdfError("Confirmed GIS evidence changed before PDF render")
         # Prevent stale confirmed fields from entering the signed staged output.
         if geology_field_selection is not None:
             try:
@@ -289,6 +330,8 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
                 export_pdf = export_hydrocarbon_interpretation_pdf
             if selected_fields:
                 export_pdf = partial(export_pdf, geology_fields=selected_fields)
+            if combined is not None:
+                export_pdf = partial(export_pdf, gis_evidence=combined)
             export_pdf(
                 report,
                 unmarked,
@@ -316,6 +359,8 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
                     raise HydrocarbonInterpretationPdfError(
                         f"Cannot place stored preview marks: {exc}"
                     ) from exc
+            if combined is not None and verify_combined() != combined:
+                raise HydrocarbonInterpretationPdfError("Confirmed GIS evidence changed during PDF render")
             return staged
         finally:
             if preview_marks:
@@ -365,11 +410,16 @@ def export_hydrocarbon_interpretation_pdf(
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
     geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
     geology_fields: tuple[tuple[EvidenceKind, str], ...] = (),
+    gis_evidence: GasGeologyGisIntervalEvidence | None = None,
     overwrite: bool = False,
 ) -> Path:
     labels = hydrocarbon_report_print_labels(language)
     try:
         verified_report_geology_evidence(report, geology_evidence)
+        if gis_evidence is not None and (
+            geology_evidence != (gis_evidence.geology,) or geology_fields or dataset is None
+        ):
+            raise ValueError("PDF GIS rendering requires matching measured geology and dataset")
         if geology_fields:
             if not geology_evidence:
                 raise ValueError("Measured PDF fields require selected geology evidence")
@@ -457,6 +507,8 @@ def export_hydrocarbon_interpretation_pdf(
             )
         else:
             html = hydrocarbon_interpretation_html(effective_report, language)
+        if gis_evidence is not None:
+            html = append_gis_evidence_pdf_html(html, gis_evidence, language)
         if dataset is not None:
             from geoworkbench.services.hydrocarbon_interpretation_gas_html import (
                 inject_interval_gas_statistics_html,
@@ -529,6 +581,8 @@ def export_hydrocarbon_interpretation_pdf(
             )
         else:
             pdf_renderer = render_hydrocarbon_interpretation_report
+        if gis_evidence is not None:
+            pdf_renderer = partial(pdf_renderer, gis_evidence=gis_evidence)
         pdf_renderer(
             writer,
             effective_report,

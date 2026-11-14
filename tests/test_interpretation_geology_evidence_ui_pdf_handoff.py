@@ -12,13 +12,19 @@ import re
 from types import SimpleNamespace
 
 import fitz
+import numpy as np
 import pytest
-from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QComboBox, QMessageBox, QPushButton
+from PySide6.QtCore import QTimer, Qt
+from PySide6.QtWidgets import QComboBox, QDialog, QMessageBox, QPushButton
 
+from geoworkbench.domain.models import LithologyInterval
+from geoworkbench.services.interpretation_gis_interval_evidence_html import gis_interval_evidence_table
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.report_passport import passport_sidecar_path
 from geoworkbench.ui import interpretation_report_workspace_final as final
+from geoworkbench.ui.gis_geology_evidence_dialog import GisGeologyEvidenceDialog
+from test_gas_interval_gis_review_ui import _with_inserted_gis
+from test_gis_interval_compare_ui import _wait_review
 from test_interpretation_geology_evidence_operator_ui import _workspace
 from test_interpretation_method_comparison_ui_pdf_handoff import (
     _choose_and_capture,
@@ -362,3 +368,130 @@ def test_html_field_confirmation_does_not_enable_signed_pdf_fields(
     assert len(calls) == 1
     assert "geology_field_selection" not in calls[0]
     workspace.close()
+
+
+def _prepare_combined_pdf(qapp, monkeypatch, tmp_path, language, approval):
+    workspace, session, receiver, dataset = _with_inserted_gis(monkeypatch, tmp_path, language)
+    session.current_well.lithology = [LithologyInterval("pdf-lith", 100.0, 102.0, "limestone")]
+    key = next(key for key, curve in dataset.curves.items() if curve.metadata.original_mnemonic == "GR")
+    target = tmp_path / "combined.pdf"
+    _prepare_dialogs(monkeypatch, workspace)
+    _choose_and_capture(monkeypatch, workspace, target)
+
+    def inspect(preview):
+        assert not preview.confirm_pdf_button.isEnabled()
+        item = next(preview.curves.item(i) for i in range(preview.curves.count())
+                    if preview.curves.item(i).data(Qt.ItemDataRole.UserRole) == key)
+        item.setCheckState(Qt.CheckState.Checked)
+        preview.review.click()
+        _wait_review(qapp, preview)
+        if approval == "cancel":
+            return QDialog.DialogCode.Rejected
+        button = {
+            "pdf": preview.confirm_pdf_button,
+            "word": preview.confirm_word_button,
+            "html": preview.confirm_html_button,
+        }[approval]
+        assert button.isEnabled()
+        button.click()
+        return preview.result()
+
+    monkeypatch.setattr(GisGeologyEvidenceDialog, "exec", inspect)
+    workspace.geology_evidence_button.click()
+    workspace._geology_evidence_dialog.findChild(
+        QPushButton, "interpretation-geology-combined-gis",
+    ).click()
+    return workspace, session, receiver, dataset, key, target
+
+
+@pytest.mark.parametrize("language", tuple(AppLanguage))
+@pytest.mark.parametrize("approval", ("pdf", "word", "html", "cancel"))
+def test_combined_observations_reach_real_signed_pdf_only_with_pdf_approval(
+    qapp, monkeypatch, tmp_path, language, approval,
+):
+    workspace, session, receiver, dataset, key, target = _prepare_combined_pdf(
+        qapp, monkeypatch, tmp_path, language, approval,
+    )
+    try:
+        selected = workspace._gis_pdf_selection
+        assert (selected is not None) == (approval == "pdf")
+        assert (workspace._gis_word_selection is not None) == (approval == "word")
+        assert workspace._geology_pdf_evidence == ()
+        assert workspace._geology_excel_evidence == ()
+        assert workspace._geology_print_evidence == ()
+        before = dataset.curves[key].values.copy()
+        workspace._export_pdf()
+        assert target.read_bytes().startswith(b"%PDF")
+        with fitz.open(target) as document:
+            text = re.sub(r"\s+", " ", " ".join(page.get_text() for page in document))
+        sidecar = json.loads(passport_sidecar_path(target).read_text(encoding="utf-8"))
+        options = dict(sidecar["render"]["options"])
+        if selected is not None:
+            projection = gis_interval_evidence_table(selected.evidence, language)
+            assert projection.title in text and projection.notice in text
+            assert "pdf-lith" in text
+            assert projection.rows[0][0] in text
+            assert projection.rows[0][8] in text and projection.rows[0][9] in text
+            assert options["confirmed_gis_curves"] == "1"
+            assert options["measured_geology_intervals"] == "1"
+        else:
+            assert "confirmed_gis_curves" not in options
+            assert "pdf-lith" not in text
+        assert receiver.curves == {} and session.current_dataset is dataset
+        np.testing.assert_array_equal(dataset.curves[key].values, before)
+    finally:
+        workspace.close()
+
+
+@pytest.mark.parametrize("change", ("curve", "gas", "geology", "candidate"))
+def test_changed_pdf_gis_approval_preserves_existing_pdf_and_passport(
+    qapp, monkeypatch, tmp_path, change,
+):
+    workspace, session, _, dataset, key, target = _prepare_combined_pdf(
+        qapp, monkeypatch, tmp_path, AppLanguage.EN, "pdf",
+    )
+    try:
+        assert workspace._gis_pdf_selection is not None
+        target.write_bytes(b"%PDF-existing approved report")
+        sidecar = passport_sidecar_path(target)
+        sidecar.write_bytes(b'{"existing": "approved passport"}')
+        original = workspace._select_report_identity
+
+        def mutate(report):
+            if change == "curve":
+                dataset.curves[key].values[1] = 1.5
+            elif change == "gas":
+                dataset.curves["c1"].values[0] = 99.0
+            elif change == "geology":
+                session.current_well.lithology = [LithologyInterval("changed", 100.0, 102.0, "sandstone")]
+            else:
+                workspace._geology_evidence_dialog.findChild(
+                    QComboBox, "interpretation-geology-evidence-select",
+                ).setCurrentIndex(1)
+            return original(report)
+
+        monkeypatch.setattr(workspace, "_select_report_identity", mutate)
+        errors = []
+        monkeypatch.setattr(workspace, "_show_export_error", errors.append)
+        workspace._export_pdf()
+        assert len(errors) == 1
+        assert target.read_bytes() == b"%PDF-existing approved report"
+        assert sidecar.read_bytes() == b'{"existing": "approved passport"}'
+        assert workspace._gis_pdf_selection is None
+    finally:
+        workspace.close()
+
+
+def test_separate_pdf_geology_approval_replaces_combined_pdf_approval(qapp, monkeypatch, tmp_path):
+    workspace, _, _, _, _, _ = _prepare_combined_pdf(
+        qapp, monkeypatch, tmp_path, AppLanguage.EN, "pdf",
+    )
+    try:
+        assert workspace._gis_pdf_selection is not None
+        workspace._geology_evidence_dialog.findChild(
+            QPushButton, "interpretation-geology-include-in-pdf",
+        ).click()
+        assert workspace._gis_pdf_selection is None
+        assert len(workspace._geology_pdf_evidence) == 1
+    finally:
+        workspace.close()

@@ -8,6 +8,7 @@ from geoworkbench.printing.gas_ratio_reference import (
 )
 from geoworkbench.printing.ratio_phase_summary import ratio_phase_summary_html
 
+from html import escape
 import re
 from typing import Any
 
@@ -67,10 +68,36 @@ from geoworkbench.services.hydrocarbon_interpretation_gas_html import (
 )
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.interpretation_method_comparison import MethodComparisonInterval
+from geoworkbench.services.interpretation_gis_interval_evidence import GasGeologyGisIntervalEvidence
+from geoworkbench.services.interpretation_gis_interval_evidence_html import gis_interval_evidence_table
 from geoworkbench.services.interpretation_geology_interval_evidence import (
     EvidenceKind,
     GasGeologyIntervalEvidence,
 )
+
+
+def append_gis_evidence_pdf_html(
+    html: str, evidence: GasGeologyGisIntervalEvidence, language: AppLanguage,
+) -> str:
+    """Append printable, paginatable source rows without repeating geology."""
+    projection = gis_interval_evidence_table(evidence, language)
+    blocks = [f"<h2>{escape(projection.title)}</h2><p>{escape(projection.notice)}</p>"]
+    for row in projection.rows:
+        # Each curve gets its own field/value table. This keeps all source
+        # identities and bounds readable in both A4 orientations.
+        rows = "".join(
+            f"<tr><td>{escape(label)}</td><td>{escape(value)}</td></tr>"
+            for label, value in zip(projection.headings, row, strict=True)
+        )
+        blocks.append(
+            f"<h3>{escape(row[0])}</h3><table><thead><tr>"
+            f"<th>{escape(projection.headings[0])}</th><th>{escape(row[0])}</th>"
+            f"</tr></thead><tbody>{rows}</tbody></table>"
+        )
+    body, closing, tail = html.rpartition("</body>")
+    if not closing:
+        raise ValueError("PDF report HTML has no body terminator")
+    return body + "".join(blocks) + closing + tail
 
 
 def _ratio_reference_chart_rect(content: QRectF, phase_key_height: float) -> QRectF:
@@ -107,6 +134,7 @@ def render_hydrocarbon_interpretation_report(
     method_comparisons: tuple[MethodComparisonInterval, ...] = (),
     geology_evidence: tuple[GasGeologyIntervalEvidence, ...] = (),
     geology_fields: tuple[tuple[EvidenceKind, str], ...] = (),
+    gis_evidence: GasGeologyGisIntervalEvidence | None = None,
 ) -> None:
     """Render one controlled multi-page report to QPdfWriter or QPrinter."""
 
@@ -137,6 +165,8 @@ def render_hydrocarbon_interpretation_report(
         html = hydrocarbon_interpretation_html(presentation_report, language)
     if dataset is not None:
         html = inject_interval_gas_statistics_html(html, report, dataset, language)
+    if gis_evidence is not None:
+        html = append_gis_evidence_pdf_html(html, gis_evidence, language)
     html = inject_report_optional_sections_html(html, identity, language)
     body_html = _FRONT_MATTER_PATTERN.sub(r"\1", html, count=1)
 
