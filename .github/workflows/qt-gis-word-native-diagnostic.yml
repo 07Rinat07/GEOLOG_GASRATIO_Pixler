@@ -21,7 +21,7 @@ env:
 
 jobs:
   qt-native-replay:
-    name: GIS Word postmortem replay (${{ matrix.case }})
+    name: GIS Word native exception replay (${{ matrix.case }})
     runs-on: windows-latest
     timeout-minutes: 120
     strategy:
@@ -91,37 +91,150 @@ jobs:
           .\.venv\Scripts\python.exe tools/capture_windows_native_runtime.py --output build/ci-artifacts/qt-replay/native-runtime.json --commit "${{ matrix.sha }}"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Install and validate postmortem capture without a live debugger
+      - name: Build and validate native exception capture without a debugger
         shell: pwsh
         run: |
           if ($env:GITHUB_ACTIONS -ne "true" -or $env:RUNNER_OS -ne "Windows") {
-            throw "Postmortem debugger registration is restricted to a disposable Windows Actions runner"
+            throw "Native diagnostic is restricted to disposable Windows Actions runners"
           }
-          $ToolDir = Join-Path $env:RUNNER_TEMP "geolog-procdump"
-          $DumpDir = Join-Path $env:RUNNER_TEMP "geolog-replay-dumps"
+          $ToolDir = Join-Path $env:RUNNER_TEMP "geolog-native-capture"
           $Output = "build/ci-artifacts/qt-replay"
-          New-Item -ItemType Directory -Force $ToolDir, $DumpDir, $Output | Out-Null
-          Invoke-WebRequest -Uri "https://download.sysinternals.com/files/Procdump.zip" -OutFile "$ToolDir/procdump.zip"
-          Expand-Archive -Path "$ToolDir/procdump.zip" -DestinationPath $ToolDir -Force
-          $ProcDump = Join-Path $ToolDir "procdump64.exe"
-          $Signature = Get-AuthenticodeSignature $ProcDump
-          if ($Signature.Status -ne "Valid" -or $Signature.SignerCertificate.Subject -notmatch 'Microsoft Corporation') {
-            throw "ProcDump signature verification failed"
+          $ControlDir = Join-Path $ToolDir "synthetic-control"
+          New-Item -ItemType Directory -Force $ToolDir, $Output, $ControlDir | Out-Null
+          # WER and AeDebug/ProcDump failed to capture even the synthetic AV.
+          # Use a native VEH, with no Python callbacks and no live debugger.
+          # A pre-created dedicated thread writes a bounded minidump; the
+          # exception continues through Windows' original handler chain.
+          @'
+          #define WIN32_LEAN_AND_MEAN
+          #include <windows.h>
+          #include <dbghelp.h>
+          #include <stdio.h>
+          #include <wchar.h>
+
+          static HANDLE request_event, done_event;
+          static DWORD dump_thread_id, fault_thread;
+          static volatile LONG active, count;
+          static EXCEPTION_RECORD record;
+          static CONTEXT context;
+          static EXCEPTION_POINTERS pointers;
+          static WCHAR directory[MAX_PATH];
+
+          static DWORD WINAPI dump_worker(LPVOID unused) {
+              (void)unused;
+              for (;;) {
+                  WCHAR name[MAX_PATH];
+                  HANDLE file;
+                  MINIDUMP_EXCEPTION_INFORMATION info;
+                  BOOL ok;
+                  if (WaitForSingleObject(request_event, INFINITE) != WAIT_OBJECT_0)
+                      return 1;
+                  if (swprintf_s(name, MAX_PATH, L"%ls\\native-%lu-%ld.dmp",
+                                 directory, GetCurrentProcessId(), count) >= 0) {
+                      file = CreateFileW(name, GENERIC_WRITE, 0, NULL, CREATE_NEW,
+                                         FILE_ATTRIBUTE_NORMAL, NULL);
+                      if (file != INVALID_HANDLE_VALUE) {
+                          info.ThreadId = fault_thread;
+                          info.ExceptionPointers = &pointers;
+                          info.ClientPointers = FALSE;
+                          ok = MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(),
+                                                 file, MiniDumpWithThreadInfo, &info, NULL, NULL);
+                          CloseHandle(file);
+                          if (!ok) DeleteFileW(name);
+                      }
+                  }
+                  SetEvent(done_event);
+              }
           }
-          Get-FileHash -Algorithm SHA256 $ProcDump | Format-List | Out-File "$Output/procdump-identity.txt"
-          (Get-Item $ProcDump).VersionInfo | Format-List | Out-File "$Output/procdump-identity.txt" -Append
-          & $ProcDump -accepteula -mm -i $DumpDir *>&1 | Tee-Object "$Output/procdump-install.txt"
-          if ($LASTEXITCODE -ne 0) { throw "ProcDump registration failed" }
-          New-Item -ItemType File -Force "$ToolDir/registered" | Out-Null
-          # Verify capture on a disposable synthetic Python subprocess before
-          # running project tests. Native invalid thread entry is unhandled;
-          # this is NOT an application failure and its dump is kept separate.
+
+          static LONG CALLBACK capture(EXCEPTION_POINTERS *exception) {
+              DWORD code = exception->ExceptionRecord->ExceptionCode;
+              if (code != EXCEPTION_ACCESS_VIOLATION && code != 0xC0000374u)
+                  return EXCEPTION_CONTINUE_SEARCH;
+              if (GetCurrentThreadId() == dump_thread_id || count >= 3)
+                  return EXCEPTION_CONTINUE_SEARCH;
+              if (InterlockedCompareExchange(&active, 1, 0) != 0)
+                  return EXCEPTION_CONTINUE_SEARCH;
+              InterlockedIncrement(&count);
+              fault_thread = GetCurrentThreadId();
+              record = *exception->ExceptionRecord;
+              record.ExceptionRecord = NULL;
+              context = *exception->ContextRecord;
+              pointers.ExceptionRecord = &record;
+              pointers.ContextRecord = &context;
+              // Deliberately bounded: this diagnostic may perturb timing.
+              // Never swallow an exception or let a blocked dump hang CI.
+              if (SetEvent(request_event) &&
+                  WaitForSingleObject(done_event, 15000) == WAIT_OBJECT_0)
+                  InterlockedExchange(&active, 0);
+              return EXCEPTION_CONTINUE_SEARCH;
+          }
+
+          __declspec(dllexport) int WINAPI InstallCapture(const WCHAR *folder) {
+              HMODULE pinned;
+              HANDLE thread;
+              if (!folder || wcslen(folder) >= MAX_PATH - 50 || request_event)
+                  return 0;
+              if (wcscpy_s(directory, MAX_PATH, folder) != 0) return 0;
+              // Prevent unloading the DLL while Windows retains the VEH.
+              if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                                      GET_MODULE_HANDLE_EX_FLAG_PIN,
+                                      (LPCWSTR)(const void *)capture, &pinned)) return 0;
+              request_event = CreateEventW(NULL, FALSE, FALSE, NULL);
+              done_event = CreateEventW(NULL, FALSE, FALSE, NULL);
+              if (!request_event || !done_event) return 0;
+              thread = CreateThread(NULL, 0, dump_worker, NULL, 0, &dump_thread_id);
+              if (!thread) return 0;
+              CloseHandle(thread);
+              return AddVectoredExceptionHandler(1, capture) != NULL;
+          }
+          '@ | Set-Content -Encoding ascii "$ToolDir/capture.c"
+          $VsWhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio/Installer/vswhere.exe"
+          $Vs = & $VsWhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if ($LASTEXITCODE -ne 0 -or -not $Vs) { throw "MSVC toolchain unavailable" }
+          $VcVars = Join-Path $Vs "VC/Auxiliary/Build/vcvars64.bat"
+          @"
+          @echo off
+          call "$VcVars"
+          if errorlevel 1 exit /b 1
+          cd /d "$ToolDir"
+          cl /nologo /W4 /O2 /LD capture.c /link dbghelp.lib /OUT:capture.dll
+          exit /b %errorlevel%
+          "@ | Set-Content -Encoding ascii "$ToolDir/build.cmd"
+          & cmd.exe /d /c "$ToolDir/build.cmd" *>&1 | Tee-Object "$Output/native-build.txt"
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path "$ToolDir/capture.dll")) {
+            throw "Native capture DLL build failed"
+          }
+          @'
+          import ctypes
+          import os
+          import sys
+          from pathlib import Path
+
+          try:
+              _capture = ctypes.WinDLL(str(Path(__file__).with_name("capture.dll")))
+              _capture.InstallCapture.argtypes = (ctypes.c_wchar_p,)
+              _capture.InstallCapture.restype = ctypes.c_int
+              if not _capture.InstallCapture(os.environ["GEOLOG_NATIVE_DUMP_DIR"]):
+                  raise RuntimeError("InstallCapture failed")
+              print("NATIVE_CAPTURE_ARMED", flush=True)
+          except Exception as exc:
+              print(f"NATIVE_CAPTURE_SETUP_ERROR {exc}", file=sys.stderr, flush=True)
+              os._exit(91)
+          '@ | Set-Content -Encoding utf8 "$ToolDir/sitecustomize.py"
+          # Validate the same injection path and native code on an isolated
+          # synthetic crash; its dumps never enter the application directory.
           @'
           import os
           import subprocess
           import sys
           from pathlib import Path
 
+          tool = Path(os.environ["RUNNER_TEMP"]) / "geolog-native-capture"
+          folder = tool / "synthetic-control"
+          env = os.environ.copy()
+          env["PYTHONPATH"] = str(tool) + os.pathsep + env.get("PYTHONPATH", "")
+          env["GEOLOG_NATIVE_DUMP_DIR"] = str(folder)
           target = r"""
           import ctypes
           from ctypes import wintypes
@@ -137,24 +250,29 @@ jobs:
           k.WaitForSingleObject(thread, 30000)
           raise SystemExit(3)
           """
-          folder = Path(os.environ["RUNNER_TEMP"]) / "geolog-replay-dumps"
-          if list(folder.glob("*.dmp")):
-              raise RuntimeError("Unexpected preexisting dumps")
-          result = subprocess.run([sys.executable, "-c", target], timeout=90, check=False)
+          result = subprocess.run([sys.executable, "-c", target], env=env, timeout=90,
+                                  capture_output=True, text=True, errors="replace")
+          print(result.stdout, result.stderr, flush=True)
           status = result.returncode & 0xffffffff
-          print(f"POSTMORTEM_CONTROL status=0x{status:08X}", flush=True)
-          if status not in (0xc0000005, 0xc0000409):
-              raise RuntimeError("Synthetic native failure did not occur as expected")
+          print(f"NATIVE_CONTROL status=0x{status:08X}", flush=True)
           dumps = list(folder.glob("*.dmp"))
-          if not dumps or any(p.stat().st_size == 0 for p in dumps):
-              raise RuntimeError("Postmortem capture not verified; do not run application replay")
-          control = folder.parent / "geolog-procdump" / "synthetic-control"
-          control.mkdir()
+          if status != 0xc0000005 or "NATIVE_CAPTURE_ARMED" not in result.stdout or not dumps:
+              raise RuntimeError("Native capture control failed")
+          if any(p.stat().st_size == 0 for p in dumps):
+              raise RuntimeError("Empty control dump")
           for dump in dumps:
-              print(f"POSTMORTEM_CONTROL dump={dump.name} bytes={dump.stat().st_size}", flush=True)
-              dump.rename(control / dump.name)
-          '@ | & .\.venv\Scripts\python.exe - *>&1 | Tee-Object "$Output/procdump-control.txt"
+              print(f"NATIVE_CONTROL dump={dump.name} bytes={dump.stat().st_size}", flush=True)
+          '@ | & .\.venv\Scripts\python.exe - *>&1 | Tee-Object "$Output/native-control.txt"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $Cdb = Join-Path ${env:ProgramFiles(x86)} "Windows Kits/10/Debuggers/x64/cdb.exe"
+          foreach ($Dump in Get-ChildItem $ControlDir -Filter "*.dmp") {
+            & $Cdb -z $Dump.FullName -c ".exr -1; .ecxr; kv; q" *>&1 |
+              Tee-Object "$Output/control-$($Dump.BaseName).txt"
+            if ($LASTEXITCODE -ne 0) { throw "Control dump analysis failed" }
+          }
+          if (-not (Select-String -Path "$Output/control-*.txt" -Pattern 'ExceptionCode:\s*c0000005' -Quiet)) {
+            throw "Control dump did not contain the expected AV exception context"
+          }
 
       - name: Exercise actual modal GIS Word dialog and native parent destruction
         shell: pwsh
@@ -301,11 +419,14 @@ jobs:
           selectors = (*prefix, stress.as_posix())
           _configure_environment()
           environment = os.environ.copy()
+          tool = Path(os.environ["RUNNER_TEMP"]) / "geolog-native-capture"
+          environment["PYTHONPATH"] = str(tool) + os.pathsep + environment.get("PYTHONPATH", "")
+          environment["GEOLOG_NATIVE_DUMP_DIR"] = str(Path(os.environ["RUNNER_TEMP"]) / "geolog-replay-dumps")
           try:
               # No live debugger: the previous native crash disappeared under CDB.
               # Stop on first failure, even if another attempt would pass.
               for attempt in range(1, 5):
-                  print(f"POSTMORTEM_REPLAY attempt={attempt}/4", flush=True)
+                  print(f"NATIVE_REPLAY attempt={attempt}/4", flush=True)
                   result = _run_plain_target(selectors, environment)
                   if result:
                       raise SystemExit(result)
@@ -317,30 +438,21 @@ jobs:
             Tee-Object -FilePath "$OutputDir/modal-replay.log"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Analyze captured application dumps and restore postmortem settings
+      - name: Analyze captured application dumps
         if: always()
         shell: pwsh
         run: |
-          $ToolDir = Join-Path $env:RUNNER_TEMP "geolog-procdump"
-          $ProcDump = Join-Path $ToolDir "procdump64.exe"
           $Output = "build/ci-artifacts/qt-replay"
           $DumpDir = Join-Path $env:RUNNER_TEMP "geolog-replay-dumps"
-          try {
-            $Dumps = @(Get-ChildItem -Path $DumpDir -Filter "*.dmp" -ErrorAction SilentlyContinue)
-            if ($Dumps.Count -eq 0) {
-              "No application dump captured" | Out-File "$Output/postmortem-analysis.txt"
-            } else {
-              $Cdb = Join-Path ${env:ProgramFiles(x86)} "Windows Kits/10/Debuggers/x64/cdb.exe"
-              foreach ($Dump in $Dumps) {
-                & $Cdb -z $Dump.FullName -c ".exr -1; .ecxr; kv; lm; q" *>&1 |
-                  Tee-Object -FilePath "$Output/postmortem-$($Dump.BaseName).txt"
-                if ($LASTEXITCODE -ne 0) { throw "CDB dump analysis failed" }
-              }
-            }
-          } finally {
-            if (Test-Path "$ToolDir/registered") {
-              & $ProcDump -accepteula -u *>&1 | Tee-Object "$Output/procdump-uninstall.txt"
-              if ($LASTEXITCODE -ne 0) { throw "Failed to restore postmortem settings" }
+          $Dumps = @(Get-ChildItem -Path $DumpDir -Filter "*.dmp" -ErrorAction SilentlyContinue)
+          if ($Dumps.Count -eq 0) {
+            "No application dump captured" | Out-File "$Output/native-analysis.txt"
+          } else {
+            $Cdb = Join-Path ${env:ProgramFiles(x86)} "Windows Kits/10/Debuggers/x64/cdb.exe"
+            foreach ($Dump in $Dumps) {
+              & $Cdb -z $Dump.FullName -c ".exr -1; .ecxr; kv; lm; q" *>&1 |
+                Tee-Object -FilePath "$Output/native-$($Dump.BaseName).txt"
+              if ($LASTEXITCODE -ne 0) { throw "CDB dump analysis failed" }
             }
           }
 
