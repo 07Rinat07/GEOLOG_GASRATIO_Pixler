@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import QMetaObject, QObject, QSize, Qt, QTimer, Slot
+from PySide6.QtCore import (
+    QAbstractListModel, QMetaObject, QModelIndex, QObject, QPersistentModelIndex,
+    QSize, Qt, QTimer, Slot,
+)
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
-    QDialog, QDialogButtonBox, QLabel, QListWidget, QListWidgetItem,
+    QDialog, QDialogButtonBox, QLabel, QListView,
     QProgressBar, QPushButton, QTextBrowser, QVBoxLayout, QWidget,
 )
 
@@ -25,7 +28,9 @@ from geoworkbench.services.interpretation_gis_interval_evidence import GasGeolog
 from geoworkbench.services.interpretation_gis_interval_evidence_html import (
     geology_gis_interval_evidence_html,
 )
-from geoworkbench.services.interpretation_gis_evidence_handoff import ConfirmedGisGeologySelection
+from geoworkbench.services.interpretation_gis_evidence_handoff import (
+    ConfirmedGisGeologySelection, GisEvidenceTarget,
+)
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.ui.gis_interval_compare_dialog import register_gis_interval_worker
 from geoworkbench.ui.gis_interval_compare_worker import GisIntervalCompareWorker
@@ -57,6 +62,120 @@ _TEXT = {
 }
 
 
+class _CurveSelectionModel(QAbstractListModel):
+    """Checkable curve rows stored as Python values, not native-owned items."""
+
+    def __init__(self, parent: QObject) -> None:
+        super().__init__(parent)
+        self._rows: list[tuple[str, str, Qt.CheckState]] = []
+
+    def rowCount(self, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> int:
+        return 0 if parent.isValid() else len(self._rows)
+
+    def data(
+        self, index: QModelIndex | QPersistentModelIndex,
+        role: int = Qt.ItemDataRole.DisplayRole,
+    ) -> object:
+        if not index.isValid() or not 0 <= index.row() < len(self._rows):
+            return None
+        key, label, state = self._rows[index.row()]
+        if role == Qt.ItemDataRole.DisplayRole:
+            return label
+        if role == Qt.ItemDataRole.UserRole:
+            return key
+        if role == Qt.ItemDataRole.CheckStateRole:
+            return state.value
+        return None
+
+    def flags(self, index: QModelIndex | QPersistentModelIndex) -> Qt.ItemFlag:
+        if not index.isValid():
+            return Qt.ItemFlag.NoItemFlags
+        return Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable
+
+    def setData(
+        self, index: QModelIndex | QPersistentModelIndex, value: object,
+        role: int = Qt.ItemDataRole.EditRole,
+    ) -> bool:
+        if (
+            role != Qt.ItemDataRole.CheckStateRole or not index.isValid()
+            or not 0 <= index.row() < len(self._rows)
+        ):
+            return False
+        if isinstance(value, Qt.CheckState):
+            state = value
+        elif isinstance(value, int):
+            try:
+                state = Qt.CheckState(value)
+            except ValueError:
+                return False
+        else:
+            return False
+        if state not in (Qt.CheckState.Checked, Qt.CheckState.Unchecked):
+            return False
+        row = index.row()
+        key, label, previous = self._rows[row]
+        if state != previous:
+            self._rows[row] = (key, label, state)
+            changed = self.index(row, 0)
+            self.dataChanged.emit(changed, changed, [Qt.ItemDataRole.CheckStateRole])
+        return True
+
+    def append_curve(self, key: str, label: str) -> None:
+        row = len(self._rows)
+        self.beginInsertRows(QModelIndex(), row, row)
+        self._rows.append((key, label, Qt.CheckState.Unchecked))
+        self.endInsertRows()
+
+    def selected_keys(self) -> tuple[str, ...]:
+        return tuple(key for key, _, state in self._rows if state == Qt.CheckState.Checked)
+
+
+class _CurveSelectionRow:
+    """Value-row handle; never creates a C++ list-item wrapper."""
+
+    def __init__(self, model: _CurveSelectionModel, row: int) -> None:
+        self._model = model
+        self._row = row
+
+    def data(self, role: int) -> object:
+        return self._model.data(self._model.index(self._row, 0), role)
+
+    def checkState(self) -> Qt.CheckState:  # noqa: N802 - curve row interface
+        value = self.data(Qt.ItemDataRole.CheckStateRole)
+        if not isinstance(value, int):
+            raise RuntimeError("Curve row no longer exists")
+        return Qt.CheckState(value)
+
+    def setCheckState(self, state: Qt.CheckState) -> None:  # noqa: N802
+        self._model.setData(self._model.index(self._row, 0), state, Qt.ItemDataRole.CheckStateRole)
+
+
+class _CurveSelectionView(QListView):
+    """Keep the existing checkable-list interface without QListWidgetItem ownership."""
+
+    def __init__(self, parent: QWidget) -> None:
+        super().__init__(parent)
+        # Shiboken crashes releasing QListWidgetItem wrappers both in
+        # DeferredDelete and direct QWidget deallocation. Store row data
+        # in a normal model so there are no C++ item wrappers to release.
+        self._choices = _CurveSelectionModel(self)
+        self.setModel(self._choices)
+
+    def count(self) -> int:
+        return self._choices.rowCount()
+
+    def item(self, row: int) -> _CurveSelectionRow:
+        if not 0 <= row < self.count():
+            raise IndexError(row)
+        return _CurveSelectionRow(self._choices, row)
+
+    def append_curve(self, key: str, label: str) -> None:
+        self._choices.append_curve(key, label)
+
+    def selected_keys(self) -> tuple[str, ...]:
+        return self._choices.selected_keys()
+
+
 class GisGeologyEvidenceDialog(QDialog):
     """Read-only preview with explicit curve selection and fresh candidate guard."""
 
@@ -65,6 +184,10 @@ class GisGeologyEvidenceDialog(QDialog):
         validate_bounds: Callable[[], tuple[float, float] | None],
         parent: QWidget | None = None, *, language: AppLanguage = AppLanguage.RU,
         confirm_html: Callable[
+            [GasGeologyGisIntervalEvidence, GisIntervalSnapshot],
+            ConfirmedGisGeologySelection,
+        ] | None = None,
+        confirm_word: Callable[
             [GasGeologyGisIntervalEvidence, GisIntervalSnapshot],
             ConfirmedGisGeologySelection,
         ] | None = None,
@@ -83,8 +206,10 @@ class GisGeologyEvidenceDialog(QDialog):
         self._well = session.current_well
         self._keys: tuple[str, ...] = ()
         self._confirm_html = confirm_html
+        self._confirm_word = confirm_word
         self._reviewed: tuple[GasGeologyGisIntervalEvidence, GisIntervalSnapshot] | None = None
         self.confirmed_html_selection: ConfirmedGisGeologySelection | None = None
+        self.confirmed_word_selection: ConfirmedGisGeologySelection | None = None
         self._cancel_requested = False
         self._close_after_worker = False
         self._close_timer = QTimer(self)
@@ -96,18 +221,14 @@ class GisGeologyEvidenceDialog(QDialog):
         notice = QLabel(f"{bounds[0]:.17g}–{bounds[1]:.17g} m MD · {self.words[1]}", self)
         notice.setWordWrap(True)
         layout.addWidget(notice)
-        self.curves = QListWidget(self)
+        self.curves = _CurveSelectionView(self)
         self.curves.setObjectName("gis-geology-evidence-curves")
         self.curves.setMaximumHeight(160)
         for key, curve in dataset.curves.items():
             semantic = curve.metadata.semantic
             if semantic is None or semantic.family not in GIS_SAMPLE_FAMILIES:
                 continue
-            item = QListWidgetItem(f"{key} ({curve.metadata.original_mnemonic})")
-            item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setData(Qt.ItemDataRole.UserRole, key)
-            item.setCheckState(Qt.CheckState.Unchecked)
-            self.curves.addItem(item)
+            self.curves.append_curve(key, f"{key} ({curve.metadata.original_mnemonic})")
         layout.addWidget(self.curves)
         self.review = QPushButton(self.words[2], self)
         self.review.setObjectName("gis-geology-evidence-review")
@@ -130,7 +251,7 @@ class GisGeologyEvidenceDialog(QDialog):
         self.viewer.setObjectName("gis-geology-evidence-content")
         self.viewer.setOpenLinks(False)
         layout.addWidget(self.viewer, 1)
-        self.curves.itemChanged.connect(self._clear)
+        self.curves.model().dataChanged.connect(self._clear)
         captions = {
             AppLanguage.RU: "Подтвердить наблюдения для HTML",
             AppLanguage.KK: "Бақылауларды HTML үшін растау",
@@ -142,6 +263,17 @@ class GisGeologyEvidenceDialog(QDialog):
         self.confirm_html_button.setVisible(confirm_html is not None)
         self.confirm_html_button.clicked.connect(self._confirm_reviewed_html)
         layout.addWidget(self.confirm_html_button)
+        word_captions = {
+            AppLanguage.RU: "Подтвердить наблюдения для Word",
+            AppLanguage.KK: "Бақылауларды Word үшін растау",
+            AppLanguage.EN: "Confirm observations for Word",
+        }
+        self.confirm_word_button = QPushButton(word_captions[language], self)
+        self.confirm_word_button.setObjectName("gis-geology-confirm-word")
+        self.confirm_word_button.setEnabled(False)
+        self.confirm_word_button.setVisible(confirm_word is not None)
+        self.confirm_word_button.clicked.connect(self._confirm_reviewed_word)
+        layout.addWidget(self.confirm_word_button)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(
             self.localizer.text("common.close")
@@ -153,21 +285,19 @@ class GisGeologyEvidenceDialog(QDialog):
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(f"gis_compare.{key}", **values)
 
-    def _clear(self, _item: QListWidgetItem | None = None) -> None:
+    def _clear(self) -> None:
         self._reviewed = None
         self.confirmed_html_selection = None
+        self.confirmed_word_selection = None
         self.confirm_html_button.setEnabled(False)
+        self.confirm_word_button.setEnabled(False)
         self.viewer.clear()
         self.status.clear()
         if self._worker is not None:
             self._cancel_review()
 
     def _selected_keys(self) -> tuple[str, ...]:
-        return tuple(
-            self.curves.item(row).data(Qt.ItemDataRole.UserRole)
-            for row in range(self.curves.count())
-            if self.curves.item(row).checkState() == Qt.CheckState.Checked
-        )
+        return self.curves.selected_keys()
 
     def _source_current(self) -> bool:
         return (
@@ -279,16 +409,33 @@ class GisGeologyEvidenceDialog(QDialog):
         self.status.setText(self._t("complete"))
 
     def _confirm_reviewed_html(self) -> None:
-        # The approval is bound to the original reviewed arrays, not a new
-        # snapshot of possibly changed values with the same summary.
-        if self._worker is not None or self._reviewed is None or self._confirm_html is None:
+        self._confirm_reviewed("html")
+
+    def _confirm_reviewed_word(self) -> None:
+        self._confirm_reviewed("word")
+
+    def _confirm_reviewed(self, target: GisEvidenceTarget) -> None:
+        # Keep the original reviewed arrays and exact output target. Never
+        # promote an HTML approval into a Word approval (or vice versa).
+        confirm = self._confirm_html if target == "html" else self._confirm_word
+        if (
+            self._worker is not None or self._reviewed is None
+            or confirm is None or self._close_after_worker or self._cancel_requested
+        ):
             return
         evidence, snapshot = self._reviewed
         self.confirmed_html_selection = None
+        self.confirmed_word_selection = None
         try:
             if not self._source_current() or self._selected_keys() != snapshot.keys:
                 raise ValueError("Changed preview selection")
-            self.confirmed_html_selection = self._confirm_html(evidence, snapshot)
+            selection = confirm(evidence, snapshot)
+            if selection.target != target:
+                raise ValueError("Confirmed GIS evidence has a different output target")
+            if target == "html":
+                self.confirmed_html_selection = selection
+            else:
+                self.confirmed_word_selection = selection
         except (ValueError, RuntimeError, TypeError, OverflowError):
             self._clear()
             self.status.setText(self.words[4])
@@ -308,7 +455,9 @@ class GisGeologyEvidenceDialog(QDialog):
             self._cancel_requested = True
             self._reviewed = None
             self.confirmed_html_selection = None
+            self.confirmed_word_selection = None
             self.confirm_html_button.setEnabled(False)
+            self.confirm_word_button.setEnabled(False)
             self.viewer.clear()
             self.cancel.setEnabled(False)
             self.status.setText(self._t("cancelling"))
@@ -327,13 +476,15 @@ class GisGeologyEvidenceDialog(QDialog):
         self._geology = None
         self._keys = ()
         self._set_running(False)
-        self.confirm_html_button.setEnabled(
-            self._confirm_html is not None and self._reviewed is not None
-            and not self._cancel_requested
+        can_confirm = (
+            self._reviewed is not None
+            and not self._cancel_requested and not self._close_after_worker
             and all(item.review is not None and not item.issues for item in self._reviewed[0].gis)
             and any(item.review is not None and item.review.finite_count > 0
                     for item in self._reviewed[0].gis)
         )
+        self.confirm_html_button.setEnabled(self._confirm_html is not None and can_confirm)
+        self.confirm_word_button.setEnabled(self._confirm_word is not None and can_confirm)
         if self._close_after_worker:
             # The worker is still emitting finished: the registry and other
             # direct observers have not returned yet. Closing a modal dialog

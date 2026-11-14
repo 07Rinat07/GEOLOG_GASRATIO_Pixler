@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 from PySide6.QtCore import QTimer, Qt
-from PySide6.QtWidgets import QApplication, QComboBox, QDialog, QListWidgetItem, QMessageBox, QPushButton
+from PySide6.QtWidgets import QApplication, QComboBox, QDialog, QMessageBox, QPushButton
 
 from geoworkbench.domain.models import LithologyInterval
 from geoworkbench.services.localization import AppLanguage
@@ -114,10 +114,8 @@ def test_preview_rejects_more_than_eight_selected_curves(qapp, monkeypatch, tmp_
     )
     try:
         for i in range(9):
-            item = QListWidgetItem(f"extra-{i}")
-            item.setData(Qt.ItemDataRole.UserRole, f"extra-{i}")
-            item.setCheckState(Qt.CheckState.Checked)
-            preview.curves.addItem(item)
+            preview.curves.append_curve(f"extra-{i}", f"extra-{i}")
+            preview.curves.item(preview.curves.count() - 1).setCheckState(Qt.CheckState.Checked)
         preview.review.click()
         assert preview.status.text() == preview.words[3]
         assert not preview.viewer.toPlainText()
