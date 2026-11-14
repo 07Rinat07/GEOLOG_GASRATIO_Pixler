@@ -1,4 +1,4 @@
-name: Windows normalized gas tablet native diagnostic
+name: Windows tablet early native heap diagnostic
 
 on:
   push:
@@ -21,19 +21,18 @@ env:
 
 jobs:
   qt-native-replay:
-    name: Normalized gas native exception replay (${{ matrix.case }})
+    name: Tablet full page heap replay (${{ matrix.case }})
     runs-on: windows-latest
     timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
         include:
-          # The current failed #889 merge commit is used for both jobs.
-          # One replays the exact isolated selector; the other reproduces
-          # the complete mandatory quality context with capture enabled.
-          - case: normalized-isolated
+          # Both diagnostic jobs use the exact failed PR merge commit.
+          # Full page heap detects freed/overrun memory at the first access.
+          - case: pageheap-plain
             sha: 05a7a0681dab5948484873a41560755577ebbe46
-          - case: normalized-full-quality
+          - case: pageheap-cdb
             sha: 05a7a0681dab5948484873a41560755577ebbe46
     steps:
       - name: Check out source
@@ -277,7 +276,93 @@ jobs:
             throw "Control dump did not contain the expected AV exception context"
           }
 
-      - name: Replay normalized gas tablet crash with validated native capture
+      - name: Enable full page heap and validate detection of freed memory
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_ACTIONS -ne "true" -or $env:RUNNER_OS -ne "Windows") {
+            throw "Page heap is restricted to disposable Windows Actions runners"
+          }
+          $Output = "build/ci-artifacts/qt-replay"
+          $GFlags = Join-Path ${env:ProgramFiles(x86)} "Windows Kits/10/Debuggers/x64/gflags.exe"
+          if (-not (Test-Path $GFlags)) { throw "GFlags unavailable" }
+          & $GFlags /p /enable python.exe /full *>&1 |
+            Tee-Object -FilePath "$Output/pageheap-enable.txt"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $State = & $GFlags /p *>&1 | Out-String
+          if ($LASTEXITCODE -ne 0) { throw "Cannot query GFlags" }
+          $State | Tee-Object -FilePath "$Output/pageheap-state.txt"
+          if ($State -notmatch '(?im)^\s*python\.exe[^\r\n]*full') {
+            throw "Full page heap not confirmed for python.exe"
+          }
+          # Validate actual guard-page detection in a separate synthetic child.
+          # The expected control dump is not an application failure.
+          @'
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+
+          tool = Path(os.environ["RUNNER_TEMP"]) / "geolog-native-capture"
+          folder = tool / "pageheap-control"
+          folder.mkdir(exist_ok=False)
+          env = os.environ.copy()
+          env["PYTHONPATH"] = str(tool) + os.pathsep + env.get("PYTHONPATH", "")
+          env["GEOLOG_NATIVE_DUMP_DIR"] = str(folder)
+          source = r"""
+          import ctypes as c
+          from ctypes import wintypes as w
+
+          k = c.WinDLL("kernel32", use_last_error=True)
+          k.HeapCreate.argtypes = (w.DWORD, c.c_size_t, c.c_size_t)
+          k.HeapCreate.restype = w.HANDLE
+          k.HeapAlloc.argtypes = (w.HANDLE, w.DWORD, c.c_size_t)
+          k.HeapAlloc.restype = c.c_void_p
+          k.HeapFree.argtypes = (w.HANDLE, w.DWORD, c.c_void_p)
+          k.HeapFree.restype = w.BOOL
+          heap = k.HeapCreate(0, 0, 0)
+          if not heap:
+              raise c.WinError(c.get_last_error())
+          block = k.HeapAlloc(heap, 0, 4096)
+          if not block:
+              raise c.WinError(c.get_last_error())
+          c.memset(block, 0x42, 4096)
+          if not k.HeapFree(heap, 0, block):
+              raise c.WinError(c.get_last_error())
+          print("PAGEHEAP_CONTROL_FREED", flush=True)
+          c.memset(block, 0x43, 1)
+          raise SystemExit(3)
+          """
+          child = subprocess.run([sys.executable, "-c", source], env=env, timeout=90,
+                                 capture_output=True, text=True, errors="replace")
+          print(child.stdout, child.stderr, flush=True)
+          status = child.returncode & 0xffffffff
+          print(f"PAGEHEAP_CONTROL_STATUS=0x{status:08X}", flush=True)
+          dumps = list(folder.glob("*.dmp"))
+          # ctypes may translate the AV into OSError; require actual evidence.
+          if "PAGEHEAP_CONTROL_FREED" not in child.stdout or "NATIVE_CAPTURE_ARMED" not in child.stdout:
+              raise RuntimeError("Page heap control did not execute")
+          if status not in (1, 0xc0000005, 0xc0000374) or not dumps:
+              raise RuntimeError("Page heap failed to detect freed-memory access")
+          if status == 1 and "access violation" not in child.stderr.lower():
+              raise RuntimeError("Unexpected synthetic child error")
+          if any(d.stat().st_size == 0 for d in dumps):
+              raise RuntimeError("Empty page heap control dump")
+          for dump in dumps:
+              print(f"PAGEHEAP_CONTROL_DUMP={dump.name} bytes={dump.stat().st_size}", flush=True)
+          '@ | & .\.venv\Scripts\python.exe - *>&1 | Tee-Object "$Output/pageheap-control.txt"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $Cdb = Join-Path ${env:ProgramFiles(x86)} "Windows Kits/10/Debuggers/x64/cdb.exe"
+          $Control = Join-Path $env:RUNNER_TEMP "geolog-native-capture/pageheap-control"
+          foreach ($Dump in Get-ChildItem $Control -Filter "*.dmp") {
+            & $Cdb -z $Dump.FullName -c ".exr -1; .ecxr; kv; q" *>&1 |
+              Tee-Object "$Output/pageheap-control-$($Dump.BaseName).txt"
+            if ($LASTEXITCODE -ne 0) { throw "Page heap control analysis failed" }
+          }
+          if (-not (Select-String -Path "$Output/pageheap-control-native-*.txt" -Pattern 'ExceptionCode:\s*c0000005' -Quiet)) {
+            throw "Page heap control has no confirmed access violation"
+          }
+
+      - name: Replay exact tablet acceptance under full page heap
         shell: pwsh
         env:
           REPLAY_SHA: ${{ matrix.sha }}
@@ -288,47 +373,72 @@ jobs:
             throw "Unexpected checkout: $ActualSha; expected $env:REPLAY_SHA"
           }
           $OutputDir = "build/ci-artifacts/qt-replay"
-          New-Item -ItemType Directory -Force $OutputDir | Out-Null
           $ActualSha | Out-File -Encoding utf8 "$OutputDir/checkout-sha.txt"
           @'
           import os
           from pathlib import Path
-          import subprocess
-          import sys
-          from tools.diagnose_qt_masterlog_shard import _run_plain_target
+          import tools.diagnose_qt_masterlog_shard as replay
           from scripts.run_tests import _configure_environment
 
-          path = "tests/test_main_window_normalized_gas_tablet.py"
-          selectors = (path + "::test_show_normalized_gas_button_opens_tablet_and_adds_track",)
-          if not Path(path).is_file():
-              raise RuntimeError("Missing original normalized gas acceptance file")
+          normalized = (
+              "tests/test_main_window_normalized_gas_tablet.py"
+              "::test_show_normalized_gas_button_opens_tablet_and_adds_track",
+          )
+          las3 = (
+              "tests/test_las3_modal_reopen_acceptance.py"
+              "::test_pilot_real_modal_apply_reopen_and_cancel_preserve_source",
+          )
+          for node in (*normalized, *las3):
+              if not Path(node.split("::", 1)[0]).is_file():
+                  raise RuntimeError("Missing original acceptance test")
           _configure_environment()
           environment = os.environ.copy()
-          tool = Path(os.environ["RUNNER_TEMP"]) / "geolog-native-capture"
-          environment["PYTHONPATH"] = str(tool) + os.pathsep + environment.get("PYTHONPATH", "")
-          environment["GEOLOG_NATIVE_DUMP_DIR"] = str(Path(os.environ["RUNNER_TEMP"]) / "geolog-replay-dumps")
-          if os.environ["REPLAY_CASE"] == "normalized-full-quality":
-              # Preserve all shards and their original order. Capture native
-              # failures in the actual child process, not only the runner.
-              result = subprocess.run(
-                  [sys.executable, "scripts/run_tests.py", "-p", "no:cacheprovider"],
-                  env=environment,
-                  check=False,
-              )
-              print(f"FULL_QUALITY_EXIT={result.returncode}", flush=True)
-              raise SystemExit(result.returncode)
-          # First reproduce the exact single-test subprocess from failed
-          # quality job 132495106649, without a live debugger.
-          for attempt in range(1, 33):
-              print(f"NATIVE_REPLAY attempt={attempt}/32", flush=True)
-              result = _run_plain_target(selectors, environment)
-              if result:
-                  raise SystemExit(result)
+          if os.environ["REPLAY_CASE"] == "pageheap-cdb":
+              # Capture early AVs and verifier breakpoints, not just fatal exits.
+              original_startup = replay._cdb_startup_commands
+
+              def early_startup(dump_path):
+                  commands = original_startup(dump_path)
+                  av_line = next(line for line in commands.splitlines() if line.endswith(" av"))
+                  capture = av_line.removeprefix('sxd -c2 "').removesuffix('" av')
+                  if capture == av_line or not capture.startswith(".echo GEOLOG_CDB_NATIVE_EXCEPTION"):
+                      raise RuntimeError("Unexpected CDB capture commands")
+                  commands = commands.replace(av_line, f'sxe -c "{capture}" av')
+                  return commands.replace("sxn ibp\n", f'sxn ibp\nsxe -c "{capture}" bpe\n')
+
+              replay._cdb_startup_commands = early_startup
+              run = replay._run_debugged_target
+              batches = ((normalized, 4), (las3, 2))
+          else:
+              tool = Path(os.environ["RUNNER_TEMP"]) / "geolog-native-capture"
+              environment["PYTHONPATH"] = str(tool) + os.pathsep + environment.get("PYTHONPATH", "")
+              environment["GEOLOG_NATIVE_DUMP_DIR"] = str(Path(os.environ["RUNNER_TEMP"]) / "geolog-replay-dumps")
+              run = replay._run_plain_target
+              batches = ((normalized, 16), (las3, 4))
+          for selectors, count in batches:
+              for attempt in range(1, count + 1):
+                  print(f"PAGEHEAP_REPLAY {selectors[0]} attempt={attempt}/{count}", flush=True)
+                  result = run(selectors, environment)
+                  if result:
+                      raise SystemExit(result)
           raise SystemExit(0)
-          '@ | Set-Content -Encoding utf8 "$OutputDir/modal-replay.py"
-          Get-Content -Raw "$OutputDir/modal-replay.py" | & .\.venv\Scripts\python.exe - *>&1 |
-            Tee-Object -FilePath "$OutputDir/modal-replay.log"
+          '@ | Set-Content -Encoding utf8 "$OutputDir/pageheap-replay.py"
+          Get-Content -Raw "$OutputDir/pageheap-replay.py" | & .\.venv\Scripts\python.exe - *>&1 |
+            Tee-Object -FilePath "$OutputDir/pageheap-replay.log"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Disable diagnostic page heap
+        if: always()
+        shell: pwsh
+        run: |
+          $GFlags = Join-Path ${env:ProgramFiles(x86)} "Windows Kits/10/Debuggers/x64/gflags.exe"
+          if (Test-Path $GFlags) {
+            $Output = "build/ci-artifacts/qt-replay"
+            New-Item -ItemType Directory -Force $Output | Out-Null
+            & $GFlags /p /disable python.exe *>&1 |
+              Tee-Object -FilePath "$Output/pageheap-disable.txt"
+            if ($LASTEXITCODE -ne 0) { throw "Could not disable diagnostic page heap" }
+          }
 
       - name: Analyze captured application dumps
         if: always()
@@ -360,7 +470,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: qt-normalized-tablet-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: qt-tablet-pageheap-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/ci-artifacts/qt-replay
           if-no-files-found: ignore
           retention-days: 7
@@ -369,7 +479,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: qt-normalized-tablet-dumps-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: qt-tablet-pageheap-dumps-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/geolog-replay-dumps/*.dmp
           if-no-files-found: ignore
           retention-days: 3
