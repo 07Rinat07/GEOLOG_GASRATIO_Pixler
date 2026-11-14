@@ -21,17 +21,17 @@ env:
 
 jobs:
   qt-native-replay:
-    name: GIS Word native exception replay (${{ matrix.case }})
+    name: GIS Word fixed native exception replay (${{ matrix.case }})
     runs-on: windows-latest
     timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
         include:
-          - case: failed-pr-886
-            sha: 7b96588a36ea75769fa9d39e45c85777cea1dfce
-          - case: green-pr-887-control
-            sha: 8a1a021c179bee21029bce60d73e1e930c842f33
+          # Preserve the old failing runs as evidence; validate the actual fix
+          # on the exact merge commit that passed all mandatory gates.
+          - case: fixed-pr-886
+            sha: 6b569954fd70465718aa069ef8ced19525919476
     steps:
       - name: Check out source
         uses: actions/checkout@v6
@@ -290,7 +290,7 @@ jobs:
           import os
           from pathlib import Path
           from tools.diagnose_qt_masterlog_shard import _run_plain_target
-          from scripts.run_tests import _configure_environment, _test_file_shards
+          from scripts.run_tests import _configure_environment
 
           prefix = (
               "tests/test_geology_saved_interval_reedit_20260929.py",
@@ -306,9 +306,9 @@ jobs:
           )
           if any(not Path(p).is_file() for p in prefix):
               raise RuntimeError("Missing original failing shard prefix")
-          if os.environ["REPLAY_SHA"] == "7b96588a36ea75769fa9d39e45c85777cea1dfce":
-              if _test_file_shards(16)[5][:len(prefix)] != prefix:
-                  raise RuntimeError("Failed shard prefix changed")
+          # Keep the original ten files in their original order even if the
+          # new regression tests change the default shard distribution.
+          # The two tracked disposal regressions are included in the Word file.
 
           # The preceding lifetime tests invoke buttons without entering
           # QDialog.exec(). Exercise the actual nested modal event loop and
@@ -321,7 +321,7 @@ jobs:
           import numpy as np
           import pytest
           from PySide6.QtCore import QCoreApplication, QEvent, QTimer, Qt
-          from PySide6.QtWidgets import QDialog, QWidget
+          from PySide6.QtWidgets import QDialog, QListView, QListWidget, QWidget
           from shiboken6 import isValid
           from geoworkbench.services.interpretation_gis_evidence_handoff import (
               confirm_gis_geology_selection, verified_gis_geology_handoff,
@@ -351,6 +351,10 @@ jobs:
                   session, dataset, (100.0, 102.0), lambda: (100.0, 102.0),
                   parent=owner, language=language, confirm_word=confirm,
               )
+              assert isinstance(dialog.curves, QListView)
+              assert not isinstance(dialog.curves, QListWidget)
+              view = dialog.curves
+              model = view.model()
               state = {"started": False, "timed_out": False}
               tick = QTimer(dialog)
               tick.setInterval(10)
@@ -405,6 +409,7 @@ jobs:
                       owner.deleteLater()
                       QCoreApplication.sendPostedEvents(owner, QEvent.Type.DeferredDelete)
                       assert not isValid(owner) and not isValid(dialog)
+                      assert not isValid(view) and not isValid(model)
                       print("GIS_MODAL phase=parent-deleted", flush=True)
               finally:
                   if isValid(dialog):
@@ -416,78 +421,6 @@ jobs:
           ''',
               encoding="utf-8",
           )
-          # The two fatal dumps agree on Shiboken releaseWrapper during
-          # QListWidget destruction via DeferredDelete. Identify the exact
-          # owning widget before choosing a product lifetime fix.
-          conftest = Path("tests/conftest.py")
-          original_conftest = conftest.read_bytes()
-          trace = '''
-          import pytest
-          from PySide6.QtCore import QObject, QEvent
-          from PySide6.QtWidgets import QWidget, QListWidget
-          from shiboken6 import getCppPointer, isValid
-
-          class _NativeDeleteTrace(QObject):
-              def eventFilter(self, watched, event):
-                  if event.type() != QEvent.Type.DeferredDelete:
-                      return False
-                  if not isinstance(watched, QWidget) or not isValid(watched):
-                      return False
-                  lists = watched.findChildren(QListWidget)
-                  if isinstance(watched, QListWidget):
-                      lists.insert(0, watched)
-                  if not lists:
-                      return False
-                  print(
-                      f"NATIVE_DELETE root={type(watched).__name__} "
-                      f"name={watched.objectName()!r} cpp={getCppPointer(watched)[0]:#x}",
-                      flush=True,
-                  )
-                  for widget in lists:
-                      if not isValid(widget):
-                          continue
-                      print(
-                          f"NATIVE_DELETE list={widget.objectName()!r} "
-                          f"cpp={getCppPointer(widget)[0]:#x} count={widget.count()}",
-                          flush=True,
-                      )
-                      for row in range(widget.count()):
-                          item = widget.item(row)
-                          if item is not None and isValid(item):
-                              print(
-                                  f"NATIVE_DELETE item row={row} "
-                                  f"cpp={getCppPointer(item)[0]:#x} py={id(item):#x}",
-                                  flush=True,
-                              )
-                  # The previous dump matched the exact item pointer and
-                  # Python wrapper id. Test explicit ownership transfer before
-                  # the native list destructor, only for the confirmed dialog.
-                  if watched.objectName() == "gis-geology-evidence-dialog":
-                      from shiboken6 import delete
-                      for widget in lists:
-                          if widget.objectName() != "gis-geology-evidence-curves":
-                              continue
-                          while widget.count():
-                              item = widget.takeItem(0)
-                              if item is None or not isValid(item):
-                                  raise RuntimeError("Invalid detached curve item")
-                              print(f"NATIVE_DETACH cpp={getCppPointer(item)[0]:#x} py={id(item):#x}", flush=True)
-                              delete(item)
-                              if isValid(item):
-                                  raise RuntimeError("Detached item was not destroyed")
-                          print("NATIVE_DETACH complete", flush=True)
-                  return False
-
-          @pytest.fixture(scope="session", autouse=True)
-          def _native_delete_trace(qapp):
-              observer = _NativeDeleteTrace(qapp)
-              qapp.installEventFilter(observer)
-              try:
-                  yield
-              finally:
-                  qapp.removeEventFilter(observer)
-          '''
-          conftest.write_bytes(original_conftest + bytes([10]) + trace.encode("utf-8"))
           selectors = (*prefix, stress.as_posix())
           _configure_environment()
           environment = os.environ.copy()
@@ -504,7 +437,6 @@ jobs:
                       raise SystemExit(result)
               raise SystemExit(0)
           finally:
-              conftest.write_bytes(original_conftest)
               stress.unlink()
           '@ | Set-Content -Encoding utf8 "$OutputDir/modal-replay.py"
           Get-Content -Raw "$OutputDir/modal-replay.py" | & .\.venv\Scripts\python.exe - *>&1 |
