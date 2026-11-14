@@ -21,17 +21,17 @@ env:
 
 jobs:
   qt-native-replay:
-    name: GIS Word native replay (${{ matrix.case }})
+    name: GIS Word full quality-context replay (${{ matrix.case }})
     runs-on: windows-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
         include:
           - case: failed-pr-886
-            sha: d583adb283224c99629b85904a5e76ba0e126547
+            sha: 7b96588a36ea75769fa9d39e45c85777cea1dfce
           - case: green-pr-887-control
-            sha: 92954f0a6b1af3254070f38df1068e23574a2bc4
+            sha: 8a1a021c179bee21029bce60d73e1e930c842f33
     steps:
       - name: Check out source
         uses: actions/checkout@v6
@@ -58,7 +58,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           uv pip sync requirements/release.lock --python .venv --require-hashes
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          uv pip install --python .venv setuptools==83.0.0 wheel==0.47.0 pytest==9.1.1 pytest-asyncio==1.4.0
+          uv pip install --python .venv `
+            setuptools==83.0.0 `
+            wheel==0.47.0 `
+            pytest==9.1.1 `
+            pytest-asyncio==1.4.0 `
+            ruff==0.15.22 `
+            mypy==1.19.1 `
+            types-defusedxml==0.7.0.20260504 `
+            build==1.5.0
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           uv pip install --python .venv --no-deps --no-build-isolation --editable .
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -83,103 +91,31 @@ jobs:
           .\.venv\Scripts\python.exe tools/capture_windows_native_runtime.py --output build/ci-artifacts/qt-replay/native-runtime.json --commit "${{ matrix.sha }}"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Replay failing GIS Word node and exact Quality shard
+      - name: Replay the exact mandatory quality prefix and full test runner
         shell: pwsh
         env:
-          REPLAY_CASE: ${{ matrix.case }}
+          REPLAY_SHA: ${{ matrix.sha }}
         run: |
-          $OutputDir = "build/ci-artifacts/qt-replay"
-          New-Item -ItemType Directory -Force $OutputDir | Out-Null
-          @'
-          from tools.diagnose_qt_masterlog_shard import _run_plain_target, _run_debugged_target
-          from scripts.run_tests import _configure_environment, _test_file_shards
-          import os
-          from pathlib import Path
-          
-          # Exact sequence from failed mandatory Quality Gate 43470486287.
-          # Use the identical selector manifest for the green #887 comparison.
-          selectors = (
-              "tests/test_geology_saved_interval_reedit_20260929.py",
-              "tests/test_geology_track_visual_profile.py",
-              "tests/test_geology_xlsx_unit_heading.py",
-              "tests/test_geometry_cache_byte_budget.py",
-              "tests/test_geosensor_reference_contracts.py",
-              "tests/test_geosensor_wits_catalog_tool.py",
-              "tests/test_gis_calibration_records.py",
-              "tests/test_gis_external_exact_review.py",
-              "tests/test_gis_geology_confirmed_html_ui.py",
-              "tests/test_gis_geology_confirmed_word_ui.py",
-              "tests/test_gis_gti_lithology_coverage.py",
-              "tests/test_gis_gti_lithology_screening.py",
-              "tests/test_gis_gti_md_partitions.py",
-              "tests/test_gis_input_inventory.py",
-              "tests/test_gis_interval_compare.py",
-              "tests/test_gis_interval_compare_background.py",
-              "tests/test_gis_interval_compare_ui.py",
-              "tests/test_gis_interval_sample_review.py",
-              "tests/test_gis_interval_snapshot.py",
-              "tests/test_gis_reference_calibration.py",
-              "tests/test_gis_reference_input_review.py",
-              "tests/test_gis_reference_las_reopen.py",
-              "tests/test_gis_source_interval_review.py",
-              "tests/test_gis_source_interval_review_ui.py",
-              "tests/test_graph_symbol_insertion.py",
-              "tests/test_grid_geometry.py",
-              "tests/test_grid_settings_widget.py",
-              "tests/test_gs2_container.py",
-              "tests/test_gs2_form_axis_hotfix_0789.py",
-              "tests/test_gs2_import_coordinator.py",
-              "tests/test_gs2_import_dialog.py",
-              "tests/test_gs2_metadata.py",
-              "tests/test_gs2_multipart.py",
-              "tests/test_gs2_time_tablet_rendering.py",
-              "tests/test_header_catalog.py",
-              "tests/test_header_editing_controller.py",
-              "tests/test_header_fields.py",
-              "tests/test_header_fullscreen_assistant.py",
-              "tests/test_header_geometry_0758.py",
-              "tests/test_help_center_dialog.py",
-              "tests/test_hydrocarbon_fluid_markers.py",
-              "tests/test_hydrocarbon_interpretation_pdf_chart_range.py",
-              "tests/test_hydrocarbon_interpretation_pdf_text.py",
-              "tests/test_hydrocarbon_interpretation_report_range.py",
-              "tests/test_hydrocarbon_report_client_limitations.py",
-              "tests/test_hydrocarbon_report_system_text_localization.py",
-              "tests/test_image_assets.py",
-          )
-          target = (
-              "tests/test_gis_geology_confirmed_word_ui.py::"
-              "test_combined_confirmation_is_explicit_and_target_specific[word-en]",
-          )
-          if len(selectors) != 47 or any(not Path(p).is_file() for p in selectors):
-              raise RuntimeError("Incomplete exact failing shard manifest")
-          if os.environ["REPLAY_CASE"] == "failed-pr-886":
-              if _test_file_shards(16)[5] != selectors:
-                  raise RuntimeError("Exact failed shard no longer matches the recorded sequence")
-          _configure_environment()
-          environment = os.environ.copy()
-          failed = 0
-          print("Recorded failing selector:", target[0], flush=True)
-          print("Exact 47-file shard:", ", ".join(selectors), flush=True)
-          # Isolated control can distinguish a single-dialog failure from
-          # accumulated native object lifetimes within the original shard.
-          for attempt in range(1, 3):
-              print(f"Isolated failing node, plain {attempt}/2", flush=True)
-              failed |= _run_plain_target(target, environment)
-          for attempt in range(1, 3):
-              print(f"Original shard, plain {attempt}/2", flush=True)
-              failed |= _run_plain_target(selectors, environment)
-          for attempt in range(1, 3):
-              print(f"Original shard, CDB {attempt}/2", flush=True)
-              result = _run_debugged_target(selectors, environment)
-              failed |= result
-              if result:
-                  break
-          raise SystemExit(1 if failed else 0)
-          '@ | Set-Content -Encoding utf8 "$OutputDir/replay-gis-word.py"
-          Get-Content -Raw "$OutputDir/replay-gis-word.py" | & .\.venv\Scripts\python.exe - *>&1 |
-            Tee-Object -FilePath "$OutputDir/gis-word-replay.log"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $ActualSha = (git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $ActualSha -ne $env:REPLAY_SHA) {
+            throw "Unexpected checkout: $ActualSha; expected $env:REPLAY_SHA"
+          }
+          New-Item -ItemType Directory -Force build/ci-artifacts/qt-replay | Out-Null
+          $ActualSha | Out-File -Encoding utf8 build/ci-artifacts/qt-replay/checkout-sha.txt
+          # Keep the exact release-gate command and preceding checks. The previous
+          # direct shard replay omitted the full runner prefix and used PR heads.
+          # This is a diagnostic run, not a replacement for mandatory CI.
+          function Invoke-Logged {
+            param([string]$Name, [scriptblock]$Command)
+            & $Command *>&1 | Tee-Object -FilePath "build/ci-artifacts/qt-replay/$Name.txt"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+          Invoke-Logged "documentation" { .\.venv\Scripts\python.exe tools/check_documentation.py }
+          Invoke-Logged "compileall" { .\.venv\Scripts\python.exe -m compileall -q src tests tools scripts benchmarks }
+          Invoke-Logged "ruff" { .\.venv\Scripts\python.exe -m ruff check src tests tools scripts benchmarks }
+          Invoke-Logged "mypy" { .\.venv\Scripts\python.exe -m mypy src }
+          Invoke-Logged "pytest" { .\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider }
 
       - name: Capture Python crash events
         if: always()
