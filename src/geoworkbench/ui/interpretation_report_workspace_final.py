@@ -627,6 +627,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         # Capture operator consent before any dialogs can dispatch Qt events.
         confirmed_geology = self._geology_pdf_evidence
         confirmed_field_selection = self._geology_pdf_field_selection
+        confirmed_gis = self._gis_pdf_selection
         geology = interpretation_geology_snapshot(self.controller.session)
 
         identity = self._select_report_identity(report)
@@ -734,6 +735,33 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                         geology_field_selection=approved_fields,
                         geology_source_key=field_source_key,
                     )
+                if confirmed_gis is not None:
+                    if selected_geology or confirmed_field_selection is not None:
+                        raise HydrocarbonInterpretationPdfError(
+                            "Combined PDF GIS and separate geology approvals must not be mixed"
+                        )
+                    gis_source_key = self._method_comparison_source_key(report)
+                    if (
+                        self._gis_pdf_selection is not confirmed_gis
+                        or gis_source_key is None or gis_source_key != confirmed_gis.source_key
+                    ):
+                        raise HydrocarbonInterpretationPdfError(
+                            "Confirmed PDF GIS evidence was revoked during preparation"
+                        )
+
+                    def current_gis_report() -> HydrocarbonInterpretationReport:
+                        if (
+                            self._gis_pdf_selection is not confirmed_gis
+                            or self._method_comparison_source_key(report) != gis_source_key
+                            or self.controller.session.current_dataset is not dataset
+                        ):
+                            raise ValueError("Confirmed PDF GIS source or approval changed")
+                        return self._build_current_gis_gas_report()
+
+                    pdf_exporter = partial(
+                        pdf_exporter, gis_selection=confirmed_gis,
+                        gis_source_key=gis_source_key, current_gis_report=current_gis_report,
+                    )
                 export_result = pdf_exporter(
                     self.controller.session,
                     report,
@@ -755,6 +783,8 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 )
                 exported = export_result.primary_path
         except (OSError, FileExistsError, HydrocarbonInterpretationPdfError) as exc:
+            if confirmed_gis is not None:
+                self._clear_geology_evidence()
             self._show_export_error(exc)
             return
         self._show_export_success(exported)

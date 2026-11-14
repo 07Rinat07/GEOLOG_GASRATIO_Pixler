@@ -191,6 +191,10 @@ class GisGeologyEvidenceDialog(QDialog):
             [GasGeologyGisIntervalEvidence, GisIntervalSnapshot],
             ConfirmedGisGeologySelection,
         ] | None = None,
+        confirm_pdf: Callable[
+            [GasGeologyGisIntervalEvidence, GisIntervalSnapshot],
+            ConfirmedGisGeologySelection,
+        ] | None = None,
     ) -> None:
         super().__init__(parent)
         self.session = session
@@ -207,9 +211,11 @@ class GisGeologyEvidenceDialog(QDialog):
         self._keys: tuple[str, ...] = ()
         self._confirm_html = confirm_html
         self._confirm_word = confirm_word
+        self._confirm_pdf = confirm_pdf
         self._reviewed: tuple[GasGeologyGisIntervalEvidence, GisIntervalSnapshot] | None = None
         self.confirmed_html_selection: ConfirmedGisGeologySelection | None = None
         self.confirmed_word_selection: ConfirmedGisGeologySelection | None = None
+        self.confirmed_pdf_selection: ConfirmedGisGeologySelection | None = None
         self._cancel_requested = False
         self._close_after_worker = False
         self._close_timer = QTimer(self)
@@ -274,6 +280,17 @@ class GisGeologyEvidenceDialog(QDialog):
         self.confirm_word_button.setVisible(confirm_word is not None)
         self.confirm_word_button.clicked.connect(self._confirm_reviewed_word)
         layout.addWidget(self.confirm_word_button)
+        pdf_captions = {
+            AppLanguage.RU: "Подтвердить наблюдения для PDF",
+            AppLanguage.KK: "Бақылауларды PDF үшін растау",
+            AppLanguage.EN: "Confirm observations for PDF",
+        }
+        self.confirm_pdf_button = QPushButton(pdf_captions[language], self)
+        self.confirm_pdf_button.setObjectName("gis-geology-confirm-pdf")
+        self.confirm_pdf_button.setEnabled(False)
+        self.confirm_pdf_button.setVisible(confirm_pdf is not None)
+        self.confirm_pdf_button.clicked.connect(self._confirm_reviewed_pdf)
+        layout.addWidget(self.confirm_pdf_button)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(
             self.localizer.text("common.close")
@@ -289,8 +306,10 @@ class GisGeologyEvidenceDialog(QDialog):
         self._reviewed = None
         self.confirmed_html_selection = None
         self.confirmed_word_selection = None
+        self.confirmed_pdf_selection = None
         self.confirm_html_button.setEnabled(False)
         self.confirm_word_button.setEnabled(False)
+        self.confirm_pdf_button.setEnabled(False)
         self.viewer.clear()
         self.status.clear()
         if self._worker is not None:
@@ -414,10 +433,14 @@ class GisGeologyEvidenceDialog(QDialog):
     def _confirm_reviewed_word(self) -> None:
         self._confirm_reviewed("word")
 
+    def _confirm_reviewed_pdf(self) -> None:
+        self._confirm_reviewed("pdf")
+
     def _confirm_reviewed(self, target: GisEvidenceTarget) -> None:
-        # Keep the original reviewed arrays and exact output target. Never
-        # promote an HTML approval into a Word approval (or vice versa).
-        confirm = self._confirm_html if target == "html" else self._confirm_word
+        # Each output owns an independent explicit approval.
+        confirm = {
+            "html": self._confirm_html, "word": self._confirm_word, "pdf": self._confirm_pdf,
+        }.get(target)
         if (
             self._worker is not None or self._reviewed is None
             or confirm is None or self._close_after_worker or self._cancel_requested
@@ -426,6 +449,7 @@ class GisGeologyEvidenceDialog(QDialog):
         evidence, snapshot = self._reviewed
         self.confirmed_html_selection = None
         self.confirmed_word_selection = None
+        self.confirmed_pdf_selection = None
         try:
             if not self._source_current() or self._selected_keys() != snapshot.keys:
                 raise ValueError("Changed preview selection")
@@ -434,8 +458,10 @@ class GisGeologyEvidenceDialog(QDialog):
                 raise ValueError("Confirmed GIS evidence has a different output target")
             if target == "html":
                 self.confirmed_html_selection = selection
-            else:
+            elif target == "word":
                 self.confirmed_word_selection = selection
+            elif target == "pdf":
+                self.confirmed_pdf_selection = selection
         except (ValueError, RuntimeError, TypeError, OverflowError):
             self._clear()
             self.status.setText(self.words[4])
@@ -456,8 +482,10 @@ class GisGeologyEvidenceDialog(QDialog):
             self._reviewed = None
             self.confirmed_html_selection = None
             self.confirmed_word_selection = None
+            self.confirmed_pdf_selection = None
             self.confirm_html_button.setEnabled(False)
             self.confirm_word_button.setEnabled(False)
+            self.confirm_pdf_button.setEnabled(False)
             self.viewer.clear()
             self.cancel.setEnabled(False)
             self.status.setText(self._t("cancelling"))
@@ -485,6 +513,7 @@ class GisGeologyEvidenceDialog(QDialog):
         )
         self.confirm_html_button.setEnabled(self._confirm_html is not None and can_confirm)
         self.confirm_word_button.setEnabled(self._confirm_word is not None and can_confirm)
+        self.confirm_pdf_button.setEnabled(self._confirm_pdf is not None and can_confirm)
         if self._close_after_worker:
             # The worker is still emitting finished: the registry and other
             # direct observers have not returned yet. Closing a modal dialog
