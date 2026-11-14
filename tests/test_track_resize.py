@@ -1,3 +1,5 @@
+from importlib import import_module
+
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
 
@@ -41,3 +43,37 @@ def test_track_widget_emits_width_after_dragging_right_edge(qapp) -> None:
     assert requested == [("curve", 300)]
     assert widget.width() == 300
     widget.close()
+
+
+def test_tablet_track_never_constructs_unused_viewbox_menu(qapp, monkeypatch) -> None:
+    """Exercise the actual track constructor without allocating a disabled menu."""
+    module = import_module("pyqtgraph.graphicsItems.ViewBox.ViewBox")
+
+    def unexpected_menu(*args, **kwargs):
+        raise AssertionError("Tablet track must not construct a native ViewBoxMenu")
+
+    monkeypatch.setattr(module, "ViewBoxMenu", unexpected_menu)
+    widget = TabletTrackWidget(TrackDefinition("curve", "Curve", TrackKind.CURVE))
+    try:
+        view_box = widget.plot.getViewBox()
+        assert view_box.menu is None
+        assert not view_box.menuEnabled()
+        assert not widget.plot.getPlotItem().menuEnabled()
+        # The application-owned track header context action is independent
+        # of the pyqtgraph menu. Mouse navigation must remain enabled.
+        assert view_box.state["mouseEnabled"] == [True, True]
+        requested: list[tuple[str, QPoint]] = []
+        widget.context_requested.connect(
+            lambda track_id, point: requested.append((track_id, point))
+        )
+        widget.resize(240, 300)
+        widget.show()
+        qapp.processEvents()
+        QTest.mouseClick(
+            widget.title, Qt.MouseButton.RightButton,
+            pos=widget.title.rect().center(),
+        )
+        assert len(requested) == 1
+        assert requested[0][0] == "curve"
+    finally:
+        widget.close()
