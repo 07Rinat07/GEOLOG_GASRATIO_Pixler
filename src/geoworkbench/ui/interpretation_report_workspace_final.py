@@ -35,6 +35,7 @@ from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.interpretation_geology_interval_evidence import (
     GasGeologyIntervalEvidence,
 )
+from geoworkbench.services.interpretation_gis_evidence_handoff import verified_gis_geology_handoff
 from geoworkbench.services.report_output_transaction import (
     ReportOutputTransactionResult,
 )
@@ -803,9 +804,35 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         original_active_report = self.report
         confirmed_geology = self._geology_print_evidence
         confirmed_field_selection = self._geology_print_field_selection
+        confirmed_gis = self._gis_print_selection
+        output_language = self._report_output_language()
         geology = interpretation_geology_snapshot(self.controller.session)
 
+        def verify_print_gis():
+            if confirmed_gis is None:
+                return None
+            try:
+                source_key = self._method_comparison_source_key(report)
+                if (
+                    confirmed_geology or confirmed_field_selection is not None
+                    or self._gis_print_selection is not confirmed_gis
+                    or source_key is None or source_key != confirmed_gis.source_key
+                    or self.controller.session.current_dataset is not dataset
+                    or self.controller.session.current_well_id != original_well_id
+                    or self.report is not original_active_report
+                    or self._report_output_language() != output_language
+                ):
+                    raise ValueError("Confirmed print GIS source or approval changed")
+                return verified_gis_geology_handoff(
+                    self.controller.session, report, self._build_current_gis_gas_report(),
+                    confirmed_gis, source_key=source_key, target="print",
+                )
+            except (ValueError, RuntimeError, TypeError, OverflowError) as exc:
+                self._clear_geology_evidence()
+                raise ValueError("Confirmed print GIS evidence changed") from exc
+
         def verify_print_geology() -> None:
+            verify_print_gis()
             if confirmed_geology:
                 selected = self._geology_evidence_for_export(report, output="print")
                 if selected != confirmed_geology:
@@ -890,6 +917,12 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                         print_pdf_exporter,
                         geology_evidence=confirmed_field_selection.evidence,
                         geology_fields=confirmed_field_selection.fields,
+                    )
+                combined = verify_print_gis()
+                if combined is not None:
+                    print_pdf_exporter = partial(
+                        print_pdf_exporter, geology_evidence=(combined.geology,),
+                        gis_evidence=combined,
                     )
                 print_pdf_exporter(
                     report,
@@ -1048,7 +1081,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             def cancel_requested() -> bool:
                 nonlocal first_page_pending
                 QApplication.processEvents()
-                if confirmed_geology or confirmed_field_selection is not None or comparisons:
+                if confirmed_geology or confirmed_field_selection is not None or comparisons or confirmed_gis is not None:
                     if (
                         self._method_comparison_source_key(report) != print_source_key
                         or (confirmed_geology and self._geology_print_evidence != confirmed_geology)
@@ -1061,7 +1094,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                         self._clear_geology_evidence()
                         self._clear_method_comparison()
                         return True
-                    if confirmed_field_selection is not None or (confirmed_geology and first_page_pending):
+                    if confirmed_gis is not None or confirmed_field_selection is not None or (confirmed_geology and first_page_pending):
                         try:
                             verify_print_geology()
                         except ValueError:
