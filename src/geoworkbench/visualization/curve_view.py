@@ -20,6 +20,7 @@ from geoworkbench.services.gas_curve_presentation import (
 from geoworkbench.services.time_display import format_index_at_row, format_time_curve_at_row
 from geoworkbench.tablet.sampling import MAX_RENDERED_POINTS, select_visible_samples
 from geoworkbench.tablet.grid_geometry import DEFAULT_GRID_ALPHA
+from geoworkbench.visualization.owned_plot_widget import OwnedPlotWidget
 
 
 class CurveView(QWidget):
@@ -62,7 +63,7 @@ class CurveView(QWidget):
         self._last_cursor_depth: float | None = None
         self._last_cursor_value: float | None = None
         self._analysis_drag_start: float | None = None
-        self._plot = pg.PlotWidget()
+        self._plot = OwnedPlotWidget()
         self._plot.showGrid(x=True, y=True, alpha=DEFAULT_GRID_ALPHA)
         self._plot.setLabel("left", self._t("curve.axis.depth"), units="m")
         self._plot.getAxis("left").enableAutoSIPrefix(False)
