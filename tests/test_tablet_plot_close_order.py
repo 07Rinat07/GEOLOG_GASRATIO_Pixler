@@ -1,6 +1,7 @@
 import pyqtgraph as pg
-from PySide6.QtCore import QCoreApplication, QEvent
-from PySide6.QtWidgets import QLabel
+import pytest
+from PySide6.QtCore import QCoreApplication, QEvent, Qt
+from PySide6.QtWidgets import QLabel, QWidgetAction
 from shiboken6 import isValid
 
 from geoworkbench.services.localization import AppLanguage
@@ -113,3 +114,56 @@ def test_empty_tablet_placeholder_retires_before_restoring_dataset(qapp):
             assert all(isValid(entry.plot) for entry in view._rendered.values())
     finally:
         window.close()
+
+
+@pytest.mark.parametrize("explicit_cleanup", (False, True))
+def test_plot_options_menus_follow_native_window_ownership(qapp, explicit_cleanup):
+    """The real tablet and CurveView must not leave parentless menus behind."""
+    window = MainWindow(language=AppLanguage.EN)
+    session, _ = make_session()
+    bind_session(window, session)
+    try:
+        window._show_current_dataset()
+        view = window.tablet_view
+        curve_plot = window.curve_view._plot
+        plots = (curve_plot, *(entry.plot for entry in view._rendered.values()
+                               if entry.plot is not None))
+        assert len(plots) > 1
+        items = tuple(plot.getPlotItem() for plot in plots)
+        menus = tuple(item.ctrlMenu for item in items)
+        actions = tuple(
+            action for menu in menus for entry in menu.actions()
+            if entry.menu() is not None
+            for action in entry.menu().actions()
+            if isinstance(action, QWidgetAction)
+        )
+        widgets = tuple(action.defaultWidget() for action in actions)
+        assert len(actions) == 6 * len(plots)
+        assert all(isValid(obj) for obj in (*items, *menus, *actions, *widgets))
+        assert all(menu.parentWidget() is plot for menu, plot in zip(menus, plots, strict=True))
+        assert all(menu.windowType() == Qt.WindowType.Popup for menu in menus)
+        # CurveView continues to expose the actual upstream menu and controls;
+        # tablet tracks keep their existing disabled context-menu policy.
+        assert curve_plot.getPlotItem().getMenu() is menus[0]
+        assert curve_plot.getPlotItem().menuEnabled()
+        assert all(not item.menuEnabled() for item in items[1:])
+        if explicit_cleanup:
+            view.clear()
+            assert all(not isValid(plot) for plot in plots[1:])
+            assert all(not isValid(menu) for menu in menus[1:])
+            curve_plot.close()
+            assert curve_plot.plotItem is None
+            # Upstream close detaches PlotWidget itself; restore its owning
+            # widget just as the production tablet disposal path does.
+            curve_plot.setParent(window.curve_view)
+        window.close()
+        window.deleteLater()
+        QCoreApplication.sendPostedEvents(window, QEvent.Type.DeferredDelete)
+        assert not isValid(window)
+        assert all(not isValid(plot) for plot in plots)
+        assert all(not isValid(obj) for obj in (*items, *menus, *actions, *widgets))
+    finally:
+        if isValid(window):
+            window.close()
+            window.deleteLater()
+            QCoreApplication.sendPostedEvents(window, QEvent.Type.DeferredDelete)

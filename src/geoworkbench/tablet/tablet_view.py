@@ -117,6 +117,7 @@ from geoworkbench.services.time_display import (
     format_unix_seconds,
 )
 from geoworkbench.ui.oriented_text_label import OrientedTextLabel
+from geoworkbench.visualization.owned_plot_widget import OwnedPlotWidget
 from geoworkbench.tablet.curve_scaling import (
     automatic_curve_range,
     normalize_curve_values,
@@ -1529,7 +1530,7 @@ class TabletTrackWidget(QFrame):
         # otherwise builds native QMenu/QWidgetAction children, then detaches
         # them when setMenuEnabled(False) is called below. Windows CI has
         # crashed inside that unused ViewBoxMenu constructor (LAS3 reopen).
-        self.plot = pg.PlotWidget(axisItems=axis_items, enableMenu=False)
+        self.plot = OwnedPlotWidget(axisItems=axis_items, enableMenu=False)
         self.plot.setBackground("#ffffff")
         self.plot.setMinimumHeight(SCREEN_PLOT_MINIMUM_HEIGHT)
         self.plot.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
