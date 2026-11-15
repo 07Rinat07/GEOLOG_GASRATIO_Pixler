@@ -1,4 +1,4 @@
-name: Windows tablet PlotItem ownership diagnostic
+name: Windows tablet native root disposal diagnostic
 
 on:
   push:
@@ -21,18 +21,18 @@ env:
 
 jobs:
   qt-native-replay:
-    name: Tablet PlotItem ownership replay (${{ matrix.case }})
+    name: Tablet native root disposal replay (${{ matrix.case }})
     runs-on: windows-latest
     timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
         include:
-          # Same real scenario and same failed merge in both jobs. Compare
-          # normal automatic GC against deliberately collected native graphs.
-          - case: accumulated-natural-gc
+          # Distinguish a hidden, still valid window from native destruction.
+          # Compare Qt parent deletion with the existing explicit plot cleanup.
+          - case: root-deferred-delete
             sha: 05a7a0681dab5948484873a41560755577ebbe46
-          - case: accumulated-forced-gc
+          - case: root-plot-cleanup
             sha: 05a7a0681dab5948484873a41560755577ebbe46
     steps:
       - name: Check out source
@@ -276,7 +276,7 @@ jobs:
             throw "Control dump did not contain the expected AV exception context"
           }
 
-      - name: Exercise real normalized gas tablet and trace native object lifetimes
+      - name: Exercise actual tablet acceptance and native root destruction
         shell: pwsh
         env:
           REPLAY_SHA: ${{ matrix.sha }}
@@ -299,7 +299,7 @@ jobs:
               "tests/test_main_window_normalized_gas_tablet.py"
               "::test_show_normalized_gas_button_opens_tablet_and_adds_track"
           )
-          stress = Path("tests/test_diagnostic_tablet_plotitem_ownership.py")
+          stress = Path("tests/test_diagnostic_tablet_root_disposal.py")
           if stress.exists():
               raise RuntimeError("Refusing to overwrite existing tests")
           stress.write_text(
@@ -307,90 +307,109 @@ jobs:
           import gc
           import os
           import weakref
+          from collections import Counter
 
-          import pyqtgraph as pg
           import pytest
+          from PySide6.QtCore import QCoreApplication, QEvent
+          from PySide6.QtWidgets import QApplication, QWidgetAction
           from shiboken6 import getCppPointer, isValid
-          from PySide6.QtWidgets import QWidgetAction
 
+          from geoworkbench.ui.main_window import MainWindow
           from test_main_window_normalized_gas_tablet import (
               test_show_normalized_gas_button_opens_tablet_and_adds_track as acceptance,
           )
 
-          # Weak references do not deliberately keep retired native graphs alive.
-          # Use scalar IDs in logs, not retained Qt wrappers or signal callbacks.
-          observed = []
-          sequence = 0
+          def native_id(obj):
+              return f"0x{getCppPointer(obj)[0]:x}" if isValid(obj) else "invalid"
 
-          def alive_summary(phase):
-              live = invalid = collected = 0
-              for ref in observed:
-                  obj = ref()
-                  if obj is None:
-                      collected += 1
-                  elif isValid(obj):
-                      live += 1
-                  else:
-                      invalid += 1
+          def referrer_types(obj):
+              # Names/counts only; never retain referrer objects across phases.
+              return dict(Counter(type(value).__name__ for value in gc.get_referrers(obj)))
+
+          @pytest.mark.parametrize("cycle", range(1, 9))
+          def test_real_acceptance_then_native_root_disposal(qapp, monkeypatch, cycle):
+              roots = []
+              init = MainWindow.__init__
+
+              def capture_root(self, *args, **kwargs):
+                  init(self, *args, **kwargs)
+                  roots.append(self)
+
+              monkeypatch.setattr(MainWindow, "__init__", capture_root)
+              acceptance(qapp)
+              assert len(roots) == 1
+              root = roots.pop()
+              assert isValid(root) and not root.isVisible()
+              root_ref = weakref.ref(root)
+              view = root.tablet_view
+              curve_view = root.curve_view
+              plots = (curve_view._plot, *(entry.plot for entry in view._rendered.values()))
+              assert all(plot is not None and isValid(plot) for plot in plots)
+              items = tuple(plot.getPlotItem() for plot in plots)
+              menus = tuple(item.ctrlMenu for item in items)
+              actions = tuple(
+                  action
+                  for menu in menus
+                  for entry in menu.actions()
+                  if entry.menu() is not None
+                  for action in entry.menu().actions()
+                  if isinstance(action, QWidgetAction)
+              )
+              widgets = tuple(action.defaultWidget() for action in actions)
+              assert all(isValid(item) for item in (*items, *menus, *actions, *widgets))
+              assert len(actions) == 6 * len(items)
+              # Deliberately retain wrappers for this one disposal observation,
+              # not across cycles. Native ownership remains Qt's.
               print(
-                  f"OWNERSHIP phase={phase} live={live} invalid={invalid} "
-                  f"collected={collected} gc={gc.get_count()}",
+                  f"ROOT_DISPOSAL cycle={cycle} phase=closed root={native_id(root)} "
+                  f"plots={len(plots)} actions={len(actions)} "
+                  f"top_levels={len(QApplication.topLevelWidgets())} "
+                  f"root_referrers={referrer_types(root)}",
                   flush=True,
               )
-
-          @pytest.mark.parametrize("cycle", range(1, 17))
-          def test_actual_tablet_acceptance_with_plot_ownership(qapp, monkeypatch, cycle):
-              global sequence
-              original_init = pg.PlotItem.__init__
-              forced = os.environ["REPLAY_CASE"] == "accumulated-forced-gc"
-
-              def traced_init(self, *args, **kwargs):
-                  global sequence
-                  sequence += 1
-                  number = sequence
-                  if forced:
-                      gc.collect(2)
-                  alive_summary(f"before-init-{number}")
-                  print(f"PLOT_INIT_BEGIN id={number} cycle={cycle}", flush=True)
-                  original_init(self, *args, **kwargs)
-                  # Read ownership only while the completed native objects are
-                  # valid; record identities without changing ownership.
-                  assert isValid(self)
-                  observed.append(weakref.ref(self))
-                  menu = self.ctrlMenu
-                  assert isValid(menu)
-                  observed.append(weakref.ref(menu))
-                  groups = 0
-                  for entry in menu.actions():
-                      submenu = entry.menu()
-                      if submenu is None:
-                          continue
-                      assert isValid(submenu)
-                      for action in submenu.actions():
-                          if not isinstance(action, QWidgetAction):
-                              continue
-                          assert isValid(action)
-                          widget = action.defaultWidget()
-                          assert widget is not None and isValid(widget)
-                          observed.extend((weakref.ref(action), weakref.ref(widget)))
-                          groups += 1
-                          print(
-                              f"PLOT_ACTION id={number} group={groups} "
-                              f"action=0x{getCppPointer(action)[0]:x} "
-                              f"widget=0x{getCppPointer(widget)[0]:x}",
-                              flush=True,
-                          )
-                  assert groups == 6
-                  print(f"PLOT_INIT_END id={number} groups={groups}", flush=True)
-
-              monkeypatch.setattr(pg.PlotItem, "__init__", traced_init)
-              alive_summary(f"cycle-{cycle}-before")
-              # Run the actual original MainWindow, real curves, append-only
-              # creation and mode changes with every original assertion.
-              acceptance(qapp)
-              if forced:
-                  gc.collect(2)
-              alive_summary(f"cycle-{cycle}-after")
+              for action, widget in zip(actions, widgets, strict=True):
+                  print(
+                      f"ROOT_ACTION cycle={cycle} action={native_id(action)} "
+                      f"owner={native_id(action.parent()) if action.parent() else 'none'} "
+                      f"widget={native_id(widget)} "
+                      f"widget_parent={native_id(widget.parent()) if widget.parent() else 'none'}",
+                      flush=True,
+                  )
+              if os.environ["REPLAY_CASE"] == "root-plot-cleanup":
+                  print(f"ROOT_DISPOSAL cycle={cycle} phase=tablet-clear", flush=True)
+                  view.clear()
+                  assert all(not isValid(plot) for plot in plots[1:])
+                  # Use the same close-before-parent-deletion pattern already
+                  # implemented for TabletView; do not mutate production code.
+                  print(f"ROOT_DISPOSAL cycle={cycle} phase=curve-plot-close", flush=True)
+                  curve_plot = plots[0]
+                  curve_plot.close()
+                  assert curve_plot.plotItem is None
+                  if isValid(curve_plot):
+                      curve_plot.setParent(curve_view)
+              print(f"ROOT_DISPOSAL cycle={cycle} phase=before-root-delete", flush=True)
+              root.deleteLater()
+              # Deliver only this root's deletion; do not pump unrelated roots.
+              QCoreApplication.sendPostedEvents(root, QEvent.Type.DeferredDelete)
+              assert not isValid(root)
+              assert all(not isValid(plot) for plot in plots)
+              print(
+                  f"ROOT_DISPOSAL cycle={cycle} phase=after-root-delete "
+                  f"items_live={sum(isValid(obj) for obj in items)} "
+                  f"menus_live={sum(isValid(obj) for obj in menus)} "
+                  f"actions_live={sum(isValid(obj) for obj in actions)} "
+                  f"widgets_live={sum(isValid(obj) for obj in widgets)}",
+                  flush=True,
+              )
+              del actions, widgets, menus, items, plots, view, curve_view, root
+              gc.collect(2)
+              remaining = root_ref()
+              print(
+                  f"ROOT_DISPOSAL cycle={cycle} phase=after-gc "
+                  f"root_wrapper={'collected' if remaining is None else 'invalid' if not isValid(remaining) else 'live'} "
+                  f"top_levels={len(QApplication.topLevelWidgets())}",
+                  flush=True,
+              )
           ''',
               encoding="utf-8",
           )
@@ -400,19 +419,17 @@ jobs:
           environment["PYTHONPATH"] = str(tool) + os.pathsep + environment.get("PYTHONPATH", "")
           environment["GEOLOG_NATIVE_DUMP_DIR"] = str(Path(os.environ["RUNNER_TEMP"]) / "geolog-replay-dumps")
           try:
-              # Exact untouched test first; follow with repeated real workflows
-              # in the same process rather than more isolated green reruns.
               for attempt in range(1, 3):
-                  print(f"OWNERSHIP_REPLAY attempt={attempt}/2", flush=True)
+                  print(f"ROOT_DISPOSAL_REPLAY attempt={attempt}/2", flush=True)
                   result = _run_plain_target((original, stress.as_posix()), environment)
                   if result:
                       raise SystemExit(result)
               raise SystemExit(0)
           finally:
               stress.unlink()
-          '@ | Set-Content -Encoding utf8 "$OutputDir/ownership-replay.py"
-          Get-Content -Raw "$OutputDir/ownership-replay.py" | & .\.venv\Scripts\python.exe - *>&1 |
-            Tee-Object -FilePath "$OutputDir/ownership-replay.log"
+          '@ | Set-Content -Encoding utf8 "$OutputDir/root-disposal-replay.py"
+          Get-Content -Raw "$OutputDir/root-disposal-replay.py" | & .\.venv\Scripts\python.exe - *>&1 |
+            Tee-Object -FilePath "$OutputDir/root-disposal-replay.log"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Analyze captured application dumps
@@ -445,7 +462,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: qt-tablet-ownership-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: qt-tablet-root-disposal-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/ci-artifacts/qt-replay
           if-no-files-found: ignore
           retention-days: 7
@@ -454,7 +471,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: qt-tablet-ownership-dumps-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: qt-tablet-root-disposal-dumps-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/geolog-replay-dumps/*.dmp
           if-no-files-found: ignore
           retention-days: 3
