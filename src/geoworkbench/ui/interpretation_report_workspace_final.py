@@ -1202,6 +1202,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         original_active_report = self.report
         confirmed_geology = self._geology_excel_evidence
         confirmed_field_selection = self._geology_excel_field_selection
+        confirmed_gis = self._gis_excel_selection
         target = self._choose_target(".xlsx", "Excel (*.xlsx)")
         if target is None:
             return
@@ -1279,7 +1280,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                             "Operator-confirmed Excel measured fields changed"
                         ) from exc
                 progress_callback = self._update_report_export_progress
-                if comparisons or selected_geology or confirmed_field_selection is not None:
+                if comparisons or selected_geology or confirmed_field_selection is not None or confirmed_gis is not None:
                     # A large XLSX export also pumps Qt events between stages.
                     # Fail before the atomic file replacement when the operator
                     # changes the verified source mid-export.
@@ -1329,6 +1330,37 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                         geology_field_selection=confirmed_field_selection,
                         geology_source_key=field_source_key,
                     )
+                if confirmed_gis is not None:
+                    if selected_geology or confirmed_field_selection is not None:
+                        raise HydrocarbonInterpretationExportError(
+                            "Combined Excel GIS and separate geology approvals must not be mixed"
+                        )
+                    gis_source_key = self._method_comparison_source_key(report)
+                    if (
+                        self._gis_excel_selection is not confirmed_gis
+                        or gis_source_key is None or gis_source_key != confirmed_gis.source_key
+                    ):
+                        raise HydrocarbonInterpretationExportError(
+                            "Confirmed Excel GIS evidence was revoked during preparation"
+                        )
+
+                    def current_gis_report() -> HydrocarbonInterpretationReport:
+                        if (
+                            self._gis_excel_selection is not confirmed_gis
+                            or self._method_comparison_source_key(report) != gis_source_key
+                            or self.controller.session.current_dataset is not dataset
+                            or self.controller.session.current_well_id != original_well_id
+                            or self.report is not original_active_report
+                            or self._report_output_language() != output_language
+                        ):
+                            raise ValueError("Confirmed Excel GIS source or approval changed")
+                        return self._build_current_gis_gas_report()
+
+                    workbook_exporter = partial(
+                        workbook_exporter, session=self.controller.session,
+                        gis_selection=confirmed_gis, gis_source_key=gis_source_key,
+                        current_gis_report=current_gis_report,
+                    )
                 exported = workbook_exporter(
                     report,
                     dataset,
@@ -1339,6 +1371,8 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     identity=saved_identity,
                 )
         except (OSError, FileExistsError, ValueError, HydrocarbonInterpretationExportError) as exc:
+            if confirmed_gis is not None:
+                self._clear_geology_evidence()
             self._show_export_error(exc)
             return
         self._show_export_success(exported)
