@@ -1401,6 +1401,12 @@ def test_tablet_view_renders_safe_lithology_descriptions(qapp) -> None:
     qapp.processEvents()
 
     assert view.rendered_lithology_descriptions("description") == ("Песчаник <b>средний</b>",)
+    # The hidden initial render is used by report/preview workflows. Showing
+    # and resizing the same real view must not lose the literal source text.
+    view.resize(800, 600)
+    view.show()
+    qapp.processEvents()
+    assert view.rendered_lithology_descriptions("description") == ("Песчаник <b>средний</b>",)
     view.close()
 
 

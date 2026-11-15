@@ -59,6 +59,13 @@ from geoworkbench.services.interpretation_geology_field_handoff import (
     verified_geology_field_html_handoff,
 )
 from geoworkbench.services.interpretation_geology_evidence_export import verified_report_geology_evidence
+from geoworkbench.services.interpretation_gis_evidence_handoff import (
+    ConfirmedGisGeologySelection, verified_gis_geology_handoff,
+)
+from geoworkbench.services.interpretation_gis_interval_evidence import GasGeologyGisIntervalEvidence
+from geoworkbench.services.interpretation_gis_interval_evidence_html import (
+    GisEvidenceTable, gis_interval_evidence_table,
+)
 from geoworkbench.services.interpretation_geology_interval_evidence_html import (
     GeologyEvidenceTable, geology_interval_evidence_table,
 )
@@ -100,7 +107,33 @@ def export_readable_hydrocarbon_interpretation_xlsx(
     session: ProjectSession | None = None,
     geology_field_selection: ConfirmedGeologyFieldSelection | None = None,
     geology_source_key: tuple[object, ...] | None = None,
+    gis_selection: ConfirmedGisGeologySelection | None = None,
+    gis_source_key: tuple[object, ...] | None = None,
+    current_gis_report: Callable[[], HydrocarbonInterpretationReport] | None = None,
 ) -> Path:
+    # Keep the live dataset identity even after scoping the export arrays.
+    source_dataset = dataset
+
+    def verify_gis() -> GasGeologyGisIntervalEvidence | None:
+        if gis_selection is None:
+            if gis_source_key is not None or current_gis_report is not None:
+                raise ValueError("Excel GIS source requires a confirmed selection")
+            return None
+        if (
+            session is None or gis_source_key is None or not callable(current_gis_report)
+            or session.current_dataset is not source_dataset
+        ):
+            raise ValueError("Excel GIS selection requires its live dataset, source key and report builder")
+        return verified_gis_geology_handoff(
+            session, report, current_gis_report(), gis_selection,
+            source_key=gis_source_key, target="excel",
+        )
+
+    gis_evidence = verify_gis()
+    if gis_evidence is not None:
+        if geology_evidence or geology_field_selection is not None or geology_source_key is not None:
+            raise ValueError("Excel GIS approval cannot be combined with a separate geology approval")
+        geology_evidence = (gis_evidence.geology,)
     selected_fields: tuple[tuple[EvidenceKind, str], ...] = ()
     if geology_field_selection is not None:
         if session is None or geology_source_key is None:
@@ -164,6 +197,17 @@ def export_readable_hydrocarbon_interpretation_xlsx(
             raise HydrocarbonInterpretationExportError(
                 "Geology evidence exceeds the Excel cell text limit"
             )
+    gis_table = (
+        gis_interval_evidence_table(gis_evidence, language) if gis_evidence is not None else None
+    )
+    if gis_table is not None:
+        for row in ((gis_table.title,), (gis_table.notice,), gis_table.headings, *gis_table.rows):
+            if any(
+                isinstance(value, str)
+                and len(value.encode("utf-16-le")) // 2 > _EXCEL_MAX_CELL_CHARACTERS
+                for value in protect_spreadsheet_row(row)
+            ):
+                raise HydrocarbonInterpretationExportError("GIS evidence exceeds the Excel cell text limit")
     destination = Path(target)
     if destination.suffix.casefold() != ".xlsx":
         destination = destination.with_suffix(".xlsx")
@@ -189,6 +233,8 @@ def export_readable_hydrocarbon_interpretation_xlsx(
             )
         if geology_tables:
             _write_geology_evidence_sheet(workbook, geology_tables, language)
+        if gis_table is not None:
+            _write_gis_evidence_sheet(workbook, gis_table, language)
         _write_opus_gasomer_sheet(workbook, report, language)
         _write_gas_context_sheet(workbook, report, language)
         _write_whole_well_sheet(
@@ -212,6 +258,9 @@ def export_readable_hydrocarbon_interpretation_xlsx(
             if current != geology_evidence or fields != selected_fields:
                 raise ValueError("Excel measured field approval changed during export")
 
+        if verify_gis() != gis_evidence:
+            raise ValueError("Excel GIS approval changed during export")
+
         descriptor, temporary_name = tempfile.mkstemp(
             prefix=f".{destination.stem}-",
             suffix=".xlsx",
@@ -229,6 +278,8 @@ def export_readable_hydrocarbon_interpretation_xlsx(
                 )
                 if current != geology_evidence or fields != selected_fields:
                     raise ValueError("Excel measured field approval changed before commit")
+            if verify_gis() != gis_evidence:
+                raise ValueError("Excel GIS approval changed before commit")
             os.replace(temporary, destination)
             _notify(progress, labels.progress_ready, 100, 100)
         except Exception as exc:
@@ -282,6 +333,34 @@ def _write_geology_evidence_sheet(
     _format_auxiliary_sheet(sheet, widths=(32, 40, 32, 32, 100), wrap_header=True)
     # Several narrative/coverage/observation sections are not one sortable table.
     sheet.auto_filter.ref = None
+    sheet.sheet_view.showGridLines = False
+
+
+_GIS_EVIDENCE_SHEET_NAMES: dict[AppLanguage, str] = {
+    AppLanguage.RU: "Исходные ГИС MD",
+    AppLanguage.KK: "Бастапқы ГИС MD",
+    AppLanguage.EN: "Source GIS MD",
+}
+
+
+def _write_gis_evidence_sheet(
+    workbook: Workbook, presentation: GisEvidenceTable, language: AppLanguage,
+) -> None:
+    """Keep discrete GIS observations separate from geological depth coverage."""
+    sheet = workbook.create_sheet(_GIS_EVIDENCE_SHEET_NAMES[language])
+    for row in ((presentation.title,), (presentation.notice,), presentation.headings, *presentation.rows):
+        sheet.append(protect_spreadsheet_row(row))
+    _format_auxiliary_sheet(
+        sheet, widths=(30, 32, 32, 16, 40, 14, 18, 14, 24, 24, 22), wrap_header=True,
+    )
+    sheet.merge_cells("A1:K1")
+    sheet.merge_cells("A2:K2")
+    sheet.row_dimensions[2].height = 30
+    for cell in sheet[3]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill("solid", fgColor="315A7D")
+    sheet.freeze_panes = "A4"
+    sheet.auto_filter.ref = f"A3:K{sheet.max_row}"
     sheet.sheet_view.showGridLines = False
 
 

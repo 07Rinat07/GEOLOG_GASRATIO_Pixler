@@ -130,7 +130,24 @@ def test_plot_options_menus_follow_native_window_ownership(qapp, explicit_cleanu
                                if entry.plot is not None))
         assert len(plots) > 1
         items = tuple(plot.getPlotItem() for plot in plots)
-        menus = tuple(item.ctrlMenu for item in items)
+        menus = (items[0].ctrlMenu,)
+        controls = tuple(item.control_root for item in items[1:])
+        control_groups = tuple(
+            group for item in items[1:] for group in (
+                item.ctrl.transformGroup, item.ctrl.decimateGroup, item.ctrl.averageGroup,
+                item.ctrl.alphaGroup, item.ctrl.gridGroup, item.ctrl.pointsGroup,
+            )
+        )
+        assert all(item.ctrlMenu is None for item in items[1:])
+        assert all(root.parentWidget() is plot for root, plot in zip(controls, plots[1:], strict=True))
+        assert all(root.isHidden() for root in controls)
+        assert all(isValid(obj) for obj in (*controls, *control_groups))
+        assert all(
+            root.isAncestorOf(group)
+            for root, item in zip(controls, items[1:], strict=True)
+            for group in (item.ctrl.transformGroup, item.ctrl.decimateGroup, item.ctrl.averageGroup,
+                          item.ctrl.alphaGroup, item.ctrl.gridGroup, item.ctrl.pointsGroup)
+        )
         actions = tuple(
             action for menu in menus for entry in menu.actions()
             if entry.menu() is not None
@@ -138,9 +155,10 @@ def test_plot_options_menus_follow_native_window_ownership(qapp, explicit_cleanu
             if isinstance(action, QWidgetAction)
         )
         widgets = tuple(action.defaultWidget() for action in actions)
-        assert len(actions) == 6 * len(plots)
+        assert len(actions) == 6
+        assert len(control_groups) == 6 * (len(plots) - 1)
         assert all(isValid(obj) for obj in (*items, *menus, *actions, *widgets))
-        assert all(menu.parentWidget() is plot for menu, plot in zip(menus, plots, strict=True))
+        assert menus[0].parentWidget() is curve_plot
         assert all(menu.windowType() == Qt.WindowType.Popup for menu in menus)
         # CurveView continues to expose the actual upstream menu and controls;
         # tablet tracks keep their existing disabled context-menu policy.
@@ -150,7 +168,7 @@ def test_plot_options_menus_follow_native_window_ownership(qapp, explicit_cleanu
         if explicit_cleanup:
             view.clear()
             assert all(not isValid(plot) for plot in plots[1:])
-            assert all(not isValid(menu) for menu in menus[1:])
+            assert all(not isValid(obj) for obj in (*controls, *control_groups))
             curve_plot.close()
             assert curve_plot.plotItem is None
             # Upstream close detaches PlotWidget itself; restore its owning
@@ -161,7 +179,7 @@ def test_plot_options_menus_follow_native_window_ownership(qapp, explicit_cleanu
         QCoreApplication.sendPostedEvents(window, QEvent.Type.DeferredDelete)
         assert not isValid(window)
         assert all(not isValid(plot) for plot in plots)
-        assert all(not isValid(obj) for obj in (*items, *menus, *actions, *widgets))
+        assert all(not isValid(obj) for obj in (*items, *menus, *actions, *widgets, *controls, *control_groups))
     finally:
         if isValid(window):
             window.close()
