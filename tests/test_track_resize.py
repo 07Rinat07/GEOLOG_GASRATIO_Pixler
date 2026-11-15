@@ -2,6 +2,7 @@ from importlib import import_module
 
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
+from PySide6 import QtWidgets
 
 from geoworkbench.tablet.models import TrackDefinition, TrackKind
 from geoworkbench.tablet.resize import TrackResizeGesture
@@ -53,12 +54,23 @@ def test_tablet_track_never_constructs_unused_viewbox_menu(qapp, monkeypatch) ->
         raise AssertionError("Tablet track must not construct a native ViewBoxMenu")
 
     monkeypatch.setattr(module, "ViewBoxMenu", unexpected_menu)
-    widget = TabletTrackWidget(TrackDefinition("curve", "Curve", TrackKind.CURVE))
+    # The former implementation still allocated six QWidgetActions for the
+    # disabled Plot Options menu; forbid that native allocation as well.
+    with monkeypatch.context() as guard:
+        guard.setattr(QtWidgets, "QWidgetAction", unexpected_menu)
+        guard.setattr(QtWidgets, "QMenu", unexpected_menu)
+        widget = TabletTrackWidget(TrackDefinition("curve", "Curve", TrackKind.CURVE))
     try:
         view_box = widget.plot.getViewBox()
         assert view_box.menu is None
         assert not view_box.menuEnabled()
-        assert not widget.plot.getPlotItem().menuEnabled()
+        item = widget.plot.getPlotItem()
+        assert not item.menuEnabled()
+        assert item.ctrlMenu is None
+        assert item.control_root.parentWidget() is widget.plot
+        widget.plot.showGrid(x=True, y=True, alpha=0.5)
+        assert item.ctrl.xGridCheck.isChecked() and item.ctrl.yGridCheck.isChecked()
+        assert item.ctrl.gridAlphaSlider.value() > 0
         # The application-owned track header context action is independent
         # of the pyqtgraph menu. Mouse navigation must remain enabled.
         assert view_box.state["mouseEnabled"] == [True, True]
