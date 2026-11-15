@@ -1,5 +1,10 @@
 # Единый план проекта
 
+## Интеграция и INTERP-GIS-01 — 15 ноября 2026
+
+- #890 (Excel, отдельный сервисный контракт) и #891 (планшет без неиспользуемых Qt-меню) интегрированы одним merge `c7618ec9`: точные heads `a73ded23` и `6a60ae52` прошли все три Release Gate ([Excel 43687443441](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43687443441), [Qt 43687435608](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43687435608)). Дерево main совпадает с проверенным #890; [post-merge 43707437080](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43707437080) ещё требует результата. #544 остаётся открытой, общий источник нативных сбоев не доказан.
+- Следующий инкремент: отдельное подтверждение Excel в интерфейсе совместных наблюдений ГИС/геологии, отказ при изменении кандидата/массива/геологии/языка/набора, сохранение предыдущего файла, реальные XLSX на RU/KK/EN. После полного CI — отдельный print handoff; не переносить разрешения Word/PDF/HTML/Excel автоматически.
+
 ## Интеграция — 13 ноября 2026, актуальный цикл
 
 - #880 интегрирован как `e621a90`; [post-merge 43436505850](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43436505850) 3/3 SUCCESS. #884: [CI 43421725582](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43421725582) quality gate FAILURE из-за устаревших runtime-contract в ARCHITECTURE и PROJECT_PLAN; security и GUI/HiDPI/PDF SUCCESS. Маркеры синхронизированы с form v20/layout v27, ветка включает актуальный main; требуется новый полный CI. Следующий этап после интеграции — Word handoff. #544 остаётся открытой.

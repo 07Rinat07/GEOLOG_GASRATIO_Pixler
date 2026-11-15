@@ -116,6 +116,7 @@ class InterpretationReportWorkspace(QWidget):
         self._geology_word_field_selection: ConfirmedGeologyFieldSelection | None = None
         self._gis_word_selection: ConfirmedGisGeologySelection | None = None
         self._gis_pdf_selection: ConfirmedGisGeologySelection | None = None
+        self._gis_excel_selection: ConfirmedGisGeologySelection | None = None
         self._geology_excel_field_selection: ConfirmedGeologyFieldSelection | None = None
         self._geology_pdf_evidence: tuple[GasGeologyIntervalEvidence, ...] = ()
         self._geology_pdf_source_key: tuple[object, ...] | None = None
@@ -606,6 +607,7 @@ class InterpretationReportWorkspace(QWidget):
         self._geology_word_field_selection = None
         self._gis_word_selection = None
         self._gis_pdf_selection = None
+        self._gis_excel_selection = None
         self._geology_excel_field_selection = None
         self._geology_print_field_selection = None
         self._geology_word_evidence = ()
@@ -1046,6 +1048,10 @@ class InterpretationReportWorkspace(QWidget):
         pdf_gis_status.setObjectName("interpretation-geology-pdf-gis-status")
         pdf_gis_status.setWordWrap(True)
         layout.addWidget(pdf_gis_status)
+        excel_gis_status = QLabel(dialog)
+        excel_gis_status.setObjectName("interpretation-geology-excel-gis-status")
+        excel_gis_status.setWordWrap(True)
+        layout.addWidget(excel_gis_status)
 
         def review_combined() -> None:
             from geoworkbench.ui.gis_geology_evidence_dialog import GisGeologyEvidenceDialog
@@ -1083,17 +1089,47 @@ class InterpretationReportWorkspace(QWidget):
                     source_key=source_key, target="pdf",
                 )
 
+            def confirm_excel(
+                evidence: GasGeologyGisIntervalEvidence, snapshot: GisIntervalSnapshot,
+            ) -> ConfirmedGisGeologySelection:
+                if validated_gis_bounds(notify=False) != bounds:
+                    raise ValueError("Selected gas interval changed")
+                return confirm_gis_geology_selection(
+                    session, report, self._build_current_gis_gas_report(), evidence, snapshot,
+                    source_key=source_key, target="excel",
+                )
+
             preview = GisGeologyEvidenceDialog(
                 session, dataset, bounds, lambda: validated_gis_bounds(notify=False), dialog,
                 language=self._report_output_language(), confirm_html=confirm_html,
-                confirm_word=confirm_word, confirm_pdf=confirm_pdf,
+                confirm_word=confirm_word, confirm_pdf=confirm_pdf, confirm_excel=confirm_excel,
             )
             try:
                 result = preview.exec()
                 selection = preview.confirmed_html_selection
                 word_selection = preview.confirmed_word_selection
                 pdf_selection = preview.confirmed_pdf_selection
+                excel_selection = preview.confirmed_excel_selection
                 if result != QDialog.DialogCode.Accepted:
+                    return
+                if excel_selection is not None:
+                    if validated_gis_bounds(notify=False) != bounds:
+                        raise ValueError("Selected gas interval changed before Excel handoff")
+                    verified_gis_geology_handoff(
+                        session, report, self._build_current_gis_gas_report(), excel_selection,
+                        source_key=source_key, target="excel",
+                    )
+                    self._geology_excel_field_selection = None
+                    self._geology_excel_evidence = ()
+                    self._geology_excel_source_key = None
+                    self._gis_excel_selection = excel_selection
+                    include_excel.setText(excel_caption)
+                    confirm_excel_field.setText(excel_field_caption)
+                    excel_gis_status.setText(self._text(
+                        "Совместные наблюдения ГИС и геологии подтверждены для Excel.",
+                        "ГИС және геология бақылаулары Excel үшін расталды.",
+                        "Combined GIS and geology observations confirmed for Excel.",
+                    ))
                     return
                 if pdf_selection is not None:
                     if validated_gis_bounds(notify=False) != bounds:
@@ -1154,6 +1190,9 @@ class InterpretationReportWorkspace(QWidget):
                 if preview.confirmed_pdf_selection is not None:
                     self._gis_pdf_selection = None
                     pdf_gis_status.clear()
+                if preview.confirmed_excel_selection is not None:
+                    self._gis_excel_selection = None
+                    excel_gis_status.clear()
                 if self._geology_evidence_dialog is dialog:
                     viewer.setPlainText(self._text(
                         "Источник изменился. Подтвердите наблюдения заново.",
@@ -1274,6 +1313,8 @@ class InterpretationReportWorkspace(QWidget):
             word_gis_status.clear()
             self._gis_pdf_selection = None
             pdf_gis_status.clear()
+            self._gis_excel_selection = None
+            excel_gis_status.clear()
             self._geology_excel_field_selection = None
             self._geology_print_field_selection = None
             confirm_field.setText(confirm_field_caption)
@@ -1362,6 +1403,8 @@ class InterpretationReportWorkspace(QWidget):
                 word_gis_status.clear()
                 self._gis_pdf_selection = None
                 pdf_gis_status.clear()
+                self._gis_excel_selection = None
+                excel_gis_status.clear()
                 self._geology_word_evidence = ()
                 self._geology_word_source_key = None
                 self._geology_excel_field_selection = None
@@ -1383,6 +1426,8 @@ class InterpretationReportWorkspace(QWidget):
                 ))
                 return
             if output == "excel":
+                self._gis_excel_selection = None
+                excel_gis_status.clear()
                 self._geology_excel_field_selection = None
                 confirm_excel_field.setText(excel_field_caption)
                 self._geology_excel_evidence = (observed,)
@@ -1592,6 +1637,8 @@ class InterpretationReportWorkspace(QWidget):
                 if self._geology_evidence_dialog is dialog:
                     viewer.setHtml(f"<p>{escape(str(exc))}</p>")
                 return
+            self._gis_excel_selection = None
+            excel_gis_status.clear()
             self._geology_excel_evidence = ()
             self._geology_excel_source_key = None
             include_excel.setText(excel_caption)
