@@ -40,5 +40,10 @@ class OwnedPlotWidget(pg.PlotWidget):
             # The menu is no longer reachable through PlotItem.ctrlMenu.
             # Restore native ownership so deleting the plot also deletes it.
             # The caller may still hold a Python reference to the menu.
-            if flags is not None and isValid(menu) and isValid(self):
+            if (
+                isinstance(menu, QMenu)
+                and flags is not None
+                and isValid(menu)
+                and isValid(self)
+            ):
                 menu.setParent(self, flags)
