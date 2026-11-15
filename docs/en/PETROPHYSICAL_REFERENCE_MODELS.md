@@ -143,3 +143,8 @@ coverage, calibration, saturation or productivity.
 Before entering calibration, use **Review selected source** after selecting a method and curve. The review explains axis, channel identity/state, family and unit-scale blockers. Passing source checks is not calibration or interpretation approval. Repeat the review after source changes; method/channel changes clear it, and evaluation rechecks the live source. Entered evidence is preserved.
 
 Select the source row beside the method and curve, then review the source to see its actual MD, value and original unit before calibration. The preview uses exactly that row, including descending acquisition order. Missing/non-finite or removed samples are unavailable; no neighboring value is substituted. Changing the selection clears the preview; repeat review to read current data.
+
+
+## Interval reference profile (data-only)
+
+`evaluate_gis_reference_profile(dataset, calibration, md_top_m=..., md_base_m=...)` uses an existing explicit IGR or density-porosity calibration. The closed MD interval must be inside its scope. Results contain actual rows in source order, including descending MD, original index, MD, source value and scalar QC. NaN/Inf are missing, not zero; invalid finite measurements retain their source value without an estimate. Unclipped out-of-range estimates retain their QC and are not usable fractions. An empty interval is not a zero result. The entire live source is verified before and after calculation; changed sources reject the profile. No project/LAS edits, curve insertion or interpolation. This is an API, not new UI; IGR is not Vsh, and Archie and field validation remain separate.

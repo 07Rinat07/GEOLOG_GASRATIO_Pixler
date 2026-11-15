@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from enum import Enum
 from hashlib import sha256
 from math import isfinite
 from weakref import ReferenceType, ref
@@ -58,6 +59,49 @@ class CalibratedGisSample:
     md_m: float
     source_value: float
     estimate: PetrophysicalEstimate
+
+
+class GisProfileRowStatus(str, Enum):
+    """Distinguish actual calculations from missing or invalid source rows."""
+
+    ESTIMATED = "estimated"
+    MISSING_SOURCE = "missing_source"
+    INVALID_MEASUREMENT = "invalid_measurement"
+
+
+@dataclass(frozen=True, slots=True)
+class CalibratedGisProfileRow:
+    sample_index: int
+    md_m: float
+    source_value: float | None
+    status: GisProfileRowStatus
+    estimate: PetrophysicalEstimate | None
+    issue: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class CalibratedGisProfile:
+    """Exact source rows within explicit MD bounds; no continuous coverage claim."""
+
+    calibration: GisReferenceCalibration
+    md_bounds: tuple[float, float]
+    rows: tuple[CalibratedGisProfileRow, ...]
+
+    @property
+    def sample_count(self) -> int:
+        return len(self.rows)
+
+    @property
+    def estimated_count(self) -> int:
+        return sum(row.status is GisProfileRowStatus.ESTIMATED for row in self.rows)
+
+    @property
+    def missing_count(self) -> int:
+        return sum(row.status is GisProfileRowStatus.MISSING_SOURCE for row in self.rows)
+
+    @property
+    def invalid_count(self) -> int:
+        return sum(row.status is GisProfileRowStatus.INVALID_MEASUREMENT for row in self.rows)
 
 
 def create_gis_reference_calibration(
@@ -114,6 +158,80 @@ def evaluate_gis_reference_sample(
         raise ValueError("Source sample is outside calibration MD scope")
     estimate = _estimate(source.method_id, dict(calibration.parameters), value)
     return CalibratedGisSample(calibration, sample_index, md, value, estimate)
+
+
+def evaluate_gis_reference_profile(
+    dataset: Dataset, calibration: GisReferenceCalibration, *,
+    md_top_m: float, md_base_m: float,
+) -> CalibratedGisProfile:
+    """Evaluate an explicit interval at original sample rows in source order.
+
+    Validate the entire live calibration before and after calculation, not
+    once per sample. Work on independent copies of the selected rows and
+    reject a changed source rather than publish a partially stale profile.
+    No interpolation, extrapolation, clipping, inferred parameters, derived
+    curve insertion or continuous coverage estimate is performed.
+    """
+    validate_gis_reference_calibration(dataset, calibration)
+    bounds = (_finite(md_top_m), _finite(md_base_m))
+    if bounds[0] > bounds[1]:
+        raise ValueError("Profile MD bounds must be ordered")
+    if bounds[0] < calibration.md_bounds[0] or bounds[1] > calibration.md_bounds[1]:
+        raise ValueError("Profile interval is outside calibration MD scope")
+    source = calibration.source
+    parameters = dict(calibration.parameters)
+    # Reject an invalid calibration contract before treating individual bad
+    # measurements as row-level QC. Never silently substitute parameters.
+    if source.method_id not in _PARAMETERS or set(parameters) != _PARAMETERS[source.method_id]:
+        raise ValueError("Exact method calibration parameters are required")
+    reference_key = (
+        "clean_reference_api" if source.method_id == "igr-linear-1" else "matrix_density_g_cm3"
+    )
+    _estimate(source.method_id, parameters, parameters[reference_key])
+    depths = dataset.active_index.values
+    values = dataset.curves[source.curve_key].values
+    # The validated metre-MD axis is strictly monotonic. Search its ascending
+    # view without sorting/reindexing or allocating a full-axis boolean mask.
+    if depths[0] <= depths[-1]:
+        start = int(np.searchsorted(depths, bounds[0], side="left"))
+        stop = int(np.searchsorted(depths, bounds[1], side="right"))
+    else:
+        ascending = depths[::-1]
+        start = len(depths) - int(np.searchsorted(ascending, bounds[1], side="right"))
+        stop = len(depths) - int(np.searchsorted(ascending, bounds[0], side="left"))
+    selected_depths = depths[start:stop].copy()
+    selected_values = values[start:stop].copy()
+    rows: list[CalibratedGisProfileRow] = []
+    for offset, (raw_md, raw_value) in enumerate(zip(selected_depths, selected_values, strict=True)):
+        md = _finite(raw_md)
+        index = start + offset
+        if not calibration.md_bounds[0] <= md <= calibration.md_bounds[1] or not bounds[0] <= md <= bounds[1]:
+            raise ValueError("Profile MD source changed during calculation")
+        if not np.isfinite(raw_value):
+            rows.append(CalibratedGisProfileRow(
+                index, md, None, GisProfileRowStatus.MISSING_SOURCE, None, "nonfinite_source",
+            ))
+            continue
+        value = _finite(raw_value)
+        try:
+            estimate = _estimate(source.method_id, parameters, value)
+        except ValueError as exc:
+            rows.append(CalibratedGisProfileRow(
+                index, md, value, GisProfileRowStatus.INVALID_MEASUREMENT, None, str(exc),
+            ))
+            continue
+        # Scalar QC is retained, including numerical results outside physical
+        # or reference range. Those results are not clipped or marked usable.
+        rows.append(CalibratedGisProfileRow(
+            index, md, value, GisProfileRowStatus.ESTIMATED, estimate,
+        ))
+    validate_gis_reference_calibration(dataset, calibration)
+    if (
+        not np.array_equal(selected_depths, depths[start:stop], equal_nan=True)
+        or not np.array_equal(selected_values, values[start:stop], equal_nan=True)
+    ):
+        raise ValueError("Profile source rows changed during calculation")
+    return CalibratedGisProfile(calibration, bounds, tuple(rows))
 
 
 def validate_gis_reference_calibration(
