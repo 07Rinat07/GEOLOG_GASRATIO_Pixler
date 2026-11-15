@@ -1,5 +1,10 @@
 # Единый план проекта
 
+## Интеграция и INTERP-OUTPUT-01 — 15 ноября 2026, межформатная приёмка
+
+- #893: точный head `4809699b` [CI 43729438140](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43729438140) 3/3 SUCCESS; предыдущий main `d5b25e20` [43729245511](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43729245511) 3/3 SUCCESS. #893 интегрирован как `ddd2302e`; [post-merge 43741679937](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43741679937) требует результата. Ветка #892 удалена; #544 открыта.
+- INTERP-GIS-01: отдельные подтверждения HTML/Word/PDF/Excel/печать программно подключены. Следующий проверяемый инкремент INTERP-OUTPUT-01: межформатная регрессия одного исходного MD-набора с измеренным нулём, пропуском, неполным покрытием кальциметрии и provenance. Сравнить реальные HTML/DOCX/XLSX/PDF, паспорт PDF и сохранность исходных массивов; проверка печати отдельно (реальный временный PDF и симулированный spooler #893). Не переносить согласие между форматами. Это не полевая приёмка и не доказательство насыщения; после CI продолжить оставшиеся критерии плана, включая INTERP-PETRO-01.
+
 ## Интеграция и INTERP-GIS-01 — 15 ноября 2026, печать
 
 - #892: точный head `f6908bac` [CI 43707612816](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43707612816) 3/3 SUCCESS; предыдущий main `c7618ec9` [43707437080](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43707437080) 3/3 SUCCESS. #892 интегрирован как `d5b25e20`; [post-merge 43729245511](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43729245511) требует результата.
