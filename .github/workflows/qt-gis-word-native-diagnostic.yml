@@ -28,12 +28,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Distinguish a hidden, still valid window from native destruction.
-          # Compare Qt parent deletion with the existing explicit plot cleanup.
+          # Exact candidate merge: both destruction paths must now retire
+          # the Plot Options menus as well as their actions and plot items.
           - case: root-deferred-delete
-            sha: 05a7a0681dab5948484873a41560755577ebbe46
+            sha: 355eded78654126126b4b1aa5144d236ef0e5e3b
           - case: root-plot-cleanup
-            sha: 05a7a0681dab5948484873a41560755577ebbe46
+            sha: 355eded78654126126b4b1aa5144d236ef0e5e3b
     steps:
       - name: Check out source
         uses: actions/checkout@v6
@@ -401,6 +401,7 @@ jobs:
                   f"widgets_live={sum(isValid(obj) for obj in widgets)}",
                   flush=True,
               )
+              assert all(not isValid(obj) for obj in (*items, *menus, *actions, *widgets))
               del actions, widgets, menus, items, plots, view, curve_view, root
               gc.collect(2)
               remaining = root_ref()
@@ -421,7 +422,9 @@ jobs:
           try:
               for attempt in range(1, 3):
                   print(f"ROOT_DISPOSAL_REPLAY attempt={attempt}/2", flush=True)
-                  result = _run_plain_target((original, stress.as_posix()), environment)
+                  result = _run_plain_target((original, stress.as_posix(),
+                      "tests/test_tablet_plot_close_order.py::test_plot_options_menus_follow_native_window_ownership",
+                  ), environment)
                   if result:
                       raise SystemExit(result)
               raise SystemExit(0)
