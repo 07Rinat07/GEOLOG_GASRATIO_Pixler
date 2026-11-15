@@ -22,24 +22,24 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 from __future__ import annotations
 
-from pyqtgraph import functions as fn, icons
-from pyqtgraph.Qt import QtCore, QtWidgets
-from pyqtgraph.WidgetGroup import WidgetGroup
-from pyqtgraph.graphicsItems.ButtonItem import ButtonItem
-from pyqtgraph.graphicsItems.GraphicsWidget import GraphicsWidget
-from pyqtgraph.graphicsItems.LabelItem import LabelItem
-from pyqtgraph.graphicsItems.PlotItem import PlotItem, plotConfigTemplate_generic as ui_template
-from pyqtgraph.graphicsItems.ViewBox import ViewBox
+from importlib import import_module
+from typing import Any
 import weakref
 
+import pyqtgraph as pg
+from PySide6 import QtCore, QtWidgets
+
+# This generated form is the only private pyqtgraph dependency. The public
+# classes below use the project's existing pyqtgraph import boundary.
+ui_template = import_module("pyqtgraph.graphicsItems.PlotItem.plotConfigTemplate_generic")
 translate = QtCore.QCoreApplication.translate
 
 
-class TabletPlotItem(PlotItem):
+class TabletPlotItem(pg.PlotItem):
     """Retain upstream plotting controls without allocating any context menu."""
 
-    def __init__(self, owner: QtWidgets.QWidget, axis_items: dict) -> None:
-        GraphicsWidget.__init__(self)
+    def __init__(self, owner: QtWidgets.QWidget, axis_items: dict[str, pg.AxisItem]) -> None:
+        pg.GraphicsWidget.__init__(self)
 
         self.setSizePolicy(
             QtWidgets.QSizePolicy.Policy.Expanding,
@@ -47,7 +47,7 @@ class TabletPlotItem(PlotItem):
         )
 
         ## Set up control buttons
-        self.autoBtn = ButtonItem(icons.getGraphPixmap('auto'), 14, self)
+        self.autoBtn = pg.ButtonItem(pg.icons.getGraphPixmap('auto'), 14, self)
         self.autoBtn.mode = 'auto'
         self.autoBtn.clicked.connect(self.autoBtnClicked)
         self.buttonsHidden = False  # has the user has requested buttons to be hidden?
@@ -59,7 +59,7 @@ class TabletPlotItem(PlotItem):
         self.layout.setHorizontalSpacing(0)
         self.layout.setVerticalSpacing(0)
 
-        self.vb = ViewBox(parent=self, enableMenu=False)
+        self.vb = pg.ViewBox(parent=self, enableMenu=False)
         self.vb.sigStateChanged.connect(self.viewStateChanged)
 
         # Enable or disable plotItem menu
@@ -77,10 +77,10 @@ class TabletPlotItem(PlotItem):
         self.legend = None
 
         # Initialize axis items
-        self.axes = {}
+        self.axes: dict[str, dict[str, Any]] | None = {}
         self.setAxisItems(axis_items)
 
-        self.titleLabel = LabelItem('', size='11pt', parent=self)
+        self.titleLabel = pg.LabelItem('', size='11pt', parent=self)
         self.layout.addItem(self.titleLabel, 0, 1)
         self.setTitle(None)  ## hide
 
@@ -99,15 +99,17 @@ class TabletPlotItem(PlotItem):
         self.layout.setColumnStretchFactor(1, 100)
 
 
-        self.items = []
-        self.curves = []
-        self.itemMeta = weakref.WeakKeyDictionary()
-        self.dataItems = []
-        self.paramList = {}
-        self.avgCurves = {}
+        self.items: list[QtWidgets.QGraphicsItem] = []
+        self.curves: list[pg.PlotDataItem] = []
+        self.itemMeta: weakref.WeakKeyDictionary[QtWidgets.QGraphicsItem, dict[str, Any]] = (
+            weakref.WeakKeyDictionary()
+        )
+        self.dataItems: list[pg.PlotDataItem] = []
+        self.paramList: dict[str, Any] = {}
+        self.avgCurves: dict[Any, Any] = {}
         # Change these properties to adjust the appearance of the averaged curve:
-        self.avgPen = fn.mkPen((0, 200, 0))
-        self.avgShadowPen = fn.mkPen((0, 0, 0), width=4)
+        self.avgPen = pg.mkPen((0, 200, 0))
+        self.avgShadowPen = pg.mkPen((0, 0, 0), width=4)
         # Set up programmatic plot controls.
         # The controls still drive PlotItem methods (grid, log mode, etc.).
         # They stay in one ordinary, hidden QWidget tree owned by the track
@@ -130,7 +132,7 @@ class TabletPlotItem(PlotItem):
         # actions for controls that cannot be opened by the operator.
         self.ctrlMenu = None
 
-        self.stateGroup = WidgetGroup()
+        self.stateGroup = pg.WidgetGroup()
         for name, w in menuItems:
             self.stateGroup.autoAdd(w)
 
@@ -173,8 +175,10 @@ class TabletPlotItem(PlotItem):
             return
         self.autoBtn.setParent(None)
         self.autoBtn = None
-        for axis in self.axes.values():
-            axis["item"].close()
+        axes = self.axes
+        if axes is not None:
+            for axis in axes.values():
+                axis["item"].close()
         self.axes = None
         self.scene().removeItem(self.vb)
         self.vb = None
