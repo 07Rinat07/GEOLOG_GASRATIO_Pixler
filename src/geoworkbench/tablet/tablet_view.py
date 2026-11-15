@@ -1529,7 +1529,13 @@ class TabletTrackWidget(QFrame):
         # Neither upstream context menu is used by tablet tracks. In
         # pyqtgraph 0.14, enableMenu=False still builds Plot Options actions.
         item = TabletPlotItem(self, axis_items)
-        self.plot = OwnedPlotWidget(parent=self, plotItem=item)
+        # Preserve PlotWidget's original standalone construction geometry.
+        # A QWidget created with a parent starts with the child's small default
+        # size, rather than the standalone viewport used by the existing tablet
+        # renderer before its layout is activated. Hidden/report tablets can
+        # fit rock descriptions against that premature size and truncate them.
+        # The track layout below adopts the plot, exactly as before.
+        self.plot = OwnedPlotWidget(plotItem=item)
         item.control_root.setParent(self.plot)
         item.control_root.hide()
         self.plot.setBackground("#ffffff")
