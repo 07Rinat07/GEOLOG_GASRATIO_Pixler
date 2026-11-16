@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
 
 from PySide6.QtCore import QPointF, QRectF, QSize
 from PySide6.QtGui import QColor, QPaintEvent, QPainter, QPalette, QPen
@@ -44,15 +45,25 @@ def _fraction(value: float, lower: float, upper: float) -> float:
     return (value - lower) / span
 
 
-def project_profile_track(profile: CalibratedGisProfile) -> ProfileTrackProjection:
-    """Keep the physical [0,1] reference and extend it for actual QC outliers.
+def project_profile_track(
+    profile: CalibratedGisProfile, *,
+    visible_md_bounds: tuple[float, float] | None = None,
+) -> ProfileTrackProjection:
+    """Project exact rows into the requested metre-MD viewport.
 
-    No lines join rows; their count or endpoints do not assert coverage.
-    A singleton MD is shown at mid-height. Source order is retained.
+    The horizontal scale includes [0,1] and all actual profile outliers, so
+    panning or zooming never changes the meaning of a plotted value. No lines
+    join rows; their count or endpoints do not assert coverage. A singleton
+    full-profile MD is shown at mid-height. Source order and row IDs persist.
+    A viewport outside the calibrated interval contains no invented rows.
     """
     values = [row.estimate.value for row in profile.rows if row.estimate is not None]
     lower, upper = min(0.0, min(values, default=0.0)), max(1.0, max(values, default=1.0))
-    top, base = profile.md_bounds
+    top, base = profile.md_bounds if visible_md_bounds is None else visible_md_bounds
+    if not (isfinite(top) and isfinite(base)) or top > base or (
+        visible_md_bounds is not None and top == base
+    ):
+        raise ValueError("Profile viewport requires finite ordered MD bounds with positive span")
     points = tuple(
         ProfileTrackPoint(
             index, _fraction(row.md_m, top, base),
@@ -60,6 +71,7 @@ def project_profile_track(profile: CalibratedGisProfile) -> ProfileTrackProjecti
             row.status, row.estimate.quality if row.estimate is not None else None,
         )
         for index, row in enumerate(profile.rows)
+        if top <= row.md_m <= base
     )
     return ProfileTrackProjection((lower, upper), points)
 
@@ -73,6 +85,7 @@ class GisReferenceProfileTrack(QWidget):
         self.profile = profile
         self.localizer = localizer
         self.projection = project_profile_track(profile)
+        self._visible_md_bounds: tuple[float, float] | None = None
         self.selected_row: int | None = None
         self.setObjectName("gis-reference-profile-track")
         self.setMinimumSize(220, 180)
@@ -81,8 +94,19 @@ class GisReferenceProfileTrack(QWidget):
     def sizeHint(self) -> QSize:
         return QSize(340, 420)
 
+    def set_visible_md_bounds(self, bounds: tuple[float, float] | None) -> None:
+        """Set an explicit display window; None restores the whole profile.
+
+        The caller must verify live source/axis before displaying a snapshot.
+        Selection remains an original profile row, even when off-screen.
+        """
+        projection = project_profile_track(self.profile, visible_md_bounds=bounds)
+        self._visible_md_bounds = bounds
+        self.projection = projection
+        self.update()
+
     def select_row(self, row: int | None) -> None:
-        self.selected_row = row if row is not None and 0 <= row < len(self.projection.points) else None
+        self.selected_row = row if row is not None and 0 <= row < len(self.profile.rows) else None
         self.update()
 
     def paintEvent(self, _event: QPaintEvent) -> None:
@@ -96,7 +120,9 @@ class GisReferenceProfileTrack(QWidget):
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             metrics = painter.fontMetrics()
             line_height = float(metrics.height())
-            top_md, base_md = self.profile.md_bounds
+            top_md, base_md = (
+                self.profile.md_bounds if self._visible_md_bounds is None else self._visible_md_bounds
+            )
             top_text, base_text = format(top_md, ".9g"), format(base_md, ".9g")
             left = float(max(metrics.horizontalAdvance(top_text), metrics.horizontalAdvance(base_text))) + 22
             plot = QRectF(left, line_height * 2 + 12, max(1.0, self.width() - left - 14),
@@ -117,9 +143,11 @@ class GisReferenceProfileTrack(QWidget):
             for reference in (0.0, 1.0):
                 x = plot.left() + _fraction(reference, lower, upper) * plot.width()
                 painter.drawLine(QPointF(x, plot.top()), QPointF(x, plot.bottom()))
-            if self.selected_row is not None:
-                point = self.projection.points[self.selected_row]
-                y = plot.top() + point.depth_fraction * plot.height()
+            selected_point = next(
+                (point for point in self.projection.points if point.row_index == self.selected_row), None,
+            )
+            if selected_point is not None:
+                y = plot.top() + selected_point.depth_fraction * plot.height()
                 pen = QPen(highlight, 1.5)
                 painter.setPen(pen)
                 painter.drawLine(QPointF(plot.left() - 14, y), QPointF(plot.right(), y))
