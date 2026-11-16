@@ -1,5 +1,10 @@
 # Единый план проекта
 
+## INTERP-PETRO-01 — глубинный трек проверенного профиля, 16 ноября 2026
+
+- #896 head `a5f5b47a` [43794875802](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43794875802) 3/3 SUCCESS; предыдущий main `61f9a7fd` [43794608693](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43794608693) 3/3 SUCCESS. #896 интегрирован `9a66f234`; [post-merge 43803201314](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43803201314) требует результата. Старый head #896 отменён, не использовался для слияния. #544 открыта.
+- Следующий инкремент: read-only глубинный трек IGR/phiD в окне расчётного профиля, MD вниз, исходные точки без соединения/интерполяции, шкала включает 0–1 и реальные выходы за диапазон, раздельные метки пропуска и невалидного измерения без координаты значения. Выбор строки таблицы подсвечивает MD; QPainter без native PlotItem/menu ownership, тесты проекции и реальной отрисовки RU/KK/EN. Не вставлять derived curve и не изменять основной планшет/проект/LAS; основной планшет и дальнейшие Vsh/Archie — отдельные инкременты, независимая полевая приёмка обязательна.
+
 ## INTERP-PETRO-01 — операторский просмотр профиля, 16 ноября 2026
 
 - #895 head `16c4e364` [43784704624](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43784704624) 3/3 SUCCESS; main `477d4d79` [43776741573](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43776741573) 3/3 SUCCESS. #895 интегрирован `61f9a7fd`; [post-merge 43794608693](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43794608693) требует результата.

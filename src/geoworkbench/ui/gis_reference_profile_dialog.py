@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, QObject, QPersistentModelIndex, QSize, Qt
 from PySide6.QtWidgets import (
-    QDialog, QDialogButtonBox, QHeaderView, QLabel, QTableView, QVBoxLayout, QWidget,
+    QDialog, QDialogButtonBox, QHeaderView, QLabel, QSplitter, QTableView, QVBoxLayout, QWidget,
 )
 
 from geoworkbench.services.gis_reference_calibration import CalibratedGisProfile, GisProfileRowStatus
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.gis_reference_profile_track import GisReferenceProfileTrack
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
@@ -111,9 +112,24 @@ class GisReferenceProfileDialog(QDialog):
         self.table.setModel(self.model)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.table.horizontalHeader().setStretchLastSection(True)
-        layout.addWidget(self.table)
+        splitter = QSplitter(Qt.Orientation.Horizontal, self)
+        splitter.setChildrenCollapsible(False)
+        self.track = GisReferenceProfileTrack(profile, self.localizer, splitter)
+        splitter.addWidget(self.track)
+        splitter.addWidget(self.table)
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 2)
+        splitter.setSizes([300, 620])
+        self.table.selectionModel().currentRowChanged.connect(self._select_track_row)
+        layout.addWidget(splitter)
+        legend = QLabel(self.localizer.text("petro_reference.profile_track_legend"), self)
+        legend.setWordWrap(True)
+        layout.addWidget(legend)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(self.localizer.text("common.close"))
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
-        fit_window_to_screen(self, preferred=QSize(960, 600), minimum=QSize(420, 360))
+        fit_window_to_screen(self, preferred=QSize(1100, 680), minimum=QSize(520, 380))
+
+    def _select_track_row(self, current: QModelIndex, _previous: QModelIndex) -> None:
+        self.track.select_row(current.row() if current.isValid() else None)
