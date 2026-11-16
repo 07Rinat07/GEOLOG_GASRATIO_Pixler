@@ -129,6 +129,8 @@ coverage, calibration, saturation or productivity.
 
 `gamma_ray_index` (`igr-linear-1`): `IGR = (GR - GRclean) / (GRshale - GRclean)`. All three inputs must use the same verified API scale; `GRshale > GRclean`. **Synthetic**, not field, reference example: `GR=65`, `GRclean=25`, `GRshale=125` API → `IGR=0.4` v/v. IGR is **not automatically Vsh**: mineralogy, facies and local reference endpoints need verification. Values outside [0,1] are retained with `outside_reference_range` rather than clipped.
 
+The separate `evaluate_gis_vsh_profile` API (module `gis_vsh_profile`) requires explicit selection of `vsh-gr-linear-1`, a separate reviewer and evidence supporting a linear relationship between GR and shale volume. Vsh = IGR only under that selected model. The source IGR calibration, local API endpoints and MD scope remain mandatory; numerical equality does not make the methods identical. Actual rows, missing values, unclipped results and QC are preserved; an out-of-reference result is not a usable physical fraction. Do not apply automatically to radioactive carbonates or unverified mineralogy. Data-only snapshot, not a new curve, UI/export or field acceptance.
+
 ## Density porosity
 
 `density_porosity` (`density-porosity-1`): `phiD = (rho_matrix - rho_bulk) / (rho_matrix - rho_fluid)`. Densities must be explicitly supplied in g/cm³, with `rho_matrix > rho_fluid > 0`. Synthetic example: `rho_bulk=2.42`, `rho_matrix=2.71`, `rho_fluid=1.0` → `phiD≈0.16959` v/v. Negative or greater-than-one results are retained with `outside_physical_range`, not replaced with zero. Matrix density must not be guessed without rock evidence.
