@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, QObject, QPersistentModelIndex, QSize, Qt
 from PySide6.QtWidgets import (
-    QDialog, QDialogButtonBox, QHeaderView, QLabel, QSplitter, QTableView, QVBoxLayout, QWidget,
+    QDialog, QDialogButtonBox, QHeaderView, QLabel, QPushButton, QSplitter, QTableView, QVBoxLayout, QWidget,
 )
 
 from geoworkbench.services.gis_reference_calibration import CalibratedGisProfile, GisProfileRowStatus
@@ -14,6 +16,14 @@ from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 MAX_PROFILE_PREVIEW_ROWS = 10_000
+
+
+@dataclass(frozen=True, slots=True)
+class GisProfileTabletRequest:
+    """Explicit navigation intent, not permission to create a derived curve."""
+
+    profile: CalibratedGisProfile
+    row_index: int
 
 
 class _ProfileModel(QAbstractTableModel):
@@ -78,8 +88,10 @@ class _ProfileModel(QAbstractTableModel):
 
 class GisReferenceProfileDialog(QDialog):
     def __init__(self, profile: CalibratedGisProfile, parent: QWidget | None = None,
-                 *, language: AppLanguage = AppLanguage.RU) -> None:
+                 *, language: AppLanguage = AppLanguage.RU,
+                 allow_tablet_navigation: bool = False) -> None:
         super().__init__(parent)
+        self.tablet_request: GisProfileTabletRequest | None = None
         self.profile = profile
         self.localizer = Localizer.create(language)
         self.setObjectName("gis-reference-profile-dialog")
@@ -125,6 +137,13 @@ class GisReferenceProfileDialog(QDialog):
         legend = QLabel(self.localizer.text("petro_reference.profile_track_legend"), self)
         legend.setWordWrap(True)
         layout.addWidget(legend)
+        self.open_tablet = QPushButton(self.localizer.text("petro_reference.profile_open_tablet"), self)
+        self.open_tablet.setObjectName("gis-profile-open-tablet")
+        self.open_tablet.setEnabled(False)
+        self.open_tablet.setVisible(allow_tablet_navigation)
+        self.open_tablet.clicked.connect(self._request_tablet)
+        layout.addWidget(self.open_tablet)
+        self._allow_tablet_navigation = allow_tablet_navigation
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(self.localizer.text("common.close"))
         buttons.rejected.connect(self.reject)
@@ -133,3 +152,12 @@ class GisReferenceProfileDialog(QDialog):
 
     def _select_track_row(self, current: QModelIndex, _previous: QModelIndex) -> None:
         self.track.select_row(current.row() if current.isValid() else None)
+        if hasattr(self, "open_tablet"):
+            self.open_tablet.setEnabled(self._allow_tablet_navigation and self.track.selected_row is not None)
+
+    def _request_tablet(self) -> None:
+        row = self.track.selected_row
+        if not self._allow_tablet_navigation or row is None or not 0 <= row < len(self.profile.rows):
+            return
+        self.tablet_request = GisProfileTabletRequest(self.profile, row)
+        self.accept()

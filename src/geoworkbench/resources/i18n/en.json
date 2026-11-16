@@ -2603,6 +2603,8 @@
   "petro_reference.base": "Base MD (m)",
   "petro_reference.calculate": "Evaluate sample",
   "petro_reference.calculate_profile": "Calculate profile…",
+  "petro_reference.profile_open_tablet": "Open selected depth in tablet…",
+  "petro_reference.profile_tablet_unavailable": "Navigation unavailable: the well, dataset, source data or vertical axis changed. Select the same dataset and original MD axis, then recalculate the profile.",
   "petro_reference.profile_track_title": "MD profile",
   "petro_reference.profile_track_axis": "MD, m ↓   |   estimate, v/v",
   "petro_reference.profile_track_legend": "○ valid estimate; × out of range; − missing; + invalid measurement (left gutter, no value coordinate). Points are not connected: continuous coverage is not established. Select a table row to highlight its depth.",

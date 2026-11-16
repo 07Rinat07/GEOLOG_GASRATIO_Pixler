@@ -2603,6 +2603,8 @@
   "petro_reference.base": "Низ MD (m)",
   "petro_reference.calculate": "Проверить отсчёт",
   "petro_reference.calculate_profile": "Рассчитать профиль…",
+  "petro_reference.profile_open_tablet": "Открыть выбранную глубину в планшете…",
+  "petro_reference.profile_tablet_unavailable": "Переход недоступен: скважина, набор, исходные данные или вертикальная ось изменились. Выберите тот же набор и исходную ось MD, затем рассчитайте профиль заново.",
   "petro_reference.profile_track_title": "Профиль по MD",
   "petro_reference.profile_track_axis": "MD, м ↓   |   расчёт, доли ед.",
   "petro_reference.profile_track_legend": "○ — допустимое значение; × — вне диапазона; − — пропуск; + — невалидное измерение (слева, без координаты значения). Точки не соединяются: непрерывное покрытие не доказано. Выбор строки подсвечивает глубину.",
