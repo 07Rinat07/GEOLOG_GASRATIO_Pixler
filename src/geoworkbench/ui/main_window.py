@@ -7769,7 +7769,7 @@ class MainWindow(QMainWindow):
         except (ValueError, TypeError, OverflowError):
             return False
         visible = view.visible_depth_range
-        if visible is None or not view.printable_vertical_range():
+        if visible is None or not view.printable_vertical_range() or not view.printable_tracks():
             return False
         top, bottom = profile.md_bounds
         if top == bottom:

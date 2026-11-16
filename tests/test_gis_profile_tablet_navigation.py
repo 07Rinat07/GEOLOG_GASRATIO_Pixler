@@ -80,7 +80,7 @@ def _window(qapp):
     layout = TabletLayout([
         TrackDefinition("depth", "MD", TrackKind.DEPTH, width=100),
         TrackDefinition("gr", "GR", TrackKind.CURVE, width=240, curve_mnemonics=["GR"]),
-    ], visible_depth_top=100, visible_depth_bottom=102)
+    ], visible_depth_top=100, visible_depth_bottom=101)
     session = ProjectSession(
         project=Project("project", "GIS", wells={well.well_id: well}),
         current_well_id=well.well_id, current_dataset_id=dataset.dataset_id,
@@ -101,6 +101,7 @@ def test_main_tablet_navigates_exact_missing_row_without_source_edits(qapp, monk
         profile = _profile(dataset)
         layout = session.current_tablet_layout
         tracks = tuple(layout.tracks)
+        assert window.tablet_view.visible_depth_range == pytest.approx((100, 101))
         def inspect(dialog):
             dialog.tablet_request = GisProfileTabletRequest(profile, 1)
             return QDialog.DialogCode.Accepted
@@ -108,6 +109,8 @@ def test_main_tablet_navigates_exact_missing_row_without_source_edits(qapp, monk
         window.show_gis_reference_dialog()
         assert window.tablet_view.visible_depth_range == pytest.approx((100, 102))
         assert window.tablet_view.cursor_depth == 101
+        assert (layout.visible_depth_top, layout.visible_depth_bottom) == pytest.approx((100, 102))
+        assert session.dirty
         assert window.cursor_line_action.isChecked()
         assert tuple(layout.tracks) == tracks and set(dataset.curves) == {"selected"}
         np.testing.assert_array_equal(dataset.curves["selected"].values, values)
@@ -151,5 +154,20 @@ def test_main_rejects_stale_or_foreign_handoff_before_viewport_change(qapp, monk
             assert not window._navigate_gis_profile(dataset, request)
         assert (window.tablet_view.visible_depth_range, window.tablet_view.cursor_depth) == before
         assert set(dataset.curves) == {"selected"}
+    finally:
+        window.close()
+
+
+def test_singleton_navigation_keeps_scale_and_moves_to_actual_row(qapp):
+    window, session, dataset = _window(qapp)
+    try:
+        profile = evaluate_gis_reference_profile(
+            dataset, _calibration(dataset), md_top_m=102, md_base_m=102,
+        )
+        assert profile.sample_count == 1 and profile.rows[0].sample_index == 2
+        assert window._navigate_gis_profile(dataset, GisProfileTabletRequest(profile, 0))
+        assert window.tablet_view.visible_depth_range == pytest.approx((101, 102))
+        assert window.tablet_view.cursor_depth == 102
+        assert session.current_tablet_layout.visible_depth_bottom == 102
     finally:
         window.close()
