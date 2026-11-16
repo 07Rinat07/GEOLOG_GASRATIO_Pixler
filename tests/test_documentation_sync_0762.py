@@ -339,6 +339,7 @@ def test_petrophysical_reference_guides_keep_methods_and_operator_scope_in_sync(
         "GisReferenceDialog",
         "petro_reference.action",
         "evaluate_gis_reference_sample",
+        "evaluate_gis_reference_profile",
         "applicability_reference",
         "curve.version",
         "curve_key",
@@ -355,14 +356,25 @@ def test_petrophysical_reference_guides_keep_methods_and_operator_scope_in_sync(
         "kk": "Параметрлерді сақтау және ашу",
         "en": "Saving and opening parameters",
     }
+    profile_headings = {
+        "ru": "Интервальный reference-профиль (data-only)",
+        "kk": "Интервалдық reference-профиль (тек деректер API)",
+        "en": "Interval reference profile (data-only)",
+    }
     for language, heading in detail_headings.items():
         guide = (
             ROOT / "docs" / language / "PETROPHYSICAL_REFERENCE_MODELS.md"
         ).read_text(encoding="utf-8")
         assert all(name in guide for name in names)
-        assert guide.count("\n## ") == 8
+        assert guide.count("\n## ") == 9
         assert guide.count(f"\n## {heading}\n") == 1
         assert guide.count(f"\n## {parameter_headings[language]}\n") == 1
+        assert guide.count(f"\n## {profile_headings[language]}\n") == 1
+        profile = guide.split(f"\n## {profile_headings[language]}\n", 1)[1]
+        assert all(token in profile for token in (
+            "evaluate_gis_reference_profile", "md_top_m", "md_base_m",
+            "MD", "NaN/Inf", "QC", "IGR", "Vsh", "Archie", "LAS", "API", "UI",
+        ))
         assert "JSON" in guide
 
     index = (ROOT / "docs" / "DOCUMENTATION_INDEX.md").read_text(encoding="utf-8")
