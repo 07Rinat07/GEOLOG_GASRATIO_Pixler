@@ -44,8 +44,9 @@ session-local and are not saved; separate parameter records are described below.
 Evidence records an expert attestation, not
 automatic tool applicability certification. NaN, invalid indices and samples
 outside the MD scope are rejected. Controllers must increment curve.version
-for in-place value edits. This is not a batch-loop API: every sample rechecks
-inventory and MD. Archie is not connected.
+for in-place value edits. The scalar API is not a batch-loop API: each call rechecks
+inventory and MD. Use `evaluate_gis_reference_profile` for an interval (see below).
+Archie is not connected.
 
 “Review samples in interval” counts actual values and missing samples of the
 selected curve between the entered MD bounds. Up to ten missing sample depths
@@ -138,8 +139,13 @@ coverage, calibration, saturation or productivity.
 
 ## Quality control and next steps
 
-`valid` means only that the numerical result is admissible for the **supplied** inputs; it does not certify calibration or producibility. Non-finite, zero and inconsistent inputs raise `ValueError`; there are no implicit coefficients, oil/gas cutoffs or LAS value translations. Full interval profiles, combined GIS/GTI/LBA correlation and independent petrophysical/field acceptance remain separate stages. Original sample values and LAS mnemonics remain unchanged. See the [plan](../PROJECT_PLAN.md) and [requirements](../REQUIREMENTS.md).
+`valid` means only that the numerical result is admissible for the **supplied** inputs; it does not certify calibration or producibility. Non-finite, zero and inconsistent inputs raise `ValueError`; there are no implicit coefficients, oil/gas cutoffs or LAS value translations. IGR and density-porosity interval reference profiles are available through the API; their operator UI, Vsh/Sw profiles, combined GIS/GTI/LBA correlation and independent petrophysical/field acceptance remain separate stages. Original sample values and LAS mnemonics remain unchanged. See the [plan](../PROJECT_PLAN.md) and [requirements](../REQUIREMENTS.md).
 
 Before entering calibration, use **Review selected source** after selecting a method and curve. The review explains axis, channel identity/state, family and unit-scale blockers. Passing source checks is not calibration or interpretation approval. Repeat the review after source changes; method/channel changes clear it, and evaluation rechecks the live source. Entered evidence is preserved.
 
 Select the source row beside the method and curve, then review the source to see its actual MD, value and original unit before calibration. The preview uses exactly that row, including descending acquisition order. Missing/non-finite or removed samples are unavailable; no neighboring value is substituted. Changing the selection clears the preview; repeat review to read current data.
+
+
+## Interval reference profile (data-only)
+
+`evaluate_gis_reference_profile(dataset, calibration, md_top_m=..., md_base_m=...)` uses an existing explicit IGR or density-porosity calibration. The closed MD interval must be inside its scope. Results contain actual rows in source order, including descending MD, original index, MD, source value and scalar QC. NaN/Inf are missing, not zero; invalid finite measurements retain their source value without an estimate. Unclipped out-of-range estimates retain their QC and are not usable fractions. An empty interval is not a zero result. The entire live source is verified before and after calculation; changed sources reject the profile. No project/LAS edits, curve insertion or interpolation. This is an API, not new UI; IGR is not Vsh, and Archie and field validation remain separate.
