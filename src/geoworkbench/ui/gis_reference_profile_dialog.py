@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.services.gis_reference_calibration import CalibratedGisProfile, GisProfileRowStatus
+from geoworkbench.services.gis_vsh_profile import GisVshProfile
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.ui.gis_reference_profile_track import GisReferenceProfileTrack
 from geoworkbench.ui.window_geometry import fit_window_to_screen
@@ -30,7 +31,7 @@ class GisProfileTabletRequest:
 class _ProfileModel(QAbstractTableModel):
     """Python value rows, without native-owned per-cell item wrappers."""
 
-    def __init__(self, profile: CalibratedGisProfile, localizer: Localizer, parent: QObject) -> None:
+    def __init__(self, profile: CalibratedGisProfile | GisVshProfile, localizer: Localizer, parent: QObject) -> None:
         super().__init__(parent)
         self.profile = profile
         self.localizer = localizer
@@ -170,3 +171,49 @@ class GisReferenceProfileDialog(QDialog):
             return
         self.tablet_request = GisProfileTabletRequest(self.profile, row, show_profile)
         self.accept()
+
+
+
+class GisVshProfileDialog(QDialog):
+    """Separate Vsh table; no IGR tablet request or saved interpretation."""
+
+    def __init__(self, profile: GisVshProfile, parent: QWidget | None = None,
+                 *, language: AppLanguage = AppLanguage.RU) -> None:
+        super().__init__(parent)
+        self.profile = profile
+        localizer = Localizer.create(language)
+        self.setObjectName("gis-vsh-profile-dialog")
+        self.setWindowTitle(localizer.text("petro_reference.vsh_calculate"))
+        layout = QVBoxLayout(self)
+        context = QLabel(localizer.text(
+            "petro_reference.profile_context", method=profile.method_id,
+            curve=profile.calibration.source.curve_key,
+            calibration=profile.calibration.calibration_id,
+            top=format(profile.md_bounds[0], ".17g"), base=format(profile.md_bounds[1], ".17g"),
+        ), self)
+        context.setTextFormat(Qt.TextFormat.PlainText)
+        context.setWordWrap(True)
+        layout.addWidget(context)
+        evidence = QLabel(
+            localizer.text("petro_reference.vsh_reviewer") + ": " + profile.reviewer
+            + "\n" + localizer.text("petro_reference.vsh_evidence") + ": "
+            + profile.applicability_reference, self,
+        )
+        evidence.setTextFormat(Qt.TextFormat.PlainText)
+        evidence.setWordWrap(True)
+        evidence.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        layout.addWidget(evidence)
+        notice = QLabel(localizer.text("petro_reference.vsh_notice"), self)
+        notice.setWordWrap(True)
+        layout.addWidget(notice)
+        self.table = QTableView(self)
+        self.table.setObjectName("gis-vsh-profile-table")
+        self.model = _ProfileModel(profile, localizer, self.table)
+        self.table.setModel(self.model)
+        self.table.horizontalHeader().setStretchLastSection(True)
+        layout.addWidget(self.table)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
+        buttons.button(QDialogButtonBox.StandardButton.Close).setText(localizer.text("common.close"))
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+        fit_window_to_screen(self, preferred=QSize(850, 620), minimum=QSize(420, 360))

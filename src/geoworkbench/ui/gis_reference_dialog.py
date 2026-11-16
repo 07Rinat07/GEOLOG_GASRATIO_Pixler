@@ -21,6 +21,7 @@ from geoworkbench.services.gis_reference_calibration import (
     create_gis_reference_calibration, evaluate_gis_reference_profile, evaluate_gis_reference_sample,
     validate_gis_reference_calibration,
 )
+from geoworkbench.services.gis_vsh_profile import LINEAR_VSH_METHOD_ID, evaluate_gis_vsh_profile
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.gis_reference_input_review import review_gis_reference_input
 from geoworkbench.services.gis_interval_sample_review import (
@@ -29,7 +30,7 @@ from geoworkbench.services.gis_interval_sample_review import (
 )
 from geoworkbench.ui.gis_input_inventory_dialog import GisInputInventoryDialog
 from geoworkbench.ui.gis_reference_profile_dialog import (
-    GisProfileTabletRequest, GisReferenceProfileDialog, MAX_PROFILE_PREVIEW_ROWS,
+    GisProfileTabletRequest, GisReferenceProfileDialog, GisVshProfileDialog, MAX_PROFILE_PREVIEW_ROWS,
 )
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
@@ -114,6 +115,18 @@ class GisReferenceDialog(QDialog):
         for label, field in zip(self.parameter_labels, self.parameters):
             field.setMaxLength(100)
             form.addRow(label, field)
+        self.vsh_reviewer = QLineEdit(body)
+        self.vsh_reviewer.setMaxLength(200)
+        self.vsh_evidence = QLineEdit(body)
+        self.vsh_evidence.setMaxLength(2000)
+        form.addRow(self._t("vsh_reviewer"), self.vsh_reviewer)
+        form.addRow(self._t("vsh_evidence"), self.vsh_evidence)
+        self.calculate_vsh = QPushButton(self._t("vsh_calculate"), body)
+        self.calculate_vsh.setObjectName("gis-reference-calculate-vsh")
+        form.addRow(self.calculate_vsh)
+        self.calculate_vsh.clicked.connect(self._calculate_vsh)
+        self.method.currentIndexChanged.connect(self._vsh_source_changed)
+        self.channel.currentIndexChanged.connect(self._vsh_source_changed)
         scroll.setWidget(body)
         root.addWidget(scroll)
         self.calculate = QPushButton(self._t("calculate"), self)
@@ -175,6 +188,7 @@ class GisReferenceDialog(QDialog):
         self.save_parameters.clicked.connect(self._save_parameters)
         self.open_parameters.clicked.connect(self._open_parameters)
         self._method_changed()
+        self._vsh_source_changed()
         fit_window_to_screen(self, preferred=QSize(640, 620), minimum=QSize(380, 360))
 
     def _show_inventory(self) -> None:
@@ -527,6 +541,53 @@ class GisReferenceDialog(QDialog):
         ):
             self.tablet_request = request
             self.accept()
+
+    def _vsh_source_changed(self) -> None:
+        self.vsh_reviewer.clear()
+        self.vsh_evidence.clear()
+        self.calculate_vsh.setEnabled(self.method.currentData() == "igr-linear-1")
+
+    def _calculate_vsh(self) -> None:
+        self._set_profile_status("")
+        self.tablet_request = None
+        self._current_sample()
+        dataset = self.dataset
+        method, channel = self.method.currentData(), self.channel.currentData()
+        if method != "igr-linear-1" or not isinstance(channel, str):
+            self._set_profile_status(self._t("selection_required"))
+            return
+        try:
+            if self._loaded_record is not None:
+                validate_gis_calibration_record_source(dataset, self._loaded_record)
+            calibration = self._create_calibration(method, channel)
+            profile = evaluate_gis_vsh_profile(
+                dataset, calibration, method_id=LINEAR_VSH_METHOD_ID,
+                reviewer=self.vsh_reviewer.text(), applicability_reference=self.vsh_evidence.text(),
+                md_top_m=calibration.md_bounds[0], md_base_m=calibration.md_bounds[1],
+                max_rows=MAX_PROFILE_PREVIEW_ROWS,
+            )
+        except GisProfileRowLimitExceeded:
+            self._set_profile_status(self._t("profile_limit", limit=MAX_PROFILE_PREVIEW_ROWS))
+            return
+        except (ValueError, TypeError, OverflowError):
+            self._set_profile_status(self._t("vsh_invalid"))
+            return
+        draft = (self._profile_draft(), self.vsh_reviewer.text(), self.vsh_evidence.text())
+        dialog = GisVshProfileDialog(profile, self, language=self.localizer.language)
+        try:
+            dialog.exec()
+        finally:
+            dialog.deleteLater()
+        try:
+            if self.dataset is not dataset or draft != (
+                self._profile_draft(), self.vsh_reviewer.text(), self.vsh_evidence.text(),
+            ):
+                raise ValueError("Vsh draft or dataset changed during preview")
+            validate_gis_reference_calibration(dataset, calibration)
+        except (ValueError, TypeError, OverflowError):
+            self._invalidate()
+            self._set_profile_status(self._t("vsh_invalid"))
+        self._current_sample()
 
     def _profile_draft(self) -> tuple[object, ...]:
         return (

@@ -1198,3 +1198,62 @@ def test_axis_details_and_qc_share_snapshot_until_reopen(qapp):
     )
     dialog.close()
     reopened.close()
+
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_vsh_preview_requires_separate_evidence_and_preserves_source(qapp, monkeypatch, language):
+    from geoworkbench.ui.gis_reference_profile_dialog import GisVshProfileDialog
+
+    dataset = _dataset()
+    before = dataset.curves["selected"].values.copy()
+    dialog = GisReferenceDialog(dataset, language=language, allow_tablet_navigation=True)
+    seen = []
+
+    def preview(window):
+        seen.append(window.profile)
+        assert window.model.rowCount() == 3
+        assert window.model.data(window.model.index(0, 3)) == "0.4"
+        assert window.model.data(window.model.index(1, 3)) == "—"
+        assert window.model.data(window.model.index(2, 3)) == "1.2"
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(GisVshProfileDialog, "exec", preview)
+    try:
+        _fill(dialog)
+        dialog.calculate_vsh.click()
+        assert not seen and dialog.profile_status.text() == dialog._t("vsh_invalid")
+        dialog.vsh_reviewer.setText("Separate reviewer")
+        dialog.vsh_evidence.setText("Synthetic linear model evidence")
+        dialog.row.setValue(2)
+        dialog.calculate_vsh.click()
+        assert len(seen) == 1 and seen[0].method_id == "vsh-gr-linear-1"
+        assert dialog.sample is None and dialog.tablet_request is None
+        np.testing.assert_array_equal(dataset.curves["selected"].values, before)
+        dialog.method.setCurrentIndex(2)
+        assert not dialog.calculate_vsh.isEnabled()
+        assert not dialog.vsh_evidence.text()
+    finally:
+        dialog.close()
+
+
+def test_vsh_preview_rejects_source_change_during_modal(qapp, monkeypatch):
+    from geoworkbench.ui.gis_reference_profile_dialog import GisVshProfileDialog
+
+    dataset = _dataset()
+    dialog = GisReferenceDialog(dataset)
+
+    def preview(window):
+        dataset.curves["selected"].values[2] += 1.0
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(GisVshProfileDialog, "exec", preview)
+    try:
+        _fill(dialog)
+        dialog.vsh_reviewer.setText("Reviewer")
+        dialog.vsh_evidence.setText("Synthetic evidence")
+        dialog.calculate_vsh.click()
+        assert dialog.profile_status.text() == dialog._t("vsh_invalid")
+        assert dialog.tablet_request is None
+    finally:
+        dialog.close()

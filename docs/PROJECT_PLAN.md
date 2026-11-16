@@ -1,5 +1,10 @@
 # Единый план проекта
 
+## INTERP-PETRO-01 — операторский просмотр Vsh, 16 ноября 2026
+
+- #901 head `2d2dd53a` [43869740385](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43869740385) 3/3 SUCCESS; интегрирован `3a847de8`; [post-merge 43894453302](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43894453302) 3/3 SUCCESS. Временная ветка удалена; #544 открыта.
+- Узкий инкремент: отдельная команда линейного Vsh из IGR-калибровки, отдельные поля рецензента и обоснования, read-only таблица фактических MD/QC с явной маркировкой метода и доказательств, лимит 10 000 строк, проверка источника и черновика после модального окна. RU/KK/EN. Без передачи Vsh как IGR в планшет, сохранения кривых или отчёта. Далее отдельная интеграция Vsh в планшет, Archie и полевая приёмка.
+
 ## INTERP-PETRO-01 — явная линейная методика Vsh, 16 ноября 2026
 
 - #900 head `e65e2f3d` [43852221984](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43852221984) 3/3 SUCCESS; интегрирован `18d59d84`; [post-merge 43860883252](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43860883252) 3/3 SUCCESS. Временная ветка удалена; #544 открыта.
