@@ -1,5 +1,4 @@
 """Archie exact-row data-only contract, independent of GUI and real LAS."""
-from dataclasses import replace
 from math import nan
 import pytest
 
