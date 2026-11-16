@@ -21,8 +21,9 @@ from test_gis_reference_dialog import _fill
 
 
 def _profile(dataset):
+    curve_key = next(iter(dataset.curves))
     return evaluate_gis_reference_profile(
-        dataset, _calibration(dataset), md_top_m=100, md_base_m=102,
+        dataset, _calibration(dataset, curve_key=curve_key), md_top_m=100, md_base_m=102,
     )
 
 
@@ -76,6 +77,11 @@ def test_reference_only_hands_off_current_explicit_accepted_profile(qapp, monkey
 
 def _window(qapp):
     dataset = _dataset()
+    # The service fixture deliberately uses an alias to test source identity.
+    # Real LAS imports and project curves are keyed by their metadata curve ID.
+    # Exercise the full main-window path with that actual storage contract.
+    curve = dataset.curves.pop("selected")
+    dataset.curves[curve.metadata.curve_id] = curve
     well = Well("well", "GIS well", datasets={dataset.dataset_id: dataset})
     layout = TabletLayout([
         TrackDefinition("depth", "MD", TrackKind.DEPTH, width=100),
@@ -96,11 +102,12 @@ def _window(qapp):
 
 def test_main_tablet_navigates_exact_missing_row_without_source_edits(qapp, monkeypatch):
     window, session, dataset = _window(qapp)
-    values, depths = dataset.curves["selected"].values.copy(), dataset.active_index.values.copy()
+    values, depths = dataset.curves["curve-1"].values.copy(), dataset.active_index.values.copy()
     try:
         profile = _profile(dataset)
         layout = session.current_tablet_layout
         tracks = tuple(layout.tracks)
+        assert window.curve_view.selection.curve_ids == ("curve-1",)
         assert window.tablet_view.visible_depth_range == pytest.approx((100, 101))
         def inspect(dialog):
             dialog.tablet_request = GisProfileTabletRequest(profile, 1)
@@ -112,8 +119,8 @@ def test_main_tablet_navigates_exact_missing_row_without_source_edits(qapp, monk
         assert (layout.visible_depth_top, layout.visible_depth_bottom) == pytest.approx((100, 102))
         assert session.dirty
         assert window.cursor_line_action.isChecked()
-        assert tuple(layout.tracks) == tracks and set(dataset.curves) == {"selected"}
-        np.testing.assert_array_equal(dataset.curves["selected"].values, values)
+        assert tuple(layout.tracks) == tracks and set(dataset.curves) == {"curve-1"}
+        np.testing.assert_array_equal(dataset.curves["curve-1"].values, values)
         np.testing.assert_array_equal(dataset.active_index.values, depths)
     finally:
         window.close()
@@ -126,7 +133,7 @@ def test_main_rejects_stale_or_foreign_handoff_before_viewport_change(qapp, monk
         profile = _profile(dataset)
         request = GisProfileTabletRequest(profile, 1)
         if change == "curve":
-            dataset.curves["selected"].values[0] += 1
+            dataset.curves["curve-1"].values[0] += 1
         elif change == "axis":
             axis = DatasetIndex(
                 index_id="tvd", mnemonic="TVD", index_type=IndexType.TVD, role=IndexRole.DEPTH,
@@ -153,7 +160,7 @@ def test_main_rejects_stale_or_foreign_handoff_before_viewport_change(qapp, monk
         else:
             assert not window._navigate_gis_profile(dataset, request)
         assert (window.tablet_view.visible_depth_range, window.tablet_view.cursor_depth) == before
-        assert set(dataset.curves) == {"selected"}
+        assert set(dataset.curves) == {"curve-1"}
     finally:
         window.close()
 
@@ -162,7 +169,7 @@ def test_singleton_navigation_keeps_scale_and_moves_to_actual_row(qapp):
     window, session, dataset = _window(qapp)
     try:
         profile = evaluate_gis_reference_profile(
-            dataset, _calibration(dataset), md_top_m=102, md_base_m=102,
+            dataset, _calibration(dataset, curve_key="curve-1"), md_top_m=102, md_base_m=102,
         )
         assert profile.sample_count == 1 and profile.rows[0].sample_index == 2
         assert window._navigate_gis_profile(dataset, GisProfileTabletRequest(profile, 0))
