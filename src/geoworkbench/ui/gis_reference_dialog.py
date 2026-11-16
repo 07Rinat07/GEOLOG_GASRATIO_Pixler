@@ -122,6 +122,13 @@ class GisReferenceDialog(QDialog):
         self.result_label.setWordWrap(True)
         self.result_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         root.addWidget(self.result_label)
+        self.profile_status = QLabel(self)
+        self.profile_status.setObjectName("gis-reference-profile-status")
+        self.profile_status.setTextFormat(Qt.TextFormat.PlainText)
+        self.profile_status.setWordWrap(True)
+        self.profile_status.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.profile_status.hide()
+        root.addWidget(self.profile_status)
         records = QHBoxLayout()
         self.save_parameters = QPushButton(self._t("save_parameters"), self)
         self.save_parameters.setObjectName("gis-reference-save-parameters")
@@ -276,6 +283,8 @@ class GisReferenceDialog(QDialog):
         self.interval_review_label.setText(summary)
 
     def _invalidate(self) -> None:
+        self.profile_status.clear()
+        self.profile_status.hide()
         self.sample = None
         self.result_label.clear()
         self.save_parameters.setEnabled(False)
@@ -453,7 +462,12 @@ class GisReferenceDialog(QDialog):
             parameters={key: self._number(field) for key, field in zip(names, self.parameters)},
         )
 
+    def _set_profile_status(self, message: str) -> None:
+        self.profile_status.setText(message)
+        self.profile_status.setVisible(bool(message))
+
     def _calculate_profile(self) -> None:
+        self._set_profile_status("")
         # The profile is an explicit separate calculation; a missing selected
         # scalar row must not prevent reviewing other actual rows.
         self._current_sample()
@@ -466,7 +480,7 @@ class GisReferenceDialog(QDialog):
                 return
         method, channel = self.method.currentData(), self.channel.currentData()
         if not isinstance(method, str) or not isinstance(channel, str):
-            self.result_label.setText(self._t("selection_required"))
+            self._set_profile_status(self._t("selection_required"))
             return
         try:
             calibration = self._create_calibration(method, channel)
@@ -475,13 +489,11 @@ class GisReferenceDialog(QDialog):
                 md_base_m=calibration.md_bounds[1], max_rows=MAX_PROFILE_PREVIEW_ROWS,
             )
         except GisProfileRowLimitExceeded:
-            self.result_label.setText(self._t("profile_limit", limit=MAX_PROFILE_PREVIEW_ROWS))
+            self._set_profile_status(self._t("profile_limit", limit=MAX_PROFILE_PREVIEW_ROWS))
             return
         except (ValueError, TypeError, OverflowError):
-            self.result_label.setText(self._t("profile_invalid"))
+            self._set_profile_status(self._t("profile_invalid"))
             return
-        if self.sample is None:
-            self.result_label.clear()
         # A modal result is a read-only point-in-time snapshot. No derived
         # curve, approval, or active scalar sample is created by this action.
         dialog = GisReferenceProfileDialog(profile, self, language=self.localizer.language)
@@ -493,7 +505,7 @@ class GisReferenceDialog(QDialog):
             validate_gis_reference_calibration(self.dataset, calibration)
         except (ValueError, TypeError, OverflowError):
             self._invalidate()
-            self.result_label.setText(self._t("profile_invalid"))
+            self._set_profile_status(self._t("profile_invalid"))
             return
         self._current_sample()
 

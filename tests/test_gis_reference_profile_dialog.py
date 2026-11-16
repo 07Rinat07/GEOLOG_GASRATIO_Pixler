@@ -79,7 +79,7 @@ def test_unavailable_profile_never_opens_partial_preview(qapp, monkeypatch, chan
             monkeypatch.setattr(reference, "MAX_PROFILE_PREVIEW_ROWS", 2)
         dialog.calculate_profile.click()
         expected = dialog._t("profile_limit", limit=2) if change == "limit" else dialog._t("profile_invalid")
-        assert dialog.result_label.text() == expected
+        assert dialog.profile_status.text() == expected
         assert dialog.sample is None
     finally:
         dialog.close()
@@ -102,7 +102,8 @@ def test_modal_source_change_revokes_existing_sample(qapp, monkeypatch):
         dialog.calculate_profile.click()
         assert dialog.sample is None
         assert not dialog.save_parameters.isEnabled()
-        assert dialog.result_label.text() == dialog._t("profile_invalid")
+        assert dialog.profile_status.text() == dialog._t("profile_invalid")
+        assert not dialog.result_label.text()
     finally:
         dialog.close()
 
@@ -139,3 +140,40 @@ def test_invalid_row_budget_is_rejected(limit):
     dataset = _dataset()
     with pytest.raises(ValueError, match="row budget"):
         evaluate_gis_reference_profile(dataset, _calibration(dataset), md_top_m=100, md_base_m=102, max_rows=limit)
+
+
+def test_profile_failure_keeps_scalar_result_and_original_unit_alias(qapp, monkeypatch):
+    from geoworkbench.services.semantic_channels import SemanticChannelDictionary
+    from dataclasses import replace
+
+    dataset = _dataset()
+    curve = dataset.curves["selected"]
+    curve.metadata = replace(
+        curve.metadata, unit="gapi", semantic=SemanticChannelDictionary().resolve("GR", unit="gapi"),
+    )
+    dialog = GisReferenceDialog(dataset, language=AppLanguage.EN)
+    try:
+        _fill(dialog)
+        dialog.calculate.click()
+        sample, scalar_text = dialog.sample, dialog.result_label.text()
+        assert sample is not None
+        monkeypatch.setattr(reference, "MAX_PROFILE_PREVIEW_ROWS", 2)
+        dialog.calculate_profile.click()
+        assert dialog.sample is sample and dialog.result_label.text() == scalar_text
+        assert dialog.profile_status.text() == dialog._t("profile_limit", limit=2)
+        monkeypatch.setattr(reference, "MAX_PROFILE_PREVIEW_ROWS", 3)
+        seen = []
+
+        def inspect(preview):
+            assert preview.model.headerData(2, Qt.Orientation.Horizontal) == dialog._t(
+                "profile_source", unit="gapi",
+            )
+            seen.append(True)
+            return QDialog.DialogCode.Rejected
+
+        monkeypatch.setattr(GisReferenceProfileDialog, "exec", inspect)
+        dialog.calculate_profile.click()
+        assert seen == [True] and not dialog.profile_status.text()
+        assert dialog.sample is sample and dialog.result_label.text() == scalar_text
+    finally:
+        dialog.close()

@@ -22,7 +22,8 @@ class _ProfileModel(QAbstractTableModel):
         super().__init__(parent)
         self.profile = profile
         self.localizer = localizer
-        unit = profile.calibration.source.required_unit
+        source = profile.calibration.source
+        unit = (source.curve.unit if source.curve is not None else None) or source.required_unit
         self.headers = (
             localizer.text("petro_reference.profile_row"),
             localizer.text("petro_reference.profile_md"),
