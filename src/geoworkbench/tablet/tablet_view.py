@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
@@ -95,6 +96,10 @@ from geoworkbench.services.application_logging import log_event, log_exception
 from geoworkbench.services.interval_overlap_index import IntervalOverlapIndex
 from geoworkbench.services.lba_standard import lba_color_code
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.gis_reference_calibration import (
+    CalibratedGisProfile, validate_gis_reference_calibration,
+)
+from geoworkbench.ui.gis_reference_profile_track import GisReferenceProfileTrack
 from geoworkbench.services.gas_curve_presentation import (
     GAS_SCREEN_POINT_SIZE_PX,
     gas_scatter_point_budget,
@@ -2613,6 +2618,26 @@ class TabletView(QWidget):
         charts.addWidget(self._scroll, 1)
         charts.addWidget(self._mini_map, 0)
         charts.addWidget(self._vertical_scrollbar)
+        # Transient screen-only companion, not a saved or printable track.
+        self._gis_profile_host = QWidget(self)
+        self._gis_profile_host.setObjectName("tablet-gis-profile-panel")
+        self._gis_profile_host.setMaximumWidth(360)
+        self._gis_profile_layout = QVBoxLayout(self._gis_profile_host)
+        self._gis_profile_layout.setContentsMargins(6, 4, 6, 4)
+        self._gis_profile_context = QLabel(self._gis_profile_host)
+        self._gis_profile_context.setTextFormat(Qt.TextFormat.PlainText)
+        self._gis_profile_context.setWordWrap(True)
+        self._gis_profile_layout.addWidget(self._gis_profile_context)
+        self._gis_profile_close = QPushButton(self._localizer.text("common.close"), self._gis_profile_host)
+        self._gis_profile_close.clicked.connect(self.clear_gis_profile)
+        self._gis_profile_layout.addWidget(self._gis_profile_close)
+        self._gis_profile_track: GisReferenceProfileTrack | None = None
+        self._gis_profile_context_valid: Callable[[], bool] | None = None
+        self._gis_profile_timer = QTimer(self)
+        self._gis_profile_timer.setInterval(1000)
+        self._gis_profile_timer.timeout.connect(self._sync_gis_profile_panel)
+        self._gis_profile_host.hide()
+        charts.addWidget(self._gis_profile_host)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -2650,6 +2675,90 @@ class TabletView(QWidget):
         root.addWidget(self._curve_pencil_scroll)
         root.addLayout(charts, 1)
         self._sync_screen_controls()
+
+    @property
+    def gis_profile_track(self) -> GisReferenceProfileTrack | None:
+        return self._gis_profile_track
+
+    def _update_gis_profile_context(self) -> None:
+        track = self._gis_profile_track
+        if track is None:
+            return
+        profile = track.profile
+        calibration = profile.calibration
+        self._gis_profile_context.setText(self._localizer.text(
+            "petro_reference.profile_context", method=calibration.source.method_id,
+            curve=calibration.source.curve_key, calibration=calibration.calibration_id,
+            top=format(profile.md_bounds[0], ".17g"), base=format(profile.md_bounds[1], ".17g"),
+        ) + "\n" + self._localizer.text("petro_reference.profile_panel_notice"))
+        self._gis_profile_close.setText(self._localizer.text("common.close"))
+        track.localizer = self._localizer
+        track.setAccessibleName(self._localizer.text("petro_reference.profile_track_title"))
+        track.update()
+
+    def show_gis_profile(self, profile: CalibratedGisProfile,
+                         context_valid: Callable[[], bool]) -> bool:
+        """Explicit, transient display; never insert a persistent track or curve."""
+        if self._dataset is None or not context_valid():
+            return False
+        if self.vertical_index_id != profile.calibration.source.axis_id:
+            return False
+        bounds = self.visible_depth_range
+        if bounds is None or not bounds[0] < bounds[1]:
+            return False
+        try:
+            validate_gis_reference_calibration(self._dataset, profile.calibration)
+        except (ValueError, TypeError, OverflowError, KeyError):
+            return False
+        self.clear_gis_profile()
+        track = GisReferenceProfileTrack(profile, self._localizer, self._gis_profile_host)
+        track.set_visible_md_bounds(bounds)
+        self._gis_profile_track = track
+        self._gis_profile_context_valid = context_valid
+        self._gis_profile_layout.insertWidget(1, track, 1)
+        self._update_gis_profile_context()
+        self._gis_profile_host.show()
+        self._sync_gis_profile_panel()
+        if self._gis_profile_track is not None:
+            self._gis_profile_timer.start()
+            return True
+        return False
+
+    def clear_gis_profile(self) -> None:
+        self._gis_profile_timer.stop()
+        track = self._gis_profile_track
+        self._gis_profile_track = None
+        self._gis_profile_context_valid = None
+        self._gis_profile_host.hide()
+        if track is not None:
+            self._gis_profile_layout.removeWidget(track)
+            track.hide()
+            track.deleteLater()
+
+    def _sync_gis_profile_panel(self) -> None:
+        track = self._gis_profile_track
+        if track is None:
+            return
+        dataset = self._dataset
+        valid = self._gis_profile_context_valid
+        bounds = self.visible_depth_range
+        if (dataset is None or valid is None or not valid()
+                or self.vertical_index_id != track.profile.calibration.source.axis_id
+                or bounds is None or not bounds[0] < bounds[1]):
+            self.clear_gis_profile()
+            return
+        try:
+            validate_gis_reference_calibration(dataset, track.profile.calibration)
+            if track._visible_md_bounds != bounds:
+                track.set_visible_md_bounds(bounds)
+        except (ValueError, TypeError, OverflowError, KeyError):
+            self.clear_gis_profile()
+            return
+        # Exact MD only, including missing values. No nearest-row substitution.
+        selected = next((i for i, row in enumerate(track.profile.rows)
+                         if self._cursor_enabled and row.md_m == self._cursor_depth), None)
+        if selected != track.selected_row:
+            track.select_row(selected)
 
     def _compact_screen(self) -> bool:
         if self.property("geoworkbench-print-clone") or not hasattr(self, "_screen_density"):
@@ -2812,6 +2921,7 @@ class TabletView(QWidget):
         # and crash in PlotItem.__init__ (0xC0000005). Only captions, tooltips
         # and localized overlays change; data/curve geometry stays untouched.
         self._retranslate_rendered_view()
+        self._update_gis_profile_context()
         self._sync_screen_controls()
         self._resize_restore_timer.start(0)
 
@@ -2993,6 +3103,7 @@ class TabletView(QWidget):
         if not changed:
             return False
         self._cursor_depth = None
+        self.clear_gis_profile()
         self.refresh_view()
         if emit_signal:
             self.vertical_index_changed.emit(index_id)
@@ -5512,6 +5623,8 @@ class TabletView(QWidget):
         return top, bottom
 
     def _replace_dataset_reference(self, dataset: Dataset | None) -> None:
+        if dataset is not self._dataset:
+            self.clear_gis_profile()
         previous_id = self._dataset.dataset_id if self._dataset is not None else None
         next_id = dataset.dataset_id if dataset is not None else None
         if previous_id != next_id:
@@ -6270,6 +6383,7 @@ class TabletView(QWidget):
                 self.set_cursor_depth(sum(depth_range) / 2.0)
         elif enabled and self._cursor_depth is not None:
             self._update_cursor_labels(self._cursor_depth)
+        self._sync_gis_profile_panel()
 
     def set_cursor_depth(self, depth: float) -> None:
         if self._dataset is None or not np.isfinite(depth):
@@ -6291,6 +6405,7 @@ class TabletView(QWidget):
             self._cursor_guard = False
         self._update_cursor_labels(bounded)
         self.cursor_changed.emit(bounded, self.cursor_summary(bounded))
+        self._sync_gis_profile_panel()
 
     def set_cursor_style(self, color: str, width: float) -> None:
         if not pg.mkColor(color).isValid():
@@ -6752,6 +6867,7 @@ class TabletView(QWidget):
 
 
     def clear(self) -> None:
+        self.clear_gis_profile()
         # A full widget-tree rebuild invalidates the active track and all header
         # editors.  Leave pencil mode before disposal instead of carrying stale
         # Qt references into the next form.  Data-only pencil updates use
@@ -8886,6 +9002,7 @@ class TabletView(QWidget):
         # scroll/zoom together with their depth or time coordinate.
         self._refresh_annotation_overlay_anchors()
         self._update_navigation_controls()
+        self._sync_gis_profile_panel()
         return changed
 
     def _vertical_index(self) -> DatasetIndex | None:
@@ -12052,5 +12169,6 @@ class TabletView(QWidget):
             # as well. Otherwise their boxes stay at stale screen coordinates.
             self._refresh_annotation_overlay_anchors()
             self._update_navigation_controls()
+            self._sync_gis_profile_panel()
         finally:
             self._sync_guard = False

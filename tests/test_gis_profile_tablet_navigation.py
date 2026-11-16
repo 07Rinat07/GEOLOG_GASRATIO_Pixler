@@ -178,3 +178,80 @@ def test_singleton_navigation_keeps_scale_and_moves_to_actual_row(qapp):
         assert session.current_tablet_layout.visible_depth_bottom == 102
     finally:
         window.close()
+
+
+
+@pytest.mark.parametrize("language", tuple(AppLanguage))
+def test_explicit_panel_request_is_distinct_from_navigation(qapp, language):
+    dataset = _dataset()
+    profile = _profile(dataset)
+    dialog = GisReferenceProfileDialog(profile, language=language, allow_tablet_navigation=True)
+    try:
+        assert not dialog.show_in_tablet.isEnabled()
+        dialog.table.setCurrentIndex(dialog.model.index(1, 2))
+        assert dialog.show_in_tablet.isEnabled()
+        dialog.show_in_tablet.click()
+        assert dialog.tablet_request == GisProfileTabletRequest(profile, 1, True)
+    finally:
+        dialog.close()
+
+
+def test_panel_syncs_md_and_cursor_without_persistent_tracks(qapp, monkeypatch):
+    window, session, dataset = _window(qapp)
+    values, depths = dataset.curves["curve-1"].values.copy(), dataset.active_index.values.copy()
+    try:
+        layout = session.current_tablet_layout
+        tracks = tuple(layout.tracks)
+        profile = _profile(dataset)
+        view = window.tablet_view
+        def inspect(dialog):
+            dialog.tablet_request = GisProfileTabletRequest(profile, 1, True)
+            return QDialog.DialogCode.Accepted
+        monkeypatch.setattr(GisReferenceDialog, "exec", inspect)
+        window.show_gis_reference_dialog()
+        panel = view.gis_profile_track
+        assert panel is not None and panel.profile is profile
+        assert panel.selected_row == 1
+        assert panel.projection.points[1].value_fraction is None
+        view.set_visible_depth(101, 102)
+        assert tuple(point.row_index for point in panel.projection.points) == (1, 2)
+        view.set_cursor_depth(102)
+        assert panel.selected_row == 2
+        view.set_cursor_enabled(False)
+        assert panel.selected_row is None
+        assert not panel.grab().toImage().isNull()
+        assert tuple(layout.tracks) == tracks and set(dataset.curves) == {"curve-1"}
+        np.testing.assert_array_equal(dataset.curves["curve-1"].values, values)
+        np.testing.assert_array_equal(dataset.active_index.values, depths)
+        view._gis_profile_close.click()
+        assert view.gis_profile_track is None
+        assert not view._gis_profile_timer.isActive()
+    finally:
+        window.close()
+
+
+@pytest.mark.parametrize("change", ("source", "axis", "well", "rebuild"))
+def test_panel_discards_stale_context(qapp, change):
+    window, session, dataset = _window(qapp)
+    try:
+        view = window.tablet_view
+        assert window._navigate_gis_profile(dataset, GisProfileTabletRequest(_profile(dataset), 1, True))
+        assert view.gis_profile_track is not None
+        if change == "source":
+            dataset.curves["curve-1"].values[0] += 1
+            view._sync_gis_profile_panel()
+        elif change == "axis":
+            dataset.add_index(DatasetIndex(
+                index_id="tvd", mnemonic="TVD", index_type=IndexType.TVD, role=IndexRole.DEPTH,
+                unit="m", values=np.array([90., 91., 92.]),
+            ))
+            view.set_vertical_index("tvd")
+        elif change == "well":
+            session.current_well_id = None
+            view._sync_gis_profile_panel()
+        else:
+            view.refresh_view()
+        assert view.gis_profile_track is None
+        assert not view._gis_profile_timer.isActive()
+    finally:
+        window.close()

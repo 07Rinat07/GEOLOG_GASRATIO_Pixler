@@ -2604,6 +2604,8 @@
   "petro_reference.calculate": "Evaluate sample",
   "petro_reference.calculate_profile": "Calculate profile…",
   "petro_reference.profile_open_tablet": "Open selected depth in tablet…",
+  "petro_reference.profile_show_tablet": "Show profile in tablet…",
+  "petro_reference.profile_panel_notice": "Temporary profile with its own MD scale. Not saved or printed. Source checked on navigation and every second.",
   "petro_reference.profile_tablet_unavailable": "Navigation unavailable: the well, dataset, source data or vertical axis changed. Select the same dataset and original MD axis, then recalculate the profile.",
   "petro_reference.profile_track_title": "MD profile",
   "petro_reference.profile_track_axis": "MD, m ↓   |   estimate, v/v",
