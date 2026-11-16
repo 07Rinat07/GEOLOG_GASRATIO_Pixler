@@ -17,7 +17,9 @@ from geoworkbench.services.gis_calibration_records import (
     validate_gis_calibration_record_source,
 )
 from geoworkbench.services.gis_reference_calibration import (
-    CalibratedGisSample, create_gis_reference_calibration, evaluate_gis_reference_sample,
+    CalibratedGisSample, GisProfileRowLimitExceeded, GisReferenceCalibration,
+    create_gis_reference_calibration, evaluate_gis_reference_profile, evaluate_gis_reference_sample,
+    validate_gis_reference_calibration,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.gis_reference_input_review import review_gis_reference_input
@@ -26,6 +28,7 @@ from geoworkbench.services.gis_interval_sample_review import (
     review_gis_source_interval_samples,
 )
 from geoworkbench.ui.gis_input_inventory_dialog import GisInputInventoryDialog
+from geoworkbench.ui.gis_reference_profile_dialog import GisReferenceProfileDialog, MAX_PROFILE_PREVIEW_ROWS
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
@@ -111,6 +114,9 @@ class GisReferenceDialog(QDialog):
         root.addWidget(scroll)
         self.calculate = QPushButton(self._t("calculate"), self)
         root.addWidget(self.calculate)
+        self.calculate_profile = QPushButton(self._t("calculate_profile"), self)
+        self.calculate_profile.setObjectName("gis-reference-calculate-profile")
+        root.addWidget(self.calculate_profile)
         self.result_label = QLabel(self)
         self.result_label.setTextFormat(Qt.TextFormat.PlainText)
         self.result_label.setWordWrap(True)
@@ -146,6 +152,7 @@ class GisReferenceDialog(QDialog):
         for field in (*self.fields.values(), *self.parameters):
             field.textChanged.connect(self._discard_record)
         self.calculate.clicked.connect(self._calculate)
+        self.calculate_profile.clicked.connect(self._calculate_profile)
         self.review_source.clicked.connect(self._review_source)
         self.review_interval.clicked.connect(self._review_interval)
         self.review_source_interval.clicked.connect(self._review_source_interval)
@@ -434,6 +441,62 @@ class GisReferenceDialog(QDialog):
                 if method == "density-porosity-1"
                 else ("clean_reference_api", "shale_reference_api"))
 
+    def _create_calibration(self, method: str, channel: str) -> GisReferenceCalibration:
+        names = self._parameter_names(method)
+        return create_gis_reference_calibration(
+            self.dataset, method_id=method, curve_key=channel,
+            calibration_id=self.fields["calibration_id"].text(),
+            tool_id=self.fields["tool_id"].text(), reviewer=self.fields["reviewer"].text(),
+            applicability_reference=self.fields["evidence"].text(),
+            md_top_m=self._number(self.fields["top"]),
+            md_base_m=self._number(self.fields["base"]),
+            parameters={key: self._number(field) for key, field in zip(names, self.parameters)},
+        )
+
+    def _calculate_profile(self) -> None:
+        # The profile is an explicit separate calculation; a missing selected
+        # scalar row must not prevent reviewing other actual rows.
+        self._current_sample()
+        if self._loaded_record is not None:
+            try:
+                validate_gis_calibration_record_source(self.dataset, self._loaded_record)
+            except (ValueError, TypeError, OverflowError):
+                self._invalidate()
+                self.record_status.setText(self._t("parameters_invalid"))
+                return
+        method, channel = self.method.currentData(), self.channel.currentData()
+        if not isinstance(method, str) or not isinstance(channel, str):
+            self.result_label.setText(self._t("selection_required"))
+            return
+        try:
+            calibration = self._create_calibration(method, channel)
+            profile = evaluate_gis_reference_profile(
+                self.dataset, calibration, md_top_m=calibration.md_bounds[0],
+                md_base_m=calibration.md_bounds[1], max_rows=MAX_PROFILE_PREVIEW_ROWS,
+            )
+        except GisProfileRowLimitExceeded:
+            self.result_label.setText(self._t("profile_limit", limit=MAX_PROFILE_PREVIEW_ROWS))
+            return
+        except (ValueError, TypeError, OverflowError):
+            self.result_label.setText(self._t("profile_invalid"))
+            return
+        if self.sample is None:
+            self.result_label.clear()
+        # A modal result is a read-only point-in-time snapshot. No derived
+        # curve, approval, or active scalar sample is created by this action.
+        dialog = GisReferenceProfileDialog(profile, self, language=self.localizer.language)
+        try:
+            dialog.exec()
+        finally:
+            dialog.deleteLater()
+        try:
+            validate_gis_reference_calibration(self.dataset, calibration)
+        except (ValueError, TypeError, OverflowError):
+            self._invalidate()
+            self.result_label.setText(self._t("profile_invalid"))
+            return
+        self._current_sample()
+
     def _calculate(self) -> None:
         if self._loaded_record is not None:
             try:
@@ -448,17 +511,8 @@ class GisReferenceDialog(QDialog):
         if not isinstance(method, str) or not isinstance(channel, str):
             self.result_label.setText(self._t("selection_required"))
             return
-        names = self._parameter_names(method)
         try:
-            calibration = create_gis_reference_calibration(
-                self.dataset, method_id=method, curve_key=channel,
-                calibration_id=self.fields["calibration_id"].text(),
-                tool_id=self.fields["tool_id"].text(), reviewer=self.fields["reviewer"].text(),
-                applicability_reference=self.fields["evidence"].text(),
-                md_top_m=self._number(self.fields["top"]),
-                md_base_m=self._number(self.fields["base"]),
-                parameters={key: self._number(field) for key, field in zip(names, self.parameters)},
-            )
+            calibration = self._create_calibration(method, channel)
             sample = evaluate_gis_reference_sample(
                 self.dataset, calibration, sample_index=self.row.value() - 1,
             )
