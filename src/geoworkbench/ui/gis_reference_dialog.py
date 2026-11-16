@@ -28,16 +28,20 @@ from geoworkbench.services.gis_interval_sample_review import (
     review_gis_source_interval_samples,
 )
 from geoworkbench.ui.gis_input_inventory_dialog import GisInputInventoryDialog
-from geoworkbench.ui.gis_reference_profile_dialog import GisReferenceProfileDialog, MAX_PROFILE_PREVIEW_ROWS
+from geoworkbench.ui.gis_reference_profile_dialog import (
+    GisProfileTabletRequest, GisReferenceProfileDialog, MAX_PROFILE_PREVIEW_ROWS,
+)
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class GisReferenceDialog(QDialog):
     def __init__(
         self, dataset: Dataset, parent: QWidget | None = None,
-        *, language: AppLanguage = AppLanguage.RU,
+        *, language: AppLanguage = AppLanguage.RU, allow_tablet_navigation: bool = False,
     ) -> None:
         super().__init__(parent)
+        self._allow_tablet_navigation = allow_tablet_navigation
+        self.tablet_request: GisProfileTabletRequest | None = None
         self.dataset = dataset
         self.localizer = Localizer.create(language)
         self.sample: CalibratedGisSample | None = None
@@ -468,6 +472,7 @@ class GisReferenceDialog(QDialog):
 
     def _calculate_profile(self) -> None:
         self._set_profile_status("")
+        self.tablet_request = None
         # The profile is an explicit separate calculation; a missing selected
         # scalar row must not prevent reviewing other actual rows.
         self._current_sample()
@@ -496,18 +501,39 @@ class GisReferenceDialog(QDialog):
             return
         # A modal result is a read-only point-in-time snapshot. No derived
         # curve, approval, or active scalar sample is created by this action.
-        dialog = GisReferenceProfileDialog(profile, self, language=self.localizer.language)
+        dataset = self.dataset
+        draft = self._profile_draft()
+        dialog = GisReferenceProfileDialog(
+            profile, self, language=self.localizer.language,
+            allow_tablet_navigation=self._allow_tablet_navigation,
+        )
         try:
-            dialog.exec()
+            accepted = dialog.exec() == QDialog.DialogCode.Accepted
+            request = dialog.tablet_request if accepted else None
         finally:
             dialog.deleteLater()
         try:
+            if self.dataset is not dataset or draft != self._profile_draft():
+                raise ValueError("Profile draft or dataset changed during preview")
             validate_gis_reference_calibration(self.dataset, calibration)
         except (ValueError, TypeError, OverflowError):
             self._invalidate()
             self._set_profile_status(self._t("profile_invalid"))
             return
         self._current_sample()
+        if (
+            self._allow_tablet_navigation and request is not None
+            and request.profile is profile and 0 <= request.row_index < len(profile.rows)
+        ):
+            self.tablet_request = request
+            self.accept()
+
+    def _profile_draft(self) -> tuple[object, ...]:
+        return (
+            self.method.currentData(), self.channel.currentData(),
+            tuple(field.text() for field in self.fields.values()),
+            tuple(field.text() for field in self.parameters),
+        )
 
     def _calculate(self) -> None:
         if self._loaded_record is not None:

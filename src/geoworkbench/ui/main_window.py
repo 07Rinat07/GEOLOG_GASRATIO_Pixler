@@ -299,6 +299,8 @@ from geoworkbench.ui.form_create_dialog import FormCreateDialog
 from geoworkbench.ui.constructor_dialog import UniversalConstructorDialog
 from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
 from geoworkbench.ui.gis_reference_dialog import GisReferenceDialog
+from geoworkbench.ui.gis_reference_profile_dialog import GisProfileTabletRequest
+from geoworkbench.services.gis_reference_calibration import validate_gis_reference_calibration
 from geoworkbench.ui.lithology_mapping_dialog import LithologyMappingDialog
 from geoworkbench.ui.custom_formula_dialog import CustomFormulaDialog
 from geoworkbench.ui.depth_annotations_dialog import DepthAnnotationsDialog
@@ -7727,7 +7729,70 @@ class MainWindow(QMainWindow):
                 self, self._t("petro_reference.action"), self._t(message_key),
             )
             return
-        GisReferenceDialog(dataset, self, language=self.language).exec()
+        well = self.session.current_well
+        dialog = GisReferenceDialog(
+            dataset, self, language=self.language, allow_tablet_navigation=True,
+        )
+        try:
+            accepted = dialog.exec() == QDialog.DialogCode.Accepted
+            request = dialog.tablet_request if accepted else None
+        finally:
+            dialog.deleteLater()
+        if request is not None:
+            if self.session.current_well is not well or not self._navigate_gis_profile(dataset, request):
+                QMessageBox.information(
+                    self, self._t("petro_reference.action"), self._t("petro_reference.profile_tablet_unavailable"),
+                )
+
+    def _navigate_gis_profile(self, dataset: Dataset, request: GisProfileTabletRequest) -> bool:
+        """Navigate only the same verified MD axis; no curve/layout track insertion."""
+        view = self.tablet_view
+        layout = self.session.current_tablet_layout
+        profile = request.profile
+        if (
+            self.session.current_dataset is not dataset or view._dataset is not dataset
+            or layout is None or view.layout_model is not layout
+            or view.vertical_index_id != profile.calibration.source.axis_id
+            or not 0 <= request.row_index < len(profile.rows)
+        ):
+            return False
+        row = profile.rows[request.row_index]
+        try:
+            validate_gis_reference_calibration(dataset, profile.calibration)
+            depths = dataset.active_index.values
+            if (
+                not 0 <= row.sample_index < len(depths)
+                or float(depths[row.sample_index]) != row.md_m
+                or not profile.md_bounds[0] <= row.md_m <= profile.md_bounds[1]
+            ):
+                return False
+        except (ValueError, TypeError, OverflowError):
+            return False
+        visible = view.visible_depth_range
+        if visible is None or not view.printable_vertical_range():
+            return False
+        top, bottom = profile.md_bounds
+        if top == bottom:
+            # A single row has no interval thickness. Keep the current scale,
+            # moving it only when the selected MD is outside the viewport.
+            if visible[0] <= row.md_m <= visible[1]:
+                top, bottom = visible
+            else:
+                half_span = (visible[1] - visible[0]) / 2
+                top, bottom = row.md_m - half_span, row.md_m + half_span
+        top, bottom = view._normalize_depth_window(top, bottom)
+        if not top < bottom:
+            return False
+        self._show_workspace(view)
+        changed = self.tablet_controller.set_visible_depth(top, bottom)
+        view.set_visible_depth(top, bottom)
+        # This explicit command shows the same existing cursor used by the
+        # tablet, including when the selected source value is missing.
+        self.cursor_line_action.setChecked(True)
+        view.set_cursor_depth(row.md_m)
+        if changed:
+            self._update_title()
+        return True
 
     def show_formula_profiles(self) -> None:
         dataset = self.session.current_dataset
