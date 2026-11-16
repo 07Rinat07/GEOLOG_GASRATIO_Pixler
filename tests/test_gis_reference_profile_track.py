@@ -100,3 +100,90 @@ def test_real_track_renders_and_table_selection_identifies_exact_row(qapp, langu
         assert dialog.profile is profile
     finally:
         dialog.close()
+
+
+
+@pytest.mark.parametrize("density", (False, True))
+@pytest.mark.parametrize("descending", (False, True))
+def test_viewport_retains_actual_row_identity_and_full_profile_value_scale(density, descending):
+    dataset = _dataset(density)
+    if descending:
+        dataset.active_index.values[:] = [102, 101, 100]
+    values = dataset.curves["selected"].values.copy()
+    depths = dataset.active_index.values.copy()
+    profile = evaluate_gis_reference_profile(
+        dataset, _calibration(dataset, density), md_top_m=100, md_base_m=102,
+    )
+    whole = project_profile_track(profile)
+    visible = project_profile_track(profile, visible_md_bounds=(100.5, 102.5))
+    expected_rows = (0, 1) if descending else (1, 2)
+    assert tuple(point.row_index for point in visible.points) == expected_rows
+    for point in visible.points:
+        original = whole.points[point.row_index]
+        assert point.depth_fraction == pytest.approx(
+            (profile.rows[point.row_index].md_m - 100.5) / 2,
+        )
+        assert point.value_fraction == original.value_fraction
+        assert point.status is original.status and point.quality is original.quality
+    assert visible.value_bounds == whole.value_bounds
+    missing = next(point for point in visible.points if point.row_index == 1)
+    assert missing.status is GisProfileRowStatus.MISSING_SOURCE
+    assert missing.value_fraction is None
+    assert project_profile_track(profile, visible_md_bounds=(90, 99)).points == ()
+    assert project_profile_track(profile, visible_md_bounds=(100.1, 100.9)).points == ()
+    np.testing.assert_array_equal(dataset.curves["selected"].values, values)
+    np.testing.assert_array_equal(dataset.active_index.values, depths)
+
+
+@pytest.mark.parametrize("bounds", ((101, 100), (100, 100), (float("nan"), 102),
+                                    (100, float("inf"))))
+def test_invalid_viewport_refused(bounds):
+    dataset = _dataset()
+    profile = evaluate_gis_reference_profile(
+        dataset, _calibration(dataset), md_top_m=100, md_base_m=102,
+    )
+    with pytest.raises(ValueError, match="viewport"):
+        project_profile_track(profile, visible_md_bounds=bounds)
+
+
+def test_singleton_uses_viewport_coordinate_not_profile_midpoint():
+    dataset = _dataset()
+    profile = evaluate_gis_reference_profile(
+        dataset, _calibration(dataset), md_top_m=102, md_base_m=102,
+    )
+    assert project_profile_track(profile).points[0].depth_fraction == 0.5
+    point = project_profile_track(profile, visible_md_bounds=(100, 104)).points[0]
+    assert point.depth_fraction == 0.5
+    point = project_profile_track(profile, visible_md_bounds=(101, 102)).points[0]
+    assert point.depth_fraction == 1.0
+    assert point.row_index == 0
+
+
+def test_real_track_viewport_keeps_offscreen_selection_and_restores_full_profile(qapp):
+    dataset = _dataset()
+    profile = evaluate_gis_reference_profile(
+        dataset, _calibration(dataset), md_top_m=100, md_base_m=102,
+    )
+    dialog = GisReferenceProfileDialog(profile)
+    try:
+        dialog.show()
+        qapp.processEvents()
+        track = dialog.track
+        track.select_row(2)
+        track.set_visible_md_bounds((99, 101))
+        assert track.selected_row == 2
+        assert tuple(point.row_index for point in track.projection.points) == (0, 1)
+        assert not track.grab().toImage().isNull()
+        track.set_visible_md_bounds((101, 103))
+        assert track.selected_row == 2
+        assert tuple(point.row_index for point in track.projection.points) == (1, 2)
+        assert not track.grab().toImage().isNull()
+        with pytest.raises(ValueError):
+            track.set_visible_md_bounds((103, 101))
+        assert tuple(point.row_index for point in track.projection.points) == (1, 2)
+        track.set_visible_md_bounds(None)
+        assert track.selected_row == 2
+        assert len(track.projection.points) == 3
+        assert not track.grab().toImage().isNull()
+    finally:
+        dialog.close()
