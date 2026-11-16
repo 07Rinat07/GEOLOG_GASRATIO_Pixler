@@ -132,6 +132,12 @@ def evaluate_archie_rows(
             output.append(ArchieProfileRow(row.sample_index, md, ArchieRowStatus.ESTIMATED, estimate))
     bounds = (min(rows[0].md_m, rows[-1].md_m), max(rows[0].md_m, rows[-1].md_m))
     return ArchieProfile(
-        ARCHIE_PROFILE_METHOD_ID, *(value.strip() for value in evidence),
-        bounds, tuple(output),
+        method_id=ARCHIE_PROFILE_METHOD_ID,
+        reviewer=reviewer.strip(),
+        applicability_reference=applicability_reference.strip(),
+        porosity_source=porosity_source.strip(),
+        resistivity_source=resistivity_source.strip(),
+        water_resistivity_reference=water_resistivity_reference.strip(),
+        md_bounds=bounds,
+        rows=tuple(output),
     )
