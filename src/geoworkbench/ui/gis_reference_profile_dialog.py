@@ -24,6 +24,7 @@ class GisProfileTabletRequest:
 
     profile: CalibratedGisProfile
     row_index: int
+    show_profile: bool = False
 
 
 class _ProfileModel(QAbstractTableModel):
@@ -143,6 +144,12 @@ class GisReferenceProfileDialog(QDialog):
         self.open_tablet.setVisible(allow_tablet_navigation)
         self.open_tablet.clicked.connect(self._request_tablet)
         layout.addWidget(self.open_tablet)
+        self.show_in_tablet = QPushButton(self.localizer.text("petro_reference.profile_show_tablet"), self)
+        self.show_in_tablet.setObjectName("gis-profile-show-tablet")
+        self.show_in_tablet.setEnabled(False)
+        self.show_in_tablet.setVisible(allow_tablet_navigation)
+        self.show_in_tablet.clicked.connect(lambda _checked=False: self._request_tablet(show_profile=True))
+        layout.addWidget(self.show_in_tablet)
         self._allow_tablet_navigation = allow_tablet_navigation
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(self.localizer.text("common.close"))
@@ -152,12 +159,14 @@ class GisReferenceProfileDialog(QDialog):
 
     def _select_track_row(self, current: QModelIndex, _previous: QModelIndex) -> None:
         self.track.select_row(current.row() if current.isValid() else None)
-        if hasattr(self, "open_tablet"):
-            self.open_tablet.setEnabled(self._allow_tablet_navigation and self.track.selected_row is not None)
+        if hasattr(self, "show_in_tablet"):
+            enabled = self._allow_tablet_navigation and self.track.selected_row is not None
+            self.open_tablet.setEnabled(enabled)
+            self.show_in_tablet.setEnabled(enabled)
 
-    def _request_tablet(self) -> None:
+    def _request_tablet(self, *, show_profile: bool = False) -> None:
         row = self.track.selected_row
         if not self._allow_tablet_navigation or row is None or not 0 <= row < len(self.profile.rows):
             return
-        self.tablet_request = GisProfileTabletRequest(self.profile, row)
+        self.tablet_request = GisProfileTabletRequest(self.profile, row, show_profile)
         self.accept()

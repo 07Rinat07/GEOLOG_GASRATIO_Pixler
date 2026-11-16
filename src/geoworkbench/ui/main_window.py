@@ -7792,6 +7792,15 @@ class MainWindow(QMainWindow):
         view.set_cursor_depth(row.md_m)
         if changed:
             self._update_title()
+        if request.show_profile:
+            session = self.session
+            well = session.current_well
+            return view.show_gis_profile(
+                profile,
+                lambda: (self.session is session and session.current_well is well
+                         and session.current_dataset is dataset
+                         and session.current_tablet_layout is layout),
+            )
         return True
 
     def show_formula_profiles(self) -> None:

@@ -2604,6 +2604,8 @@
   "petro_reference.calculate": "Проверить отсчёт",
   "petro_reference.calculate_profile": "Рассчитать профиль…",
   "petro_reference.profile_open_tablet": "Открыть выбранную глубину в планшете…",
+  "petro_reference.profile_show_tablet": "Показать профиль в планшете…",
+  "petro_reference.profile_panel_notice": "Временный профиль, собственная шкала MD. Не сохраняется и не печатается. Источник проверяется при навигации и каждую секунду.",
   "petro_reference.profile_tablet_unavailable": "Переход недоступен: скважина, набор, исходные данные или вертикальная ось изменились. Выберите тот же набор и исходную ось MD, затем рассчитайте профиль заново.",
   "petro_reference.profile_track_title": "Профиль по MD",
   "petro_reference.profile_track_axis": "MD, м ↓   |   расчёт, доли ед.",

@@ -2604,6 +2604,8 @@
   "petro_reference.calculate": "Үлгіні тексеру",
   "petro_reference.calculate_profile": "Профильді есептеу…",
   "petro_reference.profile_open_tablet": "Таңдалған тереңдікті планшетте ашу…",
+  "petro_reference.profile_show_tablet": "Профильді планшетте көрсету…",
+  "petro_reference.profile_panel_notice": "Уақытша профиль, жеке MD шкаласы. Сақталмайды және басылмайды. Дерек навигация кезінде және әр секунд сайын тексеріледі.",
   "petro_reference.profile_tablet_unavailable": "Өту қолжетімсіз: ұңғыма, жинақ, бастапқы дерек немесе тік ось өзгерді. Сол жинақ пен бастапқы MD осін таңдап, профильді қайта есептеңіз.",
   "petro_reference.profile_track_title": "MD бойынша профиль",
   "petro_reference.profile_track_axis": "MD, м ↓   |   есеп, бірлік үлесі",
