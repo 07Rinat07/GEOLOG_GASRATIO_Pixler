@@ -100,6 +100,7 @@ from geoworkbench.services.gis_reference_calibration import (
     CalibratedGisProfile, validate_gis_reference_calibration,
 )
 from geoworkbench.ui.gis_reference_profile_track import GisReferenceProfileTrack
+from geoworkbench.services.gis_vsh_profile import GisVshProfile, LINEAR_VSH_METHOD_ID
 from geoworkbench.services.gas_curve_presentation import (
     GAS_SCREEN_POINT_SIZE_PX,
     gas_scatter_point_budget,
@@ -2686,20 +2687,34 @@ class TabletView(QWidget):
             return
         profile = track.profile
         calibration = profile.calibration
-        self._gis_profile_context.setText(self._localizer.text(
-            "petro_reference.profile_context", method=calibration.source.method_id,
+        method_id = profile.method_id if isinstance(profile, GisVshProfile) else calibration.source.method_id
+        context = self._localizer.text(
+            "petro_reference.profile_context", method=method_id,
             curve=calibration.source.curve_key, calibration=calibration.calibration_id,
             top=format(profile.md_bounds[0], ".17g"), base=format(profile.md_bounds[1], ".17g"),
-        ) + "\n" + self._localizer.text("petro_reference.profile_panel_notice"))
+        ) + "\n" + self._localizer.text("petro_reference.profile_panel_notice")
+        if isinstance(profile, GisVshProfile):
+            context += (
+                "\n" + self._localizer.text("petro_reference.vsh_reviewer") + ": " + profile.reviewer
+                + "\n" + self._localizer.text("petro_reference.vsh_evidence") + ": "
+                + profile.applicability_reference
+                + "\n" + self._localizer.text("petro_reference.vsh_notice")
+            )
+        self._gis_profile_context.setText(context)
         self._gis_profile_close.setText(self._localizer.text("common.close"))
         track.localizer = self._localizer
         track.setAccessibleName(self._localizer.text("petro_reference.profile_track_title"))
         track.update()
 
-    def show_gis_profile(self, profile: CalibratedGisProfile,
+    def show_gis_profile(self, profile: CalibratedGisProfile | GisVshProfile,
                          context_valid: Callable[[], bool]) -> bool:
         """Explicit, transient display; never insert a persistent track or curve."""
         if self._dataset is None or not context_valid():
+            return False
+        if isinstance(profile, GisVshProfile) and (
+            profile.method_id != LINEAR_VSH_METHOD_ID
+            or not profile.reviewer.strip() or not profile.applicability_reference.strip()
+        ):
             return False
         if self.vertical_index_id != profile.calibration.source.axis_id:
             return False

@@ -573,9 +573,13 @@ class GisReferenceDialog(QDialog):
             self._set_profile_status(self._t("vsh_invalid"))
             return
         draft = (self._profile_draft(), self.vsh_reviewer.text(), self.vsh_evidence.text())
-        dialog = GisVshProfileDialog(profile, self, language=self.localizer.language)
+        dialog = GisVshProfileDialog(
+            profile, self, language=self.localizer.language,
+            allow_tablet_navigation=self._allow_tablet_navigation,
+        )
         try:
-            dialog.exec()
+            accepted = dialog.exec() == QDialog.DialogCode.Accepted
+            request = dialog.tablet_request if accepted else None
         finally:
             dialog.deleteLater()
         try:
@@ -587,7 +591,15 @@ class GisReferenceDialog(QDialog):
         except (ValueError, TypeError, OverflowError):
             self._invalidate()
             self._set_profile_status(self._t("vsh_invalid"))
+            return
         self._current_sample()
+        if (
+            self._allow_tablet_navigation and request is not None
+            and request.profile is profile and request.show_profile
+            and 0 <= request.row_index < len(profile.rows)
+        ):
+            self.tablet_request = request
+            self.accept()
 
     def _profile_draft(self) -> tuple[object, ...]:
         return (

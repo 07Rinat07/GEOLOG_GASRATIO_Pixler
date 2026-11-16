@@ -255,3 +255,129 @@ def test_panel_discards_stale_context(qapp, change):
         assert not view._gis_profile_timer.isActive()
     finally:
         window.close()
+
+
+
+@pytest.mark.parametrize("language", tuple(AppLanguage))
+def test_vsh_tablet_request_requires_explicit_selection_and_main_menu(qapp, language):
+    from geoworkbench.services.gis_vsh_profile import evaluate_gis_vsh_profile, LINEAR_VSH_METHOD_ID
+    from geoworkbench.ui.gis_reference_profile_dialog import GisVshProfileDialog
+
+    dataset = _dataset()
+    profile = evaluate_gis_vsh_profile(
+        dataset, _calibration(dataset), method_id=LINEAR_VSH_METHOD_ID,
+        reviewer="Vsh reviewer", applicability_reference="Synthetic GR-shale model evidence",
+        md_top_m=100, md_base_m=102,
+    )
+    preview = GisVshProfileDialog(profile, language=language, allow_tablet_navigation=True)
+    disabled = GisVshProfileDialog(profile, language=language)
+    try:
+        assert not preview.show_in_tablet.isEnabled()
+        preview.table.setCurrentIndex(preview.model.index(1, 2))
+        assert preview.show_in_tablet.isEnabled()
+        assert preview.track.selected_row == 1
+        preview.show_in_tablet.click()
+        assert preview.result() == QDialog.DialogCode.Accepted
+        assert preview.tablet_request == GisProfileTabletRequest(profile, 1, True)
+        assert preview.track.projection.points[1].value_fraction is None
+        disabled.table.setCurrentIndex(disabled.model.index(1, 2))
+        assert disabled.show_in_tablet.isHidden() and not disabled.show_in_tablet.isEnabled()
+        disabled._request_tablet()
+        assert disabled.tablet_request is None
+    finally:
+        preview.close()
+        disabled.close()
+
+
+@pytest.mark.parametrize("change", ("none", "source", "evidence", "cancel"))
+def test_vsh_tablet_handoff_rechecks_live_calibration_and_separate_draft(qapp, monkeypatch, change):
+    from geoworkbench.ui.gis_reference_profile_dialog import GisVshProfileDialog
+
+    dataset = _dataset()
+    dialog = GisReferenceDialog(dataset, allow_tablet_navigation=True)
+    try:
+        _fill(dialog)
+        dialog.vsh_reviewer.setText("Independent Vsh reviewer")
+        dialog.vsh_evidence.setText("Synthetic linear GR-shale applicability")
+        def inspect(preview):
+            preview.table.setCurrentIndex(preview.model.index(1, 1))
+            preview.show_in_tablet.click()
+            if change == "source":
+                dataset.curves["selected"].values[2] += 1.0
+            elif change == "evidence":
+                dialog.vsh_evidence.setText("Modified during preview")
+            return QDialog.DialogCode.Rejected if change == "cancel" else QDialog.DialogCode.Accepted
+        monkeypatch.setattr(GisVshProfileDialog, "exec", inspect)
+        dialog.calculate_vsh.click()
+        if change == "none":
+            assert dialog.result() == QDialog.DialogCode.Accepted
+            assert dialog.tablet_request is not None
+            assert dialog.tablet_request.show_profile
+            assert dialog.tablet_request.profile.method_id == "vsh-gr-linear-1"
+            assert dialog.tablet_request.row_index == 1
+        else:
+            assert dialog.tablet_request is None
+    finally:
+        dialog.close()
+
+
+def test_vsh_panel_displays_distinct_method_evidence_and_exact_missing_md(qapp):
+    from geoworkbench.services.gis_vsh_profile import evaluate_gis_vsh_profile, LINEAR_VSH_METHOD_ID
+
+    window, session, dataset = _window(qapp)
+    values, depths = dataset.curves["curve-1"].values.copy(), dataset.active_index.values.copy()
+    try:
+        profile = evaluate_gis_vsh_profile(
+            dataset, _calibration(dataset, curve_key="curve-1"), method_id=LINEAR_VSH_METHOD_ID,
+            reviewer="Vsh review", applicability_reference="Only synthetic linear evidence",
+            md_top_m=100, md_base_m=102,
+        )
+        layout = session.current_tablet_layout
+        tracks = tuple(layout.tracks)
+        assert not window._navigate_gis_profile(dataset, GisProfileTabletRequest(profile, 1, False))
+        assert window._navigate_gis_profile(dataset, GisProfileTabletRequest(profile, 1, True))
+        view = window.tablet_view
+        panel = view.gis_profile_track
+        assert panel is not None and panel.profile is profile
+        assert panel.selected_row == 1 and profile.rows[1].estimate is None
+        assert "vsh-gr-linear-1" in view._gis_profile_context.text()
+        assert "Only synthetic linear evidence" in view._gis_profile_context.text()
+        assert "Vsh review" in view._gis_profile_context.text()
+        assert "igr-linear-1" not in view._gis_profile_context.text()
+        assert panel.projection.points[0].value_fraction is not None
+        assert panel.projection.points[1].value_fraction is None
+        view.set_visible_depth(101, 102)
+        assert tuple(point.row_index for point in panel.projection.points) == (1, 2)
+        view.set_cursor_depth(102)
+        assert panel.selected_row == 2
+        assert tuple(layout.tracks) == tracks
+        np.testing.assert_array_equal(dataset.curves["curve-1"].values, values)
+        np.testing.assert_array_equal(dataset.active_index.values, depths)
+        dataset.curves["curve-1"].values[2] += 1.0
+        view._sync_gis_profile_panel()
+        assert view.gis_profile_track is None
+    finally:
+        window.close()
+
+
+def test_vsh_tablet_rejects_unreviewed_model_before_navigation(qapp):
+    from dataclasses import replace
+    from geoworkbench.services.gis_vsh_profile import evaluate_gis_vsh_profile, LINEAR_VSH_METHOD_ID
+
+    window, session, dataset = _window(qapp)
+    try:
+        profile = evaluate_gis_vsh_profile(
+            dataset, _calibration(dataset, curve_key="curve-1"), method_id=LINEAR_VSH_METHOD_ID,
+            reviewer="Reviewer", applicability_reference="Synthetic evidence", md_top_m=100,
+            md_base_m=102,
+        )
+        before = (window.tablet_view.visible_depth_range, window.tablet_view.cursor_depth)
+        assert not window._navigate_gis_profile(
+            dataset, GisProfileTabletRequest(replace(profile, method_id="igr-linear-1"), 0, True),
+        )
+        assert not window._navigate_gis_profile(
+            dataset, GisProfileTabletRequest(replace(profile, applicability_reference=""), 0, True),
+        )
+        assert before == (window.tablet_view.visible_depth_range, window.tablet_view.cursor_depth)
+    finally:
+        window.close()
