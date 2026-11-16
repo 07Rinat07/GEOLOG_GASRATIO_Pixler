@@ -61,6 +61,10 @@ class CalibratedGisSample:
     estimate: PetrophysicalEstimate
 
 
+class GisProfileRowLimitExceeded(ValueError):
+    """A caller's explicit row budget cannot fit the full interval."""
+
+
 class GisProfileRowStatus(str, Enum):
     """Distinguish actual calculations from missing or invalid source rows."""
 
@@ -162,7 +166,7 @@ def evaluate_gis_reference_sample(
 
 def evaluate_gis_reference_profile(
     dataset: Dataset, calibration: GisReferenceCalibration, *,
-    md_top_m: float, md_base_m: float,
+    md_top_m: float, md_base_m: float, max_rows: int | None = None,
 ) -> CalibratedGisProfile:
     """Evaluate an explicit interval at original sample rows in source order.
 
@@ -172,6 +176,8 @@ def evaluate_gis_reference_profile(
     No interpolation, extrapolation, clipping, inferred parameters, derived
     curve insertion or continuous coverage estimate is performed.
     """
+    if max_rows is not None and (type(max_rows) is not int or max_rows < 1):
+        raise ValueError("Profile row budget must be a positive integer")
     validate_gis_reference_calibration(dataset, calibration)
     bounds = (_finite(md_top_m), _finite(md_base_m))
     if bounds[0] > bounds[1]:
@@ -199,6 +205,8 @@ def evaluate_gis_reference_profile(
         ascending = depths[::-1]
         start = len(depths) - int(np.searchsorted(ascending, bounds[1], side="right"))
         stop = len(depths) - int(np.searchsorted(ascending, bounds[0], side="left"))
+    if max_rows is not None and stop - start > max_rows:
+        raise GisProfileRowLimitExceeded("Profile interval exceeds row budget")
     selected_depths = depths[start:stop].copy()
     selected_values = values[start:stop].copy()
     rows: list[CalibratedGisProfileRow] = []

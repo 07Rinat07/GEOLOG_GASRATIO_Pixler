@@ -1,5 +1,10 @@
 # Единый план проекта
 
+## INTERP-PETRO-01 — операторский просмотр профиля, 16 ноября 2026
+
+- #895 head `16c4e364` [43784704624](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43784704624) 3/3 SUCCESS; main `477d4d79` [43776741573](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43776741573) 3/3 SUCCESS. #895 интегрирован `61f9a7fd`; [post-merge 43794608693](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43794608693) требует результата.
+- Следующий инкремент: явный расчёт IGR/phiD по текущему вводу и проверенному источнику в GisReferenceDialog, read-only таблица фактических строк с QC и исходной единицей, независимо от скалярной строки. Лимит просмотра 10 000 строк с отказом без усечения (API max_rows необязателен), никаких записей в проект, derived-кривых или отчёт. UI использует value-model вместо native item wrappers. Проверка источника после модального окна; снимок не является живым графиком. Далее планшет, отдельно Vsh и Archie; полевая проверка и #544 открыты.
+
 ## Интеграция и INTERP-PETRO-01 — 16 ноября 2026
 
 - #895 head `c9d5225c`: [CI 43776890109](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43776890109) security и GUI SUCCESS; quality FAILURE в проверке документации (8 ожидаемых разделов против 9 после добавления профиля). Устранено противоречие устаревшего описания batch API в RU/KK/EN; тест сохраняет прежние требования и проверяет новый девятый раздел, API и границы применения. Полный повторный CI обязателен. `main` `477d4d79` [43776741573](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43776741573) 3/3 SUCCESS; ветка #894 удалена.
