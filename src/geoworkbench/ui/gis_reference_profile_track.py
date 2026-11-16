@@ -12,6 +12,7 @@ from PySide6.QtWidgets import QWidget
 from geoworkbench.services.gis_reference_calibration import (
     CalibratedGisProfile, GisProfileRowStatus,
 )
+from geoworkbench.services.gis_vsh_profile import GisVshProfile
 from geoworkbench.services.localization import Localizer
 from geoworkbench.services.petrophysical_reference_models import PetrophysicalQuality
 
@@ -46,7 +47,7 @@ def _fraction(value: float, lower: float, upper: float) -> float:
 
 
 def project_profile_track(
-    profile: CalibratedGisProfile, *,
+    profile: CalibratedGisProfile | GisVshProfile, *,
     visible_md_bounds: tuple[float, float] | None = None,
 ) -> ProfileTrackProjection:
     """Project exact rows into the requested metre-MD viewport.
@@ -79,7 +80,7 @@ def project_profile_track(
 class GisReferenceProfileTrack(QWidget):
     """QPainter value-only track, avoiding PlotItem/menu ownership and project edits."""
 
-    def __init__(self, profile: CalibratedGisProfile, localizer: Localizer,
+    def __init__(self, profile: CalibratedGisProfile | GisVshProfile, localizer: Localizer,
                  parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.profile = profile

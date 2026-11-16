@@ -23,7 +23,7 @@ MAX_PROFILE_PREVIEW_ROWS = 10_000
 class GisProfileTabletRequest:
     """Explicit navigation intent, not permission to create a derived curve."""
 
-    profile: CalibratedGisProfile
+    profile: CalibratedGisProfile | GisVshProfile
     row_index: int
     show_profile: bool = False
 
@@ -175,12 +175,15 @@ class GisReferenceProfileDialog(QDialog):
 
 
 class GisVshProfileDialog(QDialog):
-    """Separate Vsh table; no IGR tablet request or saved interpretation."""
+    """Separate reviewed Vsh table and optional explicit tablet handoff."""
 
     def __init__(self, profile: GisVshProfile, parent: QWidget | None = None,
-                 *, language: AppLanguage = AppLanguage.RU) -> None:
+                 *, language: AppLanguage = AppLanguage.RU,
+                 allow_tablet_navigation: bool = False) -> None:
         super().__init__(parent)
         self.profile = profile
+        self.tablet_request: GisProfileTabletRequest | None = None
+        self._allow_tablet_navigation = allow_tablet_navigation
         localizer = Localizer.create(language)
         self.setObjectName("gis-vsh-profile-dialog")
         self.setWindowTitle(localizer.text("petro_reference.vsh_calculate"))
@@ -211,9 +214,38 @@ class GisVshProfileDialog(QDialog):
         self.model = _ProfileModel(profile, localizer, self.table)
         self.table.setModel(self.model)
         self.table.horizontalHeader().setStretchLastSection(True)
-        layout.addWidget(self.table)
+        splitter = QSplitter(Qt.Orientation.Horizontal, self)
+        splitter.setChildrenCollapsible(False)
+        self.track = GisReferenceProfileTrack(profile, localizer, splitter)
+        splitter.addWidget(self.track)
+        splitter.addWidget(self.table)
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 2)
+        splitter.setSizes([300, 620])
+        self.table.selectionModel().currentRowChanged.connect(self._select_track_row)
+        layout.addWidget(splitter)
+        self.show_in_tablet = QPushButton(localizer.text("petro_reference.profile_show_tablet"), self)
+        self.show_in_tablet.setObjectName("gis-vsh-show-tablet")
+        self.show_in_tablet.setEnabled(False)
+        self.show_in_tablet.setVisible(allow_tablet_navigation)
+        self.show_in_tablet.clicked.connect(self._request_tablet)
+        layout.addWidget(self.show_in_tablet)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(localizer.text("common.close"))
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
         fit_window_to_screen(self, preferred=QSize(850, 620), minimum=QSize(420, 360))
+
+    def _select_track_row(self, current: QModelIndex, _previous: QModelIndex) -> None:
+        self.track.select_row(current.row() if current.isValid() else None)
+        self.show_in_tablet.setEnabled(
+            self._allow_tablet_navigation and self.track.selected_row is not None
+        )
+
+    def _request_tablet(self) -> None:
+        row = self.track.selected_row
+        if not self._allow_tablet_navigation or row is None or not 0 <= row < len(self.profile.rows):
+            return
+        self.tablet_request = GisProfileTabletRequest(self.profile, row, True)
+        self.accept()
+

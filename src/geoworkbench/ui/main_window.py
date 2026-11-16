@@ -301,6 +301,7 @@ from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
 from geoworkbench.ui.gis_reference_dialog import GisReferenceDialog
 from geoworkbench.ui.gis_reference_profile_dialog import GisProfileTabletRequest
 from geoworkbench.services.gis_reference_calibration import validate_gis_reference_calibration
+from geoworkbench.services.gis_vsh_profile import GisVshProfile, LINEAR_VSH_METHOD_ID
 from geoworkbench.ui.lithology_mapping_dialog import LithologyMappingDialog
 from geoworkbench.ui.custom_formula_dialog import CustomFormulaDialog
 from geoworkbench.ui.depth_annotations_dialog import DepthAnnotationsDialog
@@ -7749,6 +7750,11 @@ class MainWindow(QMainWindow):
         view = self.tablet_view
         layout = self.session.current_tablet_layout
         profile = request.profile
+        if isinstance(profile, GisVshProfile) and (
+            not request.show_profile or profile.method_id != LINEAR_VSH_METHOD_ID
+            or not profile.reviewer.strip() or not profile.applicability_reference.strip()
+        ):
+            return False
         if (
             self.session.current_dataset is not dataset or view._dataset is not dataset
             or layout is None or view.layout_model is not layout
