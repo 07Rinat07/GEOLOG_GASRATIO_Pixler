@@ -131,3 +131,69 @@ def test_cancel_during_selected_curve_copy_does_not_return_partial_snapshot(monk
     assert source.active_index.values is axis
     assert source.curves["RT"].values is values
     assert values[0] == values[-1] == 1.0
+
+
+
+@pytest.mark.parametrize("change", ("signed_zero", "nan_payload", "axis_signed_zero"))
+def test_snapshot_rejects_same_numeric_value_with_modified_source_bytes(change):
+    """Source certification must not equate different IEEE-754 bit patterns."""
+    source = _two_curves()
+    if change == "axis_signed_zero":
+        source.active_index.values[0] = 0.0
+    snapshot = GisIntervalSnapshot(source, ("RT",), lambda: False)
+    assert snapshot.matches(lambda: False)
+    if change == "signed_zero":
+        source.curves["RT"].values[0] = -0.0
+        assert source.curves["RT"].values[0] == snapshot.dataset.curves["RT"].values[0]
+    elif change == "nan_payload":
+        # Both values are NaN, but the operator's source buffer was edited.
+        array = source.curves["RT"].values
+        before = array.view(np.uint64)[2]
+        array.view(np.uint64)[2] = np.uint64(0x7ff8000000000051)
+        assert before != array.view(np.uint64)[2]
+        assert np.isnan(array[2]) and np.isnan(snapshot.dataset.curves["RT"].values[2])
+    else:
+        source.active_index.values[0] = -0.0
+        assert source.active_index.values[0] == snapshot.dataset.active_index.values[0]
+    assert snapshot.structure_matches()  # Same object, metadata, shape and dtype.
+    assert not snapshot.matches(lambda: False)
+
+
+def test_exact_byte_snapshot_accepts_unmodified_strided_source_with_nan_and_negative_zero():
+    source = _two_curves()
+    count = 135_001  # More than two bounded comparison chunks.
+    axis = np.arange(count, dtype=float)[::-1]
+    values = np.full(count, 2.0, dtype=float)[::-1]
+    values[0] = -0.0
+    values[65_536] = np.nan
+    values[130_000] = np.inf
+    assert not axis.flags.c_contiguous and not values.flags.c_contiguous
+    source.active_index.values = axis
+    source.depth = axis
+    source.curves["RT"].values = values
+    snapshot = GisIntervalSnapshot(source, ("RT",), lambda: False)
+    assert snapshot.matches(lambda: False)
+    assert snapshot.dataset.curves["RT"].values.flags.c_contiguous
+    assert np.signbit(snapshot.dataset.curves["RT"].values[0])
+    values[65_536] = -0.0
+    assert not snapshot.matches(lambda: False)
+
+
+def test_exact_byte_comparison_still_honors_cooperative_cancellation():
+    source = _two_curves()
+    count = 135_001
+    source.active_index.values = np.arange(count, dtype=float)
+    source.depth = source.active_index.values
+    source.curves["RT"].values = np.zeros(count)
+    snapshot = GisIntervalSnapshot(source, ("RT",), lambda: False)
+    polls = []
+
+    def cancelled():
+        polls.append(True)
+        return len(polls) >= 3
+
+    with pytest.raises(GisIntervalReviewCancelled):
+        snapshot_module._same_array(
+            source.curves["RT"].values, snapshot.dataset.curves["RT"].values, cancelled,
+        )
+    assert len(polls) == 3

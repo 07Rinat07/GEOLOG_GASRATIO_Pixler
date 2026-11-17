@@ -40,12 +40,16 @@ def _check_cancel(cancelled: Callable[[], bool]) -> None:
 def _same_array(source: np.ndarray, saved: np.ndarray, cancelled: Callable[[], bool]) -> bool:
     if source.shape != saved.shape or source.dtype != saved.dtype:
         return False
-    # Chunked flat iteration avoids allocating another full LAS-sized mask.
+    # This guards an *exact original measurement snapshot*, not approximate
+    # numeric equality. array_equal treats +0/-0 and distinct NaN payloads as
+    # identical, allowing in-place source edits to bypass report/GUI freshness.
+    # Compare the original dtype bytes in C-index order, regardless of source
+    # strides. Chunking bounds each temporary to 65,536 elements.
     for start in range(0, source.size, 65_536):
         _check_cancel(cancelled)
         left = source.flat[start:start + 65_536]
         right = saved.flat[start:start + 65_536]
-        if not np.array_equal(left, right, equal_nan=source.dtype.kind in "fc"):
+        if left.tobytes() != right.tobytes():
             return False
     return True
 
