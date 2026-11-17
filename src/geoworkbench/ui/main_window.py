@@ -7785,13 +7785,14 @@ class MainWindow(QMainWindow):
         top, bottom = view._normalize_depth_window(top, bottom)
         if not top < bottom or not seal.is_current(dataset):
             return False
-        context_valid = lambda: (
-            self.session is session and session.current_well is well
-            and session.current_dataset is dataset
-            and session.current_tablet_layout is layout
-            and view._dataset is dataset and view.layout_model is layout
-            and view.vertical_index_id == seal.axis_id and seal.is_current(dataset)
-        )
+        def context_valid() -> bool:
+            return (
+                self.session is session and session.current_well is well
+                and session.current_dataset is dataset
+                and session.current_tablet_layout is layout
+                and view._dataset is dataset and view.layout_model is layout
+                and view.vertical_index_id == seal.axis_id and seal.is_current(dataset)
+            )
         if not context_valid():
             return False
         self._show_workspace(view)
