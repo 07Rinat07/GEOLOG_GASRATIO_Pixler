@@ -46,6 +46,12 @@ def test_explicit_operator_archie_preview_shows_exact_qc_and_preserves_source(
         captured.append(preview.profile)
         assert preview.table.objectName() == "gis-archie-profile-table"
         assert preview.model.rowCount() == 4
+        assert preview.parameters_label.objectName() == "gis-archie-profile-coefficients"
+        assert "0.1" in preview.parameters_label.text()
+        assert "a=1" in preview.parameters_label.text()
+        assert "m=2" in preview.parameters_label.text()
+        assert "n=2" in preview.parameters_label.text()
+        assert preview.profile.coefficients.formation_water_resistivity_ohm_m == 0.1
         assert preview.model.data(preview.model.index(0, 4)) == "0.5"
         assert preview.model.data(preview.model.index(1, 2)) == "—"
         assert preview.model.data(preview.model.index(1, 4)) == "—"

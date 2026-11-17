@@ -3,7 +3,7 @@ from math import nan
 import pytest
 
 from geoworkbench.services.gis_archie_profile import (
-    ArchieInputRow, ArchieRowStatus, evaluate_archie_rows,
+    ArchieCoefficients, ArchieInputRow, ArchieRowStatus, evaluate_archie_rows,
 )
 from geoworkbench.services.petrophysical_reference_models import PetrophysicalQuality
 
@@ -29,6 +29,12 @@ def test_exact_md_rows_missing_and_unclipped_qc():
     )
     profile = _evaluate(rows)
     assert profile.method_id == "archie-water-saturation-1"
+    assert profile.coefficients == ArchieCoefficients(
+        formation_water_resistivity_ohm_m=0.1,
+        tortuosity_factor=1.0,
+        cementation_exponent=2.0,
+        saturation_exponent=2.0,
+    )
     assert profile.md_bounds == (102.0, 105.0)
     assert [r.sample_index for r in profile.rows] == [2, 3, 4, 5]
     assert [r.status for r in profile.rows] == [
@@ -78,3 +84,21 @@ def test_row_budget_does_not_truncate():
     with pytest.raises(ValueError):
         _evaluate((ArchieInputRow(0, 100.0, 0.2, 10),
                    ArchieInputRow(1, 101.0, 0.2, 10)), max_rows=1)
+
+
+@pytest.mark.parametrize("coefficients", [
+    dict(formation_water_resistivity_ohm_m=0.22, tortuosity_factor=1.4,
+         cementation_exponent=1.8, saturation_exponent=2.5),
+    dict(formation_water_resistivity_ohm_m=0.05, tortuosity_factor=0.8,
+         cementation_exponent=2.3, saturation_exponent=1.7),
+])
+def test_profile_stores_exact_calculation_parameters_for_audit(coefficients):
+    row = (ArchieInputRow(1, 100.0, 0.2, 10.0),)
+    profile = _evaluate(row, **coefficients)
+    assert profile.coefficients == ArchieCoefficients(**coefficients)
+    direct = profile.rows[0].estimate
+    assert direct is not None
+    assert dict(direct.parameters)["formation_water_resistivity_ohm_m"] == coefficients[
+        "formation_water_resistivity_ohm_m"
+    ]
+    assert dict(direct.parameters)["saturation_exponent"] == coefficients["saturation_exponent"]

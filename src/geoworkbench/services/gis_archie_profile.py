@@ -40,6 +40,16 @@ class ArchieProfileRow:
 
 
 @dataclass(frozen=True, slots=True)
+class ArchieCoefficients:
+    """Exact normalized numeric inputs used for every row in this Sw snapshot."""
+
+    formation_water_resistivity_ohm_m: float
+    tortuosity_factor: float
+    cementation_exponent: float
+    saturation_exponent: float
+
+
+@dataclass(frozen=True, slots=True)
 class ArchieProfile:
     method_id: str
     reviewer: str
@@ -49,6 +59,7 @@ class ArchieProfile:
     water_resistivity_reference: str
     md_bounds: tuple[float, float]
     rows: tuple[ArchieProfileRow, ...]
+    coefficients: ArchieCoefficients
     # None for old caller-supplied row contracts; adapter records independent MD alignment evidence.
     alignment_reference: str | None = None
 
@@ -142,4 +153,10 @@ def evaluate_archie_rows(
         water_resistivity_reference=water_resistivity_reference.strip(),
         md_bounds=bounds,
         rows=tuple(output),
+        coefficients=ArchieCoefficients(
+            formation_water_resistivity_ohm_m=float(formation_water_resistivity_ohm_m),
+            tortuosity_factor=float(tortuosity_factor),
+            cementation_exponent=float(cementation_exponent),
+            saturation_exponent=float(saturation_exponent),
+        ),
     )

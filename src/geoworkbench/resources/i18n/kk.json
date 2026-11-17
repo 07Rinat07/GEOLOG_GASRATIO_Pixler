@@ -2785,5 +2785,6 @@
   "petro_reference.archie_qc": "Сапа бақылауы",
   "petro_reference.archie_missing_input": "Бастапқы мән жоқ",
   "petro_reference.archie_invalid_input": "Жарамсыз өлшем",
-  "petro_reference.archie_evidence_summary": "Әдіс: {method}\\nСарапшы: {reviewer}\\nКеуектілік: {phi}\\nКедергі: {rt}\\nMD сәйкестігі: {alignment}\\nRw: {water}\\nҚолданылуы: {applicability}"
+  "petro_reference.archie_evidence_summary": "Әдіс: {method}\\nСарапшы: {reviewer}\\nКеуектілік: {phi}\\nКедергі: {rt}\\nMD сәйкестігі: {alignment}\\nRw: {water}\\nҚолданылуы: {applicability}",
+  "petro_reference.archie_parameters": "Есеп параметрлері (бәрін оператор енгізеді): Rw={rw} Ом·м; a={a}; m={m}; n={n}"
 }

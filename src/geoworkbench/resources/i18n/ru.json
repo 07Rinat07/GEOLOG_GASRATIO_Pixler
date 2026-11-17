@@ -2785,5 +2785,6 @@
   "petro_reference.archie_qc": "Контроль качества",
   "petro_reference.archie_missing_input": "Нет исходного значения",
   "petro_reference.archie_invalid_input": "Некорректный отсчёт",
-  "petro_reference.archie_evidence_summary": "Метод: {method}\\nРецензент: {reviewer}\\nПористость: {phi}\\nСопротивление: {rt}\\nСовмещение MD: {alignment}\\nRw: {water}\\nПрименимость: {applicability}"
+  "petro_reference.archie_evidence_summary": "Метод: {method}\\nРецензент: {reviewer}\\nПористость: {phi}\\nСопротивление: {rt}\\nСовмещение MD: {alignment}\\nRw: {water}\\nПрименимость: {applicability}",
+  "petro_reference.archie_parameters": "Коэффициенты расчёта (все задаются оператором): Rw={rw} Ом·м; a={a}; m={m}; n={n}"
 }
