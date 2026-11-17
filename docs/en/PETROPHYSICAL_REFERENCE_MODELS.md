@@ -160,3 +160,9 @@ From the main-menu calculation dialog, select a profile row and click “Open se
 
 
 In the separate Vsh operator preview, select an actual row and choose “Show profile in tablet…”. Only the explicitly reviewed linear Vsh is handed to the temporary companion panel, with its model, reviewer and evidence displayed. Exact points, missing values, QC, MD viewport and cursor retain their meaning. This is not IGR, a saved curve, an applicability approval or a printed track. Source or axis changes discard the stale snapshot.
+
+
+### Live GIS source binding for Archie (data-only)
+
+`evaluate_gis_archie_sources` takes **two explicitly selected curves in one native GIS dataset** sharing a verified metre-MD axis, with original v/v porosity and ohm.m resistivity units. It checks semantic bindings, provenance, current states, curve identity and exact rows. Independent evidence is required for *effective* porosity, *true* Rt, MD co-registration, Rw at formation temperature and Archie applicability. An NPHI mnemonic does not certify effective porosity; generic resistivity does not certify Rt. No percent conversion, cross-run merging, interpolation, guessed coefficients or fluid typing is performed. Full live arrays and source metadata are rechecked before publication, including changes outside the selected interval. No LAS/project edits or derived curves. This API is not yet an operator interface or field acceptance.
+
