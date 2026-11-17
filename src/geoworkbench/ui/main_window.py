@@ -300,6 +300,7 @@ from geoworkbench.ui.constructor_dialog import UniversalConstructorDialog
 from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
 from geoworkbench.ui.gis_reference_dialog import GisReferenceDialog
 from geoworkbench.ui.gis_reference_profile_dialog import GisProfileTabletRequest
+from geoworkbench.services.gis_archie_handoff import ArchieTabletSourceSeal
 from geoworkbench.services.gis_reference_calibration import validate_gis_reference_calibration
 from geoworkbench.services.gis_vsh_profile import GisVshProfile, LINEAR_VSH_METHOD_ID
 from geoworkbench.ui.lithology_mapping_dialog import LithologyMappingDialog
@@ -7740,10 +7741,70 @@ class MainWindow(QMainWindow):
         finally:
             dialog.deleteLater()
         if request is not None:
-            if self.session.current_well is not well or not self._navigate_gis_profile(dataset, request):
+            if self.session.current_well is not well:
+                navigated = False
+            elif isinstance(request, ArchieTabletSourceSeal):
+                navigated = self._navigate_gis_archie(dataset, request)
+            else:
+                navigated = self._navigate_gis_profile(dataset, request)
+            if not navigated:
                 QMessageBox.information(
                     self, self._t("petro_reference.action"), self._t("petro_reference.profile_tablet_unavailable"),
                 )
+
+    def _navigate_gis_archie(self, dataset: Dataset, seal: ArchieTabletSourceSeal) -> bool:
+        """Only an explicit current GIS seal can open a transient Archie track.
+
+        Check project, well, dataset, layout and MD axis at the UI boundary.
+        No LAS or persistent tablet track/curve is created.
+        """
+        view = self.tablet_view
+        session = self.session
+        well = session.current_well
+        layout = session.current_tablet_layout
+        if (
+            well is None or session.current_dataset is not dataset
+            or view._dataset is not dataset or layout is None
+            or view.layout_model is not layout or view.vertical_index_id != seal.axis_id
+            or not seal.is_current(dataset)
+        ):
+            return False
+        bounds = view.visible_depth_range
+        if bounds is None or not bounds[0] < bounds[1]:
+            return False
+        if not view.printable_vertical_range() or not view.printable_tracks():
+            return False
+        row = seal.profile.rows[seal.row_index]
+        top, bottom = seal.profile.md_bounds
+        if top == bottom:
+            if bounds[0] <= row.md_m <= bounds[1]:
+                top, bottom = bounds
+            else:
+                half_span = (bounds[1] - bounds[0]) / 2
+                top, bottom = row.md_m - half_span, row.md_m + half_span
+        top, bottom = view._normalize_depth_window(top, bottom)
+        if not top < bottom or not seal.is_current(dataset):
+            return False
+        def context_valid() -> bool:
+            return (
+                self.session is session and session.current_well is well
+                and session.current_dataset is dataset
+                and session.current_tablet_layout is layout
+                and view._dataset is dataset and view.layout_model is layout
+                and view.vertical_index_id == seal.axis_id and seal.is_current(dataset)
+            )
+        if not context_valid():
+            return False
+        self._show_workspace(view)
+        changed = self.tablet_controller.set_visible_depth(top, bottom)
+        view.set_visible_depth(top, bottom)
+        if not context_valid():
+            return False
+        self.cursor_line_action.setChecked(True)
+        view.set_cursor_depth(row.md_m)
+        if changed:
+            self._update_title()
+        return view.show_archie_profile(seal, context_valid)
 
     def _navigate_gis_profile(self, dataset: Dataset, request: GisProfileTabletRequest) -> bool:
         """Navigate only the same verified MD axis; no curve/layout track insertion."""

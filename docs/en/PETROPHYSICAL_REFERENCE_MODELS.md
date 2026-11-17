@@ -178,3 +178,6 @@ Intermediate Archie review now includes a standalone read-only QPainter Sw track
 
 
 A preparatory Archie Sw handoff seal now binds a reviewed exact-row snapshot to one native GIS MD axis, source φ/Rt channels, chosen row, metadata, versions and complete array bytes. Any source/axis replacement, value change or foreign dataset invalidates the seal. This is a data-level prerequisite for a later explicit main-tablet action, not yet an operator button or saved derived curve. Independent interpreter model and field acceptance remain required.
+
+
+Next UI slice: only an explicit action on a selected exact Archie row may show the source-sealed Sw snapshot as a temporary main-tablet QPainter panel. Native φ/Rt/MD fingerprints and active well/dataset/layout/axis are rechecked at handoff and on subsequent panel updates; the panel is removed upon staleness. No saved LAS-derived curve or automatic fluid/pay interpretation; field acceptance remains open.
