@@ -97,11 +97,11 @@ from geoworkbench.services.interval_overlap_index import IntervalOverlapIndex
 from geoworkbench.services.lba_standard import lba_color_code
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.gis_reference_calibration import (
-    CalibratedGisProfile, validate_gis_reference_calibration,
+    CalibratedGisProfile, CalibratedGisProfileRow, validate_gis_reference_calibration,
 )
 from geoworkbench.ui.gis_reference_profile_track import GisReferenceProfileTrack
 from geoworkbench.services.gis_vsh_profile import GisVshProfile, LINEAR_VSH_METHOD_ID
-from geoworkbench.services.gis_archie_profile import ArchieProfile
+from geoworkbench.services.gis_archie_profile import ArchieProfile, ArchieProfileRow
 from geoworkbench.services.gis_archie_handoff import ArchieTabletSourceSeal
 from geoworkbench.services.gas_curve_presentation import (
     GAS_SCREEN_POINT_SIZE_PX,
@@ -2851,7 +2851,8 @@ class TabletView(QWidget):
             self.clear_gis_profile()
             return
         # Exact MD only, including missing values. No nearest-row substitution.
-        selected = next((i for i, row in enumerate(track.profile.rows)
+        rows: tuple[CalibratedGisProfileRow | ArchieProfileRow, ...] = profile.rows
+        selected = next((i for i, row in enumerate(rows)
                          if self._cursor_enabled and row.md_m == self._cursor_depth), None)
         if selected != track.selected_row:
             track.select_row(selected)
