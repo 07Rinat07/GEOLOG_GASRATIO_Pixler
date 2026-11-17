@@ -9,7 +9,7 @@ from hashlib import sha256
 from math import isfinite
 
 import numpy as np
-from PySide6.QtCore import QAbstractTableModel, QModelIndex, QSize, Qt
+from PySide6.QtCore import QAbstractTableModel, QModelIndex, QPersistentModelIndex, QSize, Qt
 from PySide6.QtWidgets import (
     QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHeaderView, QLabel,
     QLineEdit, QPushButton, QScrollArea, QTableView, QVBoxLayout, QWidget,
@@ -29,12 +29,6 @@ _FIELDS = (
     "md_top_m", "md_base_m", "formation_water_resistivity_ohm_m", "tortuosity_factor",
     "cementation_exponent", "saturation_exponent",
 )
-_NUMERIC = (
-    "md_top_m", "md_base_m", "formation_water_resistivity_ohm_m",
-    "tortuosity_factor", "cementation_exponent", "saturation_exponent",
-)
-
-
 def _live_fingerprint(dataset: Dataset, phi_key: str, rt_key: str) -> tuple[object, ...]:
     """Compare complete live arrays and provenance after the preview modal closes."""
     axis = dataset.active_index
@@ -70,10 +64,10 @@ class _ArchiePreviewModel(QAbstractTableModel):
             "row", "md", "phi", "rt", "sw", "qc",
         ))
 
-    def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
+    def rowCount(self, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> int:
         return 0 if parent.isValid() else len(self.profile.rows)
 
-    def columnCount(self, parent: QModelIndex = QModelIndex()) -> int:
+    def columnCount(self, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> int:
         return 0 if parent.isValid() else len(self.headers)
 
     def headerData(self, section: int, orientation: Qt.Orientation,
@@ -83,7 +77,8 @@ class _ArchiePreviewModel(QAbstractTableModel):
                 return self.headers[section]
         return super().headerData(section, orientation, role)
 
-    def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole) -> object:
+    def data(self, index: QModelIndex | QPersistentModelIndex,
+             role: int = Qt.ItemDataRole.DisplayRole) -> object:
         if (
             not index.isValid() or not 0 <= index.row() < len(self.profile.rows)
             or not 0 <= index.column() < len(self.headers)
@@ -222,14 +217,26 @@ class GisArchieDialog(QDialog):
         if not isinstance(phi_key, str) or not isinstance(rt_key, str):
             self.status.setText(self._t("invalid"))
             return
-        args: dict[str, object] = {
-            "porosity_curve_key": phi_key, "resistivity_curve_key": rt_key,
-        }
         try:
-            for key in _FIELDS:
-                value = self.fields[key].text()
-                args[key] = self._number(value) if key in _NUMERIC else value
-            profile = evaluate_gis_archie_sources(self.dataset, **args)
+            profile = evaluate_gis_archie_sources(
+                self.dataset,
+                porosity_curve_key=phi_key,
+                resistivity_curve_key=rt_key,
+                reviewer=self.fields["reviewer"].text(),
+                applicability_reference=self.fields["applicability_reference"].text(),
+                effective_porosity_reference=self.fields["effective_porosity_reference"].text(),
+                true_resistivity_reference=self.fields["true_resistivity_reference"].text(),
+                alignment_reference=self.fields["alignment_reference"].text(),
+                water_resistivity_reference=self.fields["water_resistivity_reference"].text(),
+                md_top_m=self._number(self.fields["md_top_m"].text()),
+                md_base_m=self._number(self.fields["md_base_m"].text()),
+                formation_water_resistivity_ohm_m=self._number(
+                    self.fields["formation_water_resistivity_ohm_m"].text()
+                ),
+                tortuosity_factor=self._number(self.fields["tortuosity_factor"].text()),
+                cementation_exponent=self._number(self.fields["cementation_exponent"].text()),
+                saturation_exponent=self._number(self.fields["saturation_exponent"].text()),
+            )
             stamp = _live_fingerprint(self.dataset, phi_key, rt_key)
             source_pairs = tuple(
                 (
