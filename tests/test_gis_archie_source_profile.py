@@ -70,6 +70,7 @@ def test_live_sources_exact_rows_qc_missing_and_unclipped_sw(descending):
     assert result.rows[3].estimate is None
     assert "Independent effective-porosity" in result.porosity_source
     assert "Independent Rt" in result.resistivity_source
+    assert result.alignment_reference == "Synthetic exact same MD-row review"
     assert dataset.active_index.values is depths
     np.testing.assert_array_equal(depths, original[0])
     np.testing.assert_array_equal(phi, original[1])
@@ -89,7 +90,8 @@ def test_interval_and_missing_only_are_not_resampled_or_zero_filled():
 @pytest.mark.parametrize("changes", [
     {"porosity_curve_key": "rt"}, {"porosity_curve_key": "missing"},
     {"resistivity_curve_key": "missing"}, {"md_top_m": 104.},
-    {"md_base_m": 99.}, {"md_top_m": np.nan}, {"max_rows": 2},
+    {"md_base_m": 99.}, {"md_top_m": np.nan}, {"md_top_m": None},
+    {"md_base_m": "not a depth"}, {"md_top_m": True}, {"max_rows": 2},
     {"max_rows": True}, {"reviewer": ""}, {"alignment_reference": ""},
     {"effective_porosity_reference": ""}, {"true_resistivity_reference": ""},
     {"water_resistivity_reference": ""}, {"formation_water_resistivity_ohm_m": 0.},

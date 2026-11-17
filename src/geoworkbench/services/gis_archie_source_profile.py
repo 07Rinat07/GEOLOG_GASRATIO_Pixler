@@ -6,6 +6,7 @@ co-registration; it is not an automatic certification of model applicability.
 """
 from __future__ import annotations
 
+from dataclasses import replace
 from hashlib import sha256
 from math import isfinite
 
@@ -79,11 +80,13 @@ def evaluate_gis_archie_sources(
         raise ValueError("Positive integer row budget required")
     if dataset.kind is not DatasetKind.GIS:
         raise ValueError("Only a native GIS dataset is eligible; no implicit external alignment")
-    top, base = float(md_top_m), float(md_base_m)
-    if (
-        isinstance(md_top_m, bool) or isinstance(md_base_m, bool)
-        or not isfinite(top) or not isfinite(base) or top > base
-    ):
+    if isinstance(md_top_m, (bool, np.bool_)) or isinstance(md_base_m, (bool, np.bool_)):
+        raise ValueError("Finite ordered metre-MD bounds required")
+    try:
+        top, base = float(md_top_m), float(md_base_m)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("Finite ordered metre-MD bounds required") from exc
+    if not isfinite(top) or not isfinite(base) or top > base:
         raise ValueError("Finite ordered metre-MD bounds required")
     before = inventory_gis_inputs(dataset)
     if before.axis_issues:
@@ -163,4 +166,4 @@ def evaluate_gis_archie_sources(
         or before != inventory_gis_inputs(dataset)
     ):
         raise ValueError("Archie GIS sources changed during evaluation")
-    return result
+    return replace(result, alignment_reference=alignment_reference.strip())

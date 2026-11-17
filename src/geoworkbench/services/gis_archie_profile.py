@@ -49,6 +49,8 @@ class ArchieProfile:
     water_resistivity_reference: str
     md_bounds: tuple[float, float]
     rows: tuple[ArchieProfileRow, ...]
+    # None for old caller-supplied row contracts; adapter records independent MD alignment evidence.
+    alignment_reference: str | None = None
 
 
 def evaluate_archie_rows(
