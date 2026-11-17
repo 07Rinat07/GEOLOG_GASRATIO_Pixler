@@ -29,6 +29,7 @@ from geoworkbench.services.gis_interval_sample_review import (
     review_gis_source_interval_samples,
 )
 from geoworkbench.ui.gis_input_inventory_dialog import GisInputInventoryDialog
+from geoworkbench.ui.gis_archie_dialog import GisArchieDialog
 from geoworkbench.ui.gis_reference_profile_dialog import (
     GisProfileTabletRequest, GisReferenceProfileDialog, GisVshProfileDialog, MAX_PROFILE_PREVIEW_ROWS,
 )
@@ -177,6 +178,12 @@ class GisReferenceDialog(QDialog):
             field.textChanged.connect(self._discard_record)
         self.calculate.clicked.connect(self._calculate)
         self.calculate_profile.clicked.connect(self._calculate_profile)
+        self.archie_button = QPushButton(
+            self.localizer.text("petro_reference.archie_open"), self,
+        )
+        self.archie_button.setObjectName("gis-reference-archie-open")
+        self.archie_button.clicked.connect(self._show_archie)
+        root.insertWidget(root.count() - 1, self.archie_button)
         self.review_source.clicked.connect(self._review_source)
         self.review_interval.clicked.connect(self._review_interval)
         self.review_source_interval.clicked.connect(self._review_source_interval)
@@ -190,6 +197,11 @@ class GisReferenceDialog(QDialog):
         self._method_changed()
         self._vsh_source_changed()
         fit_window_to_screen(self, preferred=QSize(640, 620), minimum=QSize(380, 360))
+
+    def _show_archie(self) -> None:
+        # Separate from IGR/phiD calibration and Vsh: no implicit method or
+        # curve selection carries across this modal boundary.
+        GisArchieDialog(self.dataset, self, language=self.localizer.language).exec()
 
     def _show_inventory(self) -> None:
         self.interval_review_label.clear()
