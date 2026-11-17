@@ -8,8 +8,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import isfinite
 
-import numpy as np
-
 from geoworkbench.domain.models import Dataset, DatasetKind
 from geoworkbench.services.gis_archie_profile import (
     ARCHIE_PROFILE_METHOD_ID, ArchieProfile, ArchieRowStatus,
