@@ -14,11 +14,13 @@ from typing import TypedDict, cast
 from weakref import ref
 
 import numpy as np
+from shiboken6 import isValid
 from PySide6.QtCore import QEvent, QEventLoop, QTimer, QUrl, QSize, QStandardPaths, Qt, Signal
 from PySide6.QtGui import (
     QAction,
     QActionGroup,
     QCursor,
+    QCloseEvent,
     QDesktopServices,
     QDragEnterEvent,
     QDropEvent,
@@ -635,6 +637,27 @@ _PRESENTATION_REFRESH_COALESCE_MS = 75
 
 
 class MainWindow(QMainWindow):
+    def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 - Qt API
+        """Release pyqtgraph scenes before Qt deletes the parent QWidget tree.
+
+        PlotItem.close() contains required PySide cleanup for proxy widgets,
+        ViewBox and axes. Native parent destruction does not call that method.
+        Keep the original main-window close acceptance contract intact.
+        """
+        super().closeEvent(event)
+        if not event.isAccepted():
+            return
+        if hasattr(self, "tablet_view") and isValid(self.tablet_view):
+            self.tablet_view.clear()
+        if hasattr(self, "curve_view") and isValid(self.curve_view):
+            plot = self.curve_view._plot
+            if isValid(plot) and plot.plotItem is not None:
+                plot.close()
+                # pyqtgraph's PlotWidget.close() detaches its QWidget parent.
+                # Restore ownership until the main-window subtree is destroyed.
+                if isValid(plot):
+                    plot.setParent(self.curve_view)
+
     def __init__(
         self,
         *,
