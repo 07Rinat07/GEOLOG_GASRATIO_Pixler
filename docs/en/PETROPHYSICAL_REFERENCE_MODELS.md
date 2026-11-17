@@ -181,3 +181,6 @@ A preparatory Archie Sw handoff seal now binds a reviewed exact-row snapshot to 
 
 
 Next UI slice: only an explicit action on a selected exact Archie row may show the source-sealed Sw snapshot as a temporary main-tablet QPainter panel. Native φ/Rt/MD fingerprints and active well/dataset/layout/axis are rechecked at handoff and on subsequent panel updates; the panel is removed upon staleness. No saved LAS-derived curve or automatic fluid/pay interpretation; field acceptance remains open.
+
+
+Archie-to-tablet validation now uses the same UOM dictionary as Archie calculation: exact numerically equivalent spellings of v/v (vol/vol, cm3/cm3) and ohm.m (ohm-m, ом.м) require no numeric conversion. Percent, scaled resistivity and unknown units are never silently reinterpreted. Physical field acceptance still requires independent core/source-log and formation-temperature Rw evidence.

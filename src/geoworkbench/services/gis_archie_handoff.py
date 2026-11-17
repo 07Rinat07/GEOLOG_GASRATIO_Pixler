@@ -15,6 +15,7 @@ from geoworkbench.services.gis_archie_profile import (
 )
 from geoworkbench.services.gis_archie_source_profile import _axis_signature, _digest
 from geoworkbench.services.gis_input_inventory import inventory_gis_inputs
+from geoworkbench.services.uom_dictionary import default_uom_dictionary
 
 
 def _live_signature(
@@ -100,10 +101,15 @@ def seal_archie_tablet_source(
         curves = {entry.curve_key: entry for entry in inventory.curves}
         phi_info = curves[porosity_curve_key]
         rt_info = curves[resistivity_curve_key]
+        # Mirror the calculation adapter's unit contract. Exact aliases such
+        # as vol/vol and ohm-m are not conversions; percent and scaled
+        # resistivity remain ineligible without explicit separate processing.
+        uoms = default_uom_dictionary()
         if (
             inventory.axis_issues or phi_info.issues or rt_info.issues
             or phi_info.family != "neutron" or rt_info.family != "resistivity"
-            or phi_info.unit != "v/v" or rt_info.unit != "ohm.m"
+            or uoms.resolve(phi_info.unit or "").canonical != "v/v"
+            or uoms.resolve(rt_info.unit or "").canonical != "ohm.m"
             or phi_info.source_dataset_id != rt_info.source_dataset_id
             or phi_info.curve_id == rt_info.curve_id
             or not profile.porosity_source.startswith(
