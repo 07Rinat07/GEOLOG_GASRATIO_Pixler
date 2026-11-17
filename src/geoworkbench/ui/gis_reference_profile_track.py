@@ -4,18 +4,24 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import isfinite
+from typing import Generic, TypeVar
 
 from PySide6.QtCore import QPointF, QRectF, QSize
 from PySide6.QtGui import QColor, QPaintEvent, QPainter, QPalette, QPen
 from PySide6.QtWidgets import QWidget
 
 from geoworkbench.services.gis_reference_calibration import (
-    CalibratedGisProfile, GisProfileRowStatus,
+    CalibratedGisProfile, CalibratedGisProfileRow, GisProfileRowStatus,
 )
 from geoworkbench.services.gis_vsh_profile import GisVshProfile
-from geoworkbench.services.gis_archie_profile import ArchieProfile, ArchieRowStatus
+from geoworkbench.services.gis_archie_profile import ArchieProfile, ArchieProfileRow, ArchieRowStatus
 from geoworkbench.services.localization import Localizer
 from geoworkbench.services.petrophysical_reference_models import PetrophysicalQuality
+
+
+_ProfileT = TypeVar(
+    "_ProfileT", bound=CalibratedGisProfile | GisVshProfile | ArchieProfile,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,7 +65,11 @@ def project_profile_track(
     full-profile MD is shown at mid-height. Source order and row IDs persist.
     A viewport outside the calibrated interval contains no invented rows.
     """
-    values = [row.estimate.value for row in profile.rows if row.estimate is not None]
+    # Both reviewed calibration/Vsh rows and Archie rows expose the same
+    # structural projection fields. Widen element types, not the tablet's
+    # calibration-only profile contract.
+    rows: tuple[CalibratedGisProfileRow | ArchieProfileRow, ...] = profile.rows
+    values = [row.estimate.value for row in rows if row.estimate is not None]
     lower, upper = min(0.0, min(values, default=0.0)), max(1.0, max(values, default=1.0))
     top, base = profile.md_bounds if visible_md_bounds is None else visible_md_bounds
     if not (isfinite(top) and isfinite(base)) or top > base or (
@@ -72,16 +82,16 @@ def project_profile_track(
             _fraction(row.estimate.value, lower, upper) if row.estimate is not None else None,
             row.status, row.estimate.quality if row.estimate is not None else None,
         )
-        for index, row in enumerate(profile.rows)
+        for index, row in enumerate(rows)
         if top <= row.md_m <= base
     )
     return ProfileTrackProjection((lower, upper), points)
 
 
-class GisReferenceProfileTrack(QWidget):
+class GisReferenceProfileTrack(QWidget, Generic[_ProfileT]):
     """QPainter value-only track, avoiding PlotItem/menu ownership and project edits."""
 
-    def __init__(self, profile: CalibratedGisProfile | GisVshProfile | ArchieProfile, localizer: Localizer,
+    def __init__(self, profile: _ProfileT, localizer: Localizer,
                  parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.profile = profile

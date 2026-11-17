@@ -2632,7 +2632,7 @@ class TabletView(QWidget):
         self._gis_profile_close = QPushButton(self._localizer.text("common.close"), self._gis_profile_host)
         self._gis_profile_close.clicked.connect(self.clear_gis_profile)
         self._gis_profile_layout.addWidget(self._gis_profile_close)
-        self._gis_profile_track: GisReferenceProfileTrack | None = None
+        self._gis_profile_track: GisReferenceProfileTrack[CalibratedGisProfile | GisVshProfile] | None = None
         self._gis_profile_context_valid: Callable[[], bool] | None = None
         self._gis_profile_timer = QTimer(self)
         self._gis_profile_timer.setInterval(1000)
@@ -2678,7 +2678,7 @@ class TabletView(QWidget):
         self._sync_screen_controls()
 
     @property
-    def gis_profile_track(self) -> GisReferenceProfileTrack | None:
+    def gis_profile_track(self) -> GisReferenceProfileTrack[CalibratedGisProfile | GisVshProfile] | None:
         return self._gis_profile_track
 
     def _update_gis_profile_context(self) -> None:
