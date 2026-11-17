@@ -172,3 +172,6 @@ The separate “Archie calculation: separate preview…” action in the GIS dia
 
 
 The separate Archie operator preview now displays the exact numeric Rw (ohm·m), a, m and n used for the calculation. They are retained in the immutable profile rather than replaced by typical values. Parameter selection and physical applicability still require independent interpreter review; no automatic saturation approval is implied.
+
+
+Intermediate Archie review now includes a standalone read-only QPainter Sw track with exact measured MD points, distinct missing/invalid markers and unclipped values beyond Sw=1. Selecting a source row highlights that row; the horizontal scale remains tied to the complete snapshot on zoom. The track is not a saved derived curve or evidence of fluid type/pay. Main-tablet handoff and independent field acceptance remain separate tasks.

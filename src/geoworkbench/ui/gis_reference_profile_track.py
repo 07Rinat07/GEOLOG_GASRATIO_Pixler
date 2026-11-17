@@ -13,6 +13,7 @@ from geoworkbench.services.gis_reference_calibration import (
     CalibratedGisProfile, GisProfileRowStatus,
 )
 from geoworkbench.services.gis_vsh_profile import GisVshProfile
+from geoworkbench.services.gis_archie_profile import ArchieProfile, ArchieRowStatus
 from geoworkbench.services.localization import Localizer
 from geoworkbench.services.petrophysical_reference_models import PetrophysicalQuality
 
@@ -24,7 +25,7 @@ class ProfileTrackPoint:
     row_index: int
     depth_fraction: float
     value_fraction: float | None
-    status: GisProfileRowStatus
+    status: GisProfileRowStatus | ArchieRowStatus
     quality: PetrophysicalQuality | None
 
 
@@ -47,7 +48,7 @@ def _fraction(value: float, lower: float, upper: float) -> float:
 
 
 def project_profile_track(
-    profile: CalibratedGisProfile | GisVshProfile, *,
+    profile: CalibratedGisProfile | GisVshProfile | ArchieProfile, *,
     visible_md_bounds: tuple[float, float] | None = None,
 ) -> ProfileTrackProjection:
     """Project exact rows into the requested metre-MD viewport.
@@ -80,7 +81,7 @@ def project_profile_track(
 class GisReferenceProfileTrack(QWidget):
     """QPainter value-only track, avoiding PlotItem/menu ownership and project edits."""
 
-    def __init__(self, profile: CalibratedGisProfile | GisVshProfile, localizer: Localizer,
+    def __init__(self, profile: CalibratedGisProfile | GisVshProfile | ArchieProfile, localizer: Localizer,
                  parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.profile = profile
@@ -90,7 +91,14 @@ class GisReferenceProfileTrack(QWidget):
         self.selected_row: int | None = None
         self.setObjectName("gis-reference-profile-track")
         self.setMinimumSize(220, 180)
-        self.setAccessibleName(localizer.text("petro_reference.profile_track_title"))
+        self.setAccessibleName(self._title())
+
+    def _title(self) -> str:
+        return self.localizer.text(
+            "petro_reference.archie_title"
+            if isinstance(self.profile, ArchieProfile)
+            else "petro_reference.profile_track_title"
+        )
 
     def sizeHint(self) -> QSize:
         return QSize(340, 420)
@@ -129,7 +137,7 @@ class GisReferenceProfileTrack(QWidget):
             plot = QRectF(left, line_height * 2 + 12, max(1.0, self.width() - left - 14),
                           max(1.0, self.height() - line_height * 4 - 24))
             painter.setPen(foreground)
-            painter.drawText(QPointF(8, line_height), self.localizer.text("petro_reference.profile_track_title"))
+            painter.drawText(QPointF(8, line_height), self._title())
             lower, upper = self.projection.value_bounds
             low_text, high_text = format(lower, ".6g"), format(upper, ".6g")
             painter.drawText(QPointF(plot.left(), plot.top() - 5), low_text)
@@ -159,7 +167,7 @@ class GisReferenceProfileTrack(QWidget):
                     x = plot.left() - 9
                     painter.setPen(QPen(muted, 1.8))
                     painter.drawLine(QPointF(x - 3, y), QPointF(x + 3, y))
-                    if point.status is GisProfileRowStatus.INVALID_MEASUREMENT:
+                    if point.status in (GisProfileRowStatus.INVALID_MEASUREMENT, ArchieRowStatus.INVALID_INPUT):
                         painter.drawLine(QPointF(x, y - 3), QPointF(x, y + 3))
                     continue
                 x = plot.left() + point.value_fraction * plot.width()

@@ -12,7 +12,7 @@ import numpy as np
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, QPersistentModelIndex, QSize, Qt
 from PySide6.QtWidgets import (
     QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHeaderView, QLabel,
-    QLineEdit, QPushButton, QScrollArea, QTableView, QVBoxLayout, QWidget,
+    QLineEdit, QPushButton, QScrollArea, QSplitter, QTableView, QVBoxLayout, QWidget,
 )
 
 from geoworkbench.domain.models import Dataset
@@ -20,6 +20,7 @@ from geoworkbench.services.gis_archie_profile import ArchieProfile, ArchieRowSta
 from geoworkbench.services.gis_archie_source_profile import evaluate_gis_archie_sources
 from geoworkbench.services.gis_input_inventory import inventory_gis_inputs
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.gis_reference_profile_track import GisReferenceProfileTrack
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
@@ -153,12 +154,27 @@ class GisArchieProfileDialog(QDialog):
         self.table.setModel(self.model)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.table.horizontalHeader().setStretchLastSection(True)
-        root.addWidget(self.table)
+        # Reuse the read-only exact-row renderer; it neither creates a tablet
+        # layout track nor interpolates or clips saturation estimates.
+        self.track = GisReferenceProfileTrack(profile, localizer, self)
+        self.track.setObjectName("gis-archie-profile-track")
+        splitter = QSplitter(Qt.Orientation.Horizontal, self)
+        splitter.setChildrenCollapsible(False)
+        splitter.addWidget(self.track)
+        splitter.addWidget(self.table)
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 2)
+        splitter.setSizes([330, 620])
+        self.table.selectionModel().currentRowChanged.connect(self._select_track_row)
+        root.addWidget(splitter)
         close = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
         close.button(QDialogButtonBox.StandardButton.Close).setText(localizer.text("common.close"))
         close.rejected.connect(self.reject)
         root.addWidget(close)
-        fit_window_to_screen(self, preferred=QSize(920, 640), minimum=QSize(480, 360))
+        fit_window_to_screen(self, preferred=QSize(1020, 660), minimum=QSize(480, 360))
+
+    def _select_track_row(self, current: QModelIndex, _previous: QModelIndex) -> None:
+        self.track.select_row(current.row() if current.isValid() else None)
 
 
 class GisArchieDialog(QDialog):
