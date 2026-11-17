@@ -101,6 +101,8 @@ from geoworkbench.services.gis_reference_calibration import (
 )
 from geoworkbench.ui.gis_reference_profile_track import GisReferenceProfileTrack
 from geoworkbench.services.gis_vsh_profile import GisVshProfile, LINEAR_VSH_METHOD_ID
+from geoworkbench.services.gis_archie_profile import ArchieProfile
+from geoworkbench.services.gis_archie_handoff import ArchieTabletSourceSeal
 from geoworkbench.services.gas_curve_presentation import (
     GAS_SCREEN_POINT_SIZE_PX,
     gas_scatter_point_budget,
@@ -2632,7 +2634,10 @@ class TabletView(QWidget):
         self._gis_profile_close = QPushButton(self._localizer.text("common.close"), self._gis_profile_host)
         self._gis_profile_close.clicked.connect(self.clear_gis_profile)
         self._gis_profile_layout.addWidget(self._gis_profile_close)
-        self._gis_profile_track: GisReferenceProfileTrack[CalibratedGisProfile | GisVshProfile] | None = None
+        self._gis_profile_track: GisReferenceProfileTrack[
+            CalibratedGisProfile | GisVshProfile | ArchieProfile
+        ] | None = None
+        self._gis_profile_archie_seal: ArchieTabletSourceSeal | None = None
         self._gis_profile_context_valid: Callable[[], bool] | None = None
         self._gis_profile_timer = QTimer(self)
         self._gis_profile_timer.setInterval(1000)
@@ -2678,7 +2683,9 @@ class TabletView(QWidget):
         self._sync_screen_controls()
 
     @property
-    def gis_profile_track(self) -> GisReferenceProfileTrack[CalibratedGisProfile | GisVshProfile] | None:
+    def gis_profile_track(self) -> GisReferenceProfileTrack[
+        CalibratedGisProfile | GisVshProfile | ArchieProfile
+    ] | None:
         return self._gis_profile_track
 
     def _update_gis_profile_context(self) -> None:
@@ -2686,6 +2693,32 @@ class TabletView(QWidget):
         if track is None:
             return
         profile = track.profile
+        if isinstance(profile, ArchieProfile):
+            params = profile.coefficients
+            context = (
+                self._localizer.text(
+                    "petro_reference.archie_evidence_summary",
+                    method=profile.method_id, reviewer=profile.reviewer,
+                    phi=profile.porosity_source, rt=profile.resistivity_source,
+                    alignment=profile.alignment_reference or "",
+                    water=profile.water_resistivity_reference,
+                    applicability=profile.applicability_reference,
+                )
+                + "\n" + self._localizer.text(
+                    "petro_reference.archie_parameters",
+                    rw=format(params.formation_water_resistivity_ohm_m, ".12g"),
+                    a=format(params.tortuosity_factor, ".12g"),
+                    m=format(params.cementation_exponent, ".12g"),
+                    n=format(params.saturation_exponent, ".12g"),
+                )
+                + "\n" + self._localizer.text("petro_reference.archie_notice")
+            )
+            self._gis_profile_context.setText(context)
+            self._gis_profile_close.setText(self._localizer.text("common.close"))
+            track.localizer = self._localizer
+            track.setAccessibleName(self._localizer.text("petro_reference.archie_title"))
+            track.update()
+            return
         calibration = profile.calibration
         method_id = profile.method_id if isinstance(profile, GisVshProfile) else calibration.source.method_id
         context = self._localizer.text(
@@ -2726,7 +2759,9 @@ class TabletView(QWidget):
         except (ValueError, TypeError, OverflowError, KeyError):
             return False
         self.clear_gis_profile()
-        track = GisReferenceProfileTrack(profile, self._localizer, self._gis_profile_host)
+        track: GisReferenceProfileTrack[
+            CalibratedGisProfile | GisVshProfile | ArchieProfile
+        ] = GisReferenceProfileTrack(profile, self._localizer, self._gis_profile_host)
         track.set_visible_md_bounds(bounds)
         self._gis_profile_track = track
         self._gis_profile_context_valid = context_valid
@@ -2739,8 +2774,39 @@ class TabletView(QWidget):
             return True
         return False
 
+    def show_archie_profile(
+        self, seal: ArchieTabletSourceSeal, context_valid: Callable[[], bool],
+    ) -> bool:
+        """Show an explicit, live-sealed Archie Sw snapshot, never a saved curve."""
+        dataset = self._dataset
+        if (
+            dataset is None or not context_valid() or not seal.is_current(dataset)
+            or self.vertical_index_id != seal.axis_id
+        ):
+            return False
+        bounds = self.visible_depth_range
+        if bounds is None or not bounds[0] < bounds[1]:
+            return False
+        self.clear_gis_profile()
+        track: GisReferenceProfileTrack[
+            CalibratedGisProfile | GisVshProfile | ArchieProfile
+        ] = GisReferenceProfileTrack(seal.profile, self._localizer, self._gis_profile_host)
+        track.set_visible_md_bounds(bounds)
+        self._gis_profile_track = track
+        self._gis_profile_archie_seal = seal
+        self._gis_profile_context_valid = context_valid
+        self._gis_profile_layout.insertWidget(1, track, 1)
+        self._update_gis_profile_context()
+        self._gis_profile_host.show()
+        self._sync_gis_profile_panel()
+        if self._gis_profile_track is None:
+            return False
+        self._gis_profile_timer.start()
+        return True
+
     def clear_gis_profile(self) -> None:
         self._gis_profile_timer.stop()
+        self._gis_profile_archie_seal = None
         track = self._gis_profile_track
         self._gis_profile_track = None
         self._gis_profile_context_valid = None
@@ -2757,13 +2823,28 @@ class TabletView(QWidget):
         dataset = self._dataset
         valid = self._gis_profile_context_valid
         bounds = self.visible_depth_range
-        if (dataset is None or valid is None or not valid()
-                or self.vertical_index_id != track.profile.calibration.source.axis_id
-                or bounds is None or not bounds[0] < bounds[1]):
+        seal = self._gis_profile_archie_seal
+        profile = track.profile
+        if (
+            dataset is None or valid is None or not valid()
+            or bounds is None or not bounds[0] < bounds[1]
+        ):
             self.clear_gis_profile()
             return
         try:
-            validate_gis_reference_calibration(dataset, track.profile.calibration)
+            if isinstance(profile, ArchieProfile):
+                if (
+                    seal is None or seal.profile is not profile
+                    or self.vertical_index_id != seal.axis_id
+                    or not seal.is_current(dataset)
+                ):
+                    self.clear_gis_profile()
+                    return
+            else:
+                if self.vertical_index_id != profile.calibration.source.axis_id:
+                    self.clear_gis_profile()
+                    return
+                validate_gis_reference_calibration(dataset, profile.calibration)
             if track._visible_md_bounds != bounds:
                 track.set_visible_md_bounds(bounds)
         except (ValueError, TypeError, OverflowError, KeyError):

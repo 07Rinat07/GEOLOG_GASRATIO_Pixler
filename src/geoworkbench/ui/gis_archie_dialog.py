@@ -17,6 +17,9 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.gis_archie_profile import ArchieProfile, ArchieRowStatus
+from geoworkbench.services.gis_archie_handoff import (
+    ArchieTabletSourceSeal, seal_archie_tablet_source,
+)
 from geoworkbench.services.gis_archie_source_profile import evaluate_gis_archie_sources
 from geoworkbench.services.gis_input_inventory import inventory_gis_inputs
 from geoworkbench.services.localization import AppLanguage, Localizer
@@ -110,9 +113,12 @@ class GisArchieProfileDialog(QDialog):
 
     def __init__(self, profile: ArchieProfile, source_pairs: tuple[tuple[float, float], ...],
                  *, language: AppLanguage = AppLanguage.RU,
-                 parent: QWidget | None = None) -> None:
+                 parent: QWidget | None = None,
+                 allow_tablet_navigation: bool = False) -> None:
         super().__init__(parent)
         self.profile = profile
+        self.tablet_row_index: int | None = None
+        self._allow_tablet_navigation = allow_tablet_navigation
         self.setObjectName("gis-archie-profile-dialog")
         localizer = Localizer.create(language)
         self.setWindowTitle(localizer.text("petro_reference.archie_title"))
@@ -167,6 +173,14 @@ class GisArchieProfileDialog(QDialog):
         splitter.setSizes([330, 620])
         self.table.selectionModel().currentRowChanged.connect(self._select_track_row)
         root.addWidget(splitter)
+        self.show_in_tablet = QPushButton(
+            localizer.text("petro_reference.profile_show_tablet"), self,
+        )
+        self.show_in_tablet.setObjectName("gis-archie-show-in-tablet")
+        self.show_in_tablet.setEnabled(False)
+        self.show_in_tablet.setVisible(allow_tablet_navigation)
+        self.show_in_tablet.clicked.connect(self._request_tablet)
+        root.addWidget(self.show_in_tablet)
         close = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, parent=self)
         close.button(QDialogButtonBox.StandardButton.Close).setText(localizer.text("common.close"))
         close.rejected.connect(self.reject)
@@ -175,15 +189,28 @@ class GisArchieProfileDialog(QDialog):
 
     def _select_track_row(self, current: QModelIndex, _previous: QModelIndex) -> None:
         self.track.select_row(current.row() if current.isValid() else None)
+        self.show_in_tablet.setEnabled(
+            self._allow_tablet_navigation and self.track.selected_row is not None
+        )
+
+    def _request_tablet(self) -> None:
+        row = self.track.selected_row
+        if not self._allow_tablet_navigation or row is None:
+            return
+        self.tablet_row_index = row
+        self.accept()
 
 
 class GisArchieDialog(QDialog):
     """Operator selects two actual sources; all coefficients/evidence remain explicit."""
 
     def __init__(self, dataset: Dataset, parent: QWidget | None = None,
-                 *, language: AppLanguage = AppLanguage.RU) -> None:
+                 *, language: AppLanguage = AppLanguage.RU,
+                 allow_tablet_navigation: bool = False) -> None:
         super().__init__(parent)
         self.dataset = dataset
+        self._allow_tablet_navigation = allow_tablet_navigation
+        self.tablet_request: ArchieTabletSourceSeal | None = None
         self.localizer = Localizer.create(language)
         self.setObjectName("gis-archie-dialog")
         self.setWindowTitle(self._t("title"))
@@ -243,6 +270,7 @@ class GisArchieDialog(QDialog):
         return float(value.replace(",", "."))
 
     def _evaluate(self) -> None:
+        self.tablet_request = None
         self.status.clear()
         phi_key, rt_key = self.phi.currentData(), self.rt.currentData()
         if not isinstance(phi_key, str) or not isinstance(rt_key, str):
@@ -282,9 +310,11 @@ class GisArchieDialog(QDialog):
         draft = (phi_key, rt_key, tuple(field.text() for field in self.fields.values()))
         preview = GisArchieProfileDialog(
             profile, source_pairs, language=self.localizer.language, parent=self,
+            allow_tablet_navigation=self._allow_tablet_navigation,
         )
         try:
-            preview.exec()
+            accepted = preview.exec() == QDialog.DialogCode.Accepted
+            row_to_show = preview.tablet_row_index if accepted else None
         finally:
             preview.deleteLater()
         try:
@@ -295,5 +325,20 @@ class GisArchieDialog(QDialog):
                 raise ValueError("GIS sources or operator input changed during preview")
         except (ValueError, TypeError, KeyError):
             self.status.setText(self._t("stale"))
+            return
+        if row_to_show is not None:
+            try:
+                seal = seal_archie_tablet_source(
+                    self.dataset, profile, porosity_curve_key=phi_key,
+                    resistivity_curve_key=rt_key, row_index=row_to_show,
+                )
+            except ValueError:
+                self.status.setText(self._t("stale"))
+                return
+            if not seal.is_current(self.dataset):
+                self.status.setText(self._t("stale"))
+                return
+            self.tablet_request = seal
+            self.accept()
             return
         self.status.setText(self._t("snapshot"))

@@ -30,6 +30,7 @@ from geoworkbench.services.gis_interval_sample_review import (
 )
 from geoworkbench.ui.gis_input_inventory_dialog import GisInputInventoryDialog
 from geoworkbench.ui.gis_archie_dialog import GisArchieDialog
+from geoworkbench.services.gis_archie_handoff import ArchieTabletSourceSeal
 from geoworkbench.ui.gis_reference_profile_dialog import (
     GisProfileTabletRequest, GisReferenceProfileDialog, GisVshProfileDialog, MAX_PROFILE_PREVIEW_ROWS,
 )
@@ -43,7 +44,7 @@ class GisReferenceDialog(QDialog):
     ) -> None:
         super().__init__(parent)
         self._allow_tablet_navigation = allow_tablet_navigation
-        self.tablet_request: GisProfileTabletRequest | None = None
+        self.tablet_request: GisProfileTabletRequest | ArchieTabletSourceSeal | None = None
         self.dataset = dataset
         self.localizer = Localizer.create(language)
         self.sample: CalibratedGisSample | None = None
@@ -201,7 +202,21 @@ class GisReferenceDialog(QDialog):
     def _show_archie(self) -> None:
         # Separate from IGR/phiD calibration and Vsh: no implicit method or
         # curve selection carries across this modal boundary.
-        GisArchieDialog(self.dataset, self, language=self.localizer.language).exec()
+        dialog = GisArchieDialog(
+            self.dataset, self, language=self.localizer.language,
+            allow_tablet_navigation=self._allow_tablet_navigation,
+        )
+        try:
+            accepted = dialog.exec() == QDialog.DialogCode.Accepted
+            request = dialog.tablet_request if accepted else None
+        finally:
+            dialog.deleteLater()
+        if (
+            self._allow_tablet_navigation and request is not None
+            and request.is_current(self.dataset)
+        ):
+            self.tablet_request = request
+            self.accept()
 
     def _show_inventory(self) -> None:
         self.interval_review_label.clear()
