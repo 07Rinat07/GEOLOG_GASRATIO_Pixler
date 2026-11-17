@@ -179,3 +179,68 @@ def test_seal_rejects_stale_qc_or_forged_snapshot(change):
             dataset, profile, porosity_curve_key="phi",
             resistivity_curve_key="rt", row_index=0,
         )
+
+
+
+@pytest.mark.parametrize(("phi_unit", "rt_unit"), (
+    ("v/v", "ohm.m"),
+    ("vol/vol", "ohm-m"),
+    ("cm3/cm3", "ом.м"),
+))
+def test_seal_matches_archie_calculation_unit_aliases_without_conversion(phi_unit, rt_unit):
+    """Exact equivalent unit spellings must pass the same strict source gate."""
+    from geoworkbench.services.semantic_channels import SemanticChannelDictionary
+
+    dataset = _dataset()
+    semantic = SemanticChannelDictionary()
+    for key, unit in (("phi", phi_unit), ("rt", rt_unit)):
+        curve = dataset.curves[key]
+        curve.metadata = replace(
+            curve.metadata, unit=unit,
+            semantic=semantic.resolve(curve.metadata.original_mnemonic, unit=unit),
+        )
+    before = (
+        dataset.active_index.values.copy(),
+        dataset.curves["phi"].values.copy(),
+        dataset.curves["rt"].values.copy(),
+    )
+    profile = _evaluate(dataset)
+    seal = seal_archie_tablet_source(
+        dataset, profile, porosity_curve_key="phi", resistivity_curve_key="rt",
+        row_index=0,
+    )
+    assert seal.is_current(dataset)
+    assert profile.rows[0].estimate is not None
+    assert profile.rows[0].estimate.value == pytest.approx(0.5)
+    np.testing.assert_array_equal(dataset.active_index.values, before[0])
+    np.testing.assert_array_equal(dataset.curves["phi"].values, before[1])
+    np.testing.assert_array_equal(dataset.curves["rt"].values, before[2])
+
+
+@pytest.mark.parametrize(("phi_unit", "rt_unit"), (
+    ("%", "ohm.m"),
+    ("v/v", "kohm.m"),
+    ("unitless", "ohm.m"),
+))
+def test_source_and_seal_do_not_treat_scaled_units_as_equivalent(phi_unit, rt_unit):
+    """No automatic percent, kOhm-m or unrelated dimensionless reinterpretation."""
+    from geoworkbench.services.semantic_channels import SemanticChannelDictionary
+
+    dataset = _dataset()
+    previously_calculated = _evaluate(dataset)
+    semantic = SemanticChannelDictionary()
+    for key, unit in (("phi", phi_unit), ("rt", rt_unit)):
+        curve = dataset.curves[key]
+        curve.metadata = replace(
+            curve.metadata, unit=unit,
+            semantic=semantic.resolve(curve.metadata.original_mnemonic, unit=unit),
+        )
+    with pytest.raises(ValueError):
+        _evaluate(dataset)
+    # Also reject a previously computed profile after the unit contract
+    # changes; no post-hoc reinterpretation or unit scale adjustment.
+    with pytest.raises(ValueError):
+        seal_archie_tablet_source(
+            dataset, previously_calculated, porosity_curve_key="phi",
+            resistivity_curve_key="rt", row_index=0,
+        )
