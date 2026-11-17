@@ -73,10 +73,14 @@ artifacts workflow `.github/workflows/release-gate.yml`.
 - Газовый контекст интерпретационных отчётов:
   [RU](ru/GAS_CONTEXT_EVENTS.md) · [KK](kk/GAS_CONTEXT_EVENTS.md) ·
   [EN](en/GAS_CONTEXT_EVENTS.md)
-- Reference-петрофизика IGR / плотностная пористость / Archie (только data-only PR #686):
+- Петрофизические reference-модели IGR / пористости / Archie:
   [RU](ru/PETROPHYSICAL_REFERENCE_MODELS.md) ·
   [KK](kk/PETROPHYSICAL_REFERENCE_MODELS.md) ·
   [EN](en/PETROPHYSICAL_REFERENCE_MODELS.md)
+- Независимая полевая приёмка Archie (проверка фактических ГИС, керна, Rw, a/m/n):
+  [RU](ru/ARCHIE_FIELD_ACCEPTANCE.md) ·
+  [KK](kk/ARCHIE_FIELD_ACCEPTANCE.md) ·
+  [EN](en/ARCHIE_FIELD_ACCEPTANCE.md)
 - Режимы нормализованного газа и сопоставление с ЛБА:
   [RU](ru/NORMALIZED_GAS_INTERPRETATION.md) ·
   [KK](kk/NORMALIZED_GAS_INTERPRETATION.md) ·
