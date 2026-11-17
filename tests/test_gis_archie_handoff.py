@@ -1,0 +1,123 @@
+"""Fail-closed Archie handoff source stamp; synthetic GIS only."""
+from dataclasses import replace
+
+import numpy as np
+import pytest
+
+from geoworkbench.services.gis_archie_handoff import seal_archie_tablet_source
+from test_gis_archie_source_profile import _dataset, _evaluate
+
+
+@pytest.mark.parametrize("descending", (False, True))
+@pytest.mark.parametrize("row", (0, 1, 2, 3))
+def test_seal_records_exact_row_and_original_profile_without_mutation(descending, row):
+    dataset = _dataset(descending)
+    before = (dataset.active_index.values.copy(), dataset.curves["phi"].values.copy(),
+              dataset.curves["rt"].values.copy())
+    profile = _evaluate(dataset)
+    seal = seal_archie_tablet_source(
+        dataset, profile, porosity_curve_key="phi",
+        resistivity_curve_key="rt", row_index=row,
+    )
+    assert seal.profile is profile and seal.dataset is dataset
+    assert seal.row_index == row
+    assert seal.is_current(dataset)
+    np.testing.assert_array_equal(dataset.active_index.values, before[0])
+    np.testing.assert_array_equal(dataset.curves["phi"].values, before[1])
+    np.testing.assert_array_equal(dataset.curves["rt"].values, before[2])
+
+
+@pytest.mark.parametrize("change", (
+    "phi", "rt", "outside_interval", "depth", "new_depth_array", "new_curve_array",
+    "metadata", "version", "state", "active_index", "dataset", "removed_curve",
+))
+def test_seal_invalidated_by_live_source_or_identity_change(change):
+    dataset = _dataset()
+    profile = _evaluate(dataset, md_top_m=100., md_base_m=100.)
+    seal = seal_archie_tablet_source(
+        dataset, profile, porosity_curve_key="phi", resistivity_curve_key="rt",
+        row_index=0,
+    )
+    if change == "phi":
+        dataset.curves["phi"].values[0] = 0.3
+    elif change == "rt":
+        dataset.curves["rt"].values[0] = 20.
+    elif change == "outside_interval":
+        dataset.curves["rt"].values[3] = 12.
+    elif change == "depth":
+        dataset.active_index.values[0] = 99.
+    elif change == "new_depth_array":
+        dataset.active_index.values = dataset.active_index.values.copy()
+    elif change == "new_curve_array":
+        dataset.curves["phi"].values = dataset.curves["phi"].values.copy()
+    elif change == "metadata":
+        curve = dataset.curves["rt"]
+        curve.metadata = replace(curve.metadata, provenance="new lineage")
+    elif change == "version":
+        dataset.curves["rt"].version += 1
+    elif change == "state":
+        from geoworkbench.domain.models import CalculationState
+        dataset.curves["phi"].state = CalculationState.STALE
+    elif change == "active_index":
+        dataset.active_index_id = "missing"
+    elif change == "dataset":
+        assert not seal.is_current(_dataset())
+        return
+    else:
+        dataset.curves.pop("rt")
+    assert not seal.is_current(dataset)
+
+
+@pytest.mark.parametrize("change", (
+    "row", "method", "reviewer", "wrong_phi", "wrong_rt", "mismatched_md",
+    "mismatched_input", "bad_phi_unit",
+))
+def test_seal_rejects_untrusted_row_model_or_source(change):
+    dataset = _dataset()
+    profile = _evaluate(dataset)
+    chosen_row = 0
+    phi_key, rt_key = "phi", "rt"
+    if change == "row":
+        chosen_row = 100
+    elif change == "method":
+        profile = replace(profile, method_id="igr-linear-1")
+    elif change == "reviewer":
+        profile = replace(profile, reviewer="")
+    elif change == "wrong_phi":
+        phi_key = "rt"
+    elif change == "wrong_rt":
+        rt_key = "phi"
+    elif change == "mismatched_md":
+        first = replace(profile.rows[0], md_m=99.)
+        profile = replace(profile, rows=(first, *profile.rows[1:]))
+    elif change == "mismatched_input":
+        first = profile.rows[0]
+        assert first.estimate is not None
+        altered = replace(
+            first.estimate,
+            parameters=tuple(
+                (k, 0.9 if k == "porosity_fraction" else v)
+                for k, v in first.estimate.parameters
+            ),
+        )
+        profile = replace(profile, rows=(replace(first, estimate=altered), *profile.rows[1:]))
+    else:
+        curve = dataset.curves["phi"]
+        curve.metadata = replace(curve.metadata, unit="%")
+    with pytest.raises(ValueError):
+        seal_archie_tablet_source(
+            dataset, profile, porosity_curve_key=phi_key,
+            resistivity_curve_key=rt_key, row_index=chosen_row,
+        )
+
+
+def test_sealed_source_never_creates_or_fills_missing_measured_rows():
+    dataset = _dataset()
+    profile = _evaluate(dataset)
+    seal = seal_archie_tablet_source(
+        dataset, profile, porosity_curve_key="phi",
+        resistivity_curve_key="rt", row_index=1,
+    )
+    assert profile.rows[1].estimate is None
+    assert np.isnan(dataset.curves["phi"].values[1])
+    assert seal.is_current(dataset)
