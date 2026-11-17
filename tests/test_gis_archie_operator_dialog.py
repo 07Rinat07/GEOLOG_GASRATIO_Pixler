@@ -46,6 +46,11 @@ def test_explicit_operator_archie_preview_shows_exact_qc_and_preserves_source(
         captured.append(preview.profile)
         assert preview.table.objectName() == "gis-archie-profile-table"
         assert preview.model.rowCount() == 4
+        assert preview.track.profile is preview.profile
+        assert preview.track.projection.value_bounds[1] > 1
+        assert preview.track.projection.points[1].value_fraction is None
+        preview.table.setCurrentIndex(preview.model.index(2, 4))
+        assert preview.track.selected_row == 2
         assert preview.parameters_label.objectName() == "gis-archie-profile-coefficients"
         assert "0.1" in preview.parameters_label.text()
         assert "a=1" in preview.parameters_label.text()
