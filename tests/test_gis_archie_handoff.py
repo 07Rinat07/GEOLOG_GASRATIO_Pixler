@@ -121,3 +121,61 @@ def test_sealed_source_never_creates_or_fills_missing_measured_rows():
     assert profile.rows[1].estimate is None
     assert np.isnan(dataset.curves["phi"].values[1])
     assert seal.is_current(dataset)
+
+
+@pytest.mark.parametrize("change", (
+    "missing_now_valid", "invalid_now_valid", "missing_marked_invalid",
+    "forged_saturation", "forged_quality", "changed_coefficients",
+    "skipped_row", "expanded_bounds",
+))
+def test_seal_rejects_stale_qc_or_forged_snapshot(change):
+    """A seal must verify all row statuses and numerical Sw, not only selected MD."""
+    dataset = _dataset()
+    profile = _evaluate(dataset)
+    if change == "missing_now_valid":
+        dataset.curves["phi"].values[1] = 0.2
+    elif change == "invalid_now_valid":
+        dataset.curves["rt"].values[3] = 10.
+    elif change == "missing_marked_invalid":
+        profile = replace(
+            profile,
+            rows=(
+                profile.rows[0],
+                replace(profile.rows[1], status=profile.rows[3].status,
+                        issue=profile.rows[3].issue),
+                *profile.rows[2:],
+            ),
+        )
+    elif change == "forged_saturation":
+        first = profile.rows[0]
+        assert first.estimate is not None
+        profile = replace(
+            profile,
+            rows=(replace(first, estimate=replace(
+                first.estimate, value=first.estimate.value * 1.1,
+            )), *profile.rows[1:]),
+        )
+    elif change == "forged_quality":
+        from geoworkbench.services.petrophysical_reference_models import PetrophysicalQuality
+        first = profile.rows[0]
+        assert first.estimate is not None
+        profile = replace(
+            profile,
+            rows=(replace(first, estimate=replace(
+                first.estimate, quality=PetrophysicalQuality.OUTSIDE_PHYSICAL_RANGE,
+            )), *profile.rows[1:]),
+        )
+    elif change == "changed_coefficients":
+        profile = replace(
+            profile,
+            coefficients=replace(profile.coefficients, saturation_exponent=2.5),
+        )
+    elif change == "skipped_row":
+        profile = replace(profile, rows=(profile.rows[0], *profile.rows[2:]))
+    else:
+        profile = replace(profile, md_bounds=(99., 104.))
+    with pytest.raises(ValueError):
+        seal_archie_tablet_source(
+            dataset, profile, porosity_curve_key="phi",
+            resistivity_curve_key="rt", row_index=0,
+        )

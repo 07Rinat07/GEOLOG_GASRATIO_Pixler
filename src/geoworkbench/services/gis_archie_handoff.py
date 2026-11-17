@@ -10,7 +10,8 @@ from math import isfinite
 
 from geoworkbench.domain.models import Dataset, DatasetKind
 from geoworkbench.services.gis_archie_profile import (
-    ARCHIE_PROFILE_METHOD_ID, ArchieProfile, ArchieRowStatus,
+    ARCHIE_PROFILE_METHOD_ID, ArchieInputRow, ArchieProfile, ArchieRowStatus,
+    evaluate_archie_rows,
 )
 from geoworkbench.services.gis_archie_source_profile import _axis_signature, _digest
 from geoworkbench.services.gis_input_inventory import inventory_gis_inputs
@@ -117,15 +118,25 @@ def seal_archie_tablet_source(
         phi = dataset.curves[porosity_curve_key].values
         rt = dataset.curves[resistivity_curve_key].values
         last_index = -1
+        inputs: list[ArchieInputRow] = []
         for row in profile.rows:
             if (
-                row.sample_index <= last_index or row.sample_index >= len(depths)
+                row.sample_index <= last_index
+                or (last_index >= 0 and row.sample_index != last_index + 1)
+                or row.sample_index >= len(depths)
                 or row.sample_index < 0
                 or float(depths[row.sample_index]) != row.md_m
                 or not profile.md_bounds[0] <= row.md_m <= profile.md_bounds[1]
             ):
                 raise ValueError("Archie row is not an exact live MD source row")
             last_index = row.sample_index
+            raw_phi = float(phi[row.sample_index])
+            raw_rt = float(rt[row.sample_index])
+            inputs.append(ArchieInputRow(
+                row.sample_index, row.md_m,
+                raw_phi if isfinite(raw_phi) else None,
+                raw_rt if isfinite(raw_rt) else None,
+            ))
             if row.status is ArchieRowStatus.ESTIMATED:
                 if row.estimate is None:
                     raise ValueError("Missing computed Archie row")
@@ -139,6 +150,30 @@ def seal_archie_tablet_source(
                     raise ValueError("Archie computed inputs no longer match the source row")
             elif row.estimate is not None:
                 raise ValueError("Invalid or missing Archie row contains an estimate")
+        # The source seal must verify *all* rows, including missing/invalid QC,
+        # numerical Sw, bounds and all four applied coefficients. Checking only
+        # positive estimates would accept stale/misclassified rows and forged
+        # estimates even though the source fingerprint itself was internally
+        # consistent at the moment of sealing.
+        coeffs = profile.coefficients
+        expected = evaluate_archie_rows(
+            tuple(inputs),
+            reviewer=profile.reviewer,
+            applicability_reference=profile.applicability_reference,
+            porosity_source=profile.porosity_source,
+            resistivity_source=profile.resistivity_source,
+            water_resistivity_reference=profile.water_resistivity_reference,
+            formation_water_resistivity_ohm_m=coeffs.formation_water_resistivity_ohm_m,
+            tortuosity_factor=coeffs.tortuosity_factor,
+            cementation_exponent=coeffs.cementation_exponent,
+            saturation_exponent=coeffs.saturation_exponent,
+        )
+        if (
+            profile.rows != expected.rows
+            or profile.md_bounds != expected.md_bounds
+            or profile.coefficients != expected.coefficients
+        ):
+            raise ValueError("Archie profile no longer matches exact live source rows")
         after = _live_signature(dataset, porosity_curve_key, resistivity_curve_key)
         if before != after:
             raise ValueError("Archie sources changed while sealing")
