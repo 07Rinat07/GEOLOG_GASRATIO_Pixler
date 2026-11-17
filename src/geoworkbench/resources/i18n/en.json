@@ -2785,5 +2785,6 @@
   "petro_reference.archie_qc": "Quality",
   "petro_reference.archie_missing_input": "Missing source value",
   "petro_reference.archie_invalid_input": "Invalid measurement",
-  "petro_reference.archie_evidence_summary": "Method: {method}\\nReviewer: {reviewer}\\nPorosity: {phi}\\nResistivity: {rt}\\nMD alignment: {alignment}\\nRw: {water}\\nApplicability: {applicability}"
+  "petro_reference.archie_evidence_summary": "Method: {method}\\nReviewer: {reviewer}\\nPorosity: {phi}\\nResistivity: {rt}\\nMD alignment: {alignment}\\nRw: {water}\\nApplicability: {applicability}",
+  "petro_reference.archie_parameters": "Calculation parameters (all entered by the operator): Rw={rw} ohm·m; a={a}; m={m}; n={n}"
 }
