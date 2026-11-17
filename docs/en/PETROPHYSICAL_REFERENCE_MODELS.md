@@ -164,7 +164,7 @@ In the separate Vsh operator preview, select an actual row and choose “Show pr
 
 ### Live GIS source binding for Archie (data-only)
 
-`evaluate_gis_archie_sources` takes **two explicitly selected curves in one native GIS dataset** sharing a verified metre-MD axis, with original v/v porosity and ohm.m resistivity units. It checks semantic bindings, provenance, current states, curve identity and exact rows. Independent evidence is required for *effective* porosity, *true* Rt, MD co-registration, Rw at formation temperature and Archie applicability. An NPHI mnemonic does not certify effective porosity; generic resistivity does not certify Rt. No percent conversion, cross-run merging, interpolation, guessed coefficients or fluid typing is performed. Full live arrays and source metadata are rechecked before publication, including changes outside the selected interval. No LAS/project edits or derived curves. This API is not yet an operator interface or field acceptance.
+`evaluate_gis_archie_sources` takes **two explicitly selected curves in one native GIS dataset** sharing a verified metre-MD axis, with original v/v porosity and ohm.m resistivity units. It checks semantic bindings, provenance, current states, curve identity and exact rows. Independent evidence is required for *effective* porosity, *true* Rt, MD co-registration, Rw at formation temperature and Archie applicability. An NPHI mnemonic does not certify effective porosity; generic resistivity does not certify Rt. No percent conversion, cross-run merging, interpolation, guessed coefficients or fluid typing is performed. Full live arrays and source metadata are rechecked before publication, including changes outside the selected interval. No LAS/project edits or derived curves. This calculation API is also used by the existing Archie operator dialog; independent field acceptance has not been performed.
 
 
 
@@ -174,13 +174,16 @@ The separate “Archie calculation: separate preview…” action in the GIS dia
 The separate Archie operator preview now displays the exact numeric Rw (ohm·m), a, m and n used for the calculation. They are retained in the immutable profile rather than replaced by typical values. Parameter selection and physical applicability still require independent interpreter review; no automatic saturation approval is implied.
 
 
-Intermediate Archie review now includes a standalone read-only QPainter Sw track with exact measured MD points, distinct missing/invalid markers and unclipped values beyond Sw=1. Selecting a source row highlights that row; the horizontal scale remains tied to the complete snapshot on zoom. The track is not a saved derived curve or evidence of fluid type/pay. Main-tablet handoff and independent field acceptance remain separate tasks.
+Intermediate Archie review now includes a standalone read-only QPainter Sw track with exact measured MD points, distinct missing/invalid markers and unclipped values beyond Sw=1. Selecting a source row highlights that row; the horizontal scale remains tied to the complete snapshot on zoom. The track is not a saved derived curve or evidence of fluid type/pay. Explicit handoff to the transient main-tablet panel is implemented; independent field acceptance remains outstanding.
 
 
-A preparatory Archie Sw handoff seal now binds a reviewed exact-row snapshot to one native GIS MD axis, source φ/Rt channels, chosen row, metadata, versions and complete array bytes. Any source/axis replacement, value change or foreign dataset invalidates the seal. This is a data-level prerequisite for a later explicit main-tablet action, not yet an operator button or saved derived curve. Independent interpreter model and field acceptance remain required.
+A preparatory Archie Sw handoff seal now binds a reviewed exact-row snapshot to one native GIS MD axis, source φ/Rt channels, chosen row, metadata, versions and complete array bytes. Any source/axis replacement, value change or foreign dataset invalidates the seal. The live source seal is used by the existing explicit main-tablet handoff action; no saved derived curve is created. Independent interpreter model and field acceptance remain required.
 
 
-Next UI slice: only an explicit action on a selected exact Archie row may show the source-sealed Sw snapshot as a temporary main-tablet QPainter panel. Native φ/Rt/MD fingerprints and active well/dataset/layout/axis are rechecked at handoff and on subsequent panel updates; the panel is removed upon staleness. No saved LAS-derived curve or automatic fluid/pay interpretation; field acceptance remains open.
+Current UI: only an explicit action on a selected exact Archie row may show the source-sealed Sw snapshot as a temporary main-tablet QPainter panel. Native φ/Rt/MD fingerprints and active well/dataset/layout/axis are rechecked at handoff and on subsequent panel updates; the panel is removed upon staleness. No saved LAS-derived curve or automatic fluid/pay interpretation; field acceptance remains open.
 
 
 Archie-to-tablet validation now uses the same UOM dictionary as Archie calculation: exact numerically equivalent spellings of v/v (vol/vol, cm3/cm3) and ohm.m (ohm-m, ом.м) require no numeric conversion. Percent, scaled resistivity and unknown units are never silently reinterpreted. Physical field acceptance still requires independent core/source-log and formation-temperature Rw evidence.
+
+
+**Field status:** CI success or a preliminary Sw profile does not validate Archie applicability to a real well. For independent review of source logs, φeff, true Rt, formation-temperature Rw, a/m/n and responsible petrophysical sign-off, see the [Archie field-acceptance protocol](ARCHIE_FIELD_ACCEPTANCE.md).
