@@ -175,3 +175,6 @@ The separate Archie operator preview now displays the exact numeric Rw (ohm·m),
 
 
 Intermediate Archie review now includes a standalone read-only QPainter Sw track with exact measured MD points, distinct missing/invalid markers and unclipped values beyond Sw=1. Selecting a source row highlights that row; the horizontal scale remains tied to the complete snapshot on zoom. The track is not a saved derived curve or evidence of fluid type/pay. Main-tablet handoff and independent field acceptance remain separate tasks.
+
+
+A preparatory Archie Sw handoff seal now binds a reviewed exact-row snapshot to one native GIS MD axis, source φ/Rt channels, chosen row, metadata, versions and complete array bytes. Any source/axis replacement, value change or foreign dataset invalidates the seal. This is a data-level prerequisite for a later explicit main-tablet action, not yet an operator button or saved derived curve. Independent interpreter model and field acceptance remain required.
