@@ -80,7 +80,10 @@ class GisIntervalSnapshot:
         _check_cancel(cancelled)
         self.source = source
         self.dataset_id = source.dataset_id
+        self.name = source.name
         self.kind = source.kind
+        self.depth_domain = source.depth_domain
+        self.source_path = source.source_path
         if source.active_index_id is None:
             raise ValueError("A current index is required")
         self.active_index_id = source.active_index_id
@@ -89,6 +92,11 @@ class GisIntervalSnapshot:
         self.axis_signature = _axis_signature(self.axis)
         self.headers = dict(source.headers)
         self.parameters = dict(source.parameters)
+        # Provenance must not remain a live alias in a background snapshot.
+        # Both history record types are immutable; copy their containing lists.
+        self.version_headers = dict(source.version_headers)
+        self.append_history = tuple(source.append_history)
+        self.source_revisions = tuple(source.source_revisions)
         self.curves = {
             key: _CurveState(curve, curve.metadata, curve.values, curve.version, curve.state)
             for key, curve in source.curves.items()
@@ -108,6 +116,9 @@ class GisIntervalSnapshot:
         snapshot.curves = copied_curves
         snapshot.headers = dict(self.headers)
         snapshot.parameters = dict(self.parameters)
+        snapshot.version_headers = dict(self.version_headers)
+        snapshot.append_history = list(self.append_history)
+        snapshot.source_revisions = list(self.source_revisions)
         self.dataset = snapshot
         self.keys = keys
         if not self.matches(cancelled):
@@ -117,9 +128,14 @@ class GisIntervalSnapshot:
         """Cheap GUI-thread check after the worker has verified array contents."""
         source = self.source
         if (
-            source.dataset_id != self.dataset_id or source.kind is not self.kind
+            source.dataset_id != self.dataset_id or source.name != self.name
+            or source.kind is not self.kind or source.depth_domain is not self.depth_domain
+            or source.source_path != self.source_path
             or source.active_index_id != self.active_index_id
             or source.headers != self.headers or source.parameters != self.parameters
+            or source.version_headers != self.version_headers
+            or tuple(source.append_history) != self.append_history
+            or tuple(source.source_revisions) != self.source_revisions
             or len(source.curves) != len(self.curves)
         ):
             return False
