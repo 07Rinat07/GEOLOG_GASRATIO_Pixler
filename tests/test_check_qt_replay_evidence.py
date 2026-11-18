@@ -66,7 +66,7 @@ def test_incomplete_progress_is_never_success(tmp_path):
     assert code == 2
     assert report["diagnostic_status"] == "incomplete"
     assert report["completed"] == 1
-    assert report["expected"] == 9
+    assert report["expected"] == len(replay_plan(1, "both"))
 
 
 def test_wrong_runtime_sha_is_rejected(tmp_path):
