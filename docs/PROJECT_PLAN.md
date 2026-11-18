@@ -1,6 +1,17 @@
 # Единый план проекта
 
 
+## Windows Qt #544 — корректировка бюджета ручного replay, 19 ноября 2026
+
+- PR #920 head `2d6978d`: [Release Gate #44394889924](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44394889924) — Security и GUI/PDF SUCCESS, Quality FAILED: `test_maximum_replay_budget_fits_workflow_timeout_with_headroom` ожидал 36 дочерних процессов, но после добавления девятого сценария стало 40. 637 тестов прошли, 1 упал; это контракт бюджета, а не подтверждённый native crash.
+- Сохранить 9 изолированных сценариев + 1 общий, четыре повтора и timeout 150 секунд для каждого ребёнка (максимум 100 минут). Увеличить **только ручной диагностический** job timeout с 120 до 135 минут, сохранив не менее 30 минут для установки зависимостей и артефактов. Контрактное количество детей выводить из сценариев; обязательный Release Gate, реальные тесты и критерии не ослаблять. Перед слиянием подтвердить 3/3 SUCCESS на точном новом HEAD.
+
+## Windows Qt #544 — воспроизведение WITS0 reopen, 19 ноября 2026
+
+- После #919 `main` `2011a479` прошёл [post-merge Release Gate #44362765433](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44362765433) — Quality, Security, GUI/HiDPI/PDF 3/3 SUCCESS; [очистка #44367995159](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44367995159) SUCCESS. Диагностическая ветка `codex/qt-curveview-native-diagnostic` сохранена; #544 остаётся открытым.
+- Отдельный диагностический пробел: ручной Windows Qt native replay не включал точный тест, упавший с `0xC0000005` в [#44249105658](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44249105658): `test_real_capture_dialog_restores_open_runtime_workspace_and_sequence[.geolog.json-ru]`. Добавить этот селектор в фиксированный allowlist и в одиночный/общий процесс; сохранить ограничение 4 повторов, 40 дочерних процессов максимум, 150 секунд на процесс, диагностические JSON/логи и обязательный Release Gate без изменений. Проверить точный параметризованный selector и корректность отчёта при аварийном коде, timeout и прерывании.
+- Это расширение **диагностики**, не исправление или доказательство первопричины native crash. Результат успешного replay не закрывает #544; последующие действия определяются сохранёнными нативными дампами и повторяемостью.
+
 ## Windows Qt #544 — terminal WITS0 plot teardown, 18 ноября 2026
 
 - #918 объединён в `main` `1a9cc313`, [post-merge Release Gate #44277315455](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44277315455) — все три Windows job SUCCESS, очистка временной ветки [#44283436768](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44283436768) SUCCESS. Диагностическая ветка Qt сохранена, #544 открыт.
