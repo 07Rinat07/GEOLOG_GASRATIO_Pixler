@@ -364,3 +364,59 @@ def test_snapshot_preserves_independent_numerical_and_geology_histories():
     assert snap.dataset.numerical_update_history == [_numerical_provenance_record()]
     assert snap.dataset.geology_update_history == [_geology_provenance_record()]
     assert not snap.matches(lambda: False)
+
+
+
+def test_gis_snapshot_rejects_replaced_depth_buffer_without_axis_change():
+    source = _two_curves()
+    source.depth = source.active_index.values.copy()
+    snapshot = GisIntervalSnapshot(source, ("RT",), lambda: False)
+    assert snapshot.matches(lambda: False)
+    source.depth = source.depth.copy()
+    assert not snapshot.structure_matches()
+    assert not snapshot.matches(lambda: False)
+
+
+def test_gis_snapshot_detects_signed_zero_in_separate_depth_buffer():
+    source = _two_curves()
+    source.active_index.values[0] = 0.0
+    source.depth = source.active_index.values.copy()
+    snapshot = GisIntervalSnapshot(source, ("RT",), lambda: False)
+    assert snapshot.matches(lambda: False)
+    source.depth[0] = -0.0
+    assert source.depth[0] == source.active_index.values[0]
+    assert snapshot.structure_matches()
+    assert not snapshot.matches(lambda: False)
+
+
+def test_gis_snapshot_rejects_mismatched_depth_and_active_axis_at_creation():
+    source = _two_curves()
+    source.depth = source.active_index.values.copy()
+    source.depth[-1] += 1.0
+    with pytest.raises(snapshot_module.GisIntervalSourceChanged):
+        GisIntervalSnapshot(source, ("RT",), lambda: False)
+
+
+def test_gis_snapshot_rejects_depth_change_racing_with_md_copy():
+    source = _two_curves()
+    source.depth = source.active_index.values.copy()
+    calls = []
+
+    def changing_source():
+        calls.append(True)
+        if len(calls) == 2:
+            source.depth[-1] += 1.0
+        return False
+
+    with pytest.raises(snapshot_module.GisIntervalSourceChanged):
+        GisIntervalSnapshot(source, ("RT",), changing_source)
+    assert len(calls) >= 2
+
+
+def test_gis_snapshot_preserves_fast_aliased_depth_path():
+    source = _two_curves()
+    assert source.depth is source.active_index.values
+    snapshot = GisIntervalSnapshot(source, ("RT",), lambda: False)
+    assert snapshot.matches(lambda: False)
+    source.active_index.values[0] = -0.0
+    assert not snapshot.matches(lambda: False)
