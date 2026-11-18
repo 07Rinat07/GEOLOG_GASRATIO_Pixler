@@ -1,5 +1,12 @@
 # Единый план проекта
 
+## INTERP-GIS-01 — согласование происхождения историй обновлений, 18 ноября 2026
+
+- #915 head `a2959b0a` [44215465277](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44215465277) 3/3 SUCCESS, объединён с `main` `fad7f0fb`. Post-merge [44229610579](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44229610579) выполняется при подготовке этой ветки; перед следующим слиянием проверить 3/3 SUCCESS и точный HEAD кандидата.
+- Найден дополнительный пробел в source-freshness для read-only GIS: `GisIntervalSnapshot` копирует shallow `Dataset`, но не изолирует списки `numerical_update_history` и `geology_update_history`, а `structure_matches` не проверяет их. В результате обновления журналов числовых или геологических импортов после начала расчёта могут быть незаметны. Исправить только сохранение frozen-записей и сравнение контейнеров; проверить изменение в течение копирования, последующую замену списка и сохранение исходных LAS/ГТИ. Существующие проверки MD/φ/Rt, версии, глубинные оси и ограничения по памяти оставить без изменений.
+- Qt [#544](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/issues/544): диагностический [44211165401](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44211165401) 2/2 SUCCESS на двух SHA без воспроизведения native сбоя; первопричина не доказана и диагностическая ветка сохраняется. Полевая приёмка реальных ГИС и Archie по-прежнему не выполнена.
+
+
 ## INTERP-GIS-01 — контроль происхождения фонового GIS-снимка, 18 ноября 2026
 
 - #914 `f1c186da` [44193712064](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44193712064) 3/3 SUCCESS; интегрирован в `main` `723a9146`. Post-merge [44210760511](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44210760511) ещё проходил Quality Gate при подготовке. Диагностический [44211165401](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44211165401) 2/2 SUCCESS как на упавшей версии, так и на исправленной: авария не воспроизведена; первопричина Qt #544 не доказана.

@@ -1,5 +1,9 @@
 from dataclasses import replace
+from hashlib import sha256
 from pathlib import Path
+
+from geoworkbench.domain.numerical_update import NumericalUpdateRecord
+from geoworkbench.domain.geology_update import GeologyUpdateRecord
 
 from geoworkbench.domain.models import (
     DatasetAppendRecord, DatasetSourceRevision, DepthDomain, IndexRole, IndexType,
@@ -284,3 +288,79 @@ def test_snapshot_rejects_provenance_change_during_chunked_initial_copy():
     with pytest.raises(snapshot_module.GisIntervalSourceChanged):
         GisIntervalSnapshot(source, ("RT",), changed_during_copy)
     assert len(checks) >= 2
+
+
+
+def _numerical_provenance_record() -> NumericalUpdateRecord:
+    return NumericalUpdateRecord(
+        update_id="numeric-edit-1", source_name="field.las",
+        source_sha256="a" * 64, imported_at="2026-11-18T00:00:00Z",
+        dataset_sha256_before="b" * 64,
+        dataset_sha256_after="c" * 64,
+        rows_added=1, changes=(),
+    )
+
+
+def _geology_provenance_record() -> GeologyUpdateRecord:
+    profile = "{}"
+    return GeologyUpdateRecord(
+        update_id="geology-edit-1", well_id="well-1", source_name="field.xlsx",
+        source_sha256="d" * 64, imported_at="2026-11-18T00:00:00Z",
+        profile_json=profile,
+        profile_sha256=sha256(profile.encode("utf-8")).hexdigest(),
+        well_sha256_before="e" * 64, well_sha256_after="f" * 64,
+        lithology_ids=("lithology-1",), cuttings_ids=(),
+    )
+
+
+@pytest.mark.parametrize("kind", ("numerical", "geology"))
+@pytest.mark.parametrize("edit", ("append", "clear", "replace"))
+def test_gis_snapshot_rejects_changed_persisted_update_history(kind, edit):
+    """History edits invalidate background reports even when φ/Rt/MD are unchanged."""
+    source = _two_curves()
+    field = "numerical_update_history" if kind == "numerical" else "geology_update_history"
+    record = _numerical_provenance_record() if kind == "numerical" else _geology_provenance_record()
+    source_history = getattr(source, field)
+    source_history.append(record)
+    snap = GisIntervalSnapshot(source, ("RT",), lambda: False)
+    assert snap.matches(lambda: False)
+    assert getattr(snap.dataset, field) == [record]
+    assert getattr(snap.dataset, field) is not source_history
+    if edit == "append":
+        source_history.append(record)
+    elif edit == "clear":
+        source_history.clear()
+    else:
+        setattr(source, field, [])
+    assert not snap.structure_matches()
+    assert not snap.matches(lambda: False)
+    assert getattr(snap.dataset, field) == [record]
+
+
+def test_gis_snapshot_rejects_provenance_history_changed_during_copy():
+    """The constructor's terminal validation seals histories after chunked copying."""
+    source = _two_curves()
+    calls = []
+
+    def changed_during_copy():
+        calls.append(True)
+        if len(calls) == 2:
+            source.numerical_update_history.append(_numerical_provenance_record())
+        return False
+
+    with pytest.raises(snapshot_module.GisIntervalSourceChanged):
+        GisIntervalSnapshot(source, ("RT",), changed_during_copy)
+    assert len(calls) >= 2
+
+
+def test_snapshot_preserves_independent_numerical_and_geology_histories():
+    source = _two_curves()
+    source.numerical_update_history.append(_numerical_provenance_record())
+    source.geology_update_history.append(_geology_provenance_record())
+    snap = GisIntervalSnapshot(source, ("RT",), lambda: False)
+    assert snap.matches(lambda: False)
+    source.numerical_update_history.clear()
+    source.geology_update_history.clear()
+    assert snap.dataset.numerical_update_history == [_numerical_provenance_record()]
+    assert snap.dataset.geology_update_history == [_geology_provenance_record()]
+    assert not snap.matches(lambda: False)

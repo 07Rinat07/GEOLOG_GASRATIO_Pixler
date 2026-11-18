@@ -97,6 +97,10 @@ class GisIntervalSnapshot:
         self.version_headers = dict(source.version_headers)
         self.append_history = tuple(source.append_history)
         self.source_revisions = tuple(source.source_revisions)
+        # Persisted numerical and geology update records are frozen values.
+        # Their *lists* are mutable and must not alias the live dataset.
+        self.numerical_update_history = tuple(source.numerical_update_history)
+        self.geology_update_history = tuple(source.geology_update_history)
         self.curves = {
             key: _CurveState(curve, curve.metadata, curve.values, curve.version, curve.state)
             for key, curve in source.curves.items()
@@ -119,6 +123,8 @@ class GisIntervalSnapshot:
         snapshot.version_headers = dict(self.version_headers)
         snapshot.append_history = list(self.append_history)
         snapshot.source_revisions = list(self.source_revisions)
+        snapshot.numerical_update_history = list(self.numerical_update_history)
+        snapshot.geology_update_history = list(self.geology_update_history)
         self.dataset = snapshot
         self.keys = keys
         if not self.matches(cancelled):
@@ -136,6 +142,8 @@ class GisIntervalSnapshot:
             or source.version_headers != self.version_headers
             or tuple(source.append_history) != self.append_history
             or tuple(source.source_revisions) != self.source_revisions
+            or tuple(source.numerical_update_history) != self.numerical_update_history
+            or tuple(source.geology_update_history) != self.geology_update_history
             or len(source.curves) != len(self.curves)
         ):
             return False
