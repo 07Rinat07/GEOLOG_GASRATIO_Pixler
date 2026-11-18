@@ -525,3 +525,38 @@ def test_operator_dashboard_renders_interpretation_band_and_horizontal_badge(
         # pytest shard exits. close()+processEvents() can synchronously deliver
         # DeferredDelete while a native child is already being destroyed.
         dashboard.hide()
+
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("PySide6") is None
+    or importlib.util.find_spec("pyqtgraph") is None,
+    reason="PySide6/pyqtgraph are not installed in the headless test environment",
+)
+def test_unit_plot_panels_close_native_scenes_before_deferred_box_delete(qapp) -> None:
+    """Both source regrouping and reset retire pyqtgraph's PlotItem explicitly."""
+    from geoworkbench.services.localization import AppLanguage
+    from geoworkbench.ui.wits0_operator_dashboard import Wits0OperatorDashboard
+
+    dashboard = Wits0OperatorDashboard(language=AppLanguage.EN)
+    try:
+        groups = {"gas_components": [("%", []), ("ppm", [])]}
+        dashboard._sync_unit_panels(groups)
+        assert len(dashboard._unit_panels) == 1
+        first = next(iter(dashboard._unit_panels.values()))
+        assert first.plot.plotItem is not None
+        dashboard._sync_unit_panels({})
+        assert not dashboard._unit_panels
+        assert first.plot.plotItem is None
+        assert first.plot.parentWidget() is first.box
+
+        dashboard._sync_unit_panels(groups)
+        second = next(iter(dashboard._unit_panels.values()))
+        assert second is not first
+        assert second.plot.plotItem is not None
+        dashboard.clear()
+        assert not dashboard._unit_panels
+        assert second.plot.plotItem is None
+        assert second.plot.parentWidget() is second.box
+    finally:
+        dashboard.hide()

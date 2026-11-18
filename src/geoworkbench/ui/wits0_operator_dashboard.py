@@ -561,8 +561,7 @@ class Wits0OperatorDashboard(QWidget):
             if key in wanted:
                 continue
             removed_panel = self._unit_panels.pop(key)
-            self.plot_layout.removeWidget(removed_panel.box)
-            removed_panel.box.deleteLater()
+            self._retire_unit_panel(removed_panel)
 
         for panel_id, groups in unit_groups.items():
             if len(groups) <= 1:
@@ -618,10 +617,21 @@ class Wits0OperatorDashboard(QWidget):
                 self.plot_layout.removeWidget(panel.box)
                 self.plot_layout.addWidget(panel.box)
 
+    def _retire_unit_panel(self, panel: _PlotPanel) -> None:
+        """Close pyqtgraph native scene before its Qt group box is deleted."""
+        self.plot_layout.removeWidget(panel.box)
+        if panel.plot.plotItem is not None:
+            # Qt parent deletion does not invoke pyqtgraph's PlotItem.close().
+            # Retire ViewBox/scene/proxy widgets while their wrappers are alive.
+            panel.plot.close()
+            # Keep the closed widget owned by the box until DeferredDelete.
+            panel.plot.setParent(panel.box)
+        panel.box.hide()
+        panel.box.deleteLater()
+
     def _clear_unit_panels(self) -> None:
         for panel in self._unit_panels.values():
-            self.plot_layout.removeWidget(panel.box)
-            panel.box.deleteLater()
+            self._retire_unit_panel(panel)
         self._unit_panels.clear()
 
     def render_current_values(
