@@ -1,4 +1,4 @@
-name: Windows Qt PlotItem creation native lifecycle diagnostic
+name: Windows WITS0 PlotItem native lifecycle diagnostic
 
 on:
   push:
@@ -21,17 +21,17 @@ env:
 
 jobs:
   qt-native-replay:
-    name: Qt menu and PlotItem native replay (${{ matrix.case }})
+    name: WITS0 PlotItem native replay (${{ matrix.case }})
     runs-on: windows-latest
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
         include:
-          - case: failed-pr-914
-            sha: 59f59d9f1014269b9942df81bdeece549ac9fe0e
-          - case: after-close-fix-914
-            sha: f1c186da01613267593800557cec274dfdd689c2
+          - case: failed-pr-918
+            sha: 50bf580cc97256ecdc6ce843df019e2fbccb8766
+          - case: after-unit-plot-fix-918
+            sha: 11590df2cfa70a51fa5d881453d6a2ecb2d48588
     steps:
       - name: Check out source
         uses: actions/checkout@v6
@@ -83,7 +83,7 @@ jobs:
           .\.venv\Scripts\python.exe tools/capture_windows_native_runtime.py --output build/ci-artifacts/qt-replay/native-runtime.json --commit "${{ matrix.sha }}"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Replay exact failing menu selector, full test file and lifecycle control
+      - name: Replay exact failing WITS0 selector, full file and plot lifetime controls
         shell: pwsh
         run: |
           $OutputDir = "build/ci-artifacts/qt-replay"
@@ -94,37 +94,34 @@ jobs:
           import os
           from pathlib import Path
           target = (
-              "tests/test_tablet_plot_close_order.py::"
-              "test_plot_options_menus_follow_native_window_ownership",
+              "tests/test_wits0_capture_reopen_runtime.py::"
+              "test_real_capture_dialog_restores_open_runtime_workspace_and_sequence[.geolog.json-ru]",
           )
-          file_target = ("tests/test_tablet_plot_close_order.py",)
-          control = (
-              "tests/test_tablet_plot_close_order.py::"
-              "test_repeated_tablet_rebuild_releases_detached_plots_before_replacement",
-          )
+          file_target = ("tests/test_wits0_capture_reopen_runtime.py",)
+          control = ("tests/test_wits0_operator_dashboard.py",)
           _configure_environment()
           environment = os.environ.copy()
           failed = 0
           for attempt in range(1, 5):
-              print(f'Exact Qt menu ownership (both parametrizations), plain process {attempt}/4', flush=True)
+              print(f'Exact WITS0 reopen runtime, plain process {attempt}/4', flush=True)
               failed |= _run_plain_target(target, environment)
           # CDB captures the first native exception, registers, stack and dump.
           # Stop debugger repetitions on failure to preserve the first dump.
           for attempt in range(1, 5):
-              print(f'Exact Qt menu ownership (both parametrizations) under CDB {attempt}/4', flush=True)
+              print(f'Exact WITS0 reopen runtime under CDB {attempt}/4', flush=True)
               result = _run_debugged_target(target, environment)
               failed |= result
               if result:
                   break
           for attempt in range(1, 4):
-              print(f'Full tablet plot lifecycle test file {attempt}/3', flush=True)
+              print(f'Full WITS0 capture lifecycle test file {attempt}/3', flush=True)
               failed |= _run_plain_target(file_target, environment)
-          print('Separate existing tablet teardown/rebuild control', flush=True)
+          print('Separate WITS0 operator dashboard graphics control', flush=True)
           failed |= _run_plain_target(control, environment)
           raise SystemExit(1 if failed else 0)
-          '@ | Set-Content -Encoding utf8 "$OutputDir/replay-plotitem-menu.py"
-          Get-Content -Raw "$OutputDir/replay-plotitem-menu.py" | & .\.venv\Scripts\python.exe - *>&1 |
-            Tee-Object -FilePath "$OutputDir/plotitem-menu-replay.log"
+          '@ | Set-Content -Encoding utf8 "$OutputDir/replay-wits0-plotitem.py"
+          Get-Content -Raw "$OutputDir/replay-wits0-plotitem.py" | & .\.venv\Scripts\python.exe - *>&1 |
+            Tee-Object -FilePath "$OutputDir/wits0-plotitem-replay.log"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Capture Python crash events
@@ -139,7 +136,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: qt-plotitem-menu-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: qt-wits0-plotitem-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/ci-artifacts/qt-replay
           if-no-files-found: ignore
           retention-days: 7
@@ -148,7 +145,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: qt-plotitem-menu-dumps-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: qt-wits0-plotitem-dumps-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/geolog-replay-dumps/*.dmp
           if-no-files-found: ignore
           retention-days: 3
