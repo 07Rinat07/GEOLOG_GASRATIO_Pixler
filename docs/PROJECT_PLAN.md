@@ -1,6 +1,11 @@
 # Единый план проекта
 
 
+## Windows Qt #544 — корректировка бюджета ручного replay, 19 ноября 2026
+
+- PR #920 head `2d6978d`: [Release Gate #44394889924](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44394889924) — Security и GUI/PDF SUCCESS, Quality FAILED: `test_maximum_replay_budget_fits_workflow_timeout_with_headroom` ожидал 36 дочерних процессов, но после добавления девятого сценария стало 40. 637 тестов прошли, 1 упал; это контракт бюджета, а не подтверждённый native crash.
+- Сохранить 9 изолированных сценариев + 1 общий, четыре повтора и timeout 150 секунд для каждого ребёнка (максимум 100 минут). Увеличить **только ручной диагностический** job timeout с 120 до 135 минут, сохранив не менее 30 минут для установки зависимостей и артефактов. Контрактное количество детей выводить из сценариев; обязательный Release Gate, реальные тесты и критерии не ослаблять. Перед слиянием подтвердить 3/3 SUCCESS на точном новом HEAD.
+
 ## Windows Qt #544 — воспроизведение WITS0 reopen, 19 ноября 2026
 
 - После #919 `main` `2011a479` прошёл [post-merge Release Gate #44362765433](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44362765433) — Quality, Security, GUI/HiDPI/PDF 3/3 SUCCESS; [очистка #44367995159](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44367995159) SUCCESS. Диагностическая ветка `codex/qt-curveview-native-diagnostic` сохранена; #544 остаётся открытым.
