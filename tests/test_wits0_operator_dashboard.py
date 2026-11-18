@@ -560,3 +560,32 @@ def test_unit_plot_panels_close_native_scenes_before_deferred_box_delete(qapp) -
         assert second.plot.parentWidget() is second.box
     finally:
         dashboard.hide()
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("PySide6") is None
+    or importlib.util.find_spec("pyqtgraph") is None,
+    reason="PySide6/pyqtgraph are not installed in the headless test environment",
+)
+def test_operator_dashboard_terminal_disposal_retires_all_native_scenes(qapp) -> None:
+    """Closing a capture dialog must retire base and split-unit plots."""
+    from geoworkbench.services.localization import AppLanguage
+    from geoworkbench.ui.wits0_operator_dashboard import Wits0OperatorDashboard
+
+    dashboard = Wits0OperatorDashboard(language=AppLanguage.EN)
+    try:
+        groups = {"gas_components": [("%", []), ("ppm", [])]}
+        dashboard._sync_unit_panels(groups)
+        extra = next(iter(dashboard._unit_panels.values()))
+        panels = (*dashboard.panels.values(), extra)
+        assert all(panel.plot.plotItem is not None for panel in panels)
+
+        dashboard.dispose_native_plots()
+        assert not dashboard._unit_panels
+        for panel in panels:
+            assert panel.plot.plotItem is None
+            assert panel.plot.parentWidget() is panel.box
+
+        # Repeated terminal notification is safe even with pending Qt deletes.
+        dashboard.dispose_native_plots()
+    finally:
+        dashboard.hide()
