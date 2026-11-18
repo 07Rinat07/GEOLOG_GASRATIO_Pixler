@@ -89,6 +89,10 @@ class GisIntervalSnapshot:
         self.active_index_id = source.active_index_id
         self.axis = source.active_index
         self.axis_values = self.axis.values
+        # The legacy Dataset.depth is another possible source of MD values.
+        # It usually aliases active_index.values, but may be independently
+        # replaced or edited by an import/editor during a background review.
+        self.depth_values = source.depth
         self.axis_signature = _axis_signature(self.axis)
         self.headers = dict(source.headers)
         self.parameters = dict(source.parameters)
@@ -138,6 +142,7 @@ class GisIntervalSnapshot:
             or source.kind is not self.kind or source.depth_domain is not self.depth_domain
             or source.source_path != self.source_path
             or source.active_index_id != self.active_index_id
+            or source.depth is not self.depth_values
             or source.headers != self.headers or source.parameters != self.parameters
             or source.version_headers != self.version_headers
             or tuple(source.append_history) != self.append_history
@@ -168,6 +173,13 @@ class GisIntervalSnapshot:
         if not self.structure_matches():
             return False
         if not _same_array(np.asarray(self.axis_values), np.asarray(self.dataset.active_index.values), cancelled):
+            return False
+        # Avoid scanning the MD buffer twice when Dataset.depth aliases the
+        # active axis, but reject byte-level divergence for independent depth
+        # storage (including signed zero and distinct NaN payloads).
+        if self.depth_values is not self.axis_values and not _same_array(
+            np.asarray(self.depth_values), np.asarray(self.dataset.depth), cancelled,
+        ):
             return False
         for key in self.keys:
             _check_cancel(cancelled)
