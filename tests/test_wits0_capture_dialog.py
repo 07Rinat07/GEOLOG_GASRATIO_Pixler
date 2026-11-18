@@ -304,3 +304,39 @@ def test_wits0_capture_reports_synchronous_startup_failures() -> None:
     assert '"wits0.start_failed_event"' in start
     assert "self.engine = engine" in start
     assert start.index("engine.start()") < start.index("self.engine = engine")
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("PySide6") is None
+    or importlib.util.find_spec("pyqtgraph") is None,
+    reason="PySide6/pyqtgraph are not installed in the headless test environment",
+)
+def test_wits0_capture_delete_on_close_releases_native_plot_scenes(
+    qapp, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Only the terminal modeless dialog close retires reusable dashboard plots."""
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtCore import Qt
+
+    from geoworkbench.services.localization import AppLanguage
+    from geoworkbench.ui.wits0_capture_dialog import Wits0CaptureDialog
+    from geoworkbench.ui.wits0_operator_dashboard import Wits0OperatorDashboard
+
+    observed: list[bool] = []
+    original = Wits0OperatorDashboard.dispose_native_plots
+
+    def monitored(self: Wits0OperatorDashboard) -> None:
+        original(self)
+        observed.append(
+            all(
+                panel.plot.plotItem is None
+                and panel.plot.parentWidget() is panel.box
+                for panel in self.panels.values()
+            )
+        )
+
+    monkeypatch.setattr(Wits0OperatorDashboard, "dispose_native_plots", monitored)
+    dialog = Wits0CaptureDialog(language=AppLanguage.RU)
+    dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+    dialog.show()
+    assert dialog.close()
+    assert observed == [True]
