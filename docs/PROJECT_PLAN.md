@@ -1,5 +1,19 @@
 # Единый план проекта
 
+## Windows Qt #544 — повторный native-сбой WITS0, 18 ноября 2026
+
+- #918 head `50bf580c`: [Release Gate #44249105658](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44249105658) Security + GUI/PDF SUCCESS, Quality FAILED при создании WITS0 PlotWidget в `tests/test_wits0_capture_reopen_runtime.py::test_real_capture_dialog_restores_open_runtime_workspace_and_sequence[.geolog.json-ru]`. Код выхода 3221225477 / `0xC0000005`; сохранён [Windows native dump](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44249105658/artifacts/14404185814). Дамп показывает null dereference (`RAX=0`) внутри `pyside6.abi3.dll` RVA `0x1bc60` на переходе к созданию `pyqtgraph.PlotItem`. Причинная связь с изменением GIS/QC не подтверждена. Не считать прежний красный HEAD успешным.
+- Обнаружен независимый lifetime-дефект `Wits0OperatorDashboard`: дополнительные unit-разделённые графики удалялись из layout через `box.deleteLater()` без явного `PlotWidget.close()/PlotItem.close()`. При смене групп единиц и очистке dashboard предварительно закрывать pyqtgraph-сцену и сохранять родительство Qt-виджета до окончательного deferred удаления. Добавить тест обоих путей, сохранить существующий WITS0 recovery test и весь Windows Quality Gate. Провести новую проверку на точном HEAD; **это кандидат стабилизации, а не доказательство устранения произвольного 0xC0000005**.
+- Qt [#544](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/issues/544) остаётся открытым, пока не разобраны нативные стек/срок жизни виджетов и не завершена репродукция. GIS source-freshness QA не является реальной геологической приёмкой.
+
+
+## INTERP-GIS-01 — контроль QC-происхождения совмещённых наборов, 18 ноября 2026
+
+- #917 head `9eeecae2` [44235903384](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44235903384) 3/3 SUCCESS, слит в `main` `63c58c49`. Post-merge [44242358855](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44242358855) 3/3 SUCCESS, автоматическая очистка временной ветки [44248086285](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44248086285) SUCCESS. Qt #544 по-прежнему в расследовании.
+- При read-only GIS-проверке источниками могут выступать исходные ГИС или подтверждённые внешние LAS-кривые внутри GTI dataset. `GisIntervalSnapshot` не проверял `gas_conditioning_qc` из исходного Dataset: во время анализа QC-provenance можно заменить, а результат продолжит выглядеть актуальным. Сохранить ссылку на неизменяемое QC-значение и проверить его равенство на начальной/конечной границах, включая GUI; не менять сами измерения, алгоритмы обработки газа и внешние LAS. Проверить добавление, удаление, замену, гонку при chunked copy и равнозначную неизменённую запись.
+- Полевая приёмка реальных LAS/ГИС/Archie остаётся отдельным этапом. CI и синтетические тесты не доказывают физическую достоверность.
+
+
 ## INTERP-GIS-01 — согласованность двух источников глубины Dataset, 18 ноября 2026
 
 - #916 head `fb90e073` [44229911410](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44229911410) 3/3 SUCCESS, объединён в `main` `3a9e9b80`; post-merge [44235382841](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44235382841) выполнялся на момент подготовки. Следующий PR сливать только после всех 3/3 SUCCESS как на точном head PR, так и на действующем `main`.

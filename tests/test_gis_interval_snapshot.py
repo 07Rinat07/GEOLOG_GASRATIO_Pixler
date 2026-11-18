@@ -4,6 +4,7 @@ from pathlib import Path
 
 from geoworkbench.domain.numerical_update import NumericalUpdateRecord
 from geoworkbench.domain.geology_update import GeologyUpdateRecord
+from geoworkbench.domain.gas_conditioning_qc import GasConditioningQcSummary
 
 from geoworkbench.domain.models import (
     DatasetAppendRecord, DatasetSourceRevision, DepthDomain, IndexRole, IndexType,
@@ -420,3 +421,57 @@ def test_gis_snapshot_preserves_fast_aliased_depth_path():
     assert snapshot.matches(lambda: False)
     source.active_index.values[0] = -0.0
     assert not snapshot.matches(lambda: False)
+
+
+
+def _gas_qc_summary(step: float = 1.0) -> GasConditioningQcSummary:
+    return GasConditioningQcSummary(
+        nominal_depth_step=step, affected_depth_row_count=0,
+        interpolated_component_sample_count=0, components=(),
+    )
+
+
+@pytest.mark.parametrize("edit", ("add", "remove", "replace"))
+def test_snapshot_rejects_changed_conditioning_qc_source_provenance(edit):
+    """A new/removed QC record changes source identity, not the LAS values."""
+    source = _two_curves()
+    original_qc = None if edit == "add" else _gas_qc_summary()
+    source.gas_conditioning_qc = original_qc
+    snapshot = GisIntervalSnapshot(source, ("RT",), lambda: False)
+    assert snapshot.matches(lambda: False)
+    assert snapshot.dataset.gas_conditioning_qc is original_qc
+    if edit == "add":
+        source.gas_conditioning_qc = _gas_qc_summary()
+    elif edit == "remove":
+        source.gas_conditioning_qc = None
+    else:
+        source.gas_conditioning_qc = _gas_qc_summary(step=2.0)
+    assert not snapshot.structure_matches()
+    assert not snapshot.matches(lambda: False)
+    assert snapshot.dataset.gas_conditioning_qc is original_qc
+
+
+def test_snapshot_rejects_qc_replacement_during_bounded_copy():
+    source = _two_curves()
+    source.gas_conditioning_qc = _gas_qc_summary()
+    calls = []
+
+    def changed_during_copy():
+        calls.append(True)
+        if len(calls) == 2:
+            source.gas_conditioning_qc = _gas_qc_summary(step=2.0)
+        return False
+
+    with pytest.raises(snapshot_module.GisIntervalSourceChanged):
+        GisIntervalSnapshot(source, ("RT",), changed_during_copy)
+    assert len(calls) >= 2
+
+
+def test_snapshot_accepts_equal_unchanged_conditioning_qc_value():
+    source = _two_curves()
+    source.gas_conditioning_qc = _gas_qc_summary()
+    snapshot = GisIntervalSnapshot(source, ("RT",), lambda: False)
+    # Immutable record reconstitution with identical content changes no evidence.
+    source.gas_conditioning_qc = _gas_qc_summary()
+    assert snapshot.structure_matches()
+    assert snapshot.matches(lambda: False)
