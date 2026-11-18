@@ -53,10 +53,11 @@ def test_maximum_replay_budget_fits_workflow_timeout_with_headroom() -> None:
     )
 
     workflow = MANUAL.read_text(encoding="utf-8")
-    assert "timeout-minutes: 120" in workflow
+    assert "timeout-minutes: 135" in workflow
     maximum_children = len(replay_plan(MAX_REPETITIONS, "both"))
     assert MAX_REPETITIONS == 4
-    assert maximum_children == 36
-    # Keep at most 90 minutes of child runtime in the 120-minute Windows job.
+    assert maximum_children == 4 * (9 + 1)
     # Reserve at least 30 minutes for setup, artifact uploads and overhead.
-    assert maximum_children * CHILD_TIMEOUT_SECONDS <= (120 - 30) * 60
+    # Nine isolated selectors plus one shared process per repetition need
+    # 100 minutes at the unchanged 150-second child timeout.
+    assert maximum_children * CHILD_TIMEOUT_SECONDS <= (135 - 30) * 60
