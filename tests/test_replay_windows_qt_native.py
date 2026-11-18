@@ -248,7 +248,7 @@ def test_replay_child_launch_error_is_recorded_without_masking_other_results(
     )
     report = json.loads((tmp_path / "results.json").read_text(encoding="utf-8"))
     assert len(calls) == 9
-    assert report["completed"] == report["expected"] == 8
+    assert report["completed"] == report["expected"] == 9
     assert report["all_passed"] is False
     assert [item["status"] for item in report["results"]] == [
         "launch_error",
@@ -299,7 +299,7 @@ def test_partial_replay_never_reports_success_while_children_remain(tmp_path) ->
     assert all(report["expected"] == 10 for report in snapshots)
     assert all(report["all_passed"] is False for report in snapshots)
     final = json.loads((tmp_path / "results.json").read_text(encoding="utf-8"))
-    assert final["completed"] == final["expected"] == 9
+    assert final["completed"] == final["expected"] == 10
     assert final["all_passed"] is True
 
 
