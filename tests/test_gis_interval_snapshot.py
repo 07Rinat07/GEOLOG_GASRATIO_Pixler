@@ -1,4 +1,9 @@
 from dataclasses import replace
+from pathlib import Path
+
+from geoworkbench.domain.models import (
+    DatasetAppendRecord, DatasetSourceRevision, DepthDomain, IndexRole, IndexType,
+)
 
 import numpy as np
 import pytest
@@ -197,3 +202,85 @@ def test_exact_byte_comparison_still_honors_cooperative_cancellation():
             source.curves["RT"].values, snapshot.dataset.curves["RT"].values, cancelled,
         )
     assert len(polls) == 3
+
+
+
+def _synthetic_append_record() -> DatasetAppendRecord:
+    return DatasetAppendRecord(
+        import_id="append-2", source_name="interval.las", source_sha256="a" * 64,
+        imported_at="2026-11-18T00:00:00Z",
+        index_role=IndexRole.DEPTH, index_type=IndexType.MD, index_unit="m",
+        start_value="100", stop_value="102", rows_added=3, rows_skipped=0,
+    )
+
+
+def _synthetic_source_revision() -> DatasetSourceRevision:
+    return DatasetSourceRevision(
+        source_revision_id="revision-2", artifact_id="artifact-2",
+        source_name="interval.las", source_sha256="b" * 64,
+        size_bytes=2048, imported_at="2026-11-18T00:00:00Z",
+    )
+
+
+@pytest.mark.parametrize(
+    "change", ("dataset_name", "source_path", "depth_domain",
+               "version_headers", "append_history", "source_revisions"),
+)
+def test_snapshot_rejects_changed_source_provenance_without_mutating_las(change):
+    source = _two_curves()
+    source.version_headers["VERS"] = "2.0"
+    snapshot = GisIntervalSnapshot(source, ("RT",), lambda: False)
+    assert snapshot.matches(lambda: False)
+    assert snapshot.dataset.version_headers == {"VERS": "2.0"}
+    if change == "dataset_name":
+        source.name += " updated"
+    elif change == "source_path":
+        source.source_path = Path("changed.las")
+    elif change == "depth_domain":
+        source.depth_domain = DepthDomain.TVD
+    elif change == "version_headers":
+        source.version_headers["VERS"] = "3.0"
+    elif change == "append_history":
+        source.append_history.append(_synthetic_append_record())
+    else:
+        source.source_revisions.append(_synthetic_source_revision())
+    assert not snapshot.structure_matches()
+    assert not snapshot.matches(lambda: False)
+
+
+def test_snapshot_isolates_version_headers_and_provenance_lists_from_source_mutation():
+    source = _two_curves()
+    source.version_headers["VERS"] = "2.0"
+    source.append_history.append(_synthetic_append_record())
+    source.source_revisions.append(_synthetic_source_revision())
+    snapshot = GisIntervalSnapshot(source, ("RT",), lambda: False)
+    view = snapshot.dataset
+    assert view.version_headers == source.version_headers
+    assert view.append_history == source.append_history
+    assert view.source_revisions == source.source_revisions
+    assert view.version_headers is not source.version_headers
+    assert view.append_history is not source.append_history
+    assert view.source_revisions is not source.source_revisions
+    source.version_headers["VERS"] = "3.0"
+    source.append_history.clear()
+    source.source_revisions.clear()
+    assert view.version_headers == {"VERS": "2.0"}
+    assert len(view.append_history) == len(view.source_revisions) == 1
+    assert not snapshot.matches(lambda: False)
+
+
+def test_snapshot_rejects_provenance_change_during_chunked_initial_copy():
+    source = _two_curves()
+    source.version_headers["VERS"] = "2.0"
+    checks = []
+
+    def changed_during_copy():
+        checks.append(True)
+        # Entry check, then first numeric MD copy chunk.
+        if len(checks) == 2:
+            source.version_headers["VERS"] = "3.0"
+        return False
+
+    with pytest.raises(snapshot_module.GisIntervalSourceChanged):
+        GisIntervalSnapshot(source, ("RT",), changed_during_copy)
+    assert len(checks) >= 2
