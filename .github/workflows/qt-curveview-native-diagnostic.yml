@@ -1,4 +1,4 @@
-name: Windows tablet dataset undo native diagnostic
+name: Windows Qt PlotItem creation native lifecycle diagnostic
 
 on:
   push:
@@ -21,17 +21,17 @@ env:
 
 jobs:
   qt-native-replay:
-    name: Tablet undo native replay (${{ matrix.case }})
+    name: Qt menu and PlotItem native replay (${{ matrix.case }})
     runs-on: windows-latest
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
         include:
-          - case: failed-main-875
-            sha: c91eb5ee302025189d12ef48d2efb4b4ee340df8
-          - case: green-main-control
-            sha: 225eafe7c46a3a70dfa221520bcd08cd3a64aff9
+          - case: failed-pr-914
+            sha: 59f59d9f1014269b9942df81bdeece549ac9fe0e
+          - case: after-close-fix-914
+            sha: f1c186da01613267593800557cec274dfdd689c2
     steps:
       - name: Check out source
         uses: actions/checkout@v6
@@ -83,7 +83,7 @@ jobs:
           .\.venv\Scripts\python.exe tools/capture_windows_native_runtime.py --output build/ci-artifacts/qt-replay/native-runtime.json --commit "${{ matrix.sha }}"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Replay exact failing dataset undo selector and lifecycle control
+      - name: Replay exact failing menu selector, full test file and lifecycle control
         shell: pwsh
         run: |
           $OutputDir = "build/ci-artifacts/qt-replay"
@@ -94,9 +94,10 @@ jobs:
           import os
           from pathlib import Path
           target = (
-              "tests/test_main_window.py::"
-              "test_window_global_undo_routes_dataset_merge_and_keeps_local_action_domain_safe",
+              "tests/test_tablet_plot_close_order.py::"
+              "test_plot_options_menus_follow_native_window_ownership",
           )
+          file_target = ("tests/test_tablet_plot_close_order.py",)
           control = (
               "tests/test_tablet_plot_close_order.py::"
               "test_repeated_tablet_rebuild_releases_detached_plots_before_replacement",
@@ -105,22 +106,25 @@ jobs:
           environment = os.environ.copy()
           failed = 0
           for attempt in range(1, 5):
-              print(f'Exact dataset undo, plain process {attempt}/4', flush=True)
+              print(f'Exact Qt menu ownership (both parametrizations), plain process {attempt}/4', flush=True)
               failed |= _run_plain_target(target, environment)
           # CDB captures the first native exception, registers, stack and dump.
           # Stop debugger repetitions on failure to preserve the first dump.
           for attempt in range(1, 5):
-              print(f'Exact dataset undo under CDB {attempt}/4', flush=True)
+              print(f'Exact Qt menu ownership (both parametrizations) under CDB {attempt}/4', flush=True)
               result = _run_debugged_target(target, environment)
               failed |= result
               if result:
                   break
+          for attempt in range(1, 4):
+              print(f'Full tablet plot lifecycle test file {attempt}/3', flush=True)
+              failed |= _run_plain_target(file_target, environment)
           print('Separate existing tablet teardown/rebuild control', flush=True)
           failed |= _run_plain_target(control, environment)
           raise SystemExit(1 if failed else 0)
-          '@ | Set-Content -Encoding utf8 "$OutputDir/replay-dataset-undo.py"
-          Get-Content -Raw "$OutputDir/replay-dataset-undo.py" | & .\.venv\Scripts\python.exe - *>&1 |
-            Tee-Object -FilePath "$OutputDir/dataset-undo-replay.log"
+          '@ | Set-Content -Encoding utf8 "$OutputDir/replay-plotitem-menu.py"
+          Get-Content -Raw "$OutputDir/replay-plotitem-menu.py" | & .\.venv\Scripts\python.exe - *>&1 |
+            Tee-Object -FilePath "$OutputDir/plotitem-menu-replay.log"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Capture Python crash events
@@ -135,7 +139,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: qt-tablet-undo-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: qt-plotitem-menu-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/ci-artifacts/qt-replay
           if-no-files-found: ignore
           retention-days: 7
@@ -144,7 +148,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: qt-tablet-undo-dumps-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: qt-plotitem-menu-dumps-${{ matrix.case }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/geolog-replay-dumps/*.dmp
           if-no-files-found: ignore
           retention-days: 3
