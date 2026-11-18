@@ -1,5 +1,13 @@
 # Единый план проекта
 
+
+## Windows Qt #544 — terminal WITS0 plot teardown, 18 ноября 2026
+
+- #918 объединён в `main` `1a9cc313`, [post-merge Release Gate #44277315455](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44277315455) — все три Windows job SUCCESS, очистка временной ветки [#44283436768](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44283436768) SUCCESS. Диагностическая ветка Qt сохранена, #544 открыт.
+- Дополнительный конкретный пробел в сроке жизни: при закрытии modeless WITS0 диалога с `WA_DeleteOnClose` базовые графики `Wits0OperatorDashboard.panels` уничтожались Qt без обязательного `PlotWidget.close()/PlotItem.close()`, в отличие от уже исправленных split-unit графиков. Закрывать оба вида графиков при **принятом окончательном закрытии** диалога, сохранять родительство до Qt teardown, не менять обычный `dashboard.clear()` и не ломать сценарий повторного использования без `WA_DeleteOnClose`. Регрессия: базовые и дополнительные графики, повторный вызов, реальный диалог. Оригинальный WITS0 reopen и все три Release Gate оставлены без изменения.
+- Этот инкремент — отдельная проверяемая мера native-lifecycle, **не доказательство первопричины** перемежающегося `0xC0000005`. Перед слиянием обязательны 3/3 SUCCESS на точном head PR и текущем main; после — 3/3 на новом main. Корневой инцидент Qt #544 остаётся открытым до обоснованной диагностики.
+
+
 ## Windows Qt #544 — повторный native-сбой WITS0, 18 ноября 2026
 
 - #918 head `50bf580c`: [Release Gate #44249105658](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44249105658) Security + GUI/PDF SUCCESS, Quality FAILED при создании WITS0 PlotWidget в `tests/test_wits0_capture_reopen_runtime.py::test_real_capture_dialog_restores_open_runtime_workspace_and_sequence[.geolog.json-ru]`. Код выхода 3221225477 / `0xC0000005`; сохранён [Windows native dump](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44249105658/artifacts/14404185814). Дамп показывает null dereference (`RAX=0`) внутри `pyside6.abi3.dll` RVA `0x1bc60` на переходе к созданию `pyqtgraph.PlotItem`. Причинная связь с изменением GIS/QC не подтверждена. Не считать прежний красный HEAD успешным.

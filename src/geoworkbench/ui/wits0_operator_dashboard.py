@@ -634,6 +634,23 @@ class Wits0OperatorDashboard(QWidget):
             self._retire_unit_panel(panel)
         self._unit_panels.clear()
 
+    def dispose_native_plots(self) -> None:
+        """Release all pyqtgraph scenes before terminal Qt parent destruction.
+
+        clear() deliberately retains the reusable base panels. Dialog teardown
+        must instead close their PlotItems while the native Qt parents exist.
+        """
+        self._clear_unit_panels()
+        self._active_scale_panels.clear()
+        for panel in self.panels.values():
+            plot = panel.plot
+            if plot.plotItem is None:
+                continue
+            plot.close()
+            # PlotWidget.close() detaches its QWidget parent under PySide6.
+            # Keep Qt ownership intact until the dashboard tree is deleted.
+            plot.setParent(panel.box)
+
     def render_current_values(
         self,
         values: tuple[AcquisitionCurrentValue, ...],

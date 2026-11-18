@@ -1876,6 +1876,10 @@ class Wits0CaptureDialog(QDialog):
                 self._notify_dataset_changed(runtime)
         self.poll_timer.stop()
         super().closeEvent(event)
+        if event.isAccepted() and self.testAttribute(Qt.WidgetAttribute.WA_DeleteOnClose):
+            # Production capture dialogs are destroyed after an accepted close.
+            # Release their pyqtgraph scenes before Qt destroys parent widgets.
+            self.live_view.dashboard.dispose_native_plots()
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
