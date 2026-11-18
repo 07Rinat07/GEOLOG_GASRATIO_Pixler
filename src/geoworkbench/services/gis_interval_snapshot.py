@@ -101,6 +101,10 @@ class GisIntervalSnapshot:
         self.version_headers = dict(source.version_headers)
         self.append_history = tuple(source.append_history)
         self.source_revisions = tuple(source.source_revisions)
+        # A GIS review can include verified exact-row external LAS curves on
+        # a GTI dataset. Its gas-conditioning QC is immutable provenance but
+        # may be replaced on the live Dataset while the review is in flight.
+        self.gas_conditioning_qc = source.gas_conditioning_qc
         # Persisted numerical and geology update records are frozen values.
         # Their *lists* are mutable and must not alias the live dataset.
         self.numerical_update_history = tuple(source.numerical_update_history)
@@ -127,6 +131,7 @@ class GisIntervalSnapshot:
         snapshot.version_headers = dict(self.version_headers)
         snapshot.append_history = list(self.append_history)
         snapshot.source_revisions = list(self.source_revisions)
+        snapshot.gas_conditioning_qc = self.gas_conditioning_qc
         snapshot.numerical_update_history = list(self.numerical_update_history)
         snapshot.geology_update_history = list(self.geology_update_history)
         self.dataset = snapshot
@@ -147,6 +152,7 @@ class GisIntervalSnapshot:
             or source.version_headers != self.version_headers
             or tuple(source.append_history) != self.append_history
             or tuple(source.source_revisions) != self.source_revisions
+            or source.gas_conditioning_qc != self.gas_conditioning_qc
             or tuple(source.numerical_update_history) != self.numerical_update_history
             or tuple(source.geology_update_history) != self.geology_update_history
             or len(source.curves) != len(self.curves)

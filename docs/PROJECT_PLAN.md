@@ -1,5 +1,12 @@
 # Единый план проекта
 
+## INTERP-GIS-01 — контроль QC-происхождения совмещённых наборов, 18 ноября 2026
+
+- #917 head `9eeecae2` [44235903384](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44235903384) 3/3 SUCCESS, слит в `main` `63c58c49`. Post-merge [44242358855](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44242358855) 3/3 SUCCESS, автоматическая очистка временной ветки [44248086285](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44248086285) SUCCESS. Qt #544 по-прежнему в расследовании.
+- При read-only GIS-проверке источниками могут выступать исходные ГИС или подтверждённые внешние LAS-кривые внутри GTI dataset. `GisIntervalSnapshot` не проверял `gas_conditioning_qc` из исходного Dataset: во время анализа QC-provenance можно заменить, а результат продолжит выглядеть актуальным. Сохранить ссылку на неизменяемое QC-значение и проверить его равенство на начальной/конечной границах, включая GUI; не менять сами измерения, алгоритмы обработки газа и внешние LAS. Проверить добавление, удаление, замену, гонку при chunked copy и равнозначную неизменённую запись.
+- Полевая приёмка реальных LAS/ГИС/Archie остаётся отдельным этапом. CI и синтетические тесты не доказывают физическую достоверность.
+
+
 ## INTERP-GIS-01 — согласованность двух источников глубины Dataset, 18 ноября 2026
 
 - #916 head `fb90e073` [44229911410](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44229911410) 3/3 SUCCESS, объединён в `main` `3a9e9b80`; post-merge [44235382841](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44235382841) выполнялся на момент подготовки. Следующий PR сливать только после всех 3/3 SUCCESS как на точном head PR, так и на действующем `main`.
