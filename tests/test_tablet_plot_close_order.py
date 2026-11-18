@@ -185,3 +185,36 @@ def test_plot_options_menus_follow_native_window_ownership(qapp, explicit_cleanu
             window.close()
             window.deleteLater()
             QCoreApplication.sendPostedEvents(window, QEvent.Type.DeferredDelete)
+
+
+
+def test_main_window_close_cleans_native_curve_and_tablet_scenes_before_parent_deletion(qapp):
+    """Repeat the real close/reopen lifecycle while preserving original native tests."""
+    for _ in range(3):
+        window = MainWindow(language=AppLanguage.EN)
+        session, _ = make_session()
+        bind_session(window, session)
+        try:
+            window._show_current_dataset()
+            view = window.tablet_view
+            curve_plot = window.curve_view._plot
+            tablet_plots = tuple(
+                entry.plot for entry in view._rendered.values()
+                if entry.plot is not None
+            )
+            assert tablet_plots and curve_plot.plotItem is not None
+            curve_menu = curve_plot.plotItem.ctrlMenu
+            assert isValid(curve_menu)
+            assert window.close()
+            assert curve_plot.plotItem is None
+            assert isValid(curve_plot) and curve_plot.parentWidget() is window.curve_view
+            assert all(not isValid(plot) for plot in tablet_plots)
+            window.deleteLater()
+            QCoreApplication.sendPostedEvents(window, QEvent.Type.DeferredDelete)
+            assert not isValid(window)
+            assert not isValid(curve_plot) and not isValid(curve_menu)
+        finally:
+            if isValid(window):
+                window.close()
+                window.deleteLater()
+                QCoreApplication.sendPostedEvents(window, QEvent.Type.DeferredDelete)
