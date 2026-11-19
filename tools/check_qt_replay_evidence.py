@@ -93,6 +93,14 @@ def verify_replay_evidence(directory: Path, commit: str) -> tuple[dict[str, Any]
         for name in NATIVE_PACKAGES
     ):
         raise ValueError("Missing required native package versions")
+    # These four wheels share the Shiboken/PySide6 ABI. Keep their recorded
+    # versions coherent before treating this run as comparable Qt evidence.
+    binding_versions = {
+        packages[name]
+        for name in ("PySide6", "PySide6-Addons", "PySide6-Essentials", "shiboken6")
+    }
+    if len(binding_versions) != 1:
+        raise ValueError("Inconsistent PySide6/shiboken6 binding versions")
 
     evidence = _read_json(directory / "results.json")
     if not _integer(evidence.get("schema_version")) or evidence["schema_version"] != 1:
