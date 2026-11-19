@@ -37,7 +37,9 @@ def test_real_capture_controls_stop_and_restart_tcp_without_losing_raw(qapp, tmp
             finished.set()
 
     worker = threading.Thread(target=serve, daemon=True)
-    worker.start()
+    # Construct the real Qt dialog before starting the accept timeout. Under
+    # loaded Windows CI the dialog setup can outlast the listener timeout;
+    # starting the server first leaves a connected client with no sender.
     dialog = capture.Wits0CaptureDialog(language=language)
     engines = []
     try:
@@ -48,6 +50,8 @@ def test_real_capture_controls_stop_and_restart_tcp_without_losing_raw(qapp, tmp
         dialog.raw_directory_edit.setText(str(raw_directory))
         dialog.disk_critical_spin.setValue(0)
         dialog.disk_warning_spin.setValue(0)
+        # Start the TCP fixture only when the client is ready to connect.
+        worker.start()
         previous_files = {}
         for payload in payloads:
             assert dialog.start_button.isEnabled()
@@ -112,7 +116,9 @@ def test_real_capture_controls_keep_engine_and_raw_across_automatic_reconnect(qa
             finished.set()
 
     worker = threading.Thread(target=serve, daemon=True)
-    worker.start()
+    # Construct the real Qt dialog before starting the accept timeout. Under
+    # loaded Windows CI the dialog setup can outlast the listener timeout;
+    # starting the server first leaves a connected client with no sender.
     dialog = capture.Wits0CaptureDialog(language=language)
     engine = None
     try:
@@ -123,6 +129,8 @@ def test_real_capture_controls_keep_engine_and_raw_across_automatic_reconnect(qa
         dialog.raw_directory_edit.setText(str(raw_directory))
         dialog.disk_critical_spin.setValue(0)
         dialog.disk_warning_spin.setValue(0)
+        # Start the TCP fixture only when the client is ready to connect.
+        worker.start()
         dialog.start_button.click()
         engine = dialog.engine
         assert engine is not None
