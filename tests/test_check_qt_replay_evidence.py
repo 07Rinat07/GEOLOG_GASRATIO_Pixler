@@ -389,3 +389,25 @@ def test_valid_signed_and_unsigned_windows_native_crash_codes_are_preserved(
     report, code = check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
     assert code == 1
     assert report["native_crash_scenarios"] == ["combined"]
+
+
+def test_empty_child_log_cannot_certify_success(tmp_path, capsys):
+    _write_artifacts(tmp_path)
+    log = tmp_path / "iteration-01-combined.txt"
+    log.write_bytes(b"")
+    assert check_qt_replay_evidence.main([
+        "--artifact-dir", str(tmp_path), "--commit", SHA,
+    ]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "trusted plan" in captured.err
+
+
+def test_nonempty_child_log_is_preserved_read_only(tmp_path):
+    _write_artifacts(tmp_path)
+    log = tmp_path / "iteration-01-combined.txt"
+    before = log.read_bytes()
+    report, code = check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
+    assert code == 0
+    assert report["diagnostic_status"] == "passed"
+    assert log.read_bytes() == before
