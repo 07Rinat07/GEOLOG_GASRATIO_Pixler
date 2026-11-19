@@ -1,6 +1,13 @@
 # Единый план проекта
 
 
+## WITS0 / P0 — TCP test fixture: порядок запуска listener, 19 ноября 2026
+
+- Post-merge `main` `ba4ae5a4` [Release Gate #44490466632](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44490466632), попытка 2: Security и GUI/HiDPI/PDF SUCCESS, Windows Quality FAILED (`1 failed, 452 passed` в заключительном шарде). Реальный отказ `tests/test_wits0_capture_tcp_controls.py::test_real_capture_controls_stop_and_restart_tcp_without_losing_raw[ru]`: за 5 секунд `frames_received=0`, при этом TCP `CONNECTED`, raw файл не создан; остальные языки и сценарии переподключения прошли. Это не Qt `0xC0000005`, а timeout/синхронизация TCP теста.
+- Тестовый listener запускался **до** создания настоящего Qt диалога, а его `accept()` timeout 5/10 секунд начинал отсчитываться до готовности клиента. При медленной инициализации Qt на Windows сервер мог завершить приём до нажатия Start, оставив соединение в backlog без отправки кадра. Запускать поток сервера только после настройки диалога и непосредственно перед нажатием Start в обоих end-to-end тестах. Сохранить реальные TCP соединения, кадры, timeout, raw byte-for-byte проверки, все языки и обязательный Windows Quality Gate; не увеличивать timeout и не пропускать проверки.
+- Это устранение обнаруженного дефекта порядка запуска тестового сервера; фактическую устойчивость подтверждает только повторный Windows CI. Сбой #544 остаётся отдельным открытым расследованием. Не удалять временную ветку #924, пока `main` не получит 3/3 SUCCESS.
+
+
 ## Windows Qt #544 — однозначность ключей диагностического JSON, 19 ноября 2026
 
 - После PR #923 текущий `main` `49c0b62d` прошёл [post-merge Release Gate #44475049282](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44475049282) — 3/3 SUCCESS; [очистка #44481167691](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44481167691) SUCCESS. Диагностическая ветка Qt сохранена, #544 открыт.
