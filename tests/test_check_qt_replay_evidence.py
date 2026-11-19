@@ -316,3 +316,40 @@ def test_nonblank_native_package_version_is_not_normalized_or_rewritten(tmp_path
     assert status == 0
     assert report["root_cause_confirmed"] is False
     assert path.read_bytes() == before
+
+@pytest.mark.parametrize(
+    ("artifact", "fragment", "duplicate"),
+    [
+        ("native-runtime.json", '"source_commit": "b" ,', "source_commit"),
+        ("results.json", '"all_passed": false,', "all_passed"),
+    ],
+)
+def test_duplicate_top_level_evidence_key_is_rejected(tmp_path, artifact, fragment, duplicate):
+    _write_artifacts(tmp_path)
+    path = tmp_path / artifact
+    original = path.read_text(encoding="utf-8")
+    path.write_text("{" + fragment + original[1:], encoding="utf-8")
+    with pytest.raises(ValueError, match=f"Duplicate JSON evidence key: {duplicate}"):
+        check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
+
+
+def test_duplicate_nested_native_package_key_is_rejected(tmp_path):
+    _write_artifacts(tmp_path)
+    path = tmp_path / "native-runtime.json"
+    original = path.read_text(encoding="utf-8")
+    path.write_text(original.replace('"packages": {', '"packages": {"numpy": "other",', 1), encoding="utf-8")
+    with pytest.raises(ValueError, match="Duplicate JSON evidence key: numpy"):
+        check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
+
+
+def test_duplicate_json_keys_cli_fails_without_success_report(tmp_path, capsys):
+    _write_artifacts(tmp_path)
+    path = tmp_path / "results.json"
+    original = path.read_text(encoding="utf-8")
+    path.write_text('{"all_passed": true,' + original[1:], encoding="utf-8")
+    assert check_qt_replay_evidence.main([
+        "--artifact-dir", str(tmp_path), "--commit", SHA,
+    ]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "Duplicate JSON evidence key" in captured.err
