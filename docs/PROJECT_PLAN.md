@@ -1,5 +1,12 @@
 # Единый план проекта
 
+## Windows Qt #544 / P1 — журналы только из пробелов, 20 ноября 2026
+
+- После PR #927 текущий main `3e33d22b8ebd18e709587f4a237581a6ea6e5f60` прошёл [post-merge Release Gate #44623371734](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44623371734) — Windows Quality, GUI/HiDPI/PDF, Security 3/3 SUCCESS; [очистка #44631337603](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44631337603) SUCCESS.
+- Проверка непустого файла отвергала 0 байт, но принимала журнал, состоящий исключительно из пробелов, табуляций или переводов строк, как диагностическое свидетельство. Требовать хотя бы один непробельный байт, читать файл порциями (без загрузки больших дампов в память), не изменять артефакты. Регрессии: пробелы/CRLF, более одного чанка, полезный текст после большого пробельного префикса и read-only проверка.
+- Это проверка целостности диагностики, а не исправление Qt `0xC0000005`. Сохранять диагностическую ветку и issue #544, не ослаблять обязательные Windows gates или геологические тесты. Слияние только после точного PR HEAD 3/3 и актуального main 3/3, затем post-merge.
+
+
 ## Windows Qt #544 / P1 — непустые журналы дочерних replay, 20 ноября 2026
 
 - После PR #926 `main` `97fe632f3115fec9dd2987739a87d86ad46c51ad` прошёл [post-merge Release Gate #44591469881](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44591469881) — Windows Quality, GUI/HiDPI/PDF и Security 3/3 SUCCESS; [очистка #44596839889](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44596839889) SUCCESS. #544 остаётся открытым; диагностическую ветку сохранять.

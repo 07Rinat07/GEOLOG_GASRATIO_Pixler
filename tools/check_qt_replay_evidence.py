@@ -50,6 +50,18 @@ def _is_plain_file(path: Path) -> bool:
     )
 
 
+def _has_diagnostic_content(path: Path) -> bool:
+    """Reject blank logs without loading potentially large native traces."""
+    try:
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(8192), b""):
+                if chunk.strip():
+                    return True
+    except OSError:
+        return False
+    return False
+
+
 def _unique_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     """Do not let duplicate evidence fields silently override earlier values."""
     result: dict[str, Any] = {}
@@ -146,7 +158,7 @@ def verify_replay_evidence(directory: Path, commit: str) -> tuple[dict[str, Any]
             or not isinstance(entry.get("status"), str)
             or entry["status"] not in STATUSES
             or not _is_plain_file(directory / filename)
-            or (directory / filename).stat().st_size == 0
+            or not _has_diagnostic_content(directory / filename)
         ):
             raise ValueError(f"Replay child #{index + 1} does not match the trusted plan")
 
