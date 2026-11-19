@@ -292,3 +292,27 @@ def test_coherent_pyside_bindings_allow_independent_numpy_and_pyqtgraph_versions
     report, code = check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
     assert code == 0
     assert report["root_cause_confirmed"] is False
+
+@pytest.mark.parametrize("package", sorted(NATIVE_PACKAGES))
+@pytest.mark.parametrize("version", ["", " ", "\t\n"])
+def test_blank_native_package_version_cannot_certify_replay(tmp_path, package, version):
+    _write_artifacts(tmp_path)
+    path = tmp_path / "native-runtime.json"
+    runtime = json.loads(path.read_text(encoding="utf-8"))
+    runtime["packages"][package] = version
+    path.write_text(json.dumps(runtime), encoding="utf-8")
+    with pytest.raises(ValueError, match="Missing required native package versions"):
+        check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
+
+
+def test_nonblank_native_package_version_is_not_normalized_or_rewritten(tmp_path):
+    _write_artifacts(tmp_path)
+    path = tmp_path / "native-runtime.json"
+    runtime = json.loads(path.read_text(encoding="utf-8"))
+    runtime["packages"]["numpy"] = " 2.3.4 "
+    path.write_text(json.dumps(runtime), encoding="utf-8")
+    before = path.read_bytes()
+    report, status = check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
+    assert status == 0
+    assert report["root_cause_confirmed"] is False
+    assert path.read_bytes() == before
