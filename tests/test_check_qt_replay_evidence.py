@@ -411,3 +411,28 @@ def test_nonempty_child_log_is_preserved_read_only(tmp_path):
     assert code == 0
     assert report["diagnostic_status"] == "passed"
     assert log.read_bytes() == before
+
+@pytest.mark.parametrize("blank", [b" ", b"\t\r\n", b" " * 20000])
+def test_whitespace_only_child_log_cannot_certify_success(tmp_path, capsys, blank):
+    _write_artifacts(tmp_path)
+    log = tmp_path / "iteration-01-combined.txt"
+    log.write_bytes(blank)
+    before = log.read_bytes()
+    assert check_qt_replay_evidence.main([
+        "--artifact-dir", str(tmp_path), "--commit", SHA,
+    ]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "trusted plan" in captured.err
+    assert log.read_bytes() == before
+
+
+def test_child_log_with_late_diagnostic_bytes_remains_valid(tmp_path):
+    _write_artifacts(tmp_path)
+    log = tmp_path / "iteration-01-combined.txt"
+    log.write_bytes(b" " * 20000 + b"native stack trace\n")
+    before = log.read_bytes()
+    report, code = check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
+    assert code == 0
+    assert report["diagnostic_status"] == "passed"
+    assert log.read_bytes() == before
