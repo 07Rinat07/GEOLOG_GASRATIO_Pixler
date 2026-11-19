@@ -38,7 +38,12 @@ def _write_artifacts(tmp_path, *, mode="sequence", repetitions=1, statuses=None,
     }), encoding="utf-8")
     (tmp_path / "native-runtime.json").write_text(json.dumps({
         "schema_version": 2, "source_commit": sha, "os": "Windows",
-        "qt_runtime_version": "6.8.0", "packages": {name: "1.0" for name in NATIVE_PACKAGES},
+        "qt_runtime_version": "6.8.0",
+        "python_version": "3.11.9",
+        "os_release": "2022Server",
+        "machine": "AMD64",
+        "qt_test_platform": "offscreen",
+        "packages": {name: "1.0" for name in NATIVE_PACKAGES},
     }), encoding="utf-8")
     return plan
 
@@ -209,3 +214,49 @@ def test_missing_results_file_rejected_without_partial_report(tmp_path, capsys):
     captured = capsys.readouterr()
     assert captured.out == ""
     assert "Missing or redirected" in captured.err
+
+
+@pytest.mark.parametrize(
+    ("field", "invalid_value"),
+    [
+        ("python_version", None),
+        ("python_version", "  "),
+        ("os_release", None),
+        ("os_release", ""),
+        ("machine", None),
+        ("machine", "  "),
+    ],
+)
+def test_missing_or_empty_windows_identity_rejects_replay(
+    tmp_path, field, invalid_value
+):
+    _write_artifacts(tmp_path)
+    path = tmp_path / "native-runtime.json"
+    runtime = json.loads(path.read_text(encoding="utf-8"))
+    runtime[field] = invalid_value
+    path.write_text(json.dumps(runtime), encoding="utf-8")
+    with pytest.raises(ValueError, match=f"Windows runtime identity: {field}"):
+        check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
+
+
+@pytest.mark.parametrize("platform_label", [None, "", "C:\\private\\qt", "offscreen:/secret"])
+def test_raw_or_missing_qt_platform_cannot_be_certified(tmp_path, platform_label):
+    _write_artifacts(tmp_path)
+    path = tmp_path / "native-runtime.json"
+    runtime = json.loads(path.read_text(encoding="utf-8"))
+    runtime["qt_test_platform"] = platform_label
+    path.write_text(json.dumps(runtime), encoding="utf-8")
+    with pytest.raises(ValueError, match="normalized Qt test platform"):
+        check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
+
+
+@pytest.mark.parametrize("platform_label", ["offscreen", "windows", "minimal", "other"])
+def test_capture_normalized_qt_platform_labels_are_accepted(tmp_path, platform_label):
+    _write_artifacts(tmp_path)
+    path = tmp_path / "native-runtime.json"
+    runtime = json.loads(path.read_text(encoding="utf-8"))
+    runtime["qt_test_platform"] = platform_label
+    path.write_text(json.dumps(runtime), encoding="utf-8")
+    report, status = check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
+    assert status == 0
+    assert report["root_cause_confirmed"] is False

@@ -1,6 +1,13 @@
 # Единый план проекта
 
 
+## Windows Qt #544 — проверка полноты runtime evidence, 19 ноября 2026
+
+- PR #920 с точным WITS0 native replay объединён в `main` `d1fb0704`, [post-merge Release Gate #44413708551](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44413708551) — 3/3 SUCCESS, [очистка #44421148609](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44421148609) SUCCESS. #544 остаётся открытым, ветка `codex/qt-curveview-native-diagnostic` сохраняется.
+- Найден проверяемый пробел: `check_qt_replay_evidence` принимал `native-runtime.json` без полей `python_version`, `os_release`, `machine`, `qt_test_platform` (хотя capture-schema v2 их пишет). Из-за этого неполная запись могла подтверждаться как корректная диагностическая среда. Требовать непустые Python/Windows идентификаторы и только нормализованные метки Qt-платформы (`offscreen`, `windows`, `minimal`, `other`); не записывать сырые пути и настройки. Добавить регрессии отсутствующих, пустых и некорректных значений и допустимых меток. Тестовые запуски, исходные селекторы, Windows Release Gate и геологические расчёты не изменять.
+- Это улучшение проверки полноты диагностики, **не устранение причины** `0xC0000005`; фактическое воспроизведение нативного сбоя и анализ minidump требуются отдельно. В `main` объединять только после 3/3 SUCCESS на точном PR HEAD и действующем `main`.
+
+
 ## Windows Qt #544 — корректировка бюджета ручного replay, 19 ноября 2026
 
 - PR #920 head `2d6978d`: [Release Gate #44394889924](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44394889924) — Security и GUI/PDF SUCCESS, Quality FAILED: `test_maximum_replay_budget_fits_workflow_timeout_with_headroom` ожидал 36 дочерних процессов, но после добавления девятого сценария стало 40. 637 тестов прошли, 1 упал; это контракт бюджета, а не подтверждённый native crash.

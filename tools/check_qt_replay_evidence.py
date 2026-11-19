@@ -77,8 +77,16 @@ def verify_replay_evidence(directory: Path, commit: str) -> tuple[dict[str, Any]
         raise ValueError("Runtime evidence schema or source commit does not match")
     if runtime.get("os") != "Windows":
         raise ValueError("Runtime evidence must come from Windows")
-    if not isinstance(runtime.get("qt_runtime_version"), str) or not runtime["qt_runtime_version"]:
+    if not isinstance(runtime.get("qt_runtime_version"), str) or not runtime["qt_runtime_version"].strip():
         raise ValueError("Missing Qt runtime version")
+    # The capture schema records these platform details for native-triage
+    # comparisons. Do not certify a replay whose Windows runtime is unknown.
+    for field in ("python_version", "os_release", "machine"):
+        value = runtime.get(field)
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"Missing Windows runtime identity: {field}")
+    if runtime.get("qt_test_platform") not in ("offscreen", "windows", "minimal", "other"):
+        raise ValueError("Missing or invalid normalized Qt test platform")
     packages = runtime.get("packages")
     if not isinstance(packages, dict) or any(
         not isinstance(packages.get(name), str) or not packages[name]
