@@ -50,11 +50,21 @@ def _is_plain_file(path: Path) -> bool:
     )
 
 
+def _unique_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Do not let duplicate evidence fields silently override earlier values."""
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"Duplicate JSON evidence key: {key}")
+        result[key] = value
+    return result
+
+
 def _read_json(path: Path) -> dict[str, Any]:
     if not _is_plain_file(path):
         raise ValueError(f"Missing or redirected replay artifact: {path.name}")
     try:
-        return _object(json.loads(path.read_text(encoding="utf-8")), str(path.name))
+        return _object(json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_unique_json_keys), str(path.name))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise ValueError(f"Cannot read valid JSON from {path.name}: {exc}") from exc
 

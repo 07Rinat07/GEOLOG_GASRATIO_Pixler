@@ -1,6 +1,13 @@
 # Единый план проекта
 
 
+## Windows Qt #544 — однозначность ключей диагностического JSON, 19 ноября 2026
+
+- После PR #923 текущий `main` `49c0b62d` прошёл [post-merge Release Gate #44475049282](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44475049282) — 3/3 SUCCESS; [очистка #44481167691](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44481167691) SUCCESS. Диагностическая ветка Qt сохранена, #544 открыт.
+- `json.loads` по умолчанию молча перезаписывает повторяющиеся ключи объекта. Поэтому независимо загруженные `native-runtime.json` и `results.json` могли содержать неоднозначные `source_commit`, `all_passed` или версии пакетов. Отвергать повтор ключа на любом уровне JSON при чтении evidence; проверить верхние поля, вложенный `packages` и отсутствие ложного успешного CLI-отчёта. Не изменять сбор evidence, исходные файлы, Windows CI, тестовые сценарии или геологические вычисления.
+- Это проверка целостности диагностики, не устранение нативного `0xC0000005`. Слияние только после 3/3 SUCCESS на точном PR HEAD и действующем `main`; затем post-merge gate.
+
+
 ## Windows Qt #544 — непустые версии native-пакетов, 19 ноября 2026
 
 - После PR #922 текущий `main` `0b23d436` прошёл [post-merge Release Gate #44454305332](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44454305332) — Quality, GUI/HiDPI/PDF и Security 3/3 SUCCESS; [очистка #44465681502](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44465681502) SUCCESS. Инцидент Qt #544 остаётся открытым, диагностическая ветка сохранена.
