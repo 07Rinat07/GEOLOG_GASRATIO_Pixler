@@ -1,6 +1,13 @@
 # Единый план проекта
 
 
+## Windows Qt #544 — согласованность ABI-версий PySide6/shiboken6, 19 ноября 2026
+
+- PR #921 принят в `main` `f623d3e6`; post-merge [Release Gate #44439670428](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44439670428) — Windows Quality, Security, GUI/HiDPI/PDF 3/3 SUCCESS; [очистка #44444248673](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44444248673) SUCCESS. Ветка `codex/qt-curveview-native-diagnostic` сохранена, #544 открыт.
+- В `requirements/release.lock` связанные колёса `PySide6`, `PySide6-Addons`, `PySide6-Essentials`, `shiboken6` зафиксированы одной версией `6.11.1`, но `check_qt_replay_evidence` принимал диагностические снимки даже с разными версиями этих ABI-связанных компонентов. Отказать в подтверждении сопоставимости такого набора; добавить тесты расхождений по каждому колесу и положительный пример согласованного Qt с независимо версионируемыми numpy/pyqtgraph. Не менять пакетные зависимости, исходные измерения, обязательный Windows CI и replay сценарии.
+- Это гарантия согласованности **диагностических свидетельств**, а не доказанное исправление сбоя `0xC0000005`. Проверить новый HEAD PR по трём обязательным Windows jobs и актуальный `main`; сохранить #544 до воспроизведения или достаточной нативной диагностики.
+
+
 ## Windows Qt #544 — проверка полноты runtime evidence, 19 ноября 2026
 
 - PR #920 с точным WITS0 native replay объединён в `main` `d1fb0704`, [post-merge Release Gate #44413708551](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44413708551) — 3/3 SUCCESS, [очистка #44421148609](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44421148609) SUCCESS. #544 остаётся открытым, ветка `codex/qt-curveview-native-diagnostic` сохраняется.
