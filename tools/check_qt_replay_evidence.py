@@ -89,7 +89,7 @@ def verify_replay_evidence(directory: Path, commit: str) -> tuple[dict[str, Any]
         raise ValueError("Missing or invalid normalized Qt test platform")
     packages = runtime.get("packages")
     if not isinstance(packages, dict) or any(
-        not isinstance(packages.get(name), str) or not packages[name]
+        not isinstance(packages.get(name), str) or not packages[name].strip()
         for name in NATIVE_PACKAGES
     ):
         raise ValueError("Missing required native package versions")

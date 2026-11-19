@@ -1,6 +1,13 @@
 # Единый план проекта
 
 
+## Windows Qt #544 — непустые версии native-пакетов, 19 ноября 2026
+
+- После PR #922 текущий `main` `0b23d436` прошёл [post-merge Release Gate #44454305332](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44454305332) — Quality, GUI/HiDPI/PDF и Security 3/3 SUCCESS; [очистка #44465681502](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44465681502) SUCCESS. Инцидент Qt #544 остаётся открытым, диагностическая ветка сохранена.
+- Узкий диагностический дефект: `check_qt_replay_evidence` отвергал отсутствующие или пустые строки версий native-пакетов, но принимал строки из пробелов/табуляции как валидные версии. Отвергать whitespace-only значения для каждого `NATIVE_PACKAGES`; покрыть пустые и пробельные варианты параметризованными регрессиями, подтвердить отсутствие переписывания исходных evidence. Согласованность версий связанных PySide6/shiboken6 сохраняется. Не менять CI, зависимости, исходные LAS/ГТИ или replay.
+- Этот инкремент не устанавливает причину `0xC0000005` и не заменяет исследование Windows minidump; объединять только после трёх SUCCESS на точном PR HEAD и действующем `main`, затем проверить post-merge.
+
+
 ## Windows Qt #544 — согласованность ABI-версий PySide6/shiboken6, 19 ноября 2026
 
 - PR #921 принят в `main` `f623d3e6`; post-merge [Release Gate #44439670428](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44439670428) — Windows Quality, Security, GUI/HiDPI/PDF 3/3 SUCCESS; [очистка #44444248673](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44444248673) SUCCESS. Ветка `codex/qt-curveview-native-diagnostic` сохранена, #544 открыт.
