@@ -353,3 +353,39 @@ def test_duplicate_json_keys_cli_fails_without_success_report(tmp_path, capsys):
     captured = capsys.readouterr()
     assert captured.out == ""
     assert "Duplicate JSON evidence key" in captured.err
+
+
+@pytest.mark.parametrize(
+    ("status", "invalid_code"),
+    [
+        ("passed", 1 << 32),
+        ("native_crash", 0x1C0000005),
+        ("native_crash", 0xC0000005 - (1 << 32) - (1 << 32)),
+    ],
+)
+def test_out_of_range_windows_exit_code_cannot_masquerade_as_valid_evidence(
+    tmp_path, status, invalid_code
+):
+    _write_artifacts(tmp_path, statuses=[status])
+    path = tmp_path / "results.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["results"][0]["exit_code"] = invalid_code
+    data["results"][0]["windows_exit_hex"] = f"0x{invalid_code & 0xFFFFFFFF:08X}"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ValueError, match="inconsistent exit evidence"):
+        check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
+
+
+@pytest.mark.parametrize("exit_code", [-1073741819, 0xC0000005])
+def test_valid_signed_and_unsigned_windows_native_crash_codes_are_preserved(
+    tmp_path, exit_code
+):
+    _write_artifacts(tmp_path, statuses=["native_crash"])
+    path = tmp_path / "results.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["results"][0]["exit_code"] = exit_code
+    data["results"][0]["windows_exit_hex"] = "0xC0000005"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    report, code = check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
+    assert code == 1
+    assert report["native_crash_scenarios"] == ["combined"]
