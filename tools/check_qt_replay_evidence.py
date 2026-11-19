@@ -146,6 +146,7 @@ def verify_replay_evidence(directory: Path, commit: str) -> tuple[dict[str, Any]
             or not isinstance(entry.get("status"), str)
             or entry["status"] not in STATUSES
             or not _is_plain_file(directory / filename)
+            or (directory / filename).stat().st_size == 0
         ):
             raise ValueError(f"Replay child #{index + 1} does not match the trusted plan")
 

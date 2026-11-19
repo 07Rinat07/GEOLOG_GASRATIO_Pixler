@@ -1,5 +1,12 @@
 # Единый план проекта
 
+## Windows Qt #544 / P1 — непустые журналы дочерних replay, 20 ноября 2026
+
+- После PR #926 `main` `97fe632f3115fec9dd2987739a87d86ad46c51ad` прошёл [post-merge Release Gate #44591469881](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44591469881) — Windows Quality, GUI/HiDPI/PDF и Security 3/3 SUCCESS; [очистка #44596839889](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44596839889) SUCCESS. #544 остаётся открытым; диагностическую ветку сохранять.
+- Проверка `check_qt_replay_evidence` принимала пустой `iteration-XX-*.txt` как достаточный журнал дочернего процесса: проверялось наличие обычного файла, но не наличие диагностических байтов. Отвергать нулевую длину журнала, включая формально успешный `results.json`; сохранить существующие требования к статусу, селекторам, exit codes, исходным артефактам и read-only обработке. Поведенческие регрессии: пустой лог не даёт ложного SUCCESS/CLI-отчёта, непустой лог не изменяется.
+- Это контроль целостности свидетельств, не подтверждение устранения нативного `0xC0000005`. Не изменять replay, обязательные Windows jobs или геологические тесты; слияние только после 3/3 SUCCESS на точном HEAD PR и текущем `main`, затем post-merge gate.
+
+
 ## Windows Qt #544 / P1 — диапазон кодов завершения native replay, 19 ноября 2026
 
 - После PR #925 `main` `e8b71e695eefe78da2fe080af592c7e4b7d7d64d` прошёл [post-merge Release Gate #44571689495](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44571689495) — 3/3 SUCCESS; [очистка #44578546703](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44578546703) SUCCESS. Qt #544 открыт; диагностическую ветку сохранять.
