@@ -156,6 +156,10 @@ def verify_replay_evidence(directory: Path, commit: str) -> tuple[dict[str, Any]
         else:
             valid_exit = (
                 _integer(exit_code)
+                # Windows subprocess return codes are signed or unsigned
+                # 32-bit values. Do not silently truncate wider integers into
+                # a known native-crash code when validating saved evidence.
+                and -(1 << 31) <= exit_code <= (1 << 32) - 1
                 and exit_hex == f"0x{exit_code & 0xFFFFFFFF:08X}"
                 and (
                     (status == "passed" and exit_code == 0)
