@@ -260,3 +260,35 @@ def test_capture_normalized_qt_platform_labels_are_accepted(tmp_path, platform_l
     report, status = check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
     assert status == 0
     assert report["root_cause_confirmed"] is False
+
+@pytest.mark.parametrize(
+    "package",
+    ["PySide6", "PySide6-Addons", "PySide6-Essentials", "shiboken6"],
+)
+def test_mixed_pyside_binding_versions_rejected_as_incomparable_evidence(
+    tmp_path, package
+):
+    _write_artifacts(tmp_path)
+    runtime_path = tmp_path / "native-runtime.json"
+    runtime = json.loads(runtime_path.read_text(encoding="utf-8"))
+    runtime["packages"][package] = "6.11.0"
+    runtime_path.write_text(json.dumps(runtime), encoding="utf-8")
+    with pytest.raises(ValueError, match="Inconsistent PySide6/shiboken6"):
+        check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
+
+
+def test_coherent_pyside_bindings_allow_independent_numpy_and_pyqtgraph_versions(
+    tmp_path,
+):
+    _write_artifacts(tmp_path)
+    runtime_path = tmp_path / "native-runtime.json"
+    runtime = json.loads(runtime_path.read_text(encoding="utf-8"))
+    for package in ("PySide6", "PySide6-Addons", "PySide6-Essentials", "shiboken6"):
+        runtime["packages"][package] = "6.11.1"
+    runtime["packages"]["numpy"] = "2.3.4"
+    runtime["packages"]["pyqtgraph"] = "0.14.0"
+    runtime["qt_runtime_version"] = "6.11.1"
+    runtime_path.write_text(json.dumps(runtime), encoding="utf-8")
+    report, code = check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
+    assert code == 0
+    assert report["root_cause_confirmed"] is False
