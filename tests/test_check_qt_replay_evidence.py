@@ -436,3 +436,28 @@ def test_child_log_with_late_diagnostic_bytes_remains_valid(tmp_path):
     assert code == 0
     assert report["diagnostic_status"] == "passed"
     assert log.read_bytes() == before
+
+
+@pytest.mark.parametrize("filename", ["native-runtime.json", "results.json"])
+@pytest.mark.parametrize("constant", ["NaN", "Infinity", "-Infinity"])
+def test_nonfinite_json_evidence_is_rejected_without_mutation_or_success_report(
+    tmp_path, capsys, filename, constant
+):
+    """Python json.loads accepts non-standard constants unless explicitly rejected."""
+    _write_artifacts(tmp_path)
+    path = tmp_path / filename
+    original = path.read_text(encoding="utf-8")
+    # A syntactically valid JSON object with a non-standard numeric constant,
+    # including in a field otherwise ignored by the evidence validator.
+    mutated = original[:-1] + ', "unexpected_numeric": ' + constant + "}"
+    path.write_text(mutated, encoding="utf-8")
+    before = path.read_bytes()
+    with pytest.raises(ValueError, match="Non-finite JSON evidence constant"):
+        check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
+    assert check_qt_replay_evidence.main([
+        "--artifact-dir", str(tmp_path), "--commit", SHA,
+    ]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "Non-finite JSON evidence constant" in captured.err
+    assert path.read_bytes() == before
