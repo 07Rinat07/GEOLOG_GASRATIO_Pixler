@@ -1,3 +1,11 @@
+## Qt replay evidence — exponent overflow (20.11.2026)
+
+Run `python -m pytest -p no:cacheprovider tests/test_check_qt_replay_evidence.py tests/test_replay_windows_qt_native.py -q`.
+Cover positive/negative overflowing exponents in both files, nested unknown
+fields, finite float boundaries, CLI rejection without a success report, and
+byte-for-byte preservation. Require all three Windows Release Gate jobs on the
+exact PR HEAD and main, followed by post-merge verification before branch cleanup.
+
 ## INTERP-GIS-01 — отдельная запись параметров калибровки (06.11.2026)
 
 Запустить `python -m pytest -q tests/test_gis_calibration_records.py tests/test_gis_reference_calibration.py tests/test_gis_reference_dialog.py tests/test_gis_reference_las_reopen.py` и документационный аудит, Ruff, focused mypy. Проверить IGR/density, JSON/package reopen при совпадении источника, изменённые ID/метаданные/UOM/MD/отсчёты/dtype, строгий размер и структуру JSON, конечные числовые параметры, дубли ключей, сохранность прежнего output при ошибке и очистку собственного временного файла. Открытие записи только заполняет поля: `sample` отсутствует, расчёт создаёт новую session-local калибровку после явного действия. Повторно проверить источник после файлового диалога и перед расчётом; RU/KK/EN, отмена, смена строки/полей, изменение источника после load и существующий output после добавления `.json`. Исходные массивы, LAS и формат проекта v38 не изменяются. Три Windows gates точных PR/main и отдельный post-merge gate обязательны; Qt #544 и полевая методическая приёмка остаются открытыми.

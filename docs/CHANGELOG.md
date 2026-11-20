@@ -1,3 +1,9 @@
+## Qt replay evidence — JSON exponent overflow (20.11.2026)
+
+Reject JSON numbers that overflow to infinity, including nested extra fields in
+both replay artifacts. Finite exponents remain accepted and source files stay
+unchanged. This closes a validation gap; Qt issue #544 remains open.
+
 ## CI/Qt #544 — replay evidence reconciliation (10.11.2026)
 
 The first CDB-instrumented repeat of the exact 54-file failed-main shard passed
