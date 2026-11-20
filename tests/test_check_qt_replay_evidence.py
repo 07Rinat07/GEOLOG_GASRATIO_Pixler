@@ -13,6 +13,39 @@ from tools.replay_windows_qt_native import replay_plan
 SHA = "a" * 40
 
 
+@pytest.mark.parametrize("filename", ["native-runtime.json", "results.json"])
+@pytest.mark.parametrize("number", ["1e400", "-1e400", "1.8e308"])
+def test_overflowing_json_number_cannot_certify_evidence(tmp_path, capsys, filename, number):
+    _write_artifacts(tmp_path)
+    path = tmp_path / filename
+    original = path.read_text(encoding="utf-8")
+    path.write_text(original[:-1] + ', "extra": [{"number": ' + number + "}]}", encoding="utf-8")
+    before = {item.name: item.read_bytes() for item in tmp_path.iterdir()}
+    with pytest.raises(ValueError, match="Non-finite JSON evidence number"):
+        check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
+    assert check_qt_replay_evidence.main([
+        "--artifact-dir", str(tmp_path), "--commit", SHA,
+    ]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "Non-finite JSON evidence number" in captured.err
+    assert {item.name: item.read_bytes() for item in tmp_path.iterdir()} == before
+
+
+@pytest.mark.parametrize("filename", ["native-runtime.json", "results.json"])
+def test_finite_json_exponents_remain_valid(tmp_path, filename):
+    _write_artifacts(tmp_path)
+    path = tmp_path / filename
+    original = path.read_text(encoding="utf-8")
+    path.write_text(original[:-1] + ', "extra": [1.7976931348623157e308, -1e308, 1e-300, 0.0]}',
+                    encoding="utf-8")
+    before = path.read_bytes()
+    report, code = check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
+    assert code == 0
+    assert report["diagnostic_status"] == "passed"
+    assert path.read_bytes() == before
+
+
 def _write_artifacts(tmp_path, *, mode="sequence", repetitions=1, statuses=None, sha=SHA):
     plan = replay_plan(repetitions, mode)
     if statuses is None:

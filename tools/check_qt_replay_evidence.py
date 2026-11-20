@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 import re
 import stat
@@ -77,6 +78,14 @@ def _reject_nonfinite_json_constant(value: str) -> None:
     raise ValueError(f"Non-finite JSON evidence constant: {value}")
 
 
+def _finite_json_float(value: str) -> float:
+    # Standard JSON exponents can overflow float without invoking parse_constant.
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(f"Non-finite JSON evidence number: {value}")
+    return number
+
+
 def _read_json(path: Path) -> dict[str, Any]:
     if not _is_plain_file(path):
         raise ValueError(f"Missing or redirected replay artifact: {path.name}")
@@ -85,6 +94,7 @@ def _read_json(path: Path) -> dict[str, Any]:
             path.read_text(encoding="utf-8"),
             object_pairs_hook=_unique_json_keys,
             parse_constant=_reject_nonfinite_json_constant,
+            parse_float=_finite_json_float,
         ), str(path.name))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise ValueError(f"Cannot read valid JSON from {path.name}: {exc}") from exc
