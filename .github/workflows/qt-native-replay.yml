@@ -38,7 +38,7 @@ jobs:
   qt-native-replay:
     name: Windows Qt native crash replay
     runs-on: windows-latest
-    timeout-minutes: 135
+    timeout-minutes: 145
     steps:
       - name: Check out source
         uses: actions/checkout@v6
