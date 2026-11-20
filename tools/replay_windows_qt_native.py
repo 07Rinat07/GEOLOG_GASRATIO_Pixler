@@ -61,12 +61,17 @@ SCENARIOS = (
         "tests/test_wits0_capture_reopen_runtime.py::"
         "test_real_capture_dialog_restores_open_runtime_workspace_and_sequence[.geolog.json-ru]",
     ),
+    (
+        "gis-profile-stale-well",
+        "tests/test_gis_profile_tablet_navigation.py::"
+        "test_panel_discards_stale_context[well]",
+    ),
 )
 MODES = ("isolated", "sequence", "both")
 MAX_REPETITIONS = 4
 CHILD_TIMEOUT_SECONDS = 150
-# Four repetitions × (nine isolated + one combined) = 40 children.
-# Worst-case child timeout budget: 100 of the workflow's 120 minutes.
+# Four repetitions × (ten isolated + one combined) = 44 children.
+# Worst-case child timeout budget: 110 of the manual workflow's 145 minutes.
 # Windows crash statuses previously observed in mandatory Qt/pyqtgraph CI.
 WINDOWS_NATIVE_CRASH_CODES = frozenset({0xC0000005, 0xC0000374})
 
