@@ -81,7 +81,11 @@ def _read_json(path: Path) -> dict[str, Any]:
     if not _is_plain_file(path):
         raise ValueError(f"Missing or redirected replay artifact: {path.name}")
     try:
-        return _object(json.loads(\n            path.read_text(encoding="utf-8"),\n            object_pairs_hook=_unique_json_keys,\n            parse_constant=_reject_nonfinite_json_constant,\n        ), str(path.name))
+        return _object(json.loads(
+            path.read_text(encoding="utf-8"),
+            object_pairs_hook=_unique_json_keys,
+            parse_constant=_reject_nonfinite_json_constant,
+        ), str(path.name))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise ValueError(f"Cannot read valid JSON from {path.name}: {exc}") from exc
 
