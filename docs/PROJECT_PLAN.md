@@ -1,5 +1,13 @@
 # Единый план проекта
 
+## Windows Qt #544 / P1 — повторный replay точного GIS crash, 20 ноября 2026
+
+- После PR #928 main `a0a570dc41f651257148c9a0a6d6987faf368a1b` прошёл [post-merge Release Gate #44641411041](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44641411041) — Windows Quality, GUI/HiDPI/PDF, Security 3/3 SUCCESS; [очистка временной ветки #44648352457](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44648352457) SUCCESS. Qt issue #544 открыт, диагностическая ветка сохраняется.
+- В Windows Release Gate #44454305332 (первая попытка) зарегистрирован `0xC0000005` при инициализации `pyqtgraph.ViewBoxMenu` в `tests/test_gis_profile_tablet_navigation.py::test_panel_discards_stale_context[well]`. Этого точного параметризованного сценария не было среди фиксированных селекторов ручного Qt replay. Добавить его в изолированный и последовательный режимы, не заменяя предыдущие девять сценариев.
+- При четырёх повторах и режиме both теперь максимум 44 дочерних процесса (10 изолированных + 1 общий на повтор), неизменный timeout по 150 секунд: предельный бюджет 110 минут. Увеличить **только ручной диагностический** Windows workflow до 145 минут, сохранив не менее 30 минут на установку и загрузку артефактов; обновить поведенческие тесты полного плана и контракта workflow. Не изменять обязательный Release Gate, критерии успеха и геологические тесты.
+- Успешный replay не устанавливает первопричину Qt crash и не закрывает #544. Слияние только после 3/3 SUCCESS точного HEAD PR и действующего main; затем обязательная post-merge проверка.
+
+
 ## Windows Qt #544 / P1 — журналы только из пробелов, 20 ноября 2026
 
 - После PR #927 текущий main `3e33d22b8ebd18e709587f4a237581a6ea6e5f60` прошёл [post-merge Release Gate #44623371734](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44623371734) — Windows Quality, GUI/HiDPI/PDF, Security 3/3 SUCCESS; [очистка #44631337603](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44631337603) SUCCESS.
