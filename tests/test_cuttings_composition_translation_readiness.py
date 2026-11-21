@@ -59,12 +59,33 @@ def _reviewed_sample(controller, source_language, fields, top=100.0):
     return sample
 
 
+def _edit_depth(controller, sample, editor, top, bottom):
+    if editor == "composition":
+        controller.update_composition(
+            sample.sample_id,
+            top_depth=top,
+            bottom_depth=bottom,
+            components={"sandstone": 100.0},
+        )
+    else:
+        source = controller.description_source_language(sample.sample_id)
+        controller.update_description(
+            sample.sample_id,
+            top_depth=top,
+            bottom_depth=bottom,
+            description=sample.description_i18n.get(source) if source else sample.description,
+            language=source,
+        )
+
+
+@pytest.mark.parametrize("editor", ["composition", "description"])
 @pytest.mark.parametrize("source_language", LANGUAGES)
 @pytest.mark.parametrize("fields", [FIELDS, ("lba_description",), ("analysis_interpretation",)])
-def test_composition_depth_edit_stales_all_affected_translations_and_roundtrips(
+def test_sample_depth_edit_stales_all_affected_translations_and_roundtrips(
     tmp_path,
     source_language,
     fields,
+    editor,
 ):
     controller = _controller()
     sample = _reviewed_sample(controller, source_language, fields)
@@ -81,9 +102,7 @@ def test_composition_depth_edit_stales_all_affected_translations_and_roundtrips(
     content_revision = well.content_revision
     controller.session.dirty = False
 
-    controller.update_composition(
-        sample.sample_id, top_depth=101.0, bottom_depth=111.0, components={"sandstone": 100.0}
-    )
+    _edit_depth(controller, sample, editor, 101.0, 111.0)
 
     expected = deepcopy(before)
     expected.top_depth, expected.bottom_depth = 101.0, 111.0
@@ -149,7 +168,8 @@ def test_composition_only_change_keeps_analysis_translations_reviewed(source_lan
         )
 
 
-def test_failed_analysis_plan_does_not_partially_move_sample(monkeypatch):
+@pytest.mark.parametrize("editor", ["composition", "description"])
+def test_failed_analysis_plan_does_not_partially_move_sample(monkeypatch, editor):
     controller = _controller()
     sample = _reviewed_sample(controller, "ru", FIELDS)
     well = controller.session.current_well
@@ -166,9 +186,7 @@ def test_failed_analysis_plan_does_not_partially_move_sample(monkeypatch):
 
     monkeypatch.setattr(CuttingsAnalysisTrackingCoordinator, "plan", reject_plan)
     with pytest.raises(ValueError, match="Analysis tracking validation failed"):
-        controller.update_composition(
-            sample.sample_id, top_depth=101.0, bottom_depth=111.0, components={"sandstone": 100.0}
-        )
+        _edit_depth(controller, sample, editor, 101.0, 111.0)
     assert sample == before
     assert well.translation_statuses == statuses
     assert well.authored_field_revisions == revisions
@@ -178,7 +196,8 @@ def test_failed_analysis_plan_does_not_partially_move_sample(monkeypatch):
     assert controller.session.dirty is False
 
 
-def test_unchanged_composition_preserves_reviewed_status_and_clean_session():
+@pytest.mark.parametrize("editor", ["composition", "description"])
+def test_unchanged_sample_edit_preserves_reviewed_status_and_clean_session(editor):
     controller = _controller()
     sample = _reviewed_sample(controller, "ru", FIELDS)
     well = controller.session.current_well
@@ -186,10 +205,82 @@ def test_unchanged_composition_preserves_reviewed_status_and_clean_session():
     revisions = dict(well.authored_field_revisions)
     content_revision = well.content_revision
     controller.session.dirty = False
-    controller.update_composition(
-        sample.sample_id, top_depth=100.0, bottom_depth=110.0, components={"sandstone": 100.0}
-    )
+    _edit_depth(controller, sample, editor, 100.0, 110.0)
     assert well.translation_statuses == statuses
     assert well.authored_field_revisions == revisions
     assert well.content_revision == content_revision
+    assert controller.session.dirty is False
+
+
+@pytest.mark.parametrize("source_language", LANGUAGES)
+def test_description_text_edit_stales_only_description_translations(source_language):
+    controller = _controller()
+    sample = _reviewed_sample(controller, source_language, FIELDS)
+    well = controller.session.current_well
+    statuses = deepcopy(well.translation_statuses)
+    controller.update_description(
+        sample.sample_id,
+        top_depth=100.0,
+        bottom_depth=110.0,
+        description="Updated source description",
+        language=source_language,
+    )
+    for field in ("lba_description", "analysis_interpretation"):
+        field_id = f"cuttings/{sample.sample_id}/{field}"
+        assert well.translation_statuses[field_id] == statuses[field_id]
+    for language in set(LANGUAGES) - {source_language}:
+        assert (
+            well.translation_statuses[f"cuttings/{sample.sample_id}/description"][language].state
+            is TranslationState.STALE
+        )
+        assert sample.description_i18n[language] == f"description {language}"
+
+
+@pytest.mark.parametrize("language", [None, *LANGUAGES])
+def test_untracked_description_edit_preserves_analysis_provenance(language):
+    controller = _controller()
+    sample = _reviewed_sample(controller, "ru", ("lba_description", "analysis_interpretation"))
+    well = controller.session.current_well
+    statuses = deepcopy(well.translation_statuses)
+    controller.update_description(
+        sample.sample_id,
+        top_depth=100.0,
+        bottom_depth=110.0,
+        description="Legacy author text",
+        language=language,
+    )
+    assert controller.description_source_language(sample.sample_id) is None
+    assert well.translation_statuses == statuses
+    if language is None:
+        assert sample.description == "Legacy author text"
+        assert sample.description_i18n == {}
+    else:
+        assert sample.description_i18n == {language: "Legacy author text"}
+
+
+def test_invalid_description_wrap_preserves_untracked_sample_atomically():
+    controller = _controller()
+    sample = controller.create_full_sample(
+        100.0,
+        110.0,
+        {"sandstone": 100.0},
+        description="Legacy text",
+    )
+    before = deepcopy(sample)
+    well = controller.session.current_well
+    language_revisions = dict(well.language_revisions)
+    content_revision = well.content_revision
+    controller.session.dirty = False
+    with pytest.raises(ValueError):
+        controller.update_description(
+            sample.sample_id,
+            top_depth=101.0,
+            bottom_depth=111.0,
+            description="Changed",
+            language="ru",
+            description_word_wrap="invalid",
+        )
+    assert sample == before
+    assert well.content_revision == content_revision
+    assert well.language_revisions == language_revisions
     assert controller.session.dirty is False

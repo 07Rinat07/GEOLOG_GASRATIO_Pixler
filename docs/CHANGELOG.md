@@ -1,3 +1,11 @@
+## WELL-04 — description editor translation dependencies (21.11.2026)
+
+Moving sample depths through the description editor now invalidates dependent
+LBA/conclusion translations, matching the composition editor. Text, depths and
+word-wrap are validated before writing; failed validation leaves the sample and
+revision counters intact. Unchanged tracked edits stay clean. Text-only edits
+preserve analysis reviews; legacy text and explicit source-language behavior remain.
+
 ## WELL-04 — sample depth edits preserve translation validity (21.11.2026)
 
 Moving a cuttings interval through the composition editor now marks dependent
