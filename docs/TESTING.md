@@ -1,3 +1,12 @@
+## WELL-04 — description/composition shared depth acceptance (21.11.2026)
+
+Run `python -m pytest -p no:cacheprovider tests/test_cuttings_composition_translation_readiness.py -q`.
+The shared matrix exercises both editor controllers across RU/KK/EN sources,
+independent/all tracked fields, real package save/reopen and depth readiness.
+Additional cases cover description-only changes, untracked localized/legacy
+text, failed analysis planning, invalid word wrap and no-op revisions/dirty state.
+Require all three Windows Release Gate jobs at exact PR HEAD and post-merge main.
+
 ## WELL-04 — composition editor translation lifecycle (21.11.2026)
 
 Run `python -m pytest -p no:cacheprovider tests/test_cuttings_composition_translation_readiness.py tests/test_cuttings_translation_tracking_controller.py tests/test_cuttings_lba_translation_tracking_controller.py -q`.
