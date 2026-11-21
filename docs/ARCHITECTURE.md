@@ -1,3 +1,12 @@
+## WELL-04 — composition edits share authored-field planning (21.11.2026)
+
+`CuttingsController.update_composition` stages validated depths/components and
+uses `_full_sample_tracking_plan` to compose description, LBA and interpretation
+provenance before committing the sample. Depth is a dependency of all three;
+rock composition is only a dependency of the rock description. A validated
+plan commits once, while unchanged sample/metadata preserves the clean state.
+Existing source-language resolution, project schema and storage remain unchanged.
+
 ## Qt diagnostic evidence numeric boundary (20.11.2026)
 
 `tools/check_qt_replay_evidence.py` rejects non-finite constants and float

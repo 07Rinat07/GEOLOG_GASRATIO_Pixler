@@ -79,20 +79,18 @@ class CuttingsController:
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._validate_components(components)
         self._ensure_no_composition_overlap(top, bottom, excluded_id=sample_id)
-        source_language = self.description_source_language(sample_id)
-        if source_language is not None:
-            previous = deepcopy(sample)
-            plan = self._description_tracking_plan(
-                previous,
-                top_depth=top,
-                bottom_depth=bottom,
-                components=normalized,
-                current_texts=dict(previous.description_i18n),
-                source_language=source_language,
-            )
-            sample.top_depth = top
-            sample.bottom_depth = bottom
-            sample.components = self._component_list(normalized)
+        previous = deepcopy(sample)
+        staged = deepcopy(sample)
+        staged.top_depth = top
+        staged.bottom_depth = bottom
+        staged.components = self._component_list(normalized)
+        # All authored fields share the sample depth, even when only its
+        # composition is edited. Validate their dependencies before committing.
+        plan = self._full_sample_tracking_plan(previous, staged, {})
+        if plan is not None:
+            if previous == staged and not self._tracking_metadata_changed(plan):
+                return sample
+            self._commit_sample(sample, staged)
             self._apply_tracking_plan(plan, previous_sample=previous, current_sample=sample)
             self.session.dirty = True
             return sample

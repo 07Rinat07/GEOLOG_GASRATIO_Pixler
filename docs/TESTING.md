@@ -1,3 +1,12 @@
+## WELL-04 — composition editor translation lifecycle (21.11.2026)
+
+Run `python -m pytest -p no:cacheprovider tests/test_cuttings_composition_translation_readiness.py tests/test_cuttings_translation_tracking_controller.py tests/test_cuttings_lba_translation_tracking_controller.py -q`.
+The production controller matrix covers RU/KK/EN sources, independent/all authored
+fields, review then depth edit, unchanged neighboring intervals, real geologpkg
+save/reopen, range-specific readiness and rejection of stale review. Also check
+composition-only changes, atomic planning failure and no-op dirty/revision state.
+Complete the required Windows Release Gate before merge and again on main.
+
 ## Qt replay evidence — exponent overflow (20.11.2026)
 
 Run `python -m pytest -p no:cacheprovider tests/test_check_qt_replay_evidence.py tests/test_replay_windows_qt_native.py -q`.
