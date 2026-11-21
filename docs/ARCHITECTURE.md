@@ -1,3 +1,12 @@
+## WELL-04 — description edits commit a composed plan (21.11.2026)
+
+`CuttingsController.update_description` stages text, interval and wrap settings,
+then reuses `_full_sample_tracking_plan` with the explicit/resolved description
+source language. All shared depth dependencies are updated before committing the
+sample. The same boundary serves `set_description` for existing intervals and
+the production description editor. Untracked text retains legacy/localized storage
+semantics; no schema, dependency or UI contract changes are required.
+
 ## WELL-04 — composition edits share authored-field planning (21.11.2026)
 
 `CuttingsController.update_composition` stages validated depths/components and

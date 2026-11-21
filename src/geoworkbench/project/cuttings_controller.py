@@ -301,15 +301,15 @@ class CuttingsController:
             if source_language is not None
             else self.description_source_language(sample_id)
         )
+        staged = deepcopy(sample)
+        staged.top_depth = top
+        staged.bottom_depth = bottom
         if effective_source is not None:
             effective_language = (
                 normalize_content_language(language)
                 if language is not None
                 else normalize_content_language(effective_source)
             )
-            staged = deepcopy(sample)
-            staged.top_depth = top
-            staged.bottom_depth = bottom
             set_localized_text(
                 staged.description_i18n,
                 effective_language,
@@ -317,33 +317,31 @@ class CuttingsController:
                 maximum=2_000_000,
             )
             staged.description = staged.description_i18n.get("ru")
-            if description_word_wrap is not None:
-                staged.description_word_wrap = self._validate_word_wrap(description_word_wrap)
-            plan = self._description_tracking_plan(
-                previous,
-                top_depth=top,
-                bottom_depth=bottom,
-                components=self._components_map(staged),
-                current_texts=dict(staged.description_i18n),
-                source_language=effective_source,
-            )
+        elif language is None:
+            staged.description = normalized
+        else:
+            code = normalize_content_language(language)
+            set_localized_text(staged.description_i18n, code, normalized, maximum=2_000_000)
+            if code == "ru":
+                staged.description = normalized
+        if description_word_wrap is not None:
+            staged.description_word_wrap = self._validate_word_wrap(description_word_wrap)
+
+        # The description editor can also move the shared LBA/analysis interval.
+        plan = self._full_sample_tracking_plan(
+            previous, staged, {"description_source_language": effective_source}
+        )
+        if plan is not None:
+            if previous == staged and not self._tracking_metadata_changed(plan):
+                return sample
             self._commit_sample(sample, staged)
             self._apply_tracking_plan(plan, previous_sample=previous, current_sample=sample)
             self.session.dirty = True
             return sample
 
-        sample.top_depth = top
-        sample.bottom_depth = bottom
-        if language is None:
-            sample.description = normalized
-        else:
-            code = normalize_content_language(language)
-            set_localized_text(sample.description_i18n, code, normalized, maximum=2_000_000)
-            if code == "ru":
-                sample.description = normalized
-            self._bump_content(code)
-        if description_word_wrap is not None:
-            sample.description_word_wrap = self._validate_word_wrap(description_word_wrap)
+        self._commit_sample(sample, staged)
+        if language is not None:
+            self._bump_content(normalize_content_language(language))
         self.session.dirty = True
         return sample
 
