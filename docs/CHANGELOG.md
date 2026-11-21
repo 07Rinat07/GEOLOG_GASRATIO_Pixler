@@ -1,3 +1,11 @@
+## WELL-04 — sample depth edits preserve translation validity (21.11.2026)
+
+Moving a cuttings interval through the composition editor now marks dependent
+LBA and geologist-conclusion translations stale as well as the rock description.
+The existing composed tracking plan is validated before any sample mutation.
+Unchanged edits remain clean, neighboring samples retain review status, and
+composition-only changes preserve LBA/conclusion reviews. Project format unchanged.
+
 ## Qt replay evidence — JSON exponent overflow (20.11.2026)
 
 Reject JSON numbers that overflow to infinity, including nested extra fields in
