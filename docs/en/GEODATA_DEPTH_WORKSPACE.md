@@ -92,6 +92,11 @@ Double-clicking the sample in any linked track reopens the same editor. The exis
 updated atomically, so Cuttings, LBA, Calcimetry, and Description are refreshed together. The
 sample can also be deleted from that dialog.
 
+Rock percentages display one decimal place. Each share keeps its stored precision while its
+displayed number stays the same. The displayed total and validation use the shares to be saved.
+Select **Remainder** to fill the selected rock's share up to a total of 100%, using the exact
+shares of the other rocks.
+
 The shared editor, **Sample analysis** and the rock description editor show depths to three decimal
 places. When editing a saved sample, each boundary keeps its stored precision while its displayed
 value stays the same. Editing one boundary preserves the precision of the other.

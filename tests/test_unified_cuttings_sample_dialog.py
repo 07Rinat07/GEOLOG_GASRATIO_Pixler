@@ -604,6 +604,135 @@ def test_full_sample_submit_validates_precise_calcimetry_total(
         dialog.close()
 
 
+def _click_sample_ok(dialog: UnifiedCuttingsSampleDialog) -> None:
+    buttons = dialog.findChild(QDialogButtonBox, "cuttings-dialog-buttons")
+    assert buttons is not None
+    ok = buttons.button(QDialogButtonBox.StandardButton.Ok)
+    assert ok is not None
+    ok.click()
+
+
+@pytest.mark.parametrize(
+    ("shares", "display_total"),
+    [
+        pytest.param({"sandstone": 57.1252, "clay": 42.8748}, 100.0, id="rounded-but-valid"),
+        pytest.param(
+            {"sandstone": 25.06, "clay": 24.98, "limestone": 24.98, "dolomite": 24.98},
+            100.1,
+            id="four-rounded-shares-exceed-total",
+        ),
+    ],
+)
+def test_editing_calcimetry_preserves_precise_cuttings_composition(
+    qapp, tmp_path: Path, shares: dict[str, float], display_total: float
+) -> None:
+    well = Well("well", "Well")
+    session = ProjectSession(
+        Project("project", "Project", wells={well.well_id: well}),
+        current_well_id=well.well_id,
+    )
+    controller = CuttingsController(session)
+    sample = controller.create_full_sample(
+        1980.0,
+        1981.0,
+        shares,
+        description_i18n={"ru": "Описание шлама", "en": "Cuttings description"},
+        description_source_language="ru",
+    )
+    field_id = f"cuttings/{sample.sample_id}/description"
+    TranslationStatusController(session).review_current(field_id=field_id, language="en")
+    reviewed = well.translation_statuses[field_id]["en"]
+    dialog = UnifiedCuttingsSampleDialog(
+        sample.top_depth,
+        sample.bottom_depth,
+        LithotypeCatalogController(session).available(),
+        language=AppLanguage.EN,
+        sample=sample,
+    )
+    try:
+        assert sum(control.value() for control in dialog.percent_inputs) == pytest.approx(display_total)
+        dialog.calcite_input.setValue(17.5)
+        _click_sample_ok(dialog)
+
+        assert dialog.result() == QDialog.DialogCode.Accepted
+        assert dialog.components() == shares
+        saved = controller.update_full_sample(
+            sample.sample_id,
+            top_depth=dialog.top_depth,
+            bottom_depth=dialog.bottom_depth,
+            components=dialog.components(),
+            content_language=AppLanguage.EN.value,
+            **dialog.values(),
+        )
+    finally:
+        dialog.close()
+
+    assert saved is sample
+    assert saved.calcite_percent == 17.5
+    repository = PackageProjectRepository()
+    path = tmp_path / "precise-composition.geologpkg"
+    repository.save(ProjectDocument(project=session.project), path)
+    restored_well = repository.load(path).project.wells[well.well_id]
+    restored = restored_well.cuttings[0]
+    assert restored.sample_id == sample.sample_id
+    assert {component.lithotype_id: component.percentage for component in restored.components} == shares
+    assert restored_well.translation_statuses[field_id]["en"] == reviewed
+
+
+@pytest.mark.parametrize("use_remainder_button", [False, True], ids=["select-rock", "fill-remainder"])
+def test_composition_fills_exact_remainder_after_edit(qapp, use_remainder_button: bool) -> None:
+    sample = CuttingsSample(
+        "sample",
+        1980.0,
+        1981.0,
+        [CuttingsComponent("sandstone", 57.1252), CuttingsComponent("clay", 42.8748)],
+    )
+    _, dialog = _edit_existing_sample(sample, AppLanguage.EN)
+    try:
+        dialog.percent_inputs[1].setValue(21.3)
+        new_rock = dialog.rock_inputs[2]
+        limestone_index = new_rock.findData("limestone")
+        assert limestone_index > 0
+        new_rock.setCurrentIndex(limestone_index)
+        if use_remainder_button:
+            dialog.percent_inputs[2].setValue(13.0)
+            dialog.remainder_buttons[2].click()
+
+        assert dialog.percent_inputs[2].value() == 21.6
+        assert dialog.components() == {
+            "sandstone": 57.1252,
+            "clay": 21.3,
+            "limestone": 100.0 - (57.1252 + 21.3),
+        }
+        _click_sample_ok(dialog)
+        assert dialog.result() == QDialog.DialogCode.Accepted
+    finally:
+        dialog.close()
+
+
+def test_removing_rock_clears_its_small_unrounded_share(qapp) -> None:
+    sample = CuttingsSample(
+        "sample",
+        1980.0,
+        1981.0,
+        [CuttingsComponent("sandstone", 99.975), CuttingsComponent("clay", 0.025)],
+    )
+    _, dialog = _edit_existing_sample(sample, AppLanguage.EN)
+    try:
+        assert dialog.percent_inputs[1].value() == 0.0
+        assert dialog.components() == {"sandstone": 99.975, "clay": 0.025}
+
+        dialog.rock_inputs[1].setCurrentIndex(0)
+        assert dialog.components() == {"sandstone": 99.975}
+
+        dialog.remainder_buttons[0].click()
+        assert dialog.components() == {"sandstone": 100.0}
+        _click_sample_ok(dialog)
+        assert dialog.result() == QDialog.DialogCode.Accepted
+    finally:
+        dialog.close()
+
+
 def test_selected_template_block_is_removed_from_all_languages(qapp) -> None:
     dialog = UnifiedCuttingsSampleDialog(
         1980.0,

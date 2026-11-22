@@ -10,7 +10,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
-    QDoubleSpinBox,
     QFormLayout,
     QFrame,
     QGridLayout,
@@ -43,7 +42,7 @@ from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES
 from geoworkbench.ui.calcimetry_percent_input import CalcimetryPercentInput
 from geoworkbench.ui.lithotype_visuals import configure_lithotype_combo, lithotype_icon
 from geoworkbench.ui.rich_interval_text_editor import RichIntervalTextEditor
-from geoworkbench.ui.stored_precision_spin_box import cuttings_depth_input
+from geoworkbench.ui.stored_precision_spin_box import StoredPrecisionSpinBox, cuttings_depth_input
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
@@ -651,7 +650,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
         grid.addWidget(QLabel(""), 0, 2)
         existing = list(sample.components if sample is not None else ())
         self.rock_inputs: list[QComboBox] = []
-        self.percent_inputs: list[QDoubleSpinBox] = []
+        self.percent_inputs: list[StoredPrecisionSpinBox] = []
         self.remainder_buttons: list[QPushButton] = []
         for row in range(4):
             rock = QComboBox()
@@ -666,7 +665,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
                     f"{item.code} — {item.localized_name(self._language.value)}",
                     item.lithotype_id,
                 )
-            percent = QDoubleSpinBox()
+            percent = StoredPrecisionSpinBox()
             percent.setObjectName(f"cuttings-percent-{row + 1}")
             percent.setRange(0.0, 100.0)
             percent.setDecimals(1)
@@ -692,7 +691,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
             if row < len(existing):
                 found = rock.findData(existing[row].lithotype_id)
                 rock.setCurrentIndex(max(0, found))
-                percent.setValue(existing[row].percentage)
+                percent.load_stored_value(existing[row].percentage)
             grid.addWidget(rock, row + 1, 0)
             grid.addWidget(percent, row + 1, 1)
             grid.addWidget(remainder, row + 1, 2)
@@ -893,7 +892,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
         values: dict[str, float] = {}
         for rock, percent in zip(self.rock_inputs, self.percent_inputs, strict=True):
             lithotype_id = str(rock.currentData() or "")
-            numeric = float(percent.value())
+            numeric = percent.effective_value()
             if not lithotype_id and numeric == 0.0:
                 continue
             if not lithotype_id:
@@ -1004,26 +1003,13 @@ class UnifiedCuttingsSampleDialog(QDialog):
         rock = self.rock_inputs[row]
         percent = self.percent_inputs[row]
         if not rock.currentData():
-            if percent.value() != 0.0:
-                percent.setValue(0.0)
+            percent.load_stored_value(0.0)
             self._update_total()
             return
-        if percent.value() <= 0.0:
-            remaining = max(
-                0.0,
-                100.0
-                - sum(
-                    float(control.value())
-                    for index, control in enumerate(self.percent_inputs)
-                    if index != row
-                ),
-            )
-            # Selecting the first rock should produce a valid 100% sample, as
-            # in the GeoData reference editor. Additional rocks receive the
-            # currently unallocated remainder and can then be adjusted.
-            if remaining > 0.0:
-                percent.setValue(remaining)
-        self._update_total()
+        if percent.effective_value() <= 0.0:
+            self._fill_remainder(row)
+        else:
+            self._update_total()
         if row == 0 and hasattr(self, "description_template_input"):
             self._suggest_description_template()
 
@@ -1035,18 +1021,18 @@ class UnifiedCuttingsSampleDialog(QDialog):
             0.0,
             100.0
             - sum(
-                float(control.value())
+                control.effective_value()
                 for index, control in enumerate(self.percent_inputs)
                 if index != row
             ),
         )
-        self.percent_inputs[row].setValue(remainder)
+        self.percent_inputs[row].load_stored_value(remainder)
         self._update_total()
 
     def _update_total(self) -> None:
         if not hasattr(self, "percent_inputs") or not hasattr(self, "total_label"):
             return
-        total = sum(float(control.value()) for control in self.percent_inputs)
+        total = sum(control.effective_value() for control in self.percent_inputs)
         if abs(total - 100.0) <= 0.01:
             suffix = self._text["total_ready"]
             color = "#15803d"

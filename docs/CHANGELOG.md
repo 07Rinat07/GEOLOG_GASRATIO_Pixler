@@ -1,3 +1,9 @@
+## WELL-04 — rock percentage precision in the unified cuttings editor (22.11.2026, under review)
+
+Rock percentage inputs show one decimal and preserve stored precision while the displayed value
+stays the same. The editor uses the values to be saved to calculate and validate the total.
+Remainder fills the selected rock's share up to 100% using the exact shares of the other rocks.
+
 ## WELL-04 — depth precision in cuttings editors (22.11.2026, under review)
 
 The unified sample editor, Sample analysis and the rock description editor display depths to
