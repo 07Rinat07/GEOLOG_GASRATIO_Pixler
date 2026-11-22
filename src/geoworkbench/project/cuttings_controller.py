@@ -132,6 +132,7 @@ class CuttingsController:
         top_depth: float,
         bottom_depth: float,
         components: dict[str, float],
+        preserve_legacy_texts: tuple[str, ...] = (),
         **values: object,
     ) -> CuttingsSample:
         """Atomically edit interval, rocks, LBA, calcimetry and rich description."""
@@ -145,7 +146,9 @@ class CuttingsController:
         staged.top_depth = top
         staged.bottom_depth = bottom
         staged.components = self._component_list(normalized)
-        self._apply_full_values(staged, values, bump_revisions=False)
+        self._apply_full_values(
+            staged, values, bump_revisions=False, preserve_legacy_texts=preserve_legacy_texts
+        )
 
         plan = self._full_sample_tracking_plan(previous, staged, values)
         if plan is not None:
@@ -157,7 +160,9 @@ class CuttingsController:
             sample.top_depth = top
             sample.bottom_depth = bottom
             sample.components = self._component_list(normalized)
-            self._apply_full_values(sample, values, bump_revisions=True)
+            self._apply_full_values(
+                sample, values, bump_revisions=True, preserve_legacy_texts=preserve_legacy_texts
+            )
         self.session.dirty = True
         return sample
 
@@ -167,8 +172,14 @@ class CuttingsController:
         values: dict[str, object],
         *,
         bump_revisions: bool,
+        preserve_legacy_texts: tuple[str, ...] = (),
     ) -> None:
         content_language = values.get("content_language")
+        legacy_texts: dict[str, str | None] = {
+            field: getattr(sample, field)
+            for field in ("description", "lba_description", "analysis_interpretation")
+            if field in preserve_legacy_texts
+        }
         calcite, dolomite = self._validate_calcimetry(
             values.get("calcite_percent"), values.get("dolomite_percent")
         )
@@ -254,7 +265,9 @@ class CuttingsController:
             previous_languages = set(target)
             target.clear()
             target.update(localized)
-            setattr(sample, legacy_attribute, localized.get("ru"))
+            setattr(
+                sample, legacy_attribute, localized.get("ru", legacy_texts.get(legacy_attribute))
+            )
             if bump_revisions:
                 for language in previous_languages | set(localized):
                     if language != "und":

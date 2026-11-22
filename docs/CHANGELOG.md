@@ -1,3 +1,10 @@
+## WELL-04 — legacy text in the unified cuttings editor (22.11.2026, under review)
+
+Saving depth or unrelated changes in the unified editor preserves the legacy rock description,
+LBA description, and geologist's conclusion. Language tabs record explicit text edits. Clearing
+the Russian tab removes its legacy text, and choosing Russian as the original records the text
+and its source language together.
+
 ## WELL-04 — description editor translation dependencies (21.11.2026)
 
 Moving sample depths through the description editor now invalidates dependent
