@@ -36,6 +36,8 @@ from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.services.lba_standard import (
     LBA_STANDARD_GROUPS,
     all_lba_color_labels,
+    lba_standard_group,
+    lba_standard_type,
 )
 from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES
 from geoworkbench.ui.lithotype_visuals import configure_lithotype_combo, lithotype_icon
@@ -826,15 +828,12 @@ class UnifiedCuttingsSampleDialog(QDialog):
                 self.calcite_input.setValue(sample.calcite_percent)
             if sample.dolomite_percent is not None:
                 self.dolomite_input.setValue(sample.dolomite_percent)
-            type_codes = {
-                code: index for index, (code, _color, _label) in enumerate(_LBA_TYPES, start=1)
-            }
-            type_index = type_codes.get(sample.lba_type_id or "")
-            if type_index is None and isinstance(sample.lba_group, int):
-                type_index = sample.lba_group
-            type_button = self.type_group.button(type_index or -1)
-            if type_button is not None:
-                type_button.setChecked(True)
+            type_code = sample.lba_type_id if isinstance(sample.lba_type_id, str) else None
+            standard = lba_standard_type(type_code) or lba_standard_group(sample.lba_group)
+            if standard is not None:
+                type_button = self.type_group.button(standard.group)
+                if type_button is not None:
+                    type_button.setChecked(True)
             intensity = (
                 sample.lba_intensity
                 if isinstance(sample.lba_intensity, int) and sample.lba_intensity in range(1, 6)
@@ -844,9 +843,15 @@ class UnifiedCuttingsSampleDialog(QDialog):
             if intensity_button is not None:
                 intensity_button.setChecked(True)
             self.lba_color_input.setCurrentText(sample.lba_color or "")
+        self._initial_lba_type_id = self.type_group.checkedId()
+        self._lba_type_selected = False
+        self.type_group.idClicked.connect(self._mark_lba_type_selected)
         self._lba_description_dirty_languages.clear()
         self._update_residue()
         return outer
+
+    def _mark_lba_type_selected(self, _button_id: int) -> None:
+        self._lba_type_selected = True
 
     def _interpretation_widget(self, sample: CuttingsSample | None) -> QWidget:
         widget = QWidget()
@@ -913,9 +918,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
         return {key: value for key, value in values.items() if value > 0.0}
 
     def values(self) -> dict[str, Any]:
-        type_button = self.type_group.checkedButton()
-        type_id = self.type_group.id(type_button) if type_button is not None else -1
-        lba_type = _LBA_TYPES[type_id - 1][0] if type_id > 0 else None
+        type_id = self.type_group.checkedId()
         intensity_button = self.intensity_group.checkedButton()
         intensity = (
             self.intensity_group.id(intensity_button) if intensity_button is not None else -1
@@ -961,7 +964,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
                     and "ru" not in dirty_languages
                 ):
                     preserve_legacy_texts.append(field)
-        return {
+        values = {
             "description": self.rich_description.html(),
             "description_source_language": self.description_source_language_input.currentData(),
             "description_i18n": descriptions,
@@ -973,9 +976,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
             "dolomite_percent": self.dolomite_input.value()
             if self.dolomite_input.value() >= 0
             else None,
-            "lba_type_id": lba_type,
             "lba_intensity": normalized_intensity,
-            "lba_group": type_id if type_id > 0 else None,
             "lba_color": self.lba_color_input.currentText().strip() or None,
             "show_observations": self.oil_show_editor.observations(),
             "lba_description": self.lba_details_input.text().strip() or None,
@@ -984,6 +985,15 @@ class UnifiedCuttingsSampleDialog(QDialog):
             "analysis_interpretation_i18n": interpretations,
             "preserve_legacy_texts": tuple(preserve_legacy_texts),
         }
+        # Displaying a mapped legacy type does not edit the stored classification.
+        if (
+            self._sample is None
+            or self._lba_type_selected
+            or type_id != self._initial_lba_type_id
+        ):
+            values["lba_type_id"] = _LBA_TYPES[type_id - 1][0] if type_id > 0 else None
+            values["lba_group"] = type_id if type_id > 0 else None
+        return values
 
     @staticmethod
     def _plain_localized_values(

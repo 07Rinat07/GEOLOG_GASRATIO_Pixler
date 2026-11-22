@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from PySide6.QtWidgets import QDialogButtonBox
+from PySide6.QtWidgets import QDialogButtonBox, QRadioButton
 
 from geoworkbench.domain.models import (
     CuttingsComponent,
@@ -388,6 +388,108 @@ def test_full_sample_edit_persists_detailed_lba_observations(
             assert statuses["kk"].state is TranslationState.STALE
         else:
             assert statuses == initial_statuses[field_id]
+
+
+@pytest.mark.parametrize(
+    ("stored_type", "stored_group", "initial_button", "action", "selected_group"),
+    [
+        pytest.param("light", None, 1, None, None, id="las-type-only"),
+        pytest.param("LB", 1, 1, None, None, id="untouched-alias"),
+        pytest.param(None, 3, 3, None, None, id="group-only"),
+        pytest.param("Site-specific type", None, None, None, None, id="untouched-custom"),
+        pytest.param("LB", 1, 1, "toggle", 2, id="change-selection"),
+        pytest.param("LB", 1, 1, "click", 1, id="confirm-same-class"),
+        pytest.param("Site-specific type", None, None, "click", None, id="clear-custom"),
+    ],
+)
+def test_full_sample_edit_preserves_untouched_lba_classification(
+    qapp,
+    tmp_path: Path,
+    stored_type: str | None,
+    stored_group: int | None,
+    initial_button: int | None,
+    action: str | None,
+    selected_group: int | None,
+) -> None:
+    well = Well("well", "Well")
+    session = ProjectSession(
+        Project("project", "Project", wells={well.well_id: well}),
+        current_well_id=well.well_id,
+    )
+    controller = CuttingsController(session)
+    controller.add(1980.0, 1981.0, {"sandstone": 100.0})
+    sample = controller.set_analysis(
+        1980.0,
+        1981.0,
+        lba_type_id=stored_type,
+        lba_group=stored_group,
+        lba_description_i18n={"ru": "Описание ЛБА", "kk": "ЛБА сипаттамасы"},
+        lba_description_source_language="ru",
+    )
+    field_id = f"cuttings/{sample.sample_id}/lba_description"
+    TranslationStatusController(session).review_current(field_id=field_id, language="kk")
+    reviewed = well.translation_statuses[field_id]["kk"]
+
+    dialog = UnifiedCuttingsSampleDialog(
+        sample.top_depth,
+        sample.bottom_depth,
+        LithotypeCatalogController(session).available(),
+        language=AppLanguage.EN,
+        sample=sample,
+    )
+    try:
+        no_type = dialog.findChild(QRadioButton, "lba-type-none")
+        assert no_type is not None
+        initially_checked = (
+            dialog.type_group.button(initial_button) if initial_button is not None else no_type
+        )
+        assert dialog.type_group.checkedButton() is initially_checked
+        if action is None:
+            dialog.description_editors["en"].editor.setPlainText("Fine-grained sandstone")
+            expected = (stored_type, stored_group)
+        else:
+            button = (
+                dialog.type_group.button(selected_group) if selected_group is not None else no_type
+            )
+            assert button is not None
+            if action == "click":
+                button.click()
+            else:
+                button.setChecked(True)
+            selected_type = (
+                LBA_STANDARD_GROUPS[selected_group - 1].code if selected_group is not None else None
+            )
+            expected = (selected_type, selected_group)
+        values = dialog.values()
+        if action is None:
+            assert "lba_type_id" not in values
+            assert "lba_group" not in values
+        else:
+            assert (values["lba_type_id"], values["lba_group"]) == expected
+        controller.update_full_sample(
+            sample.sample_id,
+            top_depth=dialog.top_depth,
+            bottom_depth=dialog.bottom_depth,
+            components=dialog.components(),
+            content_language=AppLanguage.EN.value,
+            **values,
+        )
+    finally:
+        dialog.close()
+
+    repository = PackageProjectRepository()
+    path = tmp_path / "lba-classification.geologpkg"
+    repository.save(ProjectDocument(project=session.project), path)
+    restored_well = repository.load(path).project.wells[well.well_id]
+    restored = restored_well.cuttings[0]
+    assert restored.sample_id == sample.sample_id
+    assert (restored.lba_type_id, restored.lba_group) == expected
+    status = restored_well.translation_statuses[field_id]["kk"]
+    if action is None:
+        assert "Fine-grained sandstone" in restored.description_i18n["en"]
+        assert status == reviewed
+    else:
+        assert status.state is TranslationState.STALE
 
 
 def test_selected_template_block_is_removed_from_all_languages(qapp) -> None:

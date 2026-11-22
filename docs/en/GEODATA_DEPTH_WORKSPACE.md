@@ -92,6 +92,10 @@ Double-clicking the sample in any linked track reopens the same editor. The exis
 updated atomically, so Cuttings, LBA, Calcimetry, and Description are refreshed together. The
 sample can also be deleted from that dialog.
 
+Editing other fields preserves the recorded bitumoid type code and LBA group. Recognized older
+codes are shown as the corresponding catalog types. Select a type to update both fields, or
+choose **No result** to clear them.
+
 The shared editor preserves form or distribution, solvent-cut type, speed and color, residue type
 and color, odour, and stain previously entered in Sample analysis.
 

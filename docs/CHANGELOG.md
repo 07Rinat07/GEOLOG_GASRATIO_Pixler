@@ -1,3 +1,9 @@
+## WELL-04 — LBA classification in the unified cuttings editor (22.11.2026, under review)
+
+Saving other sample fields preserves the recorded bitumoid type code and LBA group. The editor
+displays recognized legacy codes using the existing catalog. Selecting a type updates the pair,
+and choosing No result clears it.
+
 ## WELL-04 — LBA details in the unified cuttings editor (22.11.2026, under review)
 
 The unified editor preserves the form or distribution, solvent-cut details, residue details,

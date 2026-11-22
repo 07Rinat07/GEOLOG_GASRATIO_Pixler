@@ -185,11 +185,12 @@ class CuttingsController:
         )
         sample.calcite_percent = calcite
         sample.dolomite_percent = dolomite
-        sample.lba_group = self._validate_lba_scale(values.get("lba_group"), "Группа ЛБА")
+        if "lba_group" in values or "lba_type_id" in values:
+            sample.lba_group = self._validate_lba_scale(values.get("lba_group"), "Группа ЛБА")
+            sample.lba_type_id = self._normalize_text(values.get("lba_type_id"), 100)
         sample.lba_intensity = self._validate_lba_scale(
             values.get("lba_intensity"), "Интенсивность ЛБА"
         )
-        sample.lba_type_id = self._normalize_text(values.get("lba_type_id"), 100)
         sample.lba_color = self._normalize_text(values.get("lba_color"), 100)
         # The unified editor omits details entered in the separate analysis dialog.
         for field in (
