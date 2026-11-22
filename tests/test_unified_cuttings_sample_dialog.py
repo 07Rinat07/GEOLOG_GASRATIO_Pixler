@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
 from PySide6.QtWidgets import QDialogButtonBox
 
 from geoworkbench.domain.models import (
@@ -10,9 +13,12 @@ from geoworkbench.domain.models import (
     Well,
 )
 from geoworkbench.project.cuttings_controller import CuttingsController
-from geoworkbench.project.session import ProjectSession
+from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.lithotype_catalog_models import CatalogLithotype
+from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.storage.package_project_repository import PackageProjectRepository
+from geoworkbench.storage.project_codec import ProjectDocument
 from geoworkbench.ui.unified_cuttings_sample_dialog import UnifiedCuttingsSampleDialog
 
 
@@ -182,6 +188,115 @@ def test_unedited_legacy_fallback_is_not_promoted_to_russian_translation(qapp) -
     assert values["description_i18n"] == {"und": "Unclassified authored text"}
     assert "ru" not in values["description_i18n"]
     dialog.close()
+
+
+def _edit_existing_sample(
+    sample: CuttingsSample, language: AppLanguage,
+) -> tuple[CuttingsController, UnifiedCuttingsSampleDialog]:
+    well = Well("well", "Well", cuttings=[sample])
+    session = ProjectSession(
+        Project("project", "Project", wells={well.well_id: well}),
+        current_well_id=well.well_id,
+    )
+    dialog = UnifiedCuttingsSampleDialog(
+        sample.top_depth,
+        sample.bottom_depth,
+        LithotypeCatalogController(session).available(),
+        language=language,
+        sample=sample,
+    )
+    return CuttingsController(session), dialog
+
+
+@pytest.mark.parametrize("language", tuple(AppLanguage))
+def test_depth_only_edit_preserves_existing_legacy_text_after_package_reopen(
+    qapp,
+    tmp_path: Path,
+    language: AppLanguage,
+) -> None:
+    sample = CuttingsSample(
+        "sample-legacy",
+        1980.0,
+        1981.0,
+        [CuttingsComponent("sandstone", 100.0)],
+        description="<b>Legacy description</b>",
+        description_i18n={"und": "Unclassified description"},
+        lba_description="Legacy LBA",
+        analysis_interpretation="Legacy conclusion",
+        analysis_interpretation_i18n={"kk": "Қорытынды", "en": "Conclusion"},
+    )
+    controller, dialog = _edit_existing_sample(sample, language)
+    try:
+        dialog.top_input.setValue(1982.0)
+        dialog.bottom_input.setValue(1983.0)
+        controller.update_full_sample(
+            sample.sample_id,
+            top_depth=dialog.top_depth,
+            bottom_depth=dialog.bottom_depth,
+            components=dialog.components(),
+            content_language=language.value,
+            **dialog.values(),
+        )
+    finally:
+        dialog.close()
+
+    repository = PackageProjectRepository()
+    path = tmp_path / "cuttings.geologpkg"
+    repository.save(ProjectDocument(project=controller.session.project), path)
+    restored = repository.load(path).project.wells["well"].cuttings[0]
+
+    assert restored.sample_id == sample.sample_id
+    assert (restored.top_depth, restored.bottom_depth) == (1982.0, 1983.0)
+    assert restored.description == "<b>Legacy description</b>"
+    assert restored.description_i18n == {"und": "Unclassified description"}
+    assert restored.lba_description == "Legacy LBA"
+    assert restored.lba_description_i18n == {}
+    assert restored.analysis_interpretation == "Legacy conclusion"
+    assert restored.analysis_interpretation_i18n == {"kk": "Қорытынды", "en": "Conclusion"}
+
+
+@pytest.mark.parametrize("localized_ru", [False, True], ids=["legacy-ru", "localized-ru"])
+def test_explicit_clear_removes_russian_text_only(qapp, localized_ru: bool) -> None:
+    sample = CuttingsSample(
+        "sample",
+        1980.0,
+        1981.0,
+        [CuttingsComponent("sandstone", 100.0)],
+        description="Russian description",
+        description_i18n={"kk": "Сипаттама"},
+        lba_description="Russian LBA",
+        lba_description_i18n={"kk": "Люминесценция"},
+        analysis_interpretation="Russian conclusion",
+        analysis_interpretation_i18n={"kk": "Қорытынды"},
+    )
+    if localized_ru:
+        sample.description_i18n["ru"] = "Russian description"
+        sample.lba_description_i18n["ru"] = "Russian LBA"
+        sample.analysis_interpretation_i18n["ru"] = "Russian conclusion"
+
+    language = AppLanguage.EN
+    controller, dialog = _edit_existing_sample(sample, language)
+    try:
+        dialog.description_editors["ru"].editor.clear()
+        dialog.lba_description_inputs["ru"].clear()
+        dialog.interpretation_inputs["ru"].clear()
+        controller.update_full_sample(
+            sample.sample_id,
+            top_depth=dialog.top_depth,
+            bottom_depth=dialog.bottom_depth,
+            components=dialog.components(),
+            content_language=language.value,
+            **dialog.values(),
+        )
+    finally:
+        dialog.close()
+
+    assert sample.description is None
+    assert sample.description_i18n == {"kk": "Сипаттама"}
+    assert sample.lba_description is None
+    assert sample.lba_description_i18n == {"kk": "Люминесценция"}
+    assert sample.analysis_interpretation is None
+    assert sample.analysis_interpretation_i18n == {"kk": "Қорытынды"}
 
 
 def test_selected_template_block_is_removed_from_all_languages(qapp) -> None:

@@ -248,6 +248,10 @@ translations in unrelated existing intervals. In **Translation readiness**, sele
 and explicitly mark it reviewed. Missing or stale translations cannot be approved: correct the
 text or its dependencies first, then refresh the readiness check.
 
+The unified sample editor keeps the rock description, LBA description, and conclusion from older
+projects when you change the depth or other fields. The Russian tab shows the legacy text. Clear
+the tab to remove that text, or select Russian as the original language to record its provenance.
+
 **Linked forms (WELL-05).** One form has portrait and landscape layouts. The header, paper, and
 tablet share one orientation; language controls captions and prepared text. Custom captions are
 preserved per language. Orientation changes select a pair from the same custom header family;
