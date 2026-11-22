@@ -101,6 +101,10 @@ The shared editor, **Sample analysis** and the rock description editor show dept
 places. When editing a saved sample, each boundary keeps its stored precision while its displayed
 value stays the same. Editing one boundary preserves the precision of the other.
 
+When filling in analysis or a description by interval on the tablet or in Masterlog, the
+application first looks for a sample with an exact match for both the top and bottom depths.
+When an exact pair is unavailable, it uses the existing lookup tolerance.
+
 The shared editor and **Sample analysis** show calcite and dolomite to one decimal place. Each
 measurement keeps its stored precision while its displayed number stays the same. When you edit
 one percentage, the total check uses the other measurement at its stored precision. The shared

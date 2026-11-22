@@ -1,3 +1,6 @@
+from copy import deepcopy
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -5,6 +8,8 @@ from geoworkbench.domain.cuttings_description_tracking import CuttingsDescriptio
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.project.cuttings_controller import CuttingsController
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.storage.package_project_repository import PackageProjectRepository
+from geoworkbench.storage.project_codec import ProjectDocument
 
 
 def _controller() -> CuttingsController:
@@ -346,6 +351,56 @@ def test_update_analysis_can_move_overlay_without_replacing_imported_cuttings() 
     assert updated.calcite_percent == 55.0
     assert imported.components[0].lithotype_id == "sandstone"
     assert (imported.top_depth, imported.bottom_depth) == (500.0, 510.0)
+
+
+@pytest.mark.parametrize("operation", ["set_analysis", "set_description", "update_analysis"])
+def test_cuttings_save_prefers_exact_interval_over_a_nearby_sample(
+    tmp_path: Path, operation: str
+) -> None:
+    controller = _controller()
+    earlier = controller.create_full_sample(
+        500.0, 500.004, {"sandstone": 100.0}, description="Earlier", calcite_percent=10.0
+    )
+    target = controller.create_full_sample(
+        500.004, 500.008, {"clay": 100.0}, description="Target", calcite_percent=20.0
+    )
+    earlier_before = deepcopy(earlier)
+    top, bottom = target.top_depth, target.bottom_depth
+
+    if operation == "set_description":
+        saved = controller.set_description(top, bottom, "Updated description")
+    elif operation == "update_analysis":
+        saved = controller.update_analysis(
+            target.sample_id, top_depth=top, bottom_depth=bottom, calcite_percent=37.0
+        )
+    else:
+        saved = controller.set_analysis(top, bottom, calcite_percent=37.0)
+
+    assert saved is target
+    assert earlier == earlier_before
+    assert (target.top_depth, target.bottom_depth) == (top, bottom)
+    assert target.description == ("Updated description" if operation == "set_description" else "Target")
+    assert target.calcite_percent == (20.0 if operation == "set_description" else 37.0)
+    assert controller.available() == (earlier, target)
+
+    repository = PackageProjectRepository()
+    path = tmp_path / "nearby-cuttings.geologpkg"
+    repository.save(ProjectDocument(project=controller.session.project), path)
+    well = controller.session.current_well
+    assert well is not None
+    restored = repository.load(path).project.wells[well.well_id]
+    assert restored.cuttings == [earlier_before, target]
+
+
+def test_set_analysis_accepts_the_sole_approximate_interval_match() -> None:
+    controller = _controller()
+    sample = controller.set_analysis(500.0, 501.0, calcite_percent=20.0)
+
+    saved = controller.set_analysis(500.00001, 501.00001, calcite_percent=37.0)
+
+    assert saved is sample
+    assert sample.calcite_percent == 37.0
+    assert controller.available() == (sample,)
 
 
 def test_reediting_cuttings_ignores_analysis_only_overlay_for_overlap_rules() -> None:

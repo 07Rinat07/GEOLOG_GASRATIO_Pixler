@@ -8794,14 +8794,8 @@ class MainWindow(QMainWindow):
         """Enter calcimetry/LBA for an interval independent of LAS cuttings."""
         if self.session.current_well is None:
             return
-        sample = next(
-            (
-                item
-                for item in self.session.current_well.cuttings
-                if abs(item.top_depth - top_depth) <= 1e-6
-                and abs(item.bottom_depth - bottom_depth) <= 1e-6
-            ),
-            None,
+        sample = self.cuttings_controller.find_sample_for_interval(
+            top_depth, bottom_depth, absolute_tolerance=1e-6
         )
         dialog = SampleAnalysisDialog(
             top_depth,

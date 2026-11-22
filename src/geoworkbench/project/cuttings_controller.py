@@ -51,6 +51,33 @@ class CuttingsController:
     def get(self, sample_id: str) -> CuttingsSample:
         return self._require_sample(sample_id)
 
+    def find_sample_for_interval(
+        self, top: float, bottom: float, *, absolute_tolerance: float | None = None
+    ) -> CuttingsSample | None:
+        """Prefer exact boundaries before using the caller's interval tolerance."""
+        samples = self._require_well().cuttings
+        for sample in samples:
+            if sample.top_depth == top and sample.bottom_depth == bottom:
+                return sample
+        if absolute_tolerance is not None:
+            return next(
+                (
+                    sample
+                    for sample in samples
+                    if abs(sample.top_depth - top) <= absolute_tolerance
+                    and abs(sample.bottom_depth - bottom) <= absolute_tolerance
+                ),
+                None,
+            )
+        return next(
+            (
+                sample
+                for sample in samples
+                if np.isclose(sample.top_depth, top) and np.isclose(sample.bottom_depth, bottom)
+            ),
+            None,
+        )
+
     def description_source_language(self, sample_id: str) -> str | None:
         sample = self._require_sample(sample_id)
         field_id = CuttingsDescriptionTrackingWorkflow.field_id(sample.sample_id)
@@ -504,7 +531,7 @@ class CuttingsController:
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._validate_components(components)
         normalized_description = self._normalize_text(description, 4000, "Описание шлама")
-        existing = self._find_exact_sample(top, bottom)
+        existing = self.find_sample_for_interval(top, bottom)
         if existing is not None:
             if existing.components:
                 raise ValueError(f"Проба {top:g}–{bottom:g} м уже заполнена")
@@ -551,7 +578,7 @@ class CuttingsController:
         """Create or update free-text cuttings description for an exact sample interval."""
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._normalize_text(description, 2_000_000, "Описание шлама")
-        sample = self._find_exact_sample(top, bottom)
+        sample = self.find_sample_for_interval(top, bottom)
         if sample is not None:
             return self.update_description(
                 sample.sample_id,
@@ -653,7 +680,7 @@ class CuttingsController:
         """Create or replace analysis for one exact geological interval."""
 
         top, bottom = self._validate_interval(top_depth, bottom_depth)
-        existing_sample = self._find_exact_sample(top, bottom)
+        existing_sample = self.find_sample_for_interval(top, bottom)
         return self._save_analysis(
             existing_sample,
             top_depth=top,
@@ -718,7 +745,7 @@ class CuttingsController:
 
         sample = self._require_sample(sample_id)
         top, bottom = self._validate_interval(top_depth, bottom_depth)
-        exact = self._find_exact_sample(top, bottom)
+        exact = self.find_sample_for_interval(top, bottom)
         if exact is not None and exact.sample_id != sample_id:
             raise ValueError(
                 f"На интервале {top:g}–{bottom:g} м уже существует другая проба"
@@ -1373,16 +1400,6 @@ class CuttingsController:
                 raise ValueError(
                     f"Интервал пересекается с пробой {sample.top_depth:g}–{sample.bottom_depth:g} м"
                 )
-
-    def _find_exact_sample(self, top: float, bottom: float) -> CuttingsSample | None:
-        return next(
-            (
-                item
-                for item in self._require_well().cuttings
-                if np.isclose(item.top_depth, top) and np.isclose(item.bottom_depth, bottom)
-            ),
-            None,
-        )
 
     def _require_sample(self, sample_id: str) -> CuttingsSample:
         for sample in self._require_well().cuttings:

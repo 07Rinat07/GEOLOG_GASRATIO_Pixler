@@ -1,3 +1,9 @@
+## WELL-04 — exact cuttings interval matching (23.11.2026, under review)
+
+The controller, tablet editors and Masterlog prefer a cuttings sample whose top and bottom depths
+both match the requested interval exactly. When an exact pair is unavailable, each lookup uses its
+existing tolerance.
+
 ## WELL-04 — rock percentage precision in the unified cuttings editor (22.11.2026, under review)
 
 Rock percentage inputs show one decimal and preserve stored precision while the displayed value

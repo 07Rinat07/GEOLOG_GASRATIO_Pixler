@@ -348,14 +348,11 @@ class MasterlogPreviewDialog(QDialog):
             CuttingsController(self.session).add(top, bottom, dialog.components())
 
     def _fill_cuttings_description(self, top: float, bottom: float) -> None:
-        well = self.session.current_well
-        sample = next(
-            (
-                item
-                for item in (well.cuttings if well is not None else ())
-                if abs(item.top_depth - top) <= 1e-6 and abs(item.bottom_depth - bottom) <= 1e-6
-            ),
-            None,
+        controller = CuttingsController(self.session)
+        sample = (
+            controller.find_sample_for_interval(top, bottom, absolute_tolerance=1e-6)
+            if self.session.current_well is not None
+            else None
         )
         text, accepted = QInputDialog.getMultiLineText(
             self,
@@ -364,7 +361,7 @@ class MasterlogPreviewDialog(QDialog):
             sample.description if sample is not None and sample.description else "",
         )
         if accepted:
-            CuttingsController(self.session).set_description(top, bottom, text)
+            controller.set_description(top, bottom, text)
 
     def _edit_column(self, column_id: str) -> None:
         template_id = self.preview.template.template_id
@@ -385,20 +382,17 @@ class MasterlogPreviewDialog(QDialog):
             self.preview.update()
 
     def _fill_analysis(self, top: float, bottom: float) -> None:
-        well = self.session.current_well
-        sample = next(
-            (
-                item
-                for item in (well.cuttings if well is not None else ())
-                if abs(item.top_depth - top) <= 1e-6 and abs(item.bottom_depth - bottom) <= 1e-6
-            ),
-            None,
+        controller = CuttingsController(self.session)
+        sample = (
+            controller.find_sample_for_interval(top, bottom, absolute_tolerance=1e-6)
+            if self.session.current_well is not None
+            else None
         )
         dialog = SampleAnalysisDialog(
             top, bottom, language=self.language, sample=sample, parent=self
         )
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            CuttingsController(self.session).set_analysis(top, bottom, **dialog.values())
+            controller.set_analysis(top, bottom, **dialog.values())
 
     def _fill_stratigraphy(self, top: float, bottom: float) -> None:
         dialog = StratigraphyIntervalDialog(
