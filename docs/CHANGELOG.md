@@ -1,3 +1,9 @@
+## WELL-04 — calcimetry precision in the unified cuttings editor (22.11.2026, under review)
+
+The unified editor preserves the stored precision of calcite and dolomite while their displayed
+values stay the same. Editing one percentage keeps the stored precision of the other.
+Residue and the total check use the values to be saved.
+
 ## WELL-04 — LBA classification in the unified cuttings editor (22.11.2026, under review)
 
 Saving other sample fields preserves the recorded bitumoid type code and LBA group. The editor

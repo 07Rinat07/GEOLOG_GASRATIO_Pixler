@@ -728,8 +728,6 @@ class UnifiedCuttingsSampleDialog(QDialog):
         calc_form = QFormLayout()
         self.calcite_input = self._optional_percent("cuttings-calcite")
         self.dolomite_input = self._optional_percent("cuttings-dolomite")
-        self.calcite_input.valueChanged.connect(self._update_residue)
-        self.dolomite_input.valueChanged.connect(self._update_residue)
         self.residue_label = QLabel("—")
         self.residue_label.setObjectName("cuttings-residue")
         self.residue_label.setStyleSheet("font-weight:700;")
@@ -843,6 +841,9 @@ class UnifiedCuttingsSampleDialog(QDialog):
             if intensity_button is not None:
                 intensity_button.setChecked(True)
             self.lba_color_input.setCurrentText(sample.lba_color or "")
+        self._initial_displayed_calcimetry = self.calcite_input.value(), self.dolomite_input.value()
+        self.calcite_input.valueChanged.connect(self._update_residue)
+        self.dolomite_input.valueChanged.connect(self._update_residue)
         self._initial_lba_type_id = self.type_group.checkedId()
         self._lba_type_selected = False
         self.type_group.idClicked.connect(self._mark_lba_type_selected)
@@ -895,6 +896,21 @@ class UnifiedCuttingsSampleDialog(QDialog):
         control.setValue(-1.0)
         return control
 
+    def _calcimetry_values(self) -> tuple[float | None, float | None]:
+        calcite: float | None = self.calcite_input.value()
+        dolomite: float | None = self.dolomite_input.value()
+        if self._sample is not None:
+            # Qt rounds these controls to one decimal when loading stored measurements.
+            initial_calcite, initial_dolomite = self._initial_displayed_calcimetry
+            if calcite == initial_calcite:
+                calcite = self._sample.calcite_percent
+            if dolomite == initial_dolomite:
+                dolomite = self._sample.dolomite_percent
+        return (
+            calcite if calcite is not None and calcite >= 0 else None,
+            dolomite if dolomite is not None and dolomite >= 0 else None,
+        )
+
     @property
     def top_depth(self) -> float:
         return float(self.top_input.value())
@@ -919,6 +935,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
 
     def values(self) -> dict[str, Any]:
         type_id = self.type_group.checkedId()
+        calcite, dolomite = self._calcimetry_values()
         intensity_button = self.intensity_group.checkedButton()
         intensity = (
             self.intensity_group.id(intensity_button) if intensity_button is not None else -1
@@ -970,12 +987,8 @@ class UnifiedCuttingsSampleDialog(QDialog):
             "description_i18n": descriptions,
             "description_template_blocks": list(self._description_template_blocks),
             "description_word_wrap": self.rich_description.word_wrap,
-            "calcite_percent": self.calcite_input.value()
-            if self.calcite_input.value() >= 0
-            else None,
-            "dolomite_percent": self.dolomite_input.value()
-            if self.dolomite_input.value() >= 0
-            else None,
+            "calcite_percent": calcite,
+            "dolomite_percent": dolomite,
             "lba_intensity": normalized_intensity,
             "lba_color": self.lba_color_input.currentText().strip() or None,
             "show_observations": self.oil_show_editor.observations(),
@@ -1089,15 +1102,12 @@ class UnifiedCuttingsSampleDialog(QDialog):
                 self.composition_status_label.setStyleSheet("color:#b45309; font-weight:600;")
 
     def _update_residue(self) -> None:
-        if not hasattr(self, "residue_label"):
-            return
-        calcite = self.calcite_input.value()
-        dolomite = self.dolomite_input.value()
-        if calcite < 0 and dolomite < 0:
+        calcite, dolomite = self._calcimetry_values()
+        if calcite is None and dolomite is None:
             self.residue_label.setText("—")
             self.residue_label.setStyleSheet("font-weight:700; color:#64748b;")
             return
-        total = max(0.0, calcite) + max(0.0, dolomite)
+        total = (calcite or 0.0) + (dolomite or 0.0)
         residue = 100.0 - total
         self.residue_label.setText(f"{max(0.0, residue):g} %")
         color = "#15803d" if total <= 100.01 else "#dc2626"
@@ -1127,9 +1137,8 @@ class UnifiedCuttingsSampleDialog(QDialog):
             )
             first.setFocus()
             return
-        calcite = self.calcite_input.value() if self.calcite_input.value() >= 0 else 0.0
-        dolomite = self.dolomite_input.value() if self.dolomite_input.value() >= 0 else 0.0
-        if calcite + dolomite > 100.01:
+        calcite, dolomite = self._calcimetry_values()
+        if (calcite or 0.0) + (dolomite or 0.0) > 100.01:
             self.validation_label.setText(self._text["calc_error"])
             self.tabs.setCurrentIndex(1)
             self.calcite_input.setFocus()

@@ -92,6 +92,10 @@ Double-clicking the sample in any linked track reopens the same editor. The exis
 updated atomically, so Cuttings, LBA, Calcimetry, and Description are refreshed together. The
 sample can also be deleted from that dialog.
 
+The calcite and dolomite fields show one decimal place. Each measurement keeps its stored
+precision while its displayed number stays the same. When you edit one percentage, the editor
+uses the other measurement at its stored precision to calculate the residue and check the total.
+
 Editing other fields preserves the recorded bitumoid type code and LBA group. Recognized older
 codes are shown as the corresponding catalog types. Select a type to update both fields, or
 choose **No result** to clear them.

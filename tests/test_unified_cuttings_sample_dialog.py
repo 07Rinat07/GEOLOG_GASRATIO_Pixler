@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from PySide6.QtWidgets import QDialogButtonBox, QRadioButton
+from PySide6.QtWidgets import QDialog, QDialogButtonBox, QRadioButton
 
 from geoworkbench.domain.models import (
     CuttingsComponent,
@@ -490,6 +490,118 @@ def test_full_sample_edit_preserves_untouched_lba_classification(
         assert status == reviewed
     else:
         assert status.state is TranslationState.STALE
+
+
+@pytest.mark.parametrize(
+    ("edited_control", "edited_value", "expected_percentages"),
+    [
+        pytest.param(None, None, (34.1264, 20.5689), id="description-only"),
+        pytest.param("calcite_input", 37.2, (37.2, 20.5689), id="edit-calcite"),
+        pytest.param("dolomite_input", 0.0, (34.1264, 0.0), id="zero-dolomite"),
+        pytest.param("calcite_input", -1.0, (None, 20.5689), id="clear-calcite"),
+    ],
+)
+def test_full_sample_edit_preserves_untouched_calcimetry_precision(
+    qapp,
+    tmp_path: Path,
+    edited_control: str | None,
+    edited_value: float | None,
+    expected_percentages: tuple[float | None, float | None],
+) -> None:
+    well = Well("well", "Well")
+    session = ProjectSession(
+        Project("project", "Project", wells={well.well_id: well}),
+        current_well_id=well.well_id,
+    )
+    controller = CuttingsController(session)
+    sample = controller.create_full_sample(
+        1980.0,
+        1981.0,
+        {"sandstone": 100.0},
+        calcite_percent=34.1264,
+        dolomite_percent=20.5689,
+        analysis_interpretation_i18n={"ru": "Заключение", "en": "Conclusion"},
+        analysis_interpretation_source_language="ru",
+    )
+    field_id = f"cuttings/{sample.sample_id}/analysis_interpretation"
+    TranslationStatusController(session).review_current(field_id=field_id, language="en")
+    reviewed = well.translation_statuses[field_id]["en"]
+
+    dialog = UnifiedCuttingsSampleDialog(
+        sample.top_depth,
+        sample.bottom_depth,
+        LithotypeCatalogController(session).available(),
+        language=AppLanguage.EN,
+        sample=sample,
+    )
+    try:
+        dialog.description_editors["en"].editor.setPlainText("Fine-grained sandstone")
+        if edited_control is not None:
+            assert edited_value is not None
+            getattr(dialog, edited_control).setValue(edited_value)
+        controller.update_full_sample(
+            sample.sample_id,
+            top_depth=dialog.top_depth,
+            bottom_depth=dialog.bottom_depth,
+            components=dialog.components(),
+            content_language=AppLanguage.EN.value,
+            **dialog.values(),
+        )
+    finally:
+        dialog.close()
+
+    repository = PackageProjectRepository()
+    path = tmp_path / "precise-calcimetry.geologpkg"
+    repository.save(ProjectDocument(project=session.project), path)
+    restored_well = repository.load(path).project.wells[well.well_id]
+    restored = restored_well.cuttings[0]
+
+    assert (sample.calcite_percent, sample.dolomite_percent) == expected_percentages
+    assert restored.sample_id == sample.sample_id
+    assert (restored.calcite_percent, restored.dolomite_percent) == expected_percentages
+    assert "Fine-grained sandstone" in restored.description_i18n["en"]
+    status = restored_well.translation_statuses[field_id]["en"]
+    if edited_control is None:
+        assert status == reviewed
+    else:
+        assert status.state is TranslationState.STALE
+
+
+@pytest.mark.parametrize(
+    ("calcite", "dolomite", "edited_calcite", "accepted"),
+    [
+        pytest.param(64.951, 35.051, None, True, id="valid-precise-total"),
+        pytest.param(64.8, 35.149, 64.9, False, id="invalid-mixed-total"),
+    ],
+)
+def test_full_sample_submit_validates_precise_calcimetry_total(
+    qapp, calcite: float, dolomite: float, edited_calcite: float | None, accepted: bool
+) -> None:
+    sample = CuttingsSample(
+        "sample",
+        1980.0,
+        1981.0,
+        [CuttingsComponent("sandstone", 100.0)],
+        calcite_percent=calcite,
+        dolomite_percent=dolomite,
+    )
+    _, dialog = _edit_existing_sample(sample, AppLanguage.EN)
+    try:
+        if edited_calcite is not None:
+            dialog.calcite_input.setValue(edited_calcite)
+        buttons = dialog.findChild(QDialogButtonBox, "cuttings-dialog-buttons")
+        assert buttons is not None
+        ok = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        assert ok is not None
+        ok.click()
+
+        assert (dialog.result() == QDialog.DialogCode.Accepted) is accepted
+        if accepted:
+            assert not dialog.validation_label.text()
+        else:
+            assert dialog.validation_label.text() == "Calcite plus dolomite must not exceed 100%."
+    finally:
+        dialog.close()
 
 
 def test_selected_template_block_is_removed_from_all_languages(qapp) -> None:
