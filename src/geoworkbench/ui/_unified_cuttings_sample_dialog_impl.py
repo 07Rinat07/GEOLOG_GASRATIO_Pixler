@@ -40,6 +40,7 @@ from geoworkbench.services.lba_standard import (
     lba_standard_type,
 )
 from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES
+from geoworkbench.ui.calcimetry_percent_input import CalcimetryPercentInput
 from geoworkbench.ui.lithotype_visuals import configure_lithotype_combo, lithotype_icon
 from geoworkbench.ui.rich_interval_text_editor import RichIntervalTextEditor
 from geoworkbench.ui.window_geometry import fit_window_to_screen
@@ -726,8 +727,10 @@ class UnifiedCuttingsSampleDialog(QDialog):
         calc_hint.setWordWrap(True)
         calc_root.addWidget(calc_hint)
         calc_form = QFormLayout()
-        self.calcite_input = self._optional_percent("cuttings-calcite")
-        self.dolomite_input = self._optional_percent("cuttings-dolomite")
+        self.calcite_input = CalcimetryPercentInput(sample.calcite_percent if sample else None)
+        self.calcite_input.setObjectName("cuttings-calcite")
+        self.dolomite_input = CalcimetryPercentInput(sample.dolomite_percent if sample else None)
+        self.dolomite_input.setObjectName("cuttings-dolomite")
         self.residue_label = QLabel("—")
         self.residue_label.setObjectName("cuttings-residue")
         self.residue_label.setStyleSheet("font-weight:700;")
@@ -822,10 +825,6 @@ class UnifiedCuttingsSampleDialog(QDialog):
         layout.addStretch(1)
 
         if sample is not None:
-            if sample.calcite_percent is not None:
-                self.calcite_input.setValue(sample.calcite_percent)
-            if sample.dolomite_percent is not None:
-                self.dolomite_input.setValue(sample.dolomite_percent)
             type_code = sample.lba_type_id if isinstance(sample.lba_type_id, str) else None
             standard = lba_standard_type(type_code) or lba_standard_group(sample.lba_group)
             if standard is not None:
@@ -841,7 +840,6 @@ class UnifiedCuttingsSampleDialog(QDialog):
             if intensity_button is not None:
                 intensity_button.setChecked(True)
             self.lba_color_input.setCurrentText(sample.lba_color or "")
-        self._initial_displayed_calcimetry = self.calcite_input.value(), self.dolomite_input.value()
         self.calcite_input.valueChanged.connect(self._update_residue)
         self.dolomite_input.valueChanged.connect(self._update_residue)
         self._initial_lba_type_id = self.type_group.checkedId()
@@ -885,31 +883,8 @@ class UnifiedCuttingsSampleDialog(QDialog):
         layout.addWidget(self.interpretation_language_tabs)
         return widget
 
-    @staticmethod
-    def _optional_percent(object_name: str) -> QDoubleSpinBox:
-        control = QDoubleSpinBox()
-        control.setObjectName(object_name)
-        control.setRange(-1.0, 100.0)
-        control.setDecimals(1)
-        control.setSpecialValueText("—")
-        control.setSuffix(" %")
-        control.setValue(-1.0)
-        return control
-
     def _calcimetry_values(self) -> tuple[float | None, float | None]:
-        calcite: float | None = self.calcite_input.value()
-        dolomite: float | None = self.dolomite_input.value()
-        if self._sample is not None:
-            # Qt rounds these controls to one decimal when loading stored measurements.
-            initial_calcite, initial_dolomite = self._initial_displayed_calcimetry
-            if calcite == initial_calcite:
-                calcite = self._sample.calcite_percent
-            if dolomite == initial_dolomite:
-                dolomite = self._sample.dolomite_percent
-        return (
-            calcite if calcite is not None and calcite >= 0 else None,
-            dolomite if dolomite is not None and dolomite >= 0 else None,
-        )
+        return self.calcite_input.percentage(), self.dolomite_input.percentage()
 
     @property
     def top_depth(self) -> float:

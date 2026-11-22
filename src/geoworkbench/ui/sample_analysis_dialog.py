@@ -27,6 +27,7 @@ from geoworkbench.services.lba_standard import (
 )
 from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES
 from geoworkbench.ui.authored_source_language_selector import AuthoredSourceLanguageSelector
+from geoworkbench.ui.calcimetry_percent_input import CalcimetryPercentInput
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
@@ -132,14 +133,8 @@ class SampleAnalysisDialog(QDialog):
             control.setSuffix(" m")
             control.setValue(float(value))
         self.setWindowTitle(f"{text[0]} — {top_depth:g}–{bottom_depth:g} м")
-        self.calcite_input = QDoubleSpinBox()
-        self.dolomite_input = QDoubleSpinBox()
-        for control in (self.calcite_input, self.dolomite_input):
-            control.setRange(-1.0, 100.0)
-            control.setDecimals(1)
-            control.setSuffix(" %")
-            control.setSpecialValueText("—")
-            control.setValue(-1.0)
+        self.calcite_input = CalcimetryPercentInput(sample.calcite_percent if sample else None)
+        self.dolomite_input = CalcimetryPercentInput(sample.dolomite_percent if sample else None)
         calcimetry = QWidget()
         calcimetry_form = QFormLayout(calcimetry)
         calcimetry_form.addRow(text[3], self.calcite_input)
@@ -325,10 +320,6 @@ class SampleAnalysisDialog(QDialog):
             return None
 
     def _load_sample(self, sample: CuttingsSample) -> None:
-        if sample.calcite_percent is not None:
-            self.calcite_input.setValue(sample.calcite_percent)
-        if sample.dolomite_percent is not None:
-            self.dolomite_input.setValue(sample.dolomite_percent)
         if sample.lba_group is not None:
             self.lba_group_input.setCurrentIndex(self.lba_group_input.findData(sample.lba_group))
         self.lba_type_input.setCurrentText(sample.lba_type_id or "")
@@ -377,12 +368,8 @@ class SampleAnalysisDialog(QDialog):
         ):
             interpretation_source_language = None
         return {
-            "calcite_percent": self.calcite_input.value()
-            if self.calcite_input.value() >= 0
-            else None,
-            "dolomite_percent": self.dolomite_input.value()
-            if self.dolomite_input.value() >= 0
-            else None,
+            "calcite_percent": self.calcite_input.percentage(),
+            "dolomite_percent": self.dolomite_input.percentage(),
             "lba_group": self.lba_group_input.currentData(),
             "lba_type_id": self.lba_type_input.currentText(),
             "lba_intensity": self.lba_intensity_input.currentData(),

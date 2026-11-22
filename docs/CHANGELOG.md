@@ -1,3 +1,9 @@
+## WELL-04 — calcimetry precision in Sample analysis (22.11.2026, under review)
+
+Sample analysis preserves the stored precision of each percentage while its displayed value stays
+the same. Editing one measurement keeps the precision of the other, including when validating
+the total.
+
 ## WELL-04 — calcimetry precision in the unified cuttings editor (22.11.2026, under review)
 
 The unified editor preserves the stored precision of calcite and dolomite while their displayed
