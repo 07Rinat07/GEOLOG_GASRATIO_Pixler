@@ -92,6 +92,9 @@ Double-clicking the sample in any linked track reopens the same editor. The exis
 updated atomically, so Cuttings, LBA, Calcimetry, and Description are refreshed together. The
 sample can also be deleted from that dialog.
 
+The shared editor preserves form or distribution, solvent-cut type, speed and color, residue type
+and color, odour, and stain previously entered in Sample analysis.
+
 ## Description editor
 
 A saved sample description is rendered both in the dedicated description track and in the

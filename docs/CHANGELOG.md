@@ -1,3 +1,8 @@
+## WELL-04 — LBA details in the unified cuttings editor (22.11.2026, under review)
+
+The unified editor preserves the form or distribution, solvent-cut details, residue details,
+odour, and stain previously entered in Sample analysis.
+
 ## WELL-04 — legacy text in the unified cuttings editor (22.11.2026, under review)
 
 Saving depth or unrelated changes in the unified editor preserves the legacy rock description,

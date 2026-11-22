@@ -191,14 +191,19 @@ class CuttingsController:
         )
         sample.lba_type_id = self._normalize_text(values.get("lba_type_id"), 100)
         sample.lba_color = self._normalize_text(values.get("lba_color"), 100)
-        sample.lba_distribution = self._normalize_text(values.get("lba_distribution"), 100)
-        sample.lba_cut = self._normalize_text(values.get("lba_cut"), 100)
-        sample.lba_cut_speed = self._normalize_text(values.get("lba_cut_speed"), 100)
-        sample.lba_cut_color = self._normalize_text(values.get("lba_cut_color"), 100)
-        sample.lba_residue_type = self._normalize_text(values.get("lba_residue_type"), 100)
-        sample.lba_residue_color = self._normalize_text(values.get("lba_residue_color"), 100)
-        sample.lba_odour = self._normalize_text(values.get("lba_odour"), 100)
-        sample.lba_stain = self._normalize_text(values.get("lba_stain"), 100)
+        # The unified editor omits details entered in the separate analysis dialog.
+        for field in (
+            "lba_distribution",
+            "lba_cut",
+            "lba_cut_speed",
+            "lba_cut_color",
+            "lba_residue_type",
+            "lba_residue_color",
+            "lba_odour",
+            "lba_stain",
+        ):
+            if field in values:
+                setattr(sample, field, self._normalize_text(values[field], 100))
         if "show_observations" in values:
             sample.show_observations = validate_oil_show_observations(
                 values["show_observations"]

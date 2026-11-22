@@ -12,10 +12,13 @@ from geoworkbench.domain.models import (
     Project,
     Well,
 )
+from geoworkbench.domain.translation_status import TranslationState
 from geoworkbench.project.cuttings_controller import CuttingsController
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.lithotype_catalog_models import CatalogLithotype
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.project.translation_status_controller import TranslationStatusController
+from geoworkbench.services.lba_standard import LBA_STANDARD_GROUPS
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.storage.package_project_repository import PackageProjectRepository
 from geoworkbench.storage.project_codec import ProjectDocument
@@ -297,6 +300,94 @@ def test_explicit_clear_removes_russian_text_only(qapp, localized_ru: bool) -> N
     assert sample.lba_description_i18n == {"kk": "Люминесценция"}
     assert sample.analysis_interpretation is None
     assert sample.analysis_interpretation_i18n == {"kk": "Қорытынды"}
+
+
+@pytest.mark.parametrize("edit_lba", [False, True], ids=["description-only", "explicit-lba-edit"])
+def test_full_sample_edit_persists_detailed_lba_observations(
+    qapp, tmp_path: Path, edit_lba: bool
+) -> None:
+    well = Well("well", "Well")
+    session = ProjectSession(
+        Project("project", "Project", wells={well.well_id: well}),
+        current_well_id=well.well_id,
+    )
+    controller = CuttingsController(session)
+    initial = controller.add(1980.0, 1981.0, {"sandstone": 100.0})
+    details: dict[str, str | None] = {
+        "lba_distribution": "Even",
+        "lba_cut": "Streaming",
+        "lba_cut_speed": "Fast",
+        "lba_cut_color": "Straw",
+        "lba_residue_type": "Good",
+        "lba_residue_color": "Amber",
+        "lba_odour": "Moderate",
+        "lba_stain": "Spotty",
+    }
+    sample = controller.set_analysis(
+        initial.top_depth,
+        initial.bottom_depth,
+        calcite_percent=0.0,
+        lba_group=1,
+        lba_type_id=LBA_STANDARD_GROUPS[0].code,
+        lba_intensity=2,
+        lba_color="yellow",
+        lba_description_i18n={"ru": "Описание ЛБА", "kk": "ЛБА сипаттамасы"},
+        lba_description_source_language="ru",
+        analysis_interpretation_i18n={"ru": "Заключение", "kk": "Қорытынды"},
+        analysis_interpretation_source_language="ru",
+        **details,
+    )
+    field_ids = (
+        f"cuttings/{sample.sample_id}/lba_description",
+        f"cuttings/{sample.sample_id}/analysis_interpretation",
+    )
+    reviewer = TranslationStatusController(session)
+    for field_id in field_ids:
+        reviewer.review_current(field_id=field_id, language="kk")
+    initial_statuses = {field_id: dict(well.translation_statuses[field_id]) for field_id in field_ids}
+
+    dialog = UnifiedCuttingsSampleDialog(
+        sample.top_depth,
+        sample.bottom_depth,
+        LithotypeCatalogController(session).available(),
+        language=AppLanguage.EN,
+        sample=sample,
+    )
+    try:
+        dialog.description_editors["en"].editor.setPlainText("Fine-grained sandstone")
+        values = dialog.values()
+        if edit_lba:
+            values.update(lba_distribution=None, lba_cut_speed="  Slow  ")
+            details.update(lba_distribution=None, lba_cut_speed="Slow")
+        controller.update_full_sample(
+            sample.sample_id,
+            top_depth=dialog.top_depth,
+            bottom_depth=dialog.bottom_depth,
+            components=dialog.components(),
+            content_language=AppLanguage.EN.value,
+            **values,
+        )
+    finally:
+        dialog.close()
+
+    repository = PackageProjectRepository()
+    path = tmp_path / "lba-details.geologpkg"
+    repository.save(ProjectDocument(project=session.project), path)
+    restored_well = repository.load(path).project.wells[well.well_id]
+    restored = restored_well.cuttings[0]
+
+    assert restored.sample_id == sample.sample_id
+    assert restored.calcite_percent == 0.0
+    assert "Fine-grained sandstone" in restored.description_i18n["en"]
+    assert {field: getattr(sample, field) for field in details} == details
+    assert {field: getattr(restored, field) for field in details} == details
+    for field_id in field_ids:
+        statuses = restored_well.translation_statuses[field_id]
+        if edit_lba:
+            assert statuses["ru"].state is TranslationState.REVIEWED
+            assert statuses["kk"].state is TranslationState.STALE
+        else:
+            assert statuses == initial_statuses[field_id]
 
 
 def test_selected_template_block_is_removed_from_all_languages(qapp) -> None:
