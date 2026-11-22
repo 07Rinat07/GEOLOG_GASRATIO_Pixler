@@ -307,6 +307,37 @@ def test_delete_description_preserves_sample_analysis() -> None:
     assert controller.get(sample.sample_id) is sample
 
 
+@pytest.mark.parametrize("measurement", ["calcite_percent", "dolomite_percent"])
+@pytest.mark.parametrize("tracked", [False, True], ids=["untracked", "tracked"])
+def test_delete_description_preserves_zero_calcimetry_sample(
+    tmp_path: Path, measurement: str, tracked: bool
+) -> None:
+    controller = _controller()
+    sample = controller.set_analysis(500, 510, **{measurement: 0.0})
+    source_language = "ru" if tracked else None
+    controller.set_description(
+        500, 510, "Описание", language="ru", source_language=source_language
+    )
+    assert controller.description_source_language(sample.sample_id) == source_language
+    assert not sample.components
+
+    deleted = controller.delete_description(sample.sample_id, language=None if tracked else "ru")
+
+    assert deleted is sample
+    assert controller.get(sample.sample_id) is sample
+    assert sample.description is None
+    assert sample.description_i18n == {}
+    assert controller.description_source_language(sample.sample_id) is None
+    assert getattr(sample, measurement) == 0.0
+
+    repository = PackageProjectRepository()
+    path = tmp_path / "zero-calcimetry.geologpkg"
+    repository.save(ProjectDocument(project=controller.session.project), path)
+    well = controller.session.current_well
+    assert well is not None
+    assert repository.load(path).project.wells[well.well_id].cuttings == [sample]
+
+
 def test_delete_description_preserves_total_carbonate_only_sample() -> None:
     controller = _controller()
     sample = controller.set_description(500, 510, "Imported rock description")

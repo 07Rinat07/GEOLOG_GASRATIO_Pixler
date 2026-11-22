@@ -470,32 +470,9 @@ class CuttingsController:
         self.session.dirty = True
         return sample
 
-    @staticmethod
-    def _has_non_description_data(sample: CuttingsSample) -> bool:
-        if sample.components or sample.total_carbonate_percent is not None:
-            return True
-        values = (
-            sample.lba_group,
-            sample.lba_type_id,
-            sample.lba_intensity,
-            sample.lba_color,
-            sample.lba_distribution,
-            sample.lba_cut,
-            sample.lba_cut_speed,
-            sample.lba_cut_color,
-            sample.lba_residue_type,
-            sample.lba_residue_color,
-            sample.lba_odour,
-            sample.lba_stain,
-            sample.show_observations,
-            sample.lba_description,
-            sample.calcite_percent,
-            sample.dolomite_percent,
-            sample.analysis_interpretation,
-            sample.lba_description_i18n,
-            sample.analysis_interpretation_i18n,
-        )
-        return any(bool(value) for value in values)
+    @classmethod
+    def _has_non_description_data(cls, sample: CuttingsSample) -> bool:
+        return bool(sample.components) or cls._has_analysis_data(sample)
 
     @staticmethod
     def _has_analysis_data(sample: CuttingsSample) -> bool:
