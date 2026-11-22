@@ -92,6 +92,10 @@ Double-clicking the sample in any linked track reopens the same editor. The exis
 updated atomically, so Cuttings, LBA, Calcimetry, and Description are refreshed together. The
 sample can also be deleted from that dialog.
 
+The shared editor, **Sample analysis** and the rock description editor show depths to three decimal
+places. When editing a saved sample, each boundary keeps its stored precision while its displayed
+value stays the same. Editing one boundary preserves the precision of the other.
+
 The shared editor and **Sample analysis** show calcite and dolomite to one decimal place. Each
 measurement keeps its stored precision while its displayed number stays the same. When you edit
 one percentage, the total check uses the other measurement at its stored precision. The shared

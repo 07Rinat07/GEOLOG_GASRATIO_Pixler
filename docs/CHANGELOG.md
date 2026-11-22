@@ -1,3 +1,9 @@
+## WELL-04 — depth precision in cuttings editors (22.11.2026, under review)
+
+The unified sample editor, Sample analysis and the rock description editor display depths to
+three decimal places. When editing a saved sample, each boundary keeps its stored precision
+while its displayed value stays the same. Editing one boundary preserves the precision of the other.
+
 ## WELL-04 — calcimetry precision in Sample analysis (22.11.2026, under review)
 
 Sample analysis preserves the stored precision of each percentage while its displayed value stays

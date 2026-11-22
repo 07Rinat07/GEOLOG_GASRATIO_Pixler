@@ -1,16 +1,25 @@
 from __future__ import annotations
 
-import numpy as np
-from PySide6.QtWidgets import QDialogButtonBox, QScrollArea
+from pathlib import Path
 
-from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
+import numpy as np
+import pytest
+from PySide6.QtWidgets import QDialog, QDialogButtonBox, QScrollArea
+
+from geoworkbench.domain.models import CuttingsSample, Dataset, DatasetKind, DepthDomain
+from geoworkbench.domain.translation_status import TranslationState
+from geoworkbench.project.cuttings_controller import CuttingsController
+from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.nct_controller import NctCalculationController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.stratigraphy_catalog_controller import (
     StratigraphyCatalogController,
 )
 from geoworkbench.project.stratigraphy_controller import StratigraphyController
+from geoworkbench.project.translation_status_controller import TranslationStatusController
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.storage.package_project_repository import PackageProjectRepository
+from geoworkbench.storage.project_codec import ProjectDocument
 from geoworkbench.ui.nct_dialog import NctCalculationDialog
 from geoworkbench.ui.rock_description_dialog import RockDescriptionDialog
 from geoworkbench.ui.sample_analysis_dialog import SampleAnalysisDialog
@@ -19,6 +28,7 @@ from geoworkbench.ui.stratigraphy_dialog import (
     StratigraphyDialog,
     StratigraphyIntervalDialog,
 )
+from geoworkbench.ui.unified_cuttings_sample_dialog import UnifiedCuttingsSampleDialog
 
 
 def _session() -> ProjectSession:
@@ -123,3 +133,144 @@ def test_stratigraphy_long_editors_scroll_separately_from_footer(qapp) -> None:
 
     dialog.close()
     catalog.close()
+
+
+def _sample_editor(
+    editor: str,
+    session: ProjectSession,
+    top: float,
+    bottom: float,
+    sample: CuttingsSample | None = None,
+) -> UnifiedCuttingsSampleDialog | SampleAnalysisDialog | RockDescriptionDialog:
+    if editor == "unified":
+        return UnifiedCuttingsSampleDialog(
+            top,
+            bottom,
+            LithotypeCatalogController(session).available(),
+            language=AppLanguage.EN,
+            sample=sample,
+        )
+    if editor == "analysis":
+        return SampleAnalysisDialog(top, bottom, language=AppLanguage.EN, sample=sample)
+    return RockDescriptionDialog(top, bottom, language=AppLanguage.EN, sample=sample)
+
+
+@pytest.mark.parametrize("editor", ["unified", "analysis", "description"])
+@pytest.mark.parametrize(
+    ("edited_top", "edited_bottom"),
+    [
+        pytest.param(None, None, id="unchanged"),
+        pytest.param(100.999, None, id="edit-top"),
+        pytest.param(None, 101.001, id="edit-bottom"),
+    ],
+)
+def test_existing_sample_editor_saves_precise_interval(
+    qapp, tmp_path: Path, editor: str, edited_top: float | None, edited_bottom: float | None
+) -> None:
+    top, bottom = 101.0001, 101.0004
+    session = _session()
+    controller = CuttingsController(session)
+    sample = controller.create_full_sample(
+        top,
+        bottom,
+        {"sandstone": 100.0},
+        calcite_percent=30.0,
+        description_i18n={"en": "Rock description"},
+        analysis_interpretation_i18n={"ru": "Заключение", "en": "Conclusion"},
+        analysis_interpretation_source_language="ru",
+    )
+    field_id = f"cuttings/{sample.sample_id}/analysis_interpretation"
+    TranslationStatusController(session).review_current(field_id=field_id, language="en")
+    well = session.current_well
+    assert well is not None
+    reviewed = well.translation_statuses[field_id]["en"]
+
+    dialog = _sample_editor(editor, session, top, bottom, sample)
+    try:
+        # The interval is shorter than the resolution of the on-screen inputs.
+        assert dialog.top_input.value() == dialog.bottom_input.value() == 101.0
+        if edited_top is not None:
+            dialog.top_input.setValue(edited_top)
+        if edited_bottom is not None:
+            dialog.bottom_input.setValue(edited_bottom)
+
+        footer = dialog.findChild(QDialogButtonBox)
+        assert footer is not None
+        footer.button(QDialogButtonBox.StandardButton.Ok).click()
+        assert dialog.result() == QDialog.DialogCode.Accepted
+
+        if isinstance(dialog, UnifiedCuttingsSampleDialog):
+            saved = controller.update_full_sample(
+                sample.sample_id,
+                top_depth=dialog.top_depth,
+                bottom_depth=dialog.bottom_depth,
+                components=dialog.components(),
+                content_language=AppLanguage.EN.value,
+                **dialog.values(),
+            )
+        elif isinstance(dialog, SampleAnalysisDialog):
+            saved = controller.update_analysis(
+                sample.sample_id,
+                top_depth=dialog.top_depth,
+                bottom_depth=dialog.bottom_depth,
+                content_language=AppLanguage.EN.value,
+                **dialog.values(),
+            )
+        else:
+            saved = controller.update_description(
+                sample.sample_id,
+                top_depth=dialog.top_depth,
+                bottom_depth=dialog.bottom_depth,
+                description=dialog.description_html,
+                description_word_wrap=dialog.description_word_wrap,
+                language=AppLanguage.EN,
+            )
+    finally:
+        dialog.close()
+
+    expected = (
+        edited_top if edited_top is not None else top,
+        edited_bottom if edited_bottom is not None else bottom,
+    )
+    assert saved is sample
+    assert (saved.top_depth, saved.bottom_depth) == expected
+    repository = PackageProjectRepository()
+    path = tmp_path / "precise-interval.geologpkg"
+    repository.save(ProjectDocument(project=session.project), path)
+    restored_well = repository.load(path).project.wells[well.well_id]
+    restored = restored_well.cuttings[0]
+    assert restored.sample_id == sample.sample_id
+    assert (restored.top_depth, restored.bottom_depth) == expected
+    status = restored_well.translation_statuses[field_id]["en"]
+    if edited_top is None and edited_bottom is None:
+        assert status == reviewed
+    else:
+        assert status.state is TranslationState.STALE
+
+
+@pytest.mark.parametrize("editor", ["unified", "analysis", "description"])
+def test_new_sample_editor_uses_millimeter_input_precision(qapp, editor: str) -> None:
+    dialog = _sample_editor(editor, _session(), 101.1234, 102.4567)
+    try:
+        assert (dialog.top_depth, dialog.bottom_depth) == (101.123, 102.457)
+        dialog.top_input.setValue(101.1256)
+        assert (dialog.top_depth, dialog.bottom_depth) == (101.126, 102.457)
+    finally:
+        dialog.close()
+
+
+def test_analysis_save_on_existing_sample_uses_authoritative_interval(qapp) -> None:
+    session = _session()
+    controller = CuttingsController(session)
+    sample = controller.set_analysis(101.0001, 101.0004, calcite_percent=30.0)
+    session.dirty = False
+    dialog = SampleAnalysisDialog(
+        101.0001005, 101.0003995, language=AppLanguage.EN, sample=sample
+    )
+    try:
+        saved = controller.set_analysis(dialog.top_depth, dialog.bottom_depth, **dialog.values())
+    finally:
+        dialog.close()
+    assert saved is sample
+    assert (saved.top_depth, saved.bottom_depth) == (101.0001, 101.0004)
+    assert not session.dirty

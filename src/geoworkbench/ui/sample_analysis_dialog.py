@@ -8,7 +8,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
-    QDoubleSpinBox,
     QFormLayout,
     QLineEdit,
     QPlainTextEdit,
@@ -28,6 +27,7 @@ from geoworkbench.services.lba_standard import (
 from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES
 from geoworkbench.ui.authored_source_language_selector import AuthoredSourceLanguageSelector
 from geoworkbench.ui.calcimetry_percent_input import CalcimetryPercentInput
+from geoworkbench.ui.stored_precision_spin_box import cuttings_depth_input
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
@@ -125,13 +125,10 @@ class SampleAnalysisDialog(QDialog):
         self.language = language
         self._sample = sample
         text = _TEXT[language]
-        self.top_input = QDoubleSpinBox()
-        self.bottom_input = QDoubleSpinBox()
-        for control, value in ((self.top_input, top_depth), (self.bottom_input, bottom_depth)):
-            control.setRange(-100_000.0, 100_000.0)
-            control.setDecimals(3)
-            control.setSuffix(" m")
-            control.setValue(float(value))
+        self.top_input = cuttings_depth_input(top_depth, sample.top_depth if sample else None)
+        self.bottom_input = cuttings_depth_input(
+            bottom_depth, sample.bottom_depth if sample else None
+        )
         self.setWindowTitle(f"{text[0]} — {top_depth:g}–{bottom_depth:g} м")
         self.calcite_input = CalcimetryPercentInput(sample.calcite_percent if sample else None)
         self.dolomite_input = CalcimetryPercentInput(sample.dolomite_percent if sample else None)
@@ -285,11 +282,11 @@ class SampleAnalysisDialog(QDialog):
 
     @property
     def top_depth(self) -> float:
-        return float(self.top_input.value())
+        return self.top_input.effective_value()
 
     @property
     def bottom_depth(self) -> float:
-        return float(self.bottom_input.value())
+        return self.bottom_input.effective_value()
 
     def _on_lba_group_changed(self) -> None:
         group = self.lba_group_input.currentData()

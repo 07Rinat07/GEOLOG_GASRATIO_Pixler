@@ -43,6 +43,7 @@ from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES
 from geoworkbench.ui.calcimetry_percent_input import CalcimetryPercentInput
 from geoworkbench.ui.lithotype_visuals import configure_lithotype_combo, lithotype_icon
 from geoworkbench.ui.rich_interval_text_editor import RichIntervalTextEditor
+from geoworkbench.ui.stored_precision_spin_box import cuttings_depth_input
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
@@ -597,9 +598,12 @@ class UnifiedCuttingsSampleDialog(QDialog):
     def _interval_group(self, top_depth: float, bottom_depth: float) -> QGroupBox:
         group = QGroupBox(self._text["interval"])
         interval = QFormLayout(group)
-        self.top_input = self._depth_input(top_depth)
+        sample = self._sample
+        self.top_input = cuttings_depth_input(top_depth, sample.top_depth if sample else None)
         self.top_input.setObjectName("cuttings-top")
-        self.bottom_input = self._depth_input(bottom_depth)
+        self.bottom_input = cuttings_depth_input(
+            bottom_depth, sample.bottom_depth if sample else None
+        )
         self.bottom_input.setObjectName("cuttings-bottom")
         interval.addRow(self._text["top"], self.top_input)
         interval.addRow(self._text["bottom"], self.bottom_input)
@@ -619,15 +623,6 @@ class UnifiedCuttingsSampleDialog(QDialog):
             preferred=preferred,
             minimum=QSize(520, 340),
         )
-
-    @staticmethod
-    def _depth_input(value: float) -> QDoubleSpinBox:
-        control = QDoubleSpinBox()
-        control.setRange(-100_000.0, 100_000.0)
-        control.setDecimals(3)
-        control.setSuffix(" m")
-        control.setValue(float(value))
-        return control
 
     def _composition_widget(self, sample: CuttingsSample | None) -> QWidget:
         widget = QWidget()
@@ -888,11 +883,11 @@ class UnifiedCuttingsSampleDialog(QDialog):
 
     @property
     def top_depth(self) -> float:
-        return float(self.top_input.value())
+        return self.top_input.effective_value()
 
     @property
     def bottom_depth(self) -> float:
-        return float(self.bottom_input.value())
+        return self.bottom_input.effective_value()
 
     def components(self) -> dict[str, float]:
         values: dict[str, float] = {}

@@ -5,7 +5,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
-    QDoubleSpinBox,
     QFormLayout,
     QFrame,
     QGroupBox,
@@ -21,6 +20,7 @@ from geoworkbench.domain.models import CuttingsSample
 from geoworkbench.domain.localized_content import localized_text
 from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES
 from geoworkbench.ui.rich_interval_text_editor import RichIntervalTextEditor
+from geoworkbench.ui.stored_precision_spin_box import cuttings_depth_input
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
@@ -117,9 +117,11 @@ class RockDescriptionDialog(QDialog):
 
         interval_group = QGroupBox(self._text["interval"])
         interval_form = QFormLayout(interval_group)
-        self.top_input = self._depth_input(top_depth)
+        self.top_input = cuttings_depth_input(top_depth, sample.top_depth if sample else None)
         self.top_input.setObjectName("rock-description-top")
-        self.bottom_input = self._depth_input(bottom_depth)
+        self.bottom_input = cuttings_depth_input(
+            bottom_depth, sample.bottom_depth if sample else None
+        )
         self.bottom_input.setObjectName("rock-description-bottom")
         interval_form.addRow(self._text["top"], self.top_input)
         interval_form.addRow(self._text["bottom"], self.bottom_input)
@@ -215,15 +217,6 @@ class RockDescriptionDialog(QDialog):
             minimum=QSize(560, 430),
         )
 
-    @staticmethod
-    def _depth_input(value: float) -> QDoubleSpinBox:
-        control = QDoubleSpinBox()
-        control.setRange(-100_000.0, 100_000.0)
-        control.setDecimals(3)
-        control.setSuffix(" m")
-        control.setValue(float(value))
-        return control
-
     def _template_language(self) -> AppLanguage:
         try:
             return AppLanguage(str(self.template_language_input.currentData()))
@@ -256,11 +249,11 @@ class RockDescriptionDialog(QDialog):
 
     @property
     def top_depth(self) -> float:
-        return float(self.top_input.value())
+        return self.top_input.effective_value()
 
     @property
     def bottom_depth(self) -> float:
-        return float(self.bottom_input.value())
+        return self.bottom_input.effective_value()
 
     @property
     def description_html(self) -> str | None:
