@@ -110,6 +110,10 @@ an interval free of other samples with rock composition. Shared endpoints are al
 analysis-only interval can overlap a rock-composition sample. A move is rejected if another
 record already uses both new boundaries.
 
+In Masterlog, **Fill cuttings** adds rock shares to an existing analysis or description record and
+keeps its `sample_id` and saved data. The application checks for overlap with other samples with
+rock composition before saving. Adjacent intervals may share a boundary.
+
 The shared editor and **Sample analysis** show calcite and dolomite to one decimal place. Each
 measurement keeps its stored precision while its displayed number stays the same. When you edit
 one percentage, the total check uses the other measurement at its stored precision. The shared

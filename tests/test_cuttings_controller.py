@@ -156,6 +156,60 @@ def test_cuttings_composition_can_be_added_after_interval_analysis() -> None:
     assert updated.insoluble_residue_percent is None
 
 
+@pytest.mark.parametrize("overlay_kind", ["analysis", "description"])
+def test_adding_composition_to_overlapping_overlay_is_rejected(overlay_kind: str) -> None:
+    controller = _controller()
+    controller.add(500, 510, {"sandstone": 100})
+    if overlay_kind == "analysis":
+        controller.set_analysis(503, 507, calcite_percent=62.5)
+    else:
+        controller.set_description(503, 507, "Original description")
+    before = deepcopy(controller.available())
+    controller.session.dirty = False
+
+    with pytest.raises(ValueError, match="пересекается"):
+        controller.add(503, 507, {"clay": 100}, description="New description")
+
+    assert controller.available() == before
+    assert not controller.session.dirty
+
+
+def test_adding_composition_checks_stored_overlay_bounds_when_request_only_touches() -> None:
+    controller = _controller()
+    controller.add(500, 510, {"sandstone": 100})
+    controller.set_analysis(509.999, 520, calcite_percent=62.5)
+    before = deepcopy(controller.available())
+    controller.session.dirty = False
+
+    with pytest.raises(ValueError, match="пересекается"):
+        controller.add(510, 520.001, {"clay": 100})
+
+    assert controller.available() == before
+    assert not controller.session.dirty
+
+
+def test_adding_composition_preserves_touching_overlay_when_request_overlaps() -> None:
+    controller = _controller()
+    neighbor = controller.add(500, 510, {"sandstone": 100})
+    neighbor_before = deepcopy(neighbor)
+    overlay = controller.set_analysis(
+        510, 520, calcite_percent=62.5, lba_description="Original LBA"
+    )
+    controller.set_description(510, 520, "Original description")
+    controller.session.dirty = False
+
+    updated = controller.add(509.999, 520.001, {"clay": 100})
+
+    assert updated is overlay
+    assert controller.available() == (neighbor, overlay)
+    assert neighbor == neighbor_before
+    assert (updated.top_depth, updated.bottom_depth) == (510.0, 520.0)
+    assert (updated.calcite_percent, updated.lba_description) == (62.5, "Original LBA")
+    assert updated.description == "Original description"
+    assert [(item.lithotype_id, item.percentage) for item in updated.components] == [("clay", 100.0)]
+    assert controller.session.dirty
+
+
 def test_cuttings_description_can_be_entered_before_composition_and_is_preserved() -> None:
     controller = _controller()
 

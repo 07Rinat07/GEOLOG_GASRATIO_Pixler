@@ -1,3 +1,9 @@
+## WELL-04 — overlap checks when filling cuttings in Masterlog (23.11.2026, under review)
+
+Adding rock composition to an existing analysis or description record checks for overlap with
+other samples with composition. Adjacent intervals can share a boundary. A successful fill keeps
+the sample identifier and its saved analysis and description.
+
 ## WELL-04 — interval moves in Sample analysis (23.11.2026, under review)
 
 Moving a saved sample with rock composition now checks for overlap with other composition samples

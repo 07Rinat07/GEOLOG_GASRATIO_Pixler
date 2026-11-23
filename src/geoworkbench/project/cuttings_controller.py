@@ -547,6 +547,10 @@ class CuttingsController:
                     bottom_depth=bottom,
                     components=normalized,
                 )
+            # A tolerance match retains the existing interval on this path.
+            self._ensure_no_composition_overlap(
+                existing.top_depth, existing.bottom_depth, excluded_id=existing.sample_id
+            )
             existing.components = self._component_list(normalized)
             if description is not None:
                 existing.description = normalized_description
