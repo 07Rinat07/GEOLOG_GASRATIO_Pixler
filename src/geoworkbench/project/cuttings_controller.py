@@ -681,11 +681,14 @@ class CuttingsController:
         analysis_interpretation_i18n: object | None = None,
         lba_description_source_language: object | None = None,
         analysis_interpretation_source_language: object | None = None,
+        absolute_tolerance: float | None = None,
     ) -> CuttingsSample:
         """Create or replace analysis for one exact geological interval."""
 
         top, bottom = self._validate_interval(top_depth, bottom_depth)
-        existing_sample = self.find_sample_for_interval(top, bottom)
+        existing_sample = self.find_sample_for_interval(
+            top, bottom, absolute_tolerance=absolute_tolerance
+        )
         return self._save_analysis(
             existing_sample,
             top_depth=top,

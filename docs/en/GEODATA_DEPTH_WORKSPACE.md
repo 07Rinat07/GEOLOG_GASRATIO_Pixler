@@ -119,6 +119,13 @@ The command adds rock shares to the matching analysis or description record and 
 `sample_id` and saved data. The application checks for overlap with other samples with rock
 composition before saving. Adjacent intervals may share a boundary.
 
+In Masterlog, **Calcimetry / LBA** saves the boundaries confirmed in the dialog. A boundary left
+unchanged keeps the precision of the selection for a new interval or of the saved depth for a loaded
+sample. Editing the boundaries moves the loaded sample and keeps its `sample_id`. Masterlog rejects
+the move if another record already uses both new boundaries. If no sample was loaded, editing the
+selection requires an exact match to reuse an existing record. Confirming the original selection
+allows matching within tolerance.
+
 The shared editor and **Sample analysis** show calcite and dolomite to one decimal place. Each
 measurement keeps its stored precision while its displayed number stays the same. When you edit
 one percentage, the total check uses the other measurement at its stored precision. The shared

@@ -1,3 +1,10 @@
+## WELL-04 — depth edits in Masterlog Calcimetry / LBA (23.11.2026, under review)
+
+Calcimetry / LBA saves the confirmed boundaries and keeps the exact depths of unchanged boundaries.
+The dialog uses saved depths for a loaded sample. A move keeps the sample ID and is rejected when
+another record occupies the exact destination. With no sample loaded, editing the selection requires
+an exact interval match to reuse a record. Confirming the original selection allows matching within tolerance.
+
 ## WELL-04 — depth edits when filling cuttings in Masterlog (23.11.2026, under review)
 
 Fill cuttings saves the boundaries confirmed in the dialog and keeps the original precision of
