@@ -1,3 +1,9 @@
+## WELL-04 — depth edits when filling cuttings in Masterlog (23.11.2026, under review)
+
+Fill cuttings saves the boundaries confirmed in the dialog and keeps the original precision of
+each boundary left as selected. Editing either boundary requires an exact match of both depths
+to use an existing record. Confirming the original selection allows matching within tolerance.
+
 ## WELL-04 — overlap checks when filling cuttings in Masterlog (23.11.2026, under review)
 
 Adding rock composition to an existing analysis or description record checks for overlap with

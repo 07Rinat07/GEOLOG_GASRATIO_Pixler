@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 from geoworkbench.domain.models import CuttingsSample
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.stored_precision_spin_box import cuttings_depth_input
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
@@ -89,9 +90,9 @@ class CuttingsCompositionDialog(QDialog):
         layout.addWidget(hint)
 
         interval_form = QFormLayout()
-        self.top_input = self._depth_input(top_depth)
+        self.top_input = cuttings_depth_input(top_depth, top_depth)
         self.top_input.setObjectName("cuttings-edit-top")
-        self.bottom_input = self._depth_input(bottom_depth)
+        self.bottom_input = cuttings_depth_input(bottom_depth, bottom_depth)
         self.bottom_input.setObjectName("cuttings-edit-bottom")
         interval_form.addRow(self._text["top"], self.top_input)
         interval_form.addRow(self._text["bottom"], self.bottom_input)
@@ -136,22 +137,13 @@ class CuttingsCompositionDialog(QDialog):
             minimum=QSize(420, 360),
         )
 
-    @staticmethod
-    def _depth_input(value: float) -> QDoubleSpinBox:
-        control = QDoubleSpinBox()
-        control.setRange(-100_000.0, 100_000.0)
-        control.setDecimals(3)
-        control.setSuffix(" m")
-        control.setValue(float(value))
-        return control
-
     @property
     def top_depth(self) -> float:
-        return float(self.top_input.value())
+        return self.top_input.effective_value()
 
     @property
     def bottom_depth(self) -> float:
-        return float(self.bottom_input.value())
+        return self.bottom_input.effective_value()
 
     def components(self) -> dict[str, float]:
         result: dict[str, float] = {}

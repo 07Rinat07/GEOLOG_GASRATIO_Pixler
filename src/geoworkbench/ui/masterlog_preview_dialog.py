@@ -345,7 +345,14 @@ class MasterlogPreviewDialog(QDialog):
             top, bottom, catalog, language=self.language, parent=self
         )
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            CuttingsController(self.session).add(top, bottom, dialog.components())
+            top_depth, bottom_depth = dialog.top_depth, dialog.bottom_depth
+            interval_edited = (top_depth, bottom_depth) != (top, bottom)
+            CuttingsController(self.session).add(
+                top_depth,
+                bottom_depth,
+                dialog.components(),
+                absolute_tolerance=0.0 if interval_edited else None,
+            )
 
     def _fill_cuttings_description(self, top: float, bottom: float) -> None:
         controller = CuttingsController(self.session)

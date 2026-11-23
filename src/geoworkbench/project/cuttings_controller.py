@@ -527,11 +527,12 @@ class CuttingsController:
         *,
         description: str | None = None,
         description_word_wrap: bool = True,
+        absolute_tolerance: float | None = None,
     ) -> CuttingsSample:
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._validate_components(components)
         normalized_description = self._normalize_text(description, 4000, "Описание шлама")
-        existing = self.find_sample_for_interval(top, bottom)
+        existing = self.find_sample_for_interval(top, bottom, absolute_tolerance=absolute_tolerance)
         if existing is not None:
             if existing.components:
                 raise ValueError(f"Проба {top:g}–{bottom:g} м уже заполнена")
