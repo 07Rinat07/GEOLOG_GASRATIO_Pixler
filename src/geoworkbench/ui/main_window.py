@@ -8952,14 +8952,19 @@ class MainWindow(QMainWindow):
             language=self.language,
             parent=self,
         )
+        dialog.top_input.load_stored_value(top_depth)
+        dialog.bottom_input.load_stored_value(bottom_depth)
+        opened_interval = (dialog.top_depth, dialog.bottom_depth)
         while dialog.exec() == QDialog.DialogCode.Accepted:
             try:
+                top, bottom = dialog.top_depth, dialog.bottom_depth
                 created = self.cuttings_controller.set_description(
-                    dialog.top_depth,
-                    dialog.bottom_depth,
+                    top,
+                    bottom,
                     dialog.description_html,
                     description_word_wrap=dialog.description_word_wrap,
                     language=self.language,
+                    absolute_tolerance=0.0 if (top, bottom) != opened_interval else None,
                 )
             except (RuntimeError, ValueError) as exc:
                 QMessageBox.warning(self, self._t("description.create_title"), str(exc))

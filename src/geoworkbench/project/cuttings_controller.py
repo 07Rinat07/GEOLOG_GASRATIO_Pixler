@@ -584,11 +584,12 @@ class CuttingsController:
         description_word_wrap: bool | None = None,
         language: object | None = None,
         source_language: object | None = None,
+        absolute_tolerance: float | None = None,
     ) -> CuttingsSample:
-        """Create or update free-text cuttings description for an exact sample interval."""
+        """Save free-text cuttings description, preferring an exact interval match."""
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._normalize_text(description, 2_000_000, "Описание шлама")
-        sample = self.find_sample_for_interval(top, bottom)
+        sample = self.find_sample_for_interval(top, bottom, absolute_tolerance=absolute_tolerance)
         if sample is not None:
             return self.update_description(
                 sample.sample_id,

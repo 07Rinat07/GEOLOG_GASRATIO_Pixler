@@ -229,6 +229,107 @@ def test_tablet_filling_new_analysis_uses_tolerance_only_for_untouched_bounds(
     assert saved.calcite_percent == 42.0
 
 
+@pytest.mark.parametrize(
+    ("edited_top", "neighbor_top", "reuse_neighbor"),
+    [
+        pytest.param(150.499, 150.5, False, id="edited-near-after-retry"),
+        pytest.param(150.5, 150.5, True, id="edited-exact"),
+        pytest.param(None, 150.001, True, id="untouched-near"),
+    ],
+)
+def test_tablet_description_matches_confirmed_depths(
+    qapp,
+    monkeypatch: pytest.MonkeyPatch,
+    edited_top: float | None,
+    neighbor_top: float,
+    reuse_neighbor: bool,
+) -> None:
+    session = _session()
+    controller = CuttingsController(session)
+    selected = (150.0004, 151.1234)
+    neighbor = controller.create_full_sample(
+        neighbor_top,
+        selected[1],
+        {"sandstone": 100.0},
+        calcite_percent=12.5,
+        description_i18n={"ru": "Исходное описание", "en": "Reviewed description"},
+        description_source_language="ru",
+    )
+    well = session.current_well
+    assert well is not None
+    field_id = f"cuttings/{neighbor.sample_id}/description"
+    TranslationStatusController(session).review_current(field_id=field_id, language="en")
+    neighbor_before = deepcopy(neighbor)
+    statuses_before = deepcopy(well.translation_statuses)
+    revisions_before = dict(well.authored_field_revisions)
+    sources_before = dict(well.authored_field_source_languages)
+    session.dirty = False
+    warnings: list[str] = []
+    description = "New tablet description"
+
+    def fill(dialog: RockDescriptionDialog) -> QDialog.DialogCode:
+        if warnings:
+            assert dialog.editor.editor.toPlainText() == description
+            assert not dialog.description_word_wrap
+            assert dialog.bottom_depth == selected[1]
+        else:
+            assert (dialog.top_depth, dialog.bottom_depth) == selected
+            assert dialog.description_html is None
+            dialog.editor.editor.setPlainText(description)
+            dialog.editor.set_word_wrap(False)
+        if not reuse_neighbor and not warnings:
+            dialog.top_input.setValue(99.999)
+        elif edited_top is not None:
+            dialog.top_input.setValue(edited_top)
+        buttons = dialog.findChild(QDialogButtonBox)
+        assert buttons is not None
+        buttons.button(QDialogButtonBox.StandardButton.Ok).click()
+        assert dialog.result() == QDialog.DialogCode.Accepted
+        return QDialog.DialogCode.Accepted
+
+    def warn(_parent: object, _title: str, message: str) -> None:
+        assert not reuse_neighbor and not warnings, message
+        assert "выходит за диапазон" in message
+        assert controller.available() == (neighbor_before,)
+        assert well.translation_statuses == statuses_before
+        assert not session.dirty
+        warnings.append(message)
+
+    monkeypatch.setattr(RockDescriptionDialog, "exec", fill)
+    monkeypatch.setattr(QMessageBox, "warning", warn)
+    window = QMainWindow()
+    try:
+        window.session = session
+        window.cuttings_controller = controller
+        window.language = AppLanguage.EN
+        window._t = lambda key, **_values: key
+        window._refresh_cuttings_after_edit = lambda: None
+        MainWindow._create_rock_description_from_tablet(window, *selected)
+    finally:
+        window.close()
+
+    if reuse_neighbor:
+        (saved,) = controller.available()
+        assert saved is neighbor
+        assert saved.components == neighbor_before.components
+        assert saved.calcite_percent == neighbor_before.calcite_percent
+        assert saved.description_i18n["ru"] == neighbor_before.description_i18n["ru"]
+        assert well.authored_field_source_languages == sources_before
+    else:
+        assert len(warnings) == 1
+        saved, unchanged = controller.available()
+        assert unchanged is neighbor
+        assert unchanged == neighbor_before
+        assert well.translation_statuses == statuses_before
+        assert well.authored_field_revisions == revisions_before
+        assert well.authored_field_source_languages == sources_before
+        assert saved.sample_id != neighbor.sample_id
+    expected_top = selected[0] if edited_top is None else edited_top
+    assert (saved.top_depth, saved.bottom_depth) == (expected_top, selected[1])
+    assert description in saved.description_i18n["en"]
+    assert not saved.description_word_wrap
+
+
 def _create_tablet_cuttings_sample(
     controller: CuttingsController, selected: tuple[float, float]
 ) -> None:

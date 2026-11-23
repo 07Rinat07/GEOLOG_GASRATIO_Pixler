@@ -1,3 +1,9 @@
+## WELL-04 — depth edits for rock descriptions on the tablet (23.11.2026, under review)
+
+When adding a rock description on the tablet, editing either boundary requires an exact match
+of both depths to reuse a saved sample. Each unedited boundary retains the precision of the
+selection. Confirming both selected depths still allows matching within the existing tolerance.
+
 ## WELL-04 — completing an existing cuttings sample on the tablet (23.11.2026, under review)
 
 Selecting the exact interval of a single sample without rock composition in Cuttings opens the

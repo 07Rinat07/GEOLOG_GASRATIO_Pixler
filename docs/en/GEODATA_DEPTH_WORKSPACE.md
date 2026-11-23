@@ -173,6 +173,10 @@ bottom, select a RU/KZ/EN language and ready template, or enter arbitrary text. 
 saved description to reopen it. Deleting the description preserves composition, LBA, and
 calcimetry.
 
+Each unedited boundary retains the precision of the selection. If you change either boundary,
+the editor reuses a saved sample only when both depths match exactly. If you confirm both selected
+depths, matching can also use the existing tolerance.
+
 The **Text alignment** list applies left, centre, or right alignment to the complete description.
 **Wrap words** is enabled by default and is stored for each description. Wrapping may be disabled;
 the font still shrinks to the available width and height. Every track-width change recalculates the
