@@ -1,3 +1,10 @@
+## WELL-04 — completing an existing cuttings sample on the tablet (23.11.2026, under review)
+
+Selecting the exact interval of a single sample without rock composition in Cuttings opens the
+shared editor with that sample loaded. Adding composition keeps its `sample_id` and existing data.
+Translation states follow the existing rules for changes to a sample. New samples retain the
+precision of each unedited boundary and cannot be saved on an occupied pair of depths.
+
 ## WELL-04 — occupied intervals when moving saved samples (23.11.2026, under review)
 
 Moving a saved sample with its ID checks for an exact match with another record's top and bottom

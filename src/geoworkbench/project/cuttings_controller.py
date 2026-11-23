@@ -141,6 +141,7 @@ class CuttingsController:
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._validate_components(components)
         self._ensure_no_composition_overlap(top, bottom)
+        self._ensure_interval_is_unoccupied(top, bottom)
         sample = CuttingsSample(new_id(), top, bottom, self._component_list(normalized))
         self._apply_full_values(sample, values, bump_revisions=False)
 
@@ -1415,8 +1416,10 @@ class CuttingsController:
     def _ensure_sample_move_is_unoccupied(
         self, sample: CuttingsSample, top: float, bottom: float
     ) -> None:
-        if (top, bottom) == (sample.top_depth, sample.bottom_depth):
-            return
+        if (top, bottom) != (sample.top_depth, sample.bottom_depth):
+            self._ensure_interval_is_unoccupied(top, bottom)
+
+    def _ensure_interval_is_unoccupied(self, top: float, bottom: float) -> None:
         if self.find_sample_for_interval(top, bottom, absolute_tolerance=0.0) is not None:
             raise ValueError(f"На интервале {top:g}–{bottom:g} м уже существует другая проба")
 

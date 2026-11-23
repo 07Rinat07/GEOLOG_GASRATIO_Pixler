@@ -256,6 +256,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
         *,
         language: AppLanguage,
         sample: CuttingsSample | None = None,
+        allow_delete: bool = True,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -322,7 +323,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
         buttons.setObjectName("cuttings-dialog-buttons")
         buttons.accepted.connect(self._accept_if_valid)
         buttons.rejected.connect(self.reject)
-        if sample is not None:
+        if sample is not None and allow_delete:
             delete_button = buttons.addButton(
                 self._text["delete"], QDialogButtonBox.ButtonRole.DestructiveRole
             )

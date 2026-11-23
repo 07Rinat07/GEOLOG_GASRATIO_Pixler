@@ -89,9 +89,20 @@ Cuttings opens the shared sample editor based on the GeoData dialogs. Calcimetry
 - rich rock/cuttings description;
 - interpretation or conclusion.
 
+If the Cuttings selection exactly matches both boundaries of a single saved sample without rock
+composition, the shared editor loads its analysis and description. Adding composition keeps the
+sample's `sample_id` and saved data. Translation states follow the existing rules for changed fields
+and their dependencies. Nearby intervals, an exact match with composition, or multiple exact
+matches open an empty editor.
+
+In an empty editor, each unedited boundary keeps the precision of the selection. If the confirmed
+top and bottom already belong to a record, saving is blocked. You can adjust the boundaries and save
+the new sample in the same dialog. To add composition to an existing sample, select both of its exact
+boundaries.
+
 Double-clicking a saved sample opens the editor for that track. Changes in the shared editor
 keep the existing `sample_id` and refresh Cuttings, LBA, Calcimetry, and Description together.
-You can delete the entire sample from the shared editor.
+Opening the shared editor with a double-click also lets you delete the entire sample.
 
 Rock percentages display one decimal place. Each share keeps its stored precision while its
 displayed number stays the same. The displayed total and validation use the shares to be saved.

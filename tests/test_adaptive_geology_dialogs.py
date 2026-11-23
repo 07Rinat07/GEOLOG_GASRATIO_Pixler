@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from functools import partial
 from pathlib import Path
 
 import numpy as np
@@ -226,6 +227,160 @@ def test_tablet_filling_new_analysis_uses_tolerance_only_for_untouched_bounds(
         assert saved is neighbor
         assert (saved.top_depth, saved.bottom_depth) == (150.0, 151.123)
     assert saved.calcite_percent == 42.0
+
+
+def _create_tablet_cuttings_sample(
+    controller: CuttingsController, selected: tuple[float, float]
+) -> None:
+    window = QMainWindow()
+    try:
+        window.session = controller.session
+        window.cuttings_controller = controller
+        window.lithotype_catalog_controller = LithotypeCatalogController(controller.session)
+        window.language = AppLanguage.EN
+        window._t = lambda key, **_values: key
+        window._refresh_cuttings_after_edit = lambda: None
+        window._edit_cuttings_sample_from_tablet = partial(
+            MainWindow._edit_cuttings_sample_from_tablet, window
+        )
+        MainWindow._create_cuttings_sample_from_tablet(window, *selected)
+    finally:
+        window.close()
+
+
+def _select_sandstone_for_tablet_cuttings(dialog: UnifiedCuttingsSampleDialog) -> None:
+    sandstone = dialog.rock_inputs[0].findData("sandstone")
+    assert sandstone >= 0
+    dialog.rock_inputs[0].setCurrentIndex(sandstone)
+    dialog.percent_inputs[0].setValue(100.0)
+
+
+def _accept_tablet_cuttings(dialog: UnifiedCuttingsSampleDialog) -> QDialog.DialogCode:
+    buttons = dialog.findChild(QDialogButtonBox, "cuttings-dialog-buttons")
+    assert buttons is not None
+    buttons.button(QDialogButtonBox.StandardButton.Ok).click()
+    assert dialog.result() == QDialog.DialogCode.Accepted
+    return QDialog.DialogCode.Accepted
+
+
+def test_tablet_filling_composition_loads_exact_sample_and_retains_its_analysis_and_description(
+    qapp, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    session = _session()
+    controller = CuttingsController(session)
+    top, bottom = selected = (150.0004, 151.1234)
+    neighbor = controller.set_analysis(150.0, 151.123, calcite_percent=12.5)
+    sample = controller.set_analysis(
+        top,
+        bottom,
+        absolute_tolerance=0.0,
+        calcite_percent=32.543,
+        lba_type_id="legacy-LBA",
+        lba_odour="Faint",
+        analysis_interpretation_i18n={"en": "Conclusion", "ru": "Заключение"},
+        analysis_interpretation_source_language="en",
+    )
+    legacy_description = "<p><b>Legacy rock description</b></p>"
+    assert controller.set_description(
+        top, bottom, legacy_description, description_word_wrap=False
+    ) is sample
+    field_id = f"cuttings/{sample.sample_id}/analysis_interpretation"
+    TranslationStatusController(session).review_current(field_id=field_id, language="ru")
+    well = session.current_well
+    assert well is not None
+    reviewed = well.translation_statuses[field_id]["ru"]
+    before = deepcopy(sample)
+    neighbor_before = deepcopy(neighbor)
+
+    def fill(dialog: UnifiedCuttingsSampleDialog) -> QDialog.DialogCode:
+        assert (dialog.top_depth, dialog.bottom_depth) == selected
+        assert dialog.calcite_input.percentage() == before.calcite_percent
+        assert dialog.description_editors["ru"].editor.toPlainText() == "Legacy rock description"
+        assert dialog.findChild(QPushButton, "cuttings-delete-button") is None
+        assert dialog.components() == {}
+        _select_sandstone_for_tablet_cuttings(dialog)
+        return _accept_tablet_cuttings(dialog)
+
+    def warn(_parent: object, _title: str, message: str) -> None:
+        pytest.fail(f"Filling the saved sample raised a warning: {message}")
+
+    monkeypatch.setattr(UnifiedCuttingsSampleDialog, "exec", fill)
+    monkeypatch.setattr(QMessageBox, "warning", warn)
+    _create_tablet_cuttings_sample(controller, selected)
+
+    assert controller.available() == (neighbor, sample)
+    assert controller.get(before.sample_id) is sample
+    assert neighbor == neighbor_before
+    assert [(rock.lithotype_id, rock.percentage) for rock in sample.components] == [
+        ("sandstone", 100.0)
+    ]
+    before.components = deepcopy(sample.components)
+    assert sample == before
+
+    repository = PackageProjectRepository()
+    path = tmp_path / "filled-cuttings.geologpkg"
+    repository.save(ProjectDocument(project=session.project), path)
+    restored_well = repository.load(path).project.wells[well.well_id]
+    assert restored_well.cuttings == [neighbor, sample]
+    assert restored_well.translation_statuses[field_id]["ru"] == reviewed
+
+
+@pytest.mark.parametrize("ambiguous", [False, True], ids=["edited-onto-sample", "legacy-duplicates"])
+def test_tablet_filling_new_composition_retries_exact_collision_with_entered_values(
+    qapp, monkeypatch: pytest.MonkeyPatch, ambiguous: bool
+) -> None:
+    session = _session()
+    controller = CuttingsController(session)
+    occupied_top = 150.001
+    selected = (occupied_top if ambiguous else 150.0004, 151.1234)
+    free_top = 150.0 if ambiguous else selected[0]
+    neighbor = controller.set_analysis(occupied_top, selected[1], calcite_percent=12.5)
+    if ambiguous:
+        well = session.current_well
+        assert well is not None
+        legacy_duplicate = deepcopy(neighbor)
+        legacy_duplicate.sample_id = "legacy-duplicate"
+        well.cuttings.append(legacy_duplicate)
+    before = deepcopy(controller.available())
+    session.dirty = False
+    warnings: list[str] = []
+    dialogs: list[UnifiedCuttingsSampleDialog] = []
+
+    def fill(dialog: UnifiedCuttingsSampleDialog) -> QDialog.DialogCode:
+        dialogs.append(dialog)
+        if len(dialogs) == 1:
+            assert (dialog.top_depth, dialog.bottom_depth) == selected
+            assert dialog.calcite_input.percentage() is None
+            _select_sandstone_for_tablet_cuttings(dialog)
+            dialog.calcite_input.setValue(42.0)
+            dialog.top_input.setValue(occupied_top)
+        else:
+            assert len(dialogs) == 2 and dialog is dialogs[0]
+            assert dialog.components() == {"sandstone": 100.0}
+            assert dialog.calcite_input.percentage() == 42.0
+            dialog.top_input.setValue(free_top)
+        return _accept_tablet_cuttings(dialog)
+
+    def warn(_parent: object, _title: str, message: str) -> None:
+        warnings.append(message)
+        assert controller.available() == before
+        assert not session.dirty
+
+    monkeypatch.setattr(UnifiedCuttingsSampleDialog, "exec", fill)
+    monkeypatch.setattr(QMessageBox, "warning", warn)
+    _create_tablet_cuttings_sample(controller, selected)
+
+    (message,) = warnings
+    assert "уже существует другая проба" in message
+    saved, *unchanged = controller.available()
+    assert tuple(unchanged) == before
+    assert controller.get(neighbor.sample_id) is neighbor
+    assert (saved.top_depth, saved.bottom_depth) == (free_top, selected[1])
+    assert saved.calcite_percent == 42.0
+    assert [(rock.lithotype_id, rock.percentage) for rock in saved.components] == [
+        ("sandstone", 100.0)
+    ]
+    assert session.dirty
 
 
 def _assert_footer_visible(dialog, qapp) -> None:

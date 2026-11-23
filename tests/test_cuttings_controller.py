@@ -157,6 +157,50 @@ def test_cuttings_composition_can_be_added_after_interval_analysis() -> None:
 
 
 @pytest.mark.parametrize("overlay_kind", ["analysis", "description"])
+def test_create_full_sample_rejects_occupied_exact_interval(overlay_kind: str) -> None:
+    controller = _controller()
+    top, bottom = 500.0, 510.0
+    if overlay_kind == "analysis":
+        overlay = controller.set_analysis(
+            top,
+            bottom,
+            calcite_percent=62.5,
+            lba_description_source_language="en",
+            lba_description_i18n={"en": "Fluorescence"},
+        )
+    else:
+        overlay = controller.set_description(
+            top, bottom, "Interval description", language="en", source_language="en"
+        )
+    well = controller.session.current_well
+    assert well is not None
+    overlay_before = deepcopy(overlay)
+    sources_before = dict(well.authored_field_source_languages)
+    revisions_before = dict(well.authored_field_revisions)
+    statuses_before = deepcopy(well.translation_statuses)
+    content_revision_before = well.content_revision
+    controller.session.dirty = False
+
+    with pytest.raises(ValueError, match="существует другая проба"):
+        controller.create_full_sample(top, bottom, {"sandstone": 100}, calcite_percent=20)
+
+    assert controller.available() == (overlay_before,)
+    assert well.authored_field_source_languages == sources_before
+    assert well.authored_field_revisions == revisions_before
+    assert well.translation_statuses == statuses_before
+    assert well.content_revision == content_revision_before
+    assert not controller.session.dirty
+
+    distinct_top = top + 0.0002
+    created = controller.create_full_sample(distinct_top, bottom, {"sandstone": 100})
+
+    assert (created.top_depth, created.bottom_depth) == (distinct_top, bottom)
+    assert controller.available() == (overlay_before, created)
+    assert created.sample_id != overlay.sample_id
+    assert controller.session.dirty
+
+
+@pytest.mark.parametrize("overlay_kind", ["analysis", "description"])
 def test_adding_composition_to_overlapping_overlay_is_rejected(overlay_kind: str) -> None:
     controller = _controller()
     controller.add(500, 510, {"sandstone": 100})
