@@ -106,6 +106,7 @@ class CuttingsController:
         sample = self._require_sample(sample_id)
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._validate_components(components)
+        self._ensure_sample_move_is_unoccupied(sample, top, bottom)
         self._ensure_no_composition_overlap(top, bottom, excluded_id=sample_id)
         previous = deepcopy(sample)
         staged = deepcopy(sample)
@@ -167,6 +168,7 @@ class CuttingsController:
         sample = self._require_sample(sample_id)
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._validate_components(components)
+        self._ensure_sample_move_is_unoccupied(sample, top, bottom)
         self._ensure_no_composition_overlap(top, bottom, excluded_id=sample_id)
 
         previous = deepcopy(sample)
@@ -335,6 +337,7 @@ class CuttingsController:
         sample = self._require_sample(sample_id)
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._normalize_text(description, 2_000_000, "Описание шлама")
+        self._ensure_sample_move_is_unoccupied(sample, top, bottom)
         if sample.components:
             self._ensure_no_composition_overlap(
                 top,
@@ -773,13 +776,9 @@ class CuttingsController:
 
         sample = self._require_sample(sample_id)
         top, bottom = self._validate_interval(top_depth, bottom_depth)
-        if (top, bottom) != (sample.top_depth, sample.bottom_depth):
-            if self.find_sample_for_interval(top, bottom, absolute_tolerance=0.0) is not None:
-                raise ValueError(
-                    f"На интервале {top:g}–{bottom:g} м уже существует другая проба"
-                )
-            if sample.components:
-                self._ensure_no_composition_overlap(top, bottom, excluded_id=sample_id)
+        self._ensure_sample_move_is_unoccupied(sample, top, bottom)
+        if sample.components and (top, bottom) != (sample.top_depth, sample.bottom_depth):
+            self._ensure_no_composition_overlap(top, bottom, excluded_id=sample_id)
 
         return self._save_analysis(
             sample,
@@ -1412,6 +1411,14 @@ class CuttingsController:
         if not np.isclose(sum(normalized.values()), 100.0, atol=0.01):
             raise ValueError("Сумма компонентов шлама должна быть равна 100%")
         return normalized
+
+    def _ensure_sample_move_is_unoccupied(
+        self, sample: CuttingsSample, top: float, bottom: float
+    ) -> None:
+        if (top, bottom) == (sample.top_depth, sample.bottom_depth):
+            return
+        if self.find_sample_for_interval(top, bottom, absolute_tolerance=0.0) is not None:
+            raise ValueError(f"На интервале {top:g}–{bottom:g} м уже существует другая проба")
 
     def _ensure_no_composition_overlap(
         self, top: float, bottom: float, *, excluded_id: str | None = None

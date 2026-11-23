@@ -102,14 +102,18 @@ The shared editor, **Sample analysis** and the rock description editor show dept
 places. When editing a saved sample, each boundary keeps its stored precision while its displayed
 value stays the same. Editing one boundary preserves the precision of the other.
 
+When you move a saved sample in any of these editors, another record with the same top and bottom
+depths blocks the move, even if it contains only analysis or description. A rejected move leaves
+both records intact. A nearby pair with at least one different depth is subject to the composition
+overlap rules.
+
 When filling in analysis or a description by interval on the tablet or in Masterlog, the
 application first looks for a sample with an exact match for both the top and bottom depths.
 When an exact pair is unavailable, it uses the existing lookup tolerance.
 
 When changing boundaries in **Sample analysis**, you can move a sample with rock composition to
 an interval free of other samples with rock composition. Shared endpoints are allowed. An
-analysis-only interval can overlap a rock-composition sample. A move is rejected if another
-record already uses both new boundaries.
+analysis-only interval can overlap a rock-composition sample if at least one boundary differs.
 
 When filling in analysis from a tablet selection, editing the depths of a loaded sample moves it
 with the same `sample_id`. After a warning about a rejected move, you can correct the boundaries

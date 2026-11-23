@@ -469,6 +469,62 @@ def test_update_analysis_rejects_move_to_exact_occupied_interval() -> None:
     assert not controller.session.dirty
 
 
+@pytest.mark.parametrize(
+    ("editor", "values"),
+    [
+        ("update_composition", {"components": {"clay": 100.0}}),
+        ("update_description", {"description": "Edited description", "language": "en"}),
+        ("update_full_sample", {"components": {"clay": 100.0}, "calcite_percent": 35.0}),
+    ],
+    ids=["composition", "description", "full-sample"],
+)
+@pytest.mark.parametrize("destination", ["analysis-only", "description-only"])
+def test_edit_rejects_occupied_depths_and_allows_nearby_distinct_depths(
+    editor: str, values: dict[str, object], destination: str
+) -> None:
+    controller = _controller()
+    sample = controller.create_full_sample(
+        500.0,
+        510.0,
+        {"sandstone": 100.0},
+        calcite_percent=55.0,
+        description_i18n={"en": "Sample description", "ru": "Описание пробы"},
+        description_source_language="en",
+    )
+    top, bottom = 520.0, 530.0
+    if destination == "analysis-only":
+        neighbor = controller.set_analysis(top, bottom, calcite_percent=62.5)
+    else:
+        neighbor = controller.set_description(top, bottom, "Interval description")
+
+    well = controller.session.current_well
+    assert well is not None
+    before = deepcopy(well.cuttings)
+    revisions_before = dict(well.authored_field_revisions)
+    statuses_before = deepcopy(well.translation_statuses)
+    content_revision_before = well.content_revision
+    controller.session.dirty = False
+    save = getattr(controller, editor)
+
+    with pytest.raises(ValueError, match="существует другая проба"):
+        save(sample.sample_id, top_depth=top, bottom_depth=bottom, **values)
+
+    assert well.cuttings == before
+    assert well.authored_field_revisions == revisions_before
+    assert well.translation_statuses == statuses_before
+    assert well.content_revision == content_revision_before
+    assert not controller.session.dirty
+
+    saved = save(sample.sample_id, top_depth=top + 0.0002, bottom_depth=bottom, **values)
+
+    assert saved is sample
+    assert (saved.top_depth, saved.bottom_depth) == (top + 0.0002, bottom)
+    assert controller.get(neighbor.sample_id) is neighbor
+    assert neighbor == before[1]
+    assert len(well.cuttings) == 2
+    assert controller.session.dirty
+
+
 def test_update_analysis_accepts_unchanged_bounds_with_existing_overlap() -> None:
     controller, first, second = _adjacent_samples_with_analysis()
     # A legacy project may contain a preexisting overlap.

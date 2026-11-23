@@ -1,3 +1,10 @@
+## WELL-04 — occupied intervals when moving saved samples (23.11.2026, under review)
+
+Moving a saved sample with its ID checks for an exact match with another record's top and bottom
+depths, including records containing only analysis or description. The shared sample editor, rock
+description editor, composition updates and Sample analysis use the same check. A rejected move
+leaves both records intact. Nearby intervals remain subject to the existing composition overlap rules.
+
 ## WELL-04 — depth edits in tablet Sample analysis (23.11.2026, under review)
 
 Editing the depths of a sample loaded from a tablet selection moves that sample by its ID.
