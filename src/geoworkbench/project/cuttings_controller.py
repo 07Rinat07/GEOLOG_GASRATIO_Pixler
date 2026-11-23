@@ -333,11 +333,16 @@ class CuttingsController:
         description_word_wrap: bool | None = None,
         language: object | None = None,
         source_language: object | None = None,
+        preserve_description: bool = False,
     ) -> CuttingsSample:
-        """Edit one rich-text description without losing sample analysis."""
+        """Edit one sample description or preserve its text while changing its layout."""
         sample = self._require_sample(sample_id)
         top, bottom = self._validate_interval(top_depth, bottom_depth)
-        normalized = self._normalize_text(description, 2_000_000, "Описание шлама")
+        normalized = (
+            None
+            if preserve_description
+            else self._normalize_text(description, 2_000_000, "Описание шлама")
+        )
         self._ensure_sample_move_is_unoccupied(sample, top, bottom)
         if sample.components:
             self._ensure_no_composition_overlap(
@@ -355,43 +360,45 @@ class CuttingsController:
         staged = deepcopy(sample)
         staged.top_depth = top
         staged.bottom_depth = bottom
-        if effective_source is not None:
-            effective_language = (
-                normalize_content_language(language)
-                if language is not None
-                else normalize_content_language(effective_source)
-            )
-            set_localized_text(
-                staged.description_i18n,
-                effective_language,
-                normalized,
-                maximum=2_000_000,
-            )
-            staged.description = staged.description_i18n.get("ru")
-        elif language is None:
-            staged.description = normalized
-        else:
-            code = normalize_content_language(language)
-            set_localized_text(staged.description_i18n, code, normalized, maximum=2_000_000)
-            if code == "ru":
+        if not preserve_description:
+            if effective_source is not None:
+                effective_language = (
+                    normalize_content_language(language)
+                    if language is not None
+                    else normalize_content_language(effective_source)
+                )
+                set_localized_text(
+                    staged.description_i18n,
+                    effective_language,
+                    normalized,
+                    maximum=2_000_000,
+                )
+                staged.description = staged.description_i18n.get("ru")
+            elif language is None:
                 staged.description = normalized
+            else:
+                code = normalize_content_language(language)
+                set_localized_text(staged.description_i18n, code, normalized, maximum=2_000_000)
+                if code == "ru":
+                    staged.description = normalized
         if description_word_wrap is not None:
             staged.description_word_wrap = self._validate_word_wrap(description_word_wrap)
+        if preserve_description and source_language is None and previous == staged:
+            return sample
 
         # The description editor can also move the shared LBA/analysis interval.
         plan = self._full_sample_tracking_plan(
             previous, staged, {"description_source_language": effective_source}
         )
-        if plan is not None:
-            if previous == staged and not self._tracking_metadata_changed(plan):
-                return sample
-            self._commit_sample(sample, staged)
-            self._apply_tracking_plan(plan, previous_sample=previous, current_sample=sample)
-            self.session.dirty = True
+        if plan is not None and previous == staged and not self._tracking_metadata_changed(plan):
             return sample
 
         self._commit_sample(sample, staged)
-        if language is not None:
+        if plan is not None:
+            self._apply_tracking_plan(plan, previous_sample=previous, current_sample=sample)
+        elif preserve_description:
+            self._require_well().content_revision += 1
+        elif language is not None:
             self._bump_content(normalize_content_language(language))
         self.session.dirty = True
         return sample

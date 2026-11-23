@@ -178,6 +178,7 @@ class RockDescriptionDialog(QDialog):
         self.editor.set_word_wrap(
             sample.description_word_wrap if sample is not None else True
         )
+        self._initial_description_html = self.editor.html()
         content_layout.addWidget(self.editor, 1)
 
         self.template_language_input.currentIndexChanged.connect(self._refresh_templates)
@@ -259,6 +260,10 @@ class RockDescriptionDialog(QDialog):
     def description_html(self) -> str | None:
         value = self.editor.html()
         return value if value and self.editor.editor.toPlainText().strip() else None
+
+    @property
+    def description_changed(self) -> bool:
+        return self.editor.html() != self._initial_description_html
 
     @property
     def description_word_wrap(self) -> bool:

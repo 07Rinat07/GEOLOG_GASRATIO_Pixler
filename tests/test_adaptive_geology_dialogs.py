@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from copy import deepcopy
 from functools import partial
 from pathlib import Path
@@ -328,6 +329,182 @@ def test_tablet_description_matches_confirmed_depths(
     assert (saved.top_depth, saved.bottom_depth) == (expected_top, selected[1])
     assert description in saved.description_i18n["en"]
     assert not saved.description_word_wrap
+
+
+def _save_tablet_description_edit(
+    monkeypatch: pytest.MonkeyPatch,
+    controller: CuttingsController,
+    sample_id: str,
+    language: AppLanguage,
+    edit: Callable[[RockDescriptionDialog], None],
+    package: Path,
+) -> None:
+    def accept(dialog: RockDescriptionDialog) -> QDialog.DialogCode:
+        edit(dialog)
+        buttons = dialog.findChild(QDialogButtonBox)
+        assert buttons is not None
+        buttons.button(QDialogButtonBox.StandardButton.Ok).click()
+        assert dialog.result() == QDialog.DialogCode.Accepted
+        return QDialog.DialogCode.Accepted
+
+    def warn(_parent: object, _title: str, message: str) -> None:
+        pytest.fail(f"Editing the rock description raised a warning: {message}")
+
+    monkeypatch.setattr(RockDescriptionDialog, "exec", accept)
+    monkeypatch.setattr(QMessageBox, "warning", warn)
+    window = QMainWindow()
+    try:
+        window.session = controller.session
+        window.cuttings_controller = controller
+        window.language = language
+        window._t = lambda key, **_values: key
+        window._refresh_cuttings_after_edit = lambda: None
+        MainWindow._edit_rock_description_from_tablet(window, sample_id)
+    finally:
+        window.close()
+
+    well = controller.session.current_well
+    assert well is not None
+    repository = PackageProjectRepository()
+    repository.save(ProjectDocument(project=controller.session.project), package)
+    restored = repository.load(package).project.wells[well.well_id]
+    assert restored.cuttings == well.cuttings
+    assert restored.translation_statuses == well.translation_statuses
+    assert restored.authored_field_revisions == well.authored_field_revisions
+    assert restored.authored_field_source_languages == well.authored_field_source_languages
+    assert restored.language_revisions == well.language_revisions
+
+
+def test_tablet_description_depth_edit_preserves_fallback_language(
+    qapp, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    session = _session()
+    controller = CuttingsController(session)
+    sample = controller.create_full_sample(
+        150.0004,
+        160.0004,
+        {"sandstone": 100.0},
+        calcite_percent=22.543,
+        description_i18n={"ru": "<p><b>Исходное описание</b></p>", "en": "Reviewed description"},
+        description_source_language="ru",
+        analysis_interpretation_i18n={"ru": "Заключение", "en": "Reviewed conclusion"},
+        analysis_interpretation_source_language="ru",
+    )
+    field_ids = [
+        f"cuttings/{sample.sample_id}/{field}"
+        for field in ("description", "analysis_interpretation")
+    ]
+    reviewer = TranslationStatusController(session)
+    for field_id in field_ids:
+        reviewer.review_current(field_id=field_id, language="en")
+    well = session.current_well
+    assert well is not None
+    language_revisions = dict(well.language_revisions)
+    revisions = dict(well.authored_field_revisions)
+    expected = deepcopy(sample)
+    expected.top_depth = 150.125
+    session.dirty = False
+
+    def move(dialog: RockDescriptionDialog) -> None:
+        assert dialog.editor.editor.toPlainText() == "Исходное описание"
+        dialog.top_input.setValue(expected.top_depth)
+
+    _save_tablet_description_edit(
+        monkeypatch, controller, sample.sample_id, AppLanguage.KK, move, tmp_path / "move.geologpkg"
+    )
+
+    assert controller.get(sample.sample_id) is sample
+    assert sample == expected
+    assert well.language_revisions == language_revisions
+    assert session.dirty
+    for field_id in field_ids:
+        assert well.authored_field_revisions[field_id] == revisions[field_id]
+        assert well.translation_statuses[field_id]["kk"].state is TranslationState.MISSING
+        assert well.translation_statuses[field_id]["en"].state is TranslationState.STALE
+
+
+@pytest.mark.parametrize("toggle_wrap", [False, True], ids=["tracked-noop", "legacy-wrap"])
+def test_tablet_description_unchanged_text_keeps_exact_saved_content(
+    qapp, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, toggle_wrap: bool
+) -> None:
+    session = _session()
+    controller = CuttingsController(session)
+    if toggle_wrap:
+        sample = controller.set_description(150, 160, "Legacy plain description")
+        language = AppLanguage.RU
+    else:
+        sample = controller.set_description(
+            150, 160, "Authored plain description", language="en", source_language="en"
+        )
+        language = AppLanguage.EN
+    well = session.current_well
+    assert well is not None
+    expected = deepcopy(sample)
+    language_revisions = dict(well.language_revisions)
+    content_revision = well.content_revision
+    statuses = deepcopy(well.translation_statuses)
+    session.dirty = False
+
+    def edit(dialog: RockDescriptionDialog) -> None:
+        if toggle_wrap:
+            dialog.editor.set_word_wrap(False)
+            expected.description_word_wrap = False
+
+    _save_tablet_description_edit(
+        monkeypatch, controller, sample.sample_id, language, edit, tmp_path / "text.geologpkg"
+    )
+
+    assert sample == expected
+    assert well.language_revisions == language_revisions
+    assert well.translation_statuses == statuses
+    assert session.dirty is toggle_wrap
+    assert well.content_revision == content_revision + int(toggle_wrap)
+
+
+@pytest.mark.parametrize("clear", [False, True], ids=["format-only", "clear"])
+def test_tablet_description_edit_writes_only_active_language(
+    qapp, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, clear: bool
+) -> None:
+    session = _session()
+    controller = CuttingsController(session)
+    sample = controller.set_description(
+        150, 160, "Исходное описание", language="ru", source_language="ru"
+    )
+    controller.update_description(
+        sample.sample_id,
+        top_depth=150,
+        bottom_depth=160,
+        description="Reviewed description",
+        language="en",
+    )
+    field_id = f"cuttings/{sample.sample_id}/description"
+    TranslationStatusController(session).review_current(field_id=field_id, language="en")
+    well = session.current_well
+    assert well is not None
+    revision = well.authored_field_revisions[field_id]
+
+    def edit(dialog: RockDescriptionDialog) -> None:
+        text = dialog.editor.editor
+        if clear:
+            text.clear()
+        else:
+            text.selectAll()
+            text.setFontItalic(True)
+            assert text.toPlainText() == "Reviewed description"
+
+    _save_tablet_description_edit(
+        monkeypatch, controller, sample.sample_id, AppLanguage.EN, edit, tmp_path / "write.geologpkg"
+    )
+
+    assert sample.description == sample.description_i18n["ru"] == "Исходное описание"
+    assert well.authored_field_revisions[field_id] == revision
+    if clear:
+        assert "en" not in sample.description_i18n
+        assert well.translation_statuses[field_id]["en"].state is TranslationState.MISSING
+    else:
+        assert "font-style:italic" in sample.description_i18n["en"]
+        assert "Reviewed description" in sample.description_i18n["en"]
+        assert well.translation_statuses[field_id]["en"].state is TranslationState.DRAFT
 
 
 def _create_tablet_cuttings_sample(

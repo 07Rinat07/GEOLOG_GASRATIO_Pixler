@@ -9010,13 +9010,15 @@ class MainWindow(QMainWindow):
                         )
                     )
                     break
+                description_changed = dialog.description_changed
                 updated = self.cuttings_controller.update_description(
                     sample_id,
                     top_depth=dialog.top_depth,
                     bottom_depth=dialog.bottom_depth,
-                    description=dialog.description_html,
+                    description=dialog.description_html if description_changed else None,
                     description_word_wrap=dialog.description_word_wrap,
                     language=self.language,
+                    preserve_description=not description_changed,
                 )
             except (KeyError, RuntimeError, ValueError) as exc:
                 QMessageBox.warning(self, self._t("description.edit_title"), str(exc))

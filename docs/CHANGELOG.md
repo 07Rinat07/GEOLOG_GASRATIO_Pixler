@@ -1,3 +1,12 @@
+## WELL-04 — unchanged text in the tablet rock description editor (23.11.2026, under review)
+
+Editing only the depths or word wrapping of a saved rock description preserves the original
+text, formatting and language versions, including legacy or fallback text shown in the editor.
+Text and formatting edits apply to the interface language. Clearing a language version follows
+the existing authoring rules. A depth change updates the existing translation dependencies.
+Word wrapping alone preserves translation states and language revisions, and saving without
+changes leaves the project clean.
+
 ## WELL-04 — depth edits for rock descriptions on the tablet (23.11.2026, under review)
 
 When adding a rock description on the tablet, editing either boundary requires an exact match

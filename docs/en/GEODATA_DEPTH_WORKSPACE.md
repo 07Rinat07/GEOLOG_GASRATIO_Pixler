@@ -177,6 +177,16 @@ Each unedited boundary retains the precision of the selection. If you change eit
 the editor reuses a saved sample only when both depths match exactly. If you confirm both selected
 depths, matching can also use the existing tolerance.
 
+When you reopen a saved description, changing its depths or word wrapping preserves the
+original formatting and all language versions. If the editor shows fallback text from another
+language or a legacy record, the unedited text stays in its original field. Text and formatting
+edits apply to the interface language. When a version is cleared, the editor checks that text
+remains in the recorded source language.
+
+Depth changes update the existing translation dependencies. Changing only word wrapping
+preserves translation states and language revisions. Confirming without changes leaves the
+project clean.
+
 The **Text alignment** list applies left, centre, or right alignment to the complete description.
 **Wrap words** is enabled by default and is stored for each description. Wrapping may be disabled;
 the font still shrinks to the available width and height. Every track-width change recalculates the
