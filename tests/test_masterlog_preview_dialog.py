@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from copy import deepcopy
 from pathlib import Path
 
@@ -312,17 +313,23 @@ def _fill_masterlog_analysis(
     selected: tuple[float, float],
     edited: tuple[float | None, float | None],
     expected_calcite: float,
+    *,
+    calcite: float | None = 42.0,
+    inspect_dialog: Callable[[SampleAnalysisDialog], None] | None = None,
 ) -> list[str]:
     warnings: list[str] = []
 
     def fill(dialog: SampleAnalysisDialog) -> QDialog.DialogCode:
         assert dialog.calcite_input.value() == expected_calcite
+        if inspect_dialog is not None:
+            inspect_dialog(dialog)
         edited_top, edited_bottom = edited
         if edited_top is not None:
             dialog.top_input.setValue(edited_top)
         if edited_bottom is not None:
             dialog.bottom_input.setValue(edited_bottom)
-        dialog.calcite_input.setValue(42.0)
+        if calcite is not None:
+            dialog.calcite_input.setValue(calcite)
         buttons = dialog.findChild(QDialogButtonBox)
         assert buttons is not None
         ok = buttons.button(QDialogButtonBox.StandardButton.Ok)
@@ -425,11 +432,98 @@ def test_masterlog_fill_existing_analysis_keeps_precise_bounds_for_near_selectio
     controller = CuttingsController(session)
     stored = (150.0004, 151.1234)
     selected = (stored[0] + 5e-7, stored[1] + 5e-7)
-    sample = controller.set_analysis(*stored, calcite_percent=30.0)
+    neighbor = controller.set_analysis(150.001, 151.124, calcite_percent=25.0)
+    neighbor_before = deepcopy(neighbor)
+    sample = controller.set_analysis(*stored, calcite_percent=30.0, absolute_tolerance=0.0)
 
     assert _fill_masterlog_analysis(monkeypatch, session, selected, (None, None), 30.0) == []
 
-    assert controller.available() == (sample,)
+    assert controller.available() == (sample, neighbor)
     assert controller.get(sample.sample_id) is sample
+    assert neighbor == neighbor_before
     assert (sample.top_depth, sample.bottom_depth) == stored
     assert sample.calcite_percent == 42.0
+
+
+@pytest.mark.parametrize(
+    ("calcite", "edit_russian", "expected_state"),
+    [
+        pytest.param(None, False, TranslationState.REVIEWED, id="no-op"),
+        pytest.param(42.0, False, TranslationState.STALE, id="calcimetry-only"),
+        pytest.param(None, True, TranslationState.DRAFT, id="change-russian-text"),
+    ],
+)
+def test_masterlog_approximate_analysis_loads_and_preserves_existing_data(
+    qapp,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    calcite: float | None,
+    edit_russian: bool,
+    expected_state: TranslationState,
+) -> None:
+    session = _masterlog_geology_session()
+    controller = CuttingsController(session)
+    stored = (150.0005, 151.1235)
+    selected = (150.0, 151.123)
+    sample = controller.set_analysis(
+        *stored,
+        calcite_percent=30.0,
+        dolomite_percent=11.321,
+        lba_color="Tan",
+        lba_description_i18n={"ru": "Localized LBA"},
+        analysis_interpretation_i18n={"kk": "Original conclusion", "ru": "Localized conclusion"},
+        analysis_interpretation_source_language="kk",
+    )
+    sample.lba_description = "Legacy LBA"
+    sample.analysis_interpretation = "Legacy conclusion"
+    field_id = f"cuttings/{sample.sample_id}/analysis_interpretation"
+    TranslationStatusController(session).review_current(field_id=field_id, language="ru")
+    well = session.current_well
+    assert well is not None
+    language_revisions = dict(well.language_revisions)
+    source_revision = well.authored_field_revisions[field_id]
+    content_revision = well.content_revision
+    expected = deepcopy(sample)
+    session.dirty = False
+
+    def inspect_dialog(dialog: SampleAnalysisDialog) -> None:
+        assert (dialog.top_depth, dialog.bottom_depth) == stored
+        assert dialog.dolomite_input.percentage() == 11.321
+        assert dialog.interpretation_source_language_input.current_language_code() == "kk"
+        assert dialog.values()["analysis_interpretation_source_language"] is None
+        assert dialog.lba_description_inputs["ru"].text() == "Localized LBA"
+        assert dialog.interpretation_inputs["ru"].toPlainText() == "Localized conclusion"
+        if edit_russian:
+            dialog.lba_description_inputs["ru"].setText("Updated LBA")
+            dialog.interpretation_inputs["ru"].setPlainText("Updated conclusion")
+
+    assert _fill_masterlog_analysis(
+        monkeypatch, session, selected, (None, None), 30.0,
+        calcite=calcite, inspect_dialog=inspect_dialog,
+    ) == []
+
+    if calcite is not None:
+        expected.calcite_percent = calcite
+    if edit_russian:
+        expected.lba_description = expected.lba_description_i18n["ru"] = "Updated LBA"
+        expected.analysis_interpretation = expected.analysis_interpretation_i18n["ru"] = (
+            "Updated conclusion"
+        )
+        language_revisions["ru"] += 1
+    changed = calcite is not None or edit_russian
+    assert controller.get(sample.sample_id) is sample
+    assert controller.available() == (expected,)
+    assert session.dirty is changed
+    assert well.content_revision == content_revision + int(changed)
+    assert well.language_revisions == language_revisions
+    assert well.authored_field_revisions[field_id] == source_revision
+    assert well.translation_statuses[field_id]["ru"].state is expected_state
+
+    if calcite is not None:
+        repository = PackageProjectRepository()
+        path = tmp_path / "masterlog-analysis.geologpkg"
+        repository.save(ProjectDocument(project=session.project), path)
+        restored = repository.load(path).project.wells[well.well_id]
+        assert restored.cuttings == [expected]
+        assert restored.translation_statuses == well.translation_statuses
+        assert restored.authored_field_source_languages[field_id] == "kk"

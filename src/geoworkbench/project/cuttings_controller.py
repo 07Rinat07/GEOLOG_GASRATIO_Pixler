@@ -974,22 +974,19 @@ class CuttingsController:
                 staged.lba_description = strings["description"]
                 staged.analysis_interpretation = strings["interpretation"]
 
+        # Legacy text can differ from the Russian version in an existing project.
         if localized_lba is not None:
-            previous_languages = set(staged.lba_description_i18n)
+            russian_lba = localized_lba.get("ru")
+            if russian_lba != staged.lba_description_i18n.get("ru"):
+                staged.lba_description = russian_lba
             staged.lba_description_i18n.clear()
             staged.lba_description_i18n.update(localized_lba)
-            if "ru" in localized_lba:
-                staged.lba_description = localized_lba["ru"]
-            elif "ru" in previous_languages:
-                staged.lba_description = None
         if localized_interpretation is not None:
-            previous_languages = set(staged.analysis_interpretation_i18n)
+            russian_interpretation = localized_interpretation.get("ru")
+            if russian_interpretation != staged.analysis_interpretation_i18n.get("ru"):
+                staged.analysis_interpretation = russian_interpretation
             staged.analysis_interpretation_i18n.clear()
             staged.analysis_interpretation_i18n.update(localized_interpretation)
-            if "ru" in localized_interpretation:
-                staged.analysis_interpretation = localized_interpretation["ru"]
-            elif "ru" in previous_languages:
-                staged.analysis_interpretation = None
 
         tracking_values: dict[str, object] = {
             "lba_description": lba_description,

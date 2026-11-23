@@ -162,6 +162,7 @@ class MasterlogPreviewDialog(QDialog):
         localizer = Localizer.create(language)
         self.language = language
         self.session = session
+        self.cuttings_controller = CuttingsController(session)
         self.setWindowTitle(localizer.text("masterlog_preview.title", name=template.name))
         self.preview = MasterlogPreviewWidget(template, session, settings, self)
         self.preview.interval_selected.connect(self._fill_interval)
@@ -406,12 +407,13 @@ class MasterlogPreviewDialog(QDialog):
             self.preview.update()
 
     def _fill_analysis(self, top: float, bottom: float) -> None:
-        controller = CuttingsController(self.session)
-        sample = (
-            controller.find_sample_for_interval(top, bottom, absolute_tolerance=1e-6)
-            if self.session.current_well is not None
-            else None
-        )
+        controller = self.cuttings_controller
+        sample = None
+        if self.session.current_well is not None:
+            # Show any sample that saving the original selection could reuse.
+            sample = controller.find_sample_for_interval(
+                top, bottom, absolute_tolerance=1e-6
+            ) or controller.find_sample_for_interval(top, bottom)
         dialog = SampleAnalysisDialog(
             top, bottom, language=self.language, sample=sample, parent=self
         )

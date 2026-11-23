@@ -1,3 +1,11 @@
+## WELL-04 — loading existing analysis in Masterlog (23.11.2026, under review)
+
+Masterlog Calcimetry / LBA matches exact depths first, then checks the `0.000001 m` lookup
+tolerance and the existing save tolerance before opening the dialog. A matching sample opens
+with its recorded depths, analysis and saved conclusion source language. Saving measurements
+or another language preserves legacy LBA descriptions and conclusions when their Russian
+versions stay the same. Changes to the Russian version update the corresponding legacy field.
+
 ## WELL-04 — language versions in Masterlog Cuttings description (23.11.2026, under review)
 
 The Cuttings description dialog shows the interface-language version when available and uses

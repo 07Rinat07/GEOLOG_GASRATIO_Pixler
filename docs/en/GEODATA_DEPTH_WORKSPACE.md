@@ -141,12 +141,20 @@ The command adds rock shares to the matching analysis or description record and 
 `sample_id` and saved data. The application checks for overlap with other samples with rock
 composition before saving. Adjacent intervals may share a boundary.
 
-In Masterlog, **Calcimetry / LBA** saves the boundaries confirmed in the dialog. A boundary left
-unchanged keeps the precision of the selection for a new interval or of the saved depth for a loaded
-sample. Editing the boundaries moves the loaded sample and keeps its `sample_id`. Masterlog rejects
-the move if another record already uses both new boundaries. If no sample was loaded, editing the
-selection requires an exact match to reuse an existing record. Confirming the original selection
-allows matching within tolerance.
+In Masterlog, **Calcimetry / LBA** looks up a sample before opening the dialog. It checks for an
+exact match on both boundaries first, then for a match within `0.000001 m` on each boundary and
+finally with the existing save tolerance. The matching sample opens with its saved depths,
+analysis and conclusion source language, if recorded.
+
+Masterlog saves the boundaries confirmed in the dialog. A boundary left unchanged keeps the
+precision of the selection for a new interval or of the saved depth for a loaded sample. Editing
+the boundaries moves the loaded sample and keeps its `sample_id`. Masterlog rejects the move if
+another record already uses both new boundaries. If no sample was loaded, editing the selection
+requires an exact match to reuse an existing record.
+
+Changing measurements or another language preserves legacy LBA description and conclusion fields
+while their Russian versions stay the same. Editing a Russian version updates the corresponding
+legacy field.
 
 In Masterlog, **Cuttings description** opens the version for the interface language. If that
 version is missing, the dialog shows available text for reference. Explicit edits are saved in
