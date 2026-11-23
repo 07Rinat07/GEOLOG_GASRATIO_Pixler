@@ -148,6 +148,13 @@ the move if another record already uses both new boundaries. If no sample was lo
 selection requires an exact match to reuse an existing record. Confirming the original selection
 allows matching within tolerance.
 
+In Masterlog, **Cuttings description** opens the version for the interface language. If that
+version is missing, the dialog shows available text for reference. Explicit edits are saved in
+the interface-language version. Confirming without changes preserves the original formatting,
+all language versions and translation revisions. The description is saved on the sample that
+the dialog loaded, at its recorded depths even when the match used tolerance. A new record uses
+the exact selected depths.
+
 The shared editor and **Sample analysis** show calcite and dolomite to one decimal place. Each
 measurement keeps its stored precision while its displayed number stays the same. When you edit
 one percentage, the total check uses the other measurement at its stored precision. The shared

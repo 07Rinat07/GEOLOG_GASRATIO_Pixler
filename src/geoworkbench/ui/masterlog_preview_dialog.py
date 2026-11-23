@@ -357,18 +357,35 @@ class MasterlogPreviewDialog(QDialog):
     def _fill_cuttings_description(self, top: float, bottom: float) -> None:
         controller = CuttingsController(self.session)
         sample = (
-            controller.find_sample_for_interval(top, bottom, absolute_tolerance=1e-6)
+            controller.find_sample_for_interval(top, bottom)
             if self.session.current_well is not None
             else None
         )
-        text, accepted = QInputDialog.getMultiLineText(
-            self,
-            self.description_button.text(),
-            f"{top:g}–{bottom:g} м",
-            sample.description if sample is not None and sample.description else "",
-        )
-        if accepted:
-            controller.set_description(top, bottom, text)
+        dialog = QInputDialog(self)
+        dialog.setWindowTitle(self.description_button.text())
+        dialog.setOption(QInputDialog.InputDialogOption.UsePlainTextEditForTextInput)
+        if sample is not None:
+            top, bottom = sample.top_depth, sample.bottom_depth
+            dialog.setTextValue(controller.localized_description(sample, self.language))
+        dialog.setLabelText(f"{top:g}–{bottom:g} м")
+        opened_text = dialog.textValue()
+        accepted = dialog.exec() == QDialog.DialogCode.Accepted
+        text = dialog.textValue()
+        dialog.deleteLater()
+        if not accepted or text == opened_text:
+            return
+        if sample is None:
+            controller.set_description(
+                top, bottom, text, language=self.language, absolute_tolerance=0.0
+            )
+        else:
+            controller.update_description(
+                sample.sample_id,
+                top_depth=top,
+                bottom_depth=bottom,
+                description=text,
+                language=self.language,
+            )
 
     def _edit_column(self, column_id: str) -> None:
         template_id = self.preview.template.template_id

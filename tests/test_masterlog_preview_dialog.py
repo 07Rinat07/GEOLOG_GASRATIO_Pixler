@@ -1,14 +1,26 @@
 from copy import deepcopy
+from pathlib import Path
 
 import numpy as np
 import pytest
-from PySide6.QtWidgets import QDialog, QDialogButtonBox, QDoubleSpinBox, QMessageBox
+from PySide6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
+    QDoubleSpinBox,
+    QInputDialog,
+    QMessageBox,
+    QPlainTextEdit,
+)
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain, MasterlogTemplate
+from geoworkbench.domain.translation_status import TranslationState
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
 from geoworkbench.project.cuttings_controller import CuttingsController
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.project.translation_status_controller import TranslationStatusController
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.storage.package_project_repository import PackageProjectRepository
+from geoworkbench.storage.project_codec import ProjectDocument
 from geoworkbench.ui.adaptive_toolbar import AdaptiveActionToolBar
 from geoworkbench.ui.masterlog_interval_fill_dialog import CuttingsCompositionDialog
 from geoworkbench.ui.masterlog_preview_dialog import MasterlogPreviewDialog
@@ -159,12 +171,139 @@ def test_masterlog_fill_cuttings_saves_precise_or_edited_bounds(
     ]
 
 
-def _masterlog_analysis_session() -> ProjectSession:
+def _masterlog_geology_session() -> ProjectSession:
     session = ProjectSession()
     session.add_dataset(
         Dataset("dataset", "Well", DatasetKind.GTI, DepthDomain.MD, np.array([100.0, 200.0]))
     )
     return session
+
+
+def _fill_masterlog_description(
+    monkeypatch: pytest.MonkeyPatch,
+    session: ProjectSession,
+    selected: tuple[float, float],
+    language: AppLanguage,
+    initial_text: str,
+    replacement: str | None = None,
+) -> None:
+    def fill(dialog: QInputDialog) -> QDialog.DialogCode:
+        editor = dialog.findChild(QPlainTextEdit)
+        assert editor is not None
+        assert editor.toPlainText() == dialog.textValue() == initial_text
+        if replacement is not None:
+            editor.setPlainText(replacement)
+        buttons = dialog.findChild(QDialogButtonBox)
+        assert buttons is not None
+        buttons.button(QDialogButtonBox.StandardButton.Ok).click()
+        assert dialog.result() == QDialog.DialogCode.Accepted
+        return QDialog.DialogCode.Accepted
+
+    def unexpected_warning(*args: object) -> None:
+        pytest.fail(f"Filling the description raised a warning: {args[-1]}")
+
+    monkeypatch.setattr(QInputDialog, "exec", fill)
+    monkeypatch.setattr(QMessageBox, "warning", unexpected_warning)
+    preview = MasterlogPreviewDialog(
+        MasterlogTemplate("standard", "Daily form"), session, language=language
+    )
+    try:
+        preview._fill_interval(*selected, "cuttings_description")
+    finally:
+        preview.close()
+
+
+def test_masterlog_description_updates_active_language_at_stored_interval(
+    qapp, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    session = _masterlog_geology_session()
+    controller = CuttingsController(session)
+    sample = controller.create_full_sample(
+        150.0004,
+        151.1234,
+        {"sandstone": 100.0},
+        calcite_percent=22.543,
+        description_i18n={"en": "English source", "kk": "Kazakh text"},
+        description_source_language="en",
+    )
+    sample.description = "Legacy description without a Russian language entry"
+    field_id = f"cuttings/{sample.sample_id}/description"
+    TranslationStatusController(session).review_current(field_id=field_id, language="kk")
+    well = session.current_well
+    assert well is not None
+    statuses = deepcopy(well.translation_statuses[field_id])
+    source_revision = well.authored_field_revisions[field_id]
+    expected = deepcopy(sample)
+    expected.description_i18n["kk"] = "Edited Kazakh text"
+    session.dirty = False
+
+    _fill_masterlog_description(
+        monkeypatch, session, (150.001, 151.124), AppLanguage.KK, "Kazakh text", "Edited Kazakh text"
+    )
+
+    assert controller.get(sample.sample_id) is sample
+    assert controller.available() == (expected,)
+    assert session.dirty
+    assert well.authored_field_revisions[field_id] == source_revision
+    assert well.translation_statuses[field_id]["en"] == statuses["en"]
+    assert well.translation_statuses[field_id]["ru"] == statuses["ru"]
+    assert well.translation_statuses[field_id]["kk"].state is TranslationState.DRAFT
+
+    repository = PackageProjectRepository()
+    path = tmp_path / "masterlog-description.geologpkg"
+    repository.save(ProjectDocument(project=session.project), path)
+    restored = repository.load(path).project.wells[well.well_id]
+    assert restored.cuttings == [expected]
+    assert restored.translation_statuses == well.translation_statuses
+    assert restored.authored_field_source_languages[field_id] == "en"
+
+
+def test_masterlog_description_unchanged_fallback_keeps_raw_markup_and_review(
+    qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session = _masterlog_geology_session()
+    controller = CuttingsController(session)
+    raw_markup = "<p><b>Russian text</b></p>\r\n<p>Next paragraph</p>"
+    sample = controller.create_full_sample(
+        150.0,
+        151.0,
+        {"sandstone": 100.0},
+        description_i18n={"en": "English source", "ru": raw_markup},
+        description_source_language="en",
+    )
+    field_id = f"cuttings/{sample.sample_id}/description"
+    TranslationStatusController(session).review_current(field_id=field_id, language="ru")
+    well = session.current_well
+    assert well is not None
+    before = deepcopy(well)
+    session.dirty = False
+
+    _fill_masterlog_description(
+        monkeypatch, session, (150.0, 151.0), AppLanguage.KK, raw_markup.replace("\r\n", "\n")
+    )
+
+    assert not session.dirty
+    assert well.cuttings == before.cuttings
+    assert sample.description_i18n == {"en": "English source", "ru": raw_markup}
+    assert well.translation_statuses == before.translation_statuses
+    assert well.authored_field_revisions == before.authored_field_revisions
+    assert well.language_revisions == before.language_revisions
+    assert well.content_revision == before.content_revision
+
+
+def test_masterlog_description_creates_precise_interval_in_active_language(
+    qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session = _masterlog_geology_session()
+    controller = CuttingsController(session)
+    selected = (150.0004, 150.0005)
+
+    _fill_masterlog_description(monkeypatch, session, selected, AppLanguage.EN, "", "New text")
+
+    (sample,) = controller.available()
+    assert (sample.top_depth, sample.bottom_depth) == selected
+    assert sample.description is None
+    assert sample.description_i18n == {"en": "New text"}
 
 
 def _fill_masterlog_analysis(
@@ -224,7 +363,7 @@ def test_masterlog_fill_new_analysis_saves_precise_or_edited_bounds(
     edited_top: float | None,
     neighbor_bounds: tuple[float, float] | None,
 ) -> None:
-    session = _masterlog_analysis_session()
+    session = _masterlog_geology_session()
     controller = CuttingsController(session)
     neighbor = (
         controller.set_analysis(*neighbor_bounds, calcite_percent=12.5)
@@ -250,7 +389,7 @@ def test_masterlog_fill_new_analysis_saves_precise_or_edited_bounds(
 def test_masterlog_fill_existing_analysis_moves_only_selected_sample(
     qapp, monkeypatch: pytest.MonkeyPatch, destination_occupied: bool
 ) -> None:
-    session = _masterlog_analysis_session()
+    session = _masterlog_geology_session()
     controller = CuttingsController(session)
     selected = (150.0004, 151.1234)
     destination = (152.0, 153.0)
@@ -282,7 +421,7 @@ def test_masterlog_fill_existing_analysis_moves_only_selected_sample(
 def test_masterlog_fill_existing_analysis_keeps_precise_bounds_for_near_selection(
     qapp, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    session = _masterlog_analysis_session()
+    session = _masterlog_geology_session()
     controller = CuttingsController(session)
     stored = (150.0004, 151.1234)
     selected = (stored[0] + 5e-7, stored[1] + 5e-7)

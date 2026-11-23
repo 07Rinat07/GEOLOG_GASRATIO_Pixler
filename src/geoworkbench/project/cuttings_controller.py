@@ -373,7 +373,8 @@ class CuttingsController:
                     normalized,
                     maximum=2_000_000,
                 )
-                staged.description = staged.description_i18n.get("ru")
+                if effective_language == "ru":
+                    staged.description = staged.description_i18n.get("ru")
             elif language is None:
                 staged.description = normalized
             else:

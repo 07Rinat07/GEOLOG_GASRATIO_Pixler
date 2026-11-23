@@ -1,3 +1,11 @@
+## WELL-04 — language versions in Masterlog Cuttings description (23.11.2026, under review)
+
+The Cuttings description dialog shows the interface-language version when available and uses
+fallback text for reference. An explicit edit updates that language only. Confirming unchanged
+text preserves the stored text, formatting and translation revisions. The dialog saves the sample
+it loaded at its recorded depths, including when the match used tolerance. New descriptions use
+the exact selected depths.
+
 ## WELL-04 — unchanged text in the tablet rock description editor (23.11.2026, under review)
 
 Editing only the depths or word wrapping of a saved rock description preserves the original

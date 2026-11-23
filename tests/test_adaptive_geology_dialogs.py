@@ -82,15 +82,16 @@ def test_geology_fill_prefers_exact_sample_over_earlier_close_interval(
         dialog.calcite_input.setValue(40.0)
         return QDialog.DialogCode.Accepted
 
-    def edit_description(_parent, _title: str, _label: str, text: str) -> tuple[str, bool]:
-        assert text == "Exact sample"
-        return "Updated description", True
+    def edit_description(dialog: QInputDialog) -> QDialog.DialogCode:
+        assert dialog.textValue() == "Exact sample"
+        dialog.setTextValue("Updated description")
+        return QDialog.DialogCode.Accepted
 
     def unexpected_warning(*args: object) -> None:
         pytest.fail(f"Saving the exact interval raised a warning: {args[-1]}")
 
     monkeypatch.setattr(SampleAnalysisDialog, "exec", edit_analysis)
-    monkeypatch.setattr(QInputDialog, "getMultiLineText", edit_description)
+    monkeypatch.setattr(QInputDialog, "exec", edit_description)
     monkeypatch.setattr(QMessageBox, "warning", unexpected_warning)
 
     window = QMainWindow()
@@ -115,7 +116,8 @@ def test_geology_fill_prefers_exact_sample_over_earlier_close_interval(
     assert (neighbor.description, neighbor.calcite_percent) == ("Neighbor", 20.0)
     assert (exact.top_depth, exact.bottom_depth) == (top, bottom)
     if entry == "masterlog-description":
-        assert (exact.description, exact.calcite_percent) == ("Updated description", 30.0)
+        assert (exact.description, exact.calcite_percent) == ("Exact sample", 30.0)
+        assert exact.description_i18n == {"en": "Updated description"}
     else:
         assert (exact.description, exact.calcite_percent) == ("Exact sample", 40.0)
 
