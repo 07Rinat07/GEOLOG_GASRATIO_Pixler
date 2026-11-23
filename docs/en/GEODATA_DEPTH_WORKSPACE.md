@@ -76,8 +76,9 @@ object is updated; no duplicate interval is created.
 
 ## Creating and editing a cuttings sample
 
-`Shift + left drag` is available in Cuttings, Calcimetry, and LBA tracks. Releasing the mouse opens
-one shared sample editor based on the supplied GeoData working dialogs, containing:
+`Shift + left drag` is available in Cuttings, Calcimetry, and LBA tracks. Releasing the mouse in
+Cuttings opens the shared sample editor based on the GeoData dialogs. Calcimetry and LBA open
+**Sample analysis**. The shared editor has the following fields.
 
 - editable top and bottom;
 - up to four rock components;
@@ -88,9 +89,9 @@ one shared sample editor based on the supplied GeoData working dialogs, containi
 - rich rock/cuttings description;
 - interpretation or conclusion.
 
-Double-clicking the sample in any linked track reopens the same editor. The existing `sample_id` is
-updated atomically, so Cuttings, LBA, Calcimetry, and Description are refreshed together. The
-sample can also be deleted from that dialog.
+Double-clicking a saved sample opens the editor for that track. Changes in the shared editor
+keep the existing `sample_id` and refresh Cuttings, LBA, Calcimetry, and Description together.
+You can delete the entire sample from the shared editor.
 
 Rock percentages display one decimal place. Each share keeps its stored precision while its
 displayed number stays the same. The displayed total and validation use the shares to be saved.
@@ -109,6 +110,12 @@ When changing boundaries in **Sample analysis**, you can move a sample with rock
 an interval free of other samples with rock composition. Shared endpoints are allowed. An
 analysis-only interval can overlap a rock-composition sample. A move is rejected if another
 record already uses both new boundaries.
+
+When filling in analysis from a tablet selection, editing the depths of a loaded sample moves it
+with the same `sample_id`. After a warning about a rejected move, you can correct the boundaries
+and save again in the same dialog. For a new analysis, editing the boundaries requires an exact
+match to use an existing record. Confirming the initial displayed interval allows matching within
+tolerance.
 
 In Masterlog, use **Fill cuttings** to select an interval, then adjust its top and bottom depths
 in the composition dialog if needed. Each unedited boundary keeps the precision of the original

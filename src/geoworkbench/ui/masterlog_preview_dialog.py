@@ -401,24 +401,14 @@ class MasterlogPreviewDialog(QDialog):
         if sample is None:
             dialog.top_input.load_stored_value(top)
             dialog.bottom_input.load_stored_value(bottom)
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return
-
-        top_depth, bottom_depth = dialog.top_depth, dialog.bottom_depth
-        values = dialog.values()
-        if sample is not None and (top_depth, bottom_depth) != (sample.top_depth, sample.bottom_depth):
-            controller.update_analysis(
-                sample.sample_id, top_depth=top_depth, bottom_depth=bottom_depth, **values
+        opened_interval = (dialog.top_depth, dialog.bottom_depth)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            controller.save_selected_analysis(
+                opened_interval,
+                (dialog.top_depth, dialog.bottom_depth),
+                sample_id=sample.sample_id if sample is not None else None,
+                **dialog.values(),
             )
-            return
-
-        new_interval_edited = sample is None and (top_depth, bottom_depth) != (top, bottom)
-        controller.set_analysis(
-            top_depth,
-            bottom_depth,
-            absolute_tolerance=0.0 if new_interval_edited else None,
-            **values,
-        )
 
     def _fill_stratigraphy(self, top: float, bottom: float) -> None:
         dialog = StratigraphyIntervalDialog(

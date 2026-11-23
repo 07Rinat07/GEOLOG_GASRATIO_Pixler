@@ -8804,15 +8804,17 @@ class MainWindow(QMainWindow):
             sample=sample,
             parent=self,
         )
+        opened_interval = (dialog.top_depth, dialog.bottom_depth)
         while dialog.exec() == QDialog.DialogCode.Accepted:
             try:
-                saved = self.cuttings_controller.set_analysis(
-                    dialog.top_depth if hasattr(dialog, "top_depth") else top_depth,
-                    dialog.bottom_depth if hasattr(dialog, "bottom_depth") else bottom_depth,
+                saved = self.cuttings_controller.save_selected_analysis(
+                    opened_interval,
+                    (dialog.top_depth, dialog.bottom_depth),
+                    sample_id=sample.sample_id if sample is not None else None,
                     **dialog.values(),
                     content_language=self.language.value,
                 )
-            except (RuntimeError, ValueError) as exc:
+            except (KeyError, RuntimeError, ValueError) as exc:
                 QMessageBox.warning(self, self._t("cuttings.create_title"), str(exc))
                 continue
             self._refresh_cuttings_after_edit()

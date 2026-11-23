@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass, fields
+from typing import Any
 
 import numpy as np
 
@@ -653,6 +654,25 @@ class CuttingsController:
         if not isinstance(value, bool):
             raise ValueError("Настройка переноса слов должна быть логическим значением")
         return value
+
+    def save_selected_analysis(
+        self,
+        opened_interval: tuple[float, float],
+        confirmed_interval: tuple[float, float],
+        *,
+        sample_id: str | None,
+        **values: Any,
+    ) -> CuttingsSample:
+        """Save the confirmed interval, moving a prefilled sample by its identity."""
+        top, bottom = confirmed_interval
+        interval_edited = confirmed_interval != opened_interval
+        if interval_edited and sample_id is not None:
+            return self.update_analysis(
+                sample_id, top_depth=top, bottom_depth=bottom, **values
+            )
+        return self.set_analysis(
+            top, bottom, absolute_tolerance=0.0 if interval_edited else None, **values
+        )
 
     def set_analysis(
         self,

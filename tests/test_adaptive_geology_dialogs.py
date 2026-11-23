@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
 
 import numpy as np
@@ -115,6 +116,116 @@ def test_geology_fill_prefers_exact_sample_over_earlier_close_interval(
         assert (exact.description, exact.calcite_percent) == ("Updated description", 30.0)
     else:
         assert (exact.description, exact.calcite_percent) == ("Exact sample", 40.0)
+
+
+def _fill_tablet_analysis(
+    monkeypatch: pytest.MonkeyPatch,
+    controller: CuttingsController,
+    selected: tuple[float, float],
+    edits: tuple[tuple[float, float] | None, ...],
+    initial_calcite: float,
+) -> list[tuple[str, tuple[CuttingsSample, ...], bool]]:
+    submissions = iter(edits)
+    warnings: list[tuple[str, tuple[CuttingsSample, ...], bool]] = []
+
+    def fill(dialog: SampleAnalysisDialog) -> QDialog.DialogCode:
+        try:
+            edited = next(submissions)
+        except StopIteration:
+            return QDialog.DialogCode.Rejected
+        expected_calcite = 42.0 if warnings else initial_calcite
+        assert dialog.calcite_input.value() == expected_calcite
+        if edited is not None:
+            dialog.top_input.setValue(edited[0])
+            dialog.bottom_input.setValue(edited[1])
+        dialog.calcite_input.setValue(42.0)
+        buttons = dialog.findChild(QDialogButtonBox)
+        assert buttons is not None
+        ok = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        assert ok is not None
+        ok.click()
+        assert dialog.result() == QDialog.DialogCode.Accepted
+        return QDialog.DialogCode.Accepted
+
+    def warn(_parent: object, _title: str, message: str) -> None:
+        warnings.append((message, deepcopy(controller.available()), controller.session.dirty))
+
+    monkeypatch.setattr(SampleAnalysisDialog, "exec", fill)
+    monkeypatch.setattr(QMessageBox, "warning", warn)
+    window = QMainWindow()
+    try:
+        window.session = controller.session
+        window.cuttings_controller = controller
+        window.language = AppLanguage.EN
+        window._t = lambda key, **_values: key
+        window._refresh_cuttings_after_edit = lambda: None
+        MainWindow._create_analysis_interval_from_tablet(window, *selected)
+    finally:
+        window.close()
+    assert not list(submissions)
+    return warnings
+
+
+@pytest.mark.parametrize("occupied", [False, True], ids=["free-move", "occupied-then-retry"])
+def test_tablet_filling_analysis_moves_the_prefilled_sample(
+    qapp, monkeypatch: pytest.MonkeyPatch, occupied: bool
+) -> None:
+    session = _session()
+    controller = CuttingsController(session)
+    selected = (150.0004, 151.1234)
+    destination = (152.0, 153.0)
+    sample = controller.create_full_sample(
+        *selected, {"sandstone": 100.0}, calcite_percent=30.0, description="Existing description"
+    )
+    neighbor = controller.set_analysis(*destination, calcite_percent=12.5) if occupied else None
+    before = deepcopy(controller.available())
+    session.dirty = False
+    corrected = (154.0, 155.0)
+    edits = (destination, corrected) if occupied else (destination,)
+
+    warnings = _fill_tablet_analysis(monkeypatch, controller, selected, edits, 30.0)
+
+    if occupied:
+        ((message, samples, dirty),) = warnings
+        assert "уже существует другая проба" in message
+        assert samples == before
+        assert not dirty
+        assert neighbor == before[1]
+        assert controller.available() == (neighbor, sample)
+    else:
+        assert warnings == []
+        assert controller.available() == (sample,)
+    assert controller.get(sample.sample_id) is sample
+    assert (sample.top_depth, sample.bottom_depth) == edits[-1]
+    assert sample.components == before[0].components
+    assert sample.description == "Existing description"
+    assert sample.calcite_percent == 42.0
+    assert session.dirty
+
+
+@pytest.mark.parametrize("edit", [False, True], ids=["untouched-rounded", "edited-exact"])
+def test_tablet_filling_new_analysis_uses_tolerance_only_for_untouched_bounds(
+    qapp, monkeypatch: pytest.MonkeyPatch, edit: bool
+) -> None:
+    controller = CuttingsController(_session())
+    selected = (150.0, 151.0) if edit else (150.0004, 151.1234)
+    neighbor_interval = (150.5, 151.0) if edit else (150.0008, 151.1238)
+    neighbor = controller.set_analysis(*neighbor_interval, calcite_percent=12.5)
+    neighbor_before = deepcopy(neighbor)
+    edited = (150.499, 151.0) if edit else None
+
+    assert _fill_tablet_analysis(monkeypatch, controller, selected, (edited,), -1.0) == []
+
+    if edit:
+        saved, unchanged = controller.available()
+        assert unchanged is neighbor
+        assert unchanged == neighbor_before
+        assert (saved.top_depth, saved.bottom_depth) == edited
+    else:
+        (saved,) = controller.available()
+        assert saved is neighbor
+        assert (saved.top_depth, saved.bottom_depth) == (150.0, 151.123)
+    assert saved.calcite_percent == 42.0
 
 
 def _assert_footer_visible(dialog, qapp) -> None:

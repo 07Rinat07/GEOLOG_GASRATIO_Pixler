@@ -1,3 +1,10 @@
+## WELL-04 — depth edits in tablet Sample analysis (23.11.2026, under review)
+
+Editing the depths of a sample loaded from a tablet selection moves that sample by its ID.
+After a rejected move, the operator can correct the boundaries and retry in the same dialog.
+For a new analysis, editing the boundaries uses exact interval matching. Confirming the initial
+displayed boundaries allows matching within tolerance.
+
 ## WELL-04 — depth edits in Masterlog Calcimetry / LBA (23.11.2026, under review)
 
 Calcimetry / LBA saves the confirmed boundaries and keeps the exact depths of unchanged boundaries.
