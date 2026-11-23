@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from geoworkbench.domain.cuttings_description_tracking import CuttingsDescriptionTrackingWorkflow
-from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
+from geoworkbench.domain.models import CuttingsSample, Dataset, DatasetKind, DepthDomain
 from geoworkbench.project.cuttings_controller import CuttingsController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.storage.package_project_repository import PackageProjectRepository
@@ -351,6 +351,86 @@ def test_update_analysis_can_move_overlay_without_replacing_imported_cuttings() 
     assert updated.calcite_percent == 55.0
     assert imported.components[0].lithotype_id == "sandstone"
     assert (imported.top_depth, imported.bottom_depth) == (500.0, 510.0)
+
+
+def _adjacent_samples_with_analysis() -> tuple[CuttingsController, CuttingsSample, CuttingsSample]:
+    controller = _controller()
+    first = controller.create_full_sample(
+        500.0, 500.004, {"sandstone": 100.0}, calcite_percent=10.0
+    )
+    second = controller.create_full_sample(
+        500.004, 500.008, {"clay": 100.0}, calcite_percent=20.0
+    )
+    controller.session.dirty = False
+    return controller, first, second
+
+
+def test_update_analysis_rejects_small_move_overlapping_neighbor() -> None:
+    controller, first, _second = _adjacent_samples_with_analysis()
+    before = deepcopy(controller.available())
+
+    with pytest.raises(ValueError, match="пересекается"):
+        controller.update_analysis(
+            first.sample_id, top_depth=500.0, bottom_depth=500.0042, calcite_percent=37.0
+        )
+
+    assert controller.available() == before
+    assert not controller.session.dirty
+
+
+@pytest.mark.parametrize("top_depth", [500.004, 500.0042], ids=["touching", "gap"])
+def test_update_analysis_accepts_small_move_to_distinct_interval(top_depth: float) -> None:
+    controller, first, second = _adjacent_samples_with_analysis()
+    first_before = deepcopy(first)
+
+    updated = controller.update_analysis(
+        second.sample_id, top_depth=top_depth, bottom_depth=500.0082, calcite_percent=37.0
+    )
+
+    assert updated is second
+    assert (updated.top_depth, updated.bottom_depth, updated.calcite_percent) == (
+        top_depth, 500.0082, 37.0
+    )
+    assert first == first_before
+    assert controller.available() == (first, second)
+    assert controller.session.dirty
+
+
+def test_update_analysis_rejects_move_to_exact_occupied_interval() -> None:
+    controller, first, _second = _adjacent_samples_with_analysis()
+    overlay = controller.set_analysis(500.2, 500.3, calcite_percent=30.0)
+    assert not overlay.components
+    before = deepcopy(controller.available())
+    controller.session.dirty = False
+
+    with pytest.raises(ValueError, match="существует другая проба"):
+        controller.update_analysis(
+            overlay.sample_id,
+            top_depth=first.top_depth,
+            bottom_depth=first.bottom_depth,
+            calcite_percent=37.0,
+        )
+
+    assert controller.available() == before
+    assert not controller.session.dirty
+
+
+def test_update_analysis_accepts_unchanged_bounds_with_existing_overlap() -> None:
+    controller, first, second = _adjacent_samples_with_analysis()
+    # A legacy project may contain a preexisting overlap.
+    first.bottom_depth = 500.0042
+    before = deepcopy(controller.available())
+
+    updated = controller.update_analysis(
+        first.sample_id,
+        top_depth=first.top_depth,
+        bottom_depth=first.bottom_depth,
+        calcite_percent=first.calcite_percent,
+    )
+
+    assert updated is first
+    assert controller.available() == before == (first, second)
+    assert not controller.session.dirty
 
 
 @pytest.mark.parametrize("operation", ["set_analysis", "set_description", "update_analysis"])

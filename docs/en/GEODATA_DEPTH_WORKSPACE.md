@@ -105,6 +105,11 @@ When filling in analysis or a description by interval on the tablet or in Master
 application first looks for a sample with an exact match for both the top and bottom depths.
 When an exact pair is unavailable, it uses the existing lookup tolerance.
 
+When changing boundaries in **Sample analysis**, you can move a sample with rock composition to
+an interval free of other samples with rock composition. Shared endpoints are allowed. An
+analysis-only interval can overlap a rock-composition sample. A move is rejected if another
+record already uses both new boundaries.
+
 The shared editor and **Sample analysis** show calcite and dolomite to one decimal place. Each
 measurement keeps its stored precision while its displayed number stays the same. When you edit
 one percentage, the total check uses the other measurement at its stored precision. The shared

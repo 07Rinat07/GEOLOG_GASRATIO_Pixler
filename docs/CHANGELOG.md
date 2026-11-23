@@ -1,3 +1,9 @@
+## WELL-04 — interval moves in Sample analysis (23.11.2026, under review)
+
+Moving a saved sample with rock composition now checks for overlap with other composition samples
+on every depth change. Shared endpoints and overlaps with an analysis-only interval are allowed
+when the new pair of depths is distinct. An exact pair already used by another record blocks the move.
+
 ## WELL-04 — exact cuttings interval matching (23.11.2026, under review)
 
 The controller, tablet editors and Masterlog prefer a cuttings sample whose top and bottom depths

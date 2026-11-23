@@ -745,16 +745,13 @@ class CuttingsController:
 
         sample = self._require_sample(sample_id)
         top, bottom = self._validate_interval(top_depth, bottom_depth)
-        exact = self.find_sample_for_interval(top, bottom)
-        if exact is not None and exact.sample_id != sample_id:
-            raise ValueError(
-                f"На интервале {top:g}–{bottom:g} м уже существует другая проба"
-            )
-        if sample.components and (
-            not np.isclose(sample.top_depth, top)
-            or not np.isclose(sample.bottom_depth, bottom)
-        ):
-            self._ensure_no_composition_overlap(top, bottom, excluded_id=sample_id)
+        if (top, bottom) != (sample.top_depth, sample.bottom_depth):
+            if self.find_sample_for_interval(top, bottom, absolute_tolerance=0.0) is not None:
+                raise ValueError(
+                    f"На интервале {top:g}–{bottom:g} м уже существует другая проба"
+                )
+            if sample.components:
+                self._ensure_no_composition_overlap(top, bottom, excluded_id=sample_id)
 
         return self._save_analysis(
             sample,
