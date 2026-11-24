@@ -50,6 +50,11 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         # the geodata tablet after earlier Qt report cases. Retain every test
         # in a fresh process; a native crash is still a failing child status.
         "tests/test_geodata_depth_workspace.py",
+        # Runs 45448225906 and 45457655166 crashed in ViewBoxMenu during
+        # MainWindow construction in shared Windows Qt shards. Run each
+        # test function in its own process with all parameter variants.
+        "tests/test_gis_archie_tablet_handoff.py",
+        "tests/test_gis_profile_tablet_navigation.py",
         # PR #708 / run 39908137560 aborted with 0xC0000005 inside
         # pyqtgraph PlotItem.__init__ in test_grid_renderer after prior
         # unrelated Qt tests shared the Windows offscreen shard. Keep all

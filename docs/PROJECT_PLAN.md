@@ -1,3 +1,13 @@
+## Windows Qt #544 — изоляция тестов передачи ГИС на планшет, 25 ноября 2026
+
+- В первых попытках Release Gate PR #938 и `main` зарегистрирован `0xC0000005` в
+  `ViewBoxMenu` при создании `MainWindow`. На PR остановился сценарий Archie с изменением
+  источника (`source`), на `main` — сценарий перестроения планшета (`rebuild`). Вариант `well`
+  в том же прогоне `main` прошёл. [Журнал PR](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/45448225906/attempts/1), [журнал main](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/45457655166/attempts/1).
+- На Windows запускать 19 тестовых функций из двух модулей в отдельных процессах со всеми
+  параметрами. Все 50 сценариев остаются обязательными, ошибка дочернего процесса завершает
+  проверку. Первопричину продолжаем исследовать в [Qt #544](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/issues/544).
+
 ## Windows Qt #544 — архив диагностической ветки и повторный прогон, 24 ноября 2026
 
 - Сохранить историю `codex/qt-curveview-native-diagnostic` под архивным тегом
