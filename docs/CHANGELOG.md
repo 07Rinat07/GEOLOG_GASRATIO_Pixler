@@ -1,3 +1,9 @@
+## WELL-04 — zero calcimetry after description deletion (24.11.2026, under review)
+
+Deleting a rock description keeps a recorded result of 0% calcite or dolomite, even in a sample
+without rock composition. If the interval contains only a description, deleting its last language
+version removes the interval.
+
 ## WELL-04 — preserving separate legacy and Russian sample texts (24.11.2026, under review)
 
 The shared cuttings editor preserves separately stored legacy and Russian text for the rock

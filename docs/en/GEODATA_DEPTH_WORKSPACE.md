@@ -206,7 +206,9 @@ In Select mode (`Alt+1`), hold `Shift` and left-drag in an Interpretation or Roc
 track. A dedicated editor opens without requiring rock percentages. Correct the exact top and
 bottom, select a RU/KZ/EN language and ready template, or enter arbitrary text. Double-click a
 saved description to reopen it. Deleting the description preserves composition, LBA, and
-calcimetry.
+calcimetry, including a recorded result of 0% calcite or dolomite in a sample without rock
+composition. If the interval contains only a description, deleting its last language version
+removes the interval.
 
 Each unedited boundary retains the precision of the selection. If you change either boundary,
 the editor reuses a saved sample only when both depths match exactly. If you confirm both selected
