@@ -67,6 +67,25 @@ SCENARIOS = (
         "test_panel_discards_stale_context[well]",
     ),
 )
+COMPOSITION_SAMPLE = (
+    "tests/test_adaptive_geology_dialogs.py::"
+    "test_tablet_filling_composition_loads_exact_sample_and_retains_its_analysis_and_description"
+)
+COMPOSITION_COLLISION = (
+    "tests/test_adaptive_geology_dialogs.py::"
+    "test_tablet_filling_new_composition_retries_exact_collision_with_entered_values"
+)
+DEFAULT_PROFILE = "default"
+REPLAY_PROFILES = {
+    DEFAULT_PROFILE: SCENARIOS,
+    "adaptive-geology": (
+        ("composition-legacy-description", f"{COMPOSITION_SAMPLE}[legacy-description-only]"),
+        ("composition-preserve-legacy", f"{COMPOSITION_SAMPLE}[preserve-distinct-legacy-texts]"),
+        ("composition-edit-russian-lba", f"{COMPOSITION_SAMPLE}[edit-russian-lba-only]"),
+        ("composition-edit-occupied-interval", f"{COMPOSITION_COLLISION}[edited-onto-sample]"),
+        ("composition-legacy-duplicates", f"{COMPOSITION_COLLISION}[legacy-duplicates]"),
+    ),
+}
 MODES = ("isolated", "sequence", "both")
 MAX_REPETITIONS = 4
 CHILD_TIMEOUT_SECONDS = 150
@@ -79,6 +98,8 @@ WINDOWS_NATIVE_CRASH_CODES = frozenset({0xC0000005, 0xC0000374})
 def replay_plan(
     repetitions: int,
     mode: str,
+    *,
+    profile: str = DEFAULT_PROFILE,
 ) -> tuple[tuple[int, str, tuple[str, ...]], ...]:
     """Run confirmed native-crash selectors alone and in one shared process."""
 
@@ -88,15 +109,18 @@ def replay_plan(
         raise ValueError(f"repetitions must be between 1 and {MAX_REPETITIONS}")
     if mode not in MODES:
         raise ValueError(f"mode must be one of {MODES}")
+    if not isinstance(profile, str) or profile not in REPLAY_PROFILES:
+        raise ValueError(f"profile must be one of {tuple(REPLAY_PROFILES)}")
 
+    scenarios = REPLAY_PROFILES[profile]
     plan: list[tuple[int, str, tuple[str, ...]]] = []
     for iteration in range(1, repetitions + 1):
         if mode in ("isolated", "both"):
-            for label, selector in SCENARIOS:
+            for label, selector in scenarios:
                 plan.append((iteration, label, (selector,)))
         if mode in ("sequence", "both"):
             plan.append(
-                (iteration, "combined", tuple(selector for _, selector in SCENARIOS))
+                (iteration, "combined", tuple(selector for _, selector in scenarios))
             )
     return tuple(plan)
 
@@ -141,12 +165,13 @@ def execute_replay(
     *,
     repetitions: int,
     mode: str,
+    profile: str = DEFAULT_PROFILE,
     runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
     python_executable: str = sys.executable,
 ) -> bool:
     """Collect every result and report failure if any test or child process fails."""
 
-    plan = replay_plan(repetitions, mode)
+    plan = replay_plan(repetitions, mode, profile=profile)
     output_dir.mkdir(parents=True, exist_ok=True)
     report_path = output_dir / "results.json"
     results: list[dict[str, Any]] = []
@@ -154,6 +179,7 @@ def execute_replay(
     def save_progress() -> None:
         report = {
             "schema_version": 1,
+            "profile": profile,
             "mode": mode,
             "repetitions": repetitions,
             "all_passed": len(results) == len(plan) and all(
@@ -243,10 +269,11 @@ def main() -> int:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--repetitions", type=int, default=2)
     parser.add_argument("--mode", choices=MODES, default="both")
+    parser.add_argument("--profile", choices=tuple(REPLAY_PROFILES), default=DEFAULT_PROFILE)
     args = parser.parse_args()
     try:
         success = execute_replay(
-            args.output_dir, repetitions=args.repetitions, mode=args.mode
+            args.output_dir, repetitions=args.repetitions, mode=args.mode, profile=args.profile
         )
     except ValueError as exc:
         parser.error(str(exc))
