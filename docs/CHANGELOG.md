@@ -1,3 +1,10 @@
+## WELL-04 — assigning a source language to legacy conclusions (24.11.2026, under review)
+
+In Sample analysis on the tablet and in Masterlog, choosing Russian as the source language
+for an unchanged legacy conclusion starts translation tracking with the original stored text.
+Other language entries, including `und`, are preserved. Confirming without changes leaves the
+legacy conclusion as stored. Source assignment still requires text in the chosen language.
+
 ## WELL-04 — loading existing analysis in Masterlog (23.11.2026, under review)
 
 Masterlog Calcimetry / LBA matches exact depths first, then checks the `0.000001 m` lookup

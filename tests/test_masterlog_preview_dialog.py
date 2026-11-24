@@ -527,3 +527,85 @@ def test_masterlog_approximate_analysis_loads_and_preserves_existing_data(
         assert restored.cuttings == [expected]
         assert restored.translation_statuses == well.translation_statuses
         assert restored.authored_field_source_languages[field_id] == "kk"
+
+
+@pytest.mark.parametrize(
+    ("source_language", "clear_russian"),
+    [
+        pytest.param(None, False, id="unchanged-unset"),
+        pytest.param("ru", False, id="assign-legacy-russian"),
+        pytest.param("kk", False, id="missing-kazakh"),
+        pytest.param("ru", True, id="cleared-russian"),
+    ],
+)
+def test_masterlog_analysis_assigns_only_explicit_legacy_conclusion_source(
+    qapp,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    source_language: str | None,
+    clear_russian: bool,
+) -> None:
+    session = _masterlog_geology_session()
+    controller = CuttingsController(session)
+    stored = (150.0005, 151.1235)
+    localized = {"und": "Undetermined text", "en": "English version"}
+    sample = controller.set_analysis(
+        *stored, calcite_percent=30.0, analysis_interpretation_i18n=localized,
+    )
+    legacy = "Legacy conclusion\r\nwith\u00a0spacing"
+    sample.analysis_interpretation = legacy
+    well = session.current_well
+    assert well is not None
+    before = deepcopy(sample)
+    language_revisions = dict(well.language_revisions)
+    content_revision = well.content_revision
+    field_id = f"cuttings/{sample.sample_id}/analysis_interpretation"
+    session.dirty = False
+
+    def inspect_dialog(dialog: SampleAnalysisDialog) -> None:
+        assert dialog.interpretation_source_language_input.selected_language_code() is None
+        russian = dialog.interpretation_inputs["ru"]
+        assert russian.toPlainText() == "Legacy conclusion\nwith spacing"
+        assert dialog.interpretation_inputs["en"].toPlainText() == localized["en"]
+        if clear_russian:
+            russian.clear()
+        if source_language is not None:
+            dialog.interpretation_source_language_input.set_language_code(source_language)
+
+    warnings = _fill_masterlog_analysis(
+        monkeypatch, session, stored, (None, None), 30.0,
+        calcite=None, inspect_dialog=inspect_dialog,
+    )
+
+    assert controller.get(sample.sample_id) is sample
+    if source_language != "ru" or clear_russian:
+        assert warnings == (
+            ["Выбранный язык оригинала не содержит авторского текста"]
+            if source_language is not None
+            else []
+        )
+        assert controller.available() == (before,)
+        assert not session.dirty
+        assert well.language_revisions == language_revisions
+        assert well.content_revision == content_revision
+        assert field_id not in well.authored_field_source_languages
+        assert field_id not in well.authored_field_revisions
+        assert field_id not in well.translation_statuses
+        return
+
+    assert warnings == []
+    before.analysis_interpretation_i18n["ru"] = legacy
+    assert controller.available() == (before,)
+    assert session.dirty
+    assert well.authored_field_source_languages[field_id] == "ru"
+    assert well.translation_statuses[field_id]["ru"].state is TranslationState.REVIEWED
+    assert well.translation_statuses[field_id]["en"].state is TranslationState.DRAFT
+    assert well.translation_statuses[field_id]["kk"].state is TranslationState.MISSING
+
+    repository = PackageProjectRepository()
+    path = tmp_path / "legacy-conclusion.geologpkg"
+    repository.save(ProjectDocument(project=session.project), path)
+    restored = repository.load(path).project.wells[well.well_id]
+    assert restored.cuttings == [before]
+    assert restored.authored_field_source_languages == well.authored_field_source_languages
+    assert restored.translation_statuses == well.translation_statuses

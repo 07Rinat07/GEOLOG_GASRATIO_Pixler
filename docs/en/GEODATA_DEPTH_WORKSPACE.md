@@ -156,6 +156,12 @@ Changing measurements or another language preserves legacy LBA description and c
 while their Russian versions stay the same. Editing a Russian version updates the corresponding
 legacy field.
 
+In **Sample analysis** on the tablet or in Masterlog, the Russian tab may show conclusion text
+from a legacy record. To record it as the original, explicitly select Russian in **Conclusion
+source language**. If you leave the text unchanged, translation tracking starts with the original
+stored text. Other language entries, including `und`, are preserved. Confirming without changes
+leaves the legacy conclusion as stored. Source assignment requires text in the chosen version.
+
 In Masterlog, **Cuttings description** opens the version for the interface language. If that
 version is missing, the dialog shows available text for reference. Explicit edits are saved in
 the interface-language version. Confirming without changes preserves the original formatting,

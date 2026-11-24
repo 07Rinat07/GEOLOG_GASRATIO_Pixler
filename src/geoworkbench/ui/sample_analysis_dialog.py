@@ -353,6 +353,11 @@ class SampleAnalysisDialog(QDialog):
             interpretation_editor.blockSignals(False)
 
     def values(self) -> dict[str, Any]:
+        interpretations = self._localized_values(
+            self._initial_interpretation_i18n,
+            self.interpretation_inputs,
+            self._interpretation_dirty_languages,
+        )
         interpretation_source_language = (
             self.interpretation_source_language_input.submitted_language()
         )
@@ -364,6 +369,14 @@ class SampleAnalysisDialog(QDialog):
             ].toPlainText().strip()
         ):
             interpretation_source_language = None
+        if (
+            interpretation_source_language == "ru"
+            and self._sample is not None
+            and self._sample.analysis_interpretation
+            and "ru" not in self._interpretation_dirty_languages
+        ):
+            # Qt normalizes the displayed text, so use the saved legacy text.
+            interpretations.setdefault("ru", self._sample.analysis_interpretation)
         return {
             "calcite_percent": self.calcite_input.percentage(),
             "dolomite_percent": self.dolomite_input.percentage(),
@@ -387,11 +400,7 @@ class SampleAnalysisDialog(QDialog):
                 self._lba_description_dirty_languages,
             ),
             "analysis_interpretation": self.interpretation_input.toPlainText(),
-            "analysis_interpretation_i18n": self._localized_values(
-                self._initial_interpretation_i18n,
-                self.interpretation_inputs,
-                self._interpretation_dirty_languages,
-            ),
+            "analysis_interpretation_i18n": interpretations,
             "analysis_interpretation_source_language": interpretation_source_language,
         }
 
