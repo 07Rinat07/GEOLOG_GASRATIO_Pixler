@@ -30,6 +30,10 @@ _NATIVE_HEAVY_TEST_THRESHOLD = 24
 _NATIVE_TEST_BATCH_SIZE = 4
 _FORCED_NATIVE_BATCH_FILES = frozenset(
     {
+        # Windows offscreen runs can fail when successive geology dialog tests
+        # share one QApplication. Run each test function and its parameters in
+        # a fresh process.
+        "tests/test_adaptive_geology_dialogs.py",
         "tests/test_button_animation.py",
         "tests/test_calcimetry_description_presentation.py",
         "tests/test_canvas_object_transfer_dialog.py",
