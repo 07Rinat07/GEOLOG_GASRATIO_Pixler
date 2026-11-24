@@ -1,3 +1,11 @@
+## WELL-04 — clearing legacy analysis text (24.11.2026, under review)
+
+In Sample analysis on the tablet and in Masterlog, clearing a legacy LBA description or
+conclusion on the Russian tab removes that text on save. Other language entries, including
+`und`, and unrelated data are preserved. Confirming without edits keeps the original text.
+The dialog saves by the loaded sample ID and removes the record if no sample data remains.
+An empty selected source is rejected before any changes are saved.
+
 ## WELL-04 — assigning a source language to legacy conclusions (24.11.2026, under review)
 
 In Sample analysis on the tablet and in Masterlog, choosing Russian as the source language

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass, fields
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 
@@ -34,6 +34,9 @@ from geoworkbench.project.cuttings_analysis_tracking_coordinator import (
     CuttingsAnalysisTrackingCoordinator,
 )
 from geoworkbench.project.session import ProjectSession
+
+
+_LegacyAnalysisText = Literal["lba_description", "analysis_interpretation"]
 
 
 @dataclass(slots=True)
@@ -676,13 +679,13 @@ class CuttingsController:
         sample_id: str | None,
         **values: Any,
     ) -> CuttingsSample:
-        """Save the confirmed interval, moving a prefilled sample by its identity."""
+        """Save the confirmed interval, updating a prefilled sample by its identity."""
         top, bottom = confirmed_interval
-        interval_edited = confirmed_interval != opened_interval
-        if interval_edited and sample_id is not None:
+        if sample_id is not None:
             return self.update_analysis(
                 sample_id, top_depth=top, bottom_depth=bottom, **values
             )
+        interval_edited = confirmed_interval != opened_interval
         return self.set_analysis(
             top, bottom, absolute_tolerance=0.0 if interval_edited else None, **values
         )
@@ -715,6 +718,7 @@ class CuttingsController:
         lba_description_source_language: object | None = None,
         analysis_interpretation_source_language: object | None = None,
         absolute_tolerance: float | None = None,
+        clear_legacy_texts: tuple[_LegacyAnalysisText, ...] = (),
     ) -> CuttingsSample:
         """Create or replace analysis for one exact geological interval."""
 
@@ -751,6 +755,7 @@ class CuttingsController:
             analysis_interpretation_source_language=(
                 analysis_interpretation_source_language
             ),
+            clear_legacy_texts=clear_legacy_texts,
         )
 
     def update_analysis(
@@ -781,6 +786,7 @@ class CuttingsController:
         analysis_interpretation_i18n: object | None = None,
         lba_description_source_language: object | None = None,
         analysis_interpretation_source_language: object | None = None,
+        clear_legacy_texts: tuple[_LegacyAnalysisText, ...] = (),
     ) -> CuttingsSample:
         """Edit saved calcimetry/LBA while preserving the sample identity and geology."""
 
@@ -819,6 +825,7 @@ class CuttingsController:
             analysis_interpretation_source_language=(
                 analysis_interpretation_source_language
             ),
+            clear_legacy_texts=clear_legacy_texts,
         )
 
     def _save_analysis(
@@ -850,6 +857,7 @@ class CuttingsController:
         analysis_interpretation_i18n: object | None,
         lba_description_source_language: object | None,
         analysis_interpretation_source_language: object | None,
+        clear_legacy_texts: tuple[_LegacyAnalysisText, ...],
     ) -> CuttingsSample:
         previous = deepcopy(existing_sample) if existing_sample is not None else None
         staged = (
@@ -894,6 +902,23 @@ class CuttingsController:
         localized_interpretation = self._validate_localized_texts(
             analysis_interpretation_i18n, maximum=20_000
         )
+        clear_legacy_lba = (
+            previous is not None
+            and previous.lba_description is not None
+            and "lba_description" in clear_legacy_texts
+            and "ru" not in previous.lba_description_i18n
+            and localized_lba is not None
+            and "ru" not in localized_lba
+        )
+        clear_legacy_interpretation = (
+            previous is not None
+            and previous.analysis_interpretation is not None
+            and "analysis_interpretation" in clear_legacy_texts
+            and "ru" not in previous.analysis_interpretation_i18n
+            and localized_interpretation is not None
+            and "ru" not in localized_interpretation
+        )
+        legacy_text_cleared = clear_legacy_lba or clear_legacy_interpretation
         if (
             require_nonempty
             and calcite is None
@@ -904,6 +929,7 @@ class CuttingsController:
             and not any(strings.values())
             and not localized_lba
             and not localized_interpretation
+            and not legacy_text_cleared
         ):
             raise ValueError("Укажите хотя бы один результат кальциметрии или ЛБА")
 
@@ -977,13 +1003,16 @@ class CuttingsController:
         # Legacy text can differ from the Russian version in an existing project.
         if localized_lba is not None:
             russian_lba = localized_lba.get("ru")
-            if russian_lba != staged.lba_description_i18n.get("ru"):
+            if clear_legacy_lba or russian_lba != staged.lba_description_i18n.get("ru"):
                 staged.lba_description = russian_lba
             staged.lba_description_i18n.clear()
             staged.lba_description_i18n.update(localized_lba)
         if localized_interpretation is not None:
             russian_interpretation = localized_interpretation.get("ru")
-            if russian_interpretation != staged.analysis_interpretation_i18n.get("ru"):
+            if (
+                clear_legacy_interpretation
+                or russian_interpretation != staged.analysis_interpretation_i18n.get("ru")
+            ):
                 staged.analysis_interpretation = russian_interpretation
             staged.analysis_interpretation_i18n.clear()
             staged.analysis_interpretation_i18n.update(localized_interpretation)
@@ -1025,7 +1054,9 @@ class CuttingsController:
                 current_sample=current,
             )
         else:
-            self._bump_analysis_language_changes(previous, current)
+            self._bump_analysis_language_changes(
+                previous, current, legacy_text_cleared=legacy_text_cleared
+            )
 
         if not self._has_analysis_data(current):
             CuttingsAnalysisTrackingCoordinator(self.session).clear(
@@ -1042,6 +1073,8 @@ class CuttingsController:
         self,
         previous_sample: CuttingsSample | None,
         current_sample: CuttingsSample,
+        *,
+        legacy_text_cleared: bool,
     ) -> None:
         previous_maps = (
             ({}, {})
@@ -1055,14 +1088,20 @@ class CuttingsController:
             current_sample.lba_description_i18n,
             current_sample.analysis_interpretation_i18n,
         )
-        for language in SUPPORTED_CONTENT_LANGUAGES:
+        changed_languages = [
+            language
+            for language in SUPPORTED_CONTENT_LANGUAGES
             if any(
                 previous.get(language) != current.get(language)
                 for previous, current in zip(
                     previous_maps, current_maps, strict=True
                 )
-            ):
-                self._bump_content(language)
+            )
+        ]
+        for language in changed_languages:
+            self._bump_content(language)
+        if legacy_text_cleared and not changed_languages:
+            self._require_well().content_revision += 1
 
     @staticmethod
     def _validate_localized_texts(value: object | None, *, maximum: int) -> dict[str, str] | None:

@@ -353,6 +353,11 @@ class SampleAnalysisDialog(QDialog):
             interpretation_editor.blockSignals(False)
 
     def values(self) -> dict[str, Any]:
+        lba_descriptions = self._localized_values(
+            self._initial_lba_description_i18n,
+            self.lba_description_inputs,
+            self._lba_description_dirty_languages,
+        )
         interpretations = self._localized_values(
             self._initial_interpretation_i18n,
             self.interpretation_inputs,
@@ -377,7 +382,7 @@ class SampleAnalysisDialog(QDialog):
         ):
             # Qt normalizes the displayed text, so use the saved legacy text.
             interpretations.setdefault("ru", self._sample.analysis_interpretation)
-        return {
+        values = {
             "calcite_percent": self.calcite_input.percentage(),
             "dolomite_percent": self.dolomite_input.percentage(),
             "lba_group": self.lba_group_input.currentData(),
@@ -394,15 +399,41 @@ class SampleAnalysisDialog(QDialog):
             "lba_stain": self.lba_stain_input.currentText(),
             "show_observations": self.oil_show_editor.observations(),
             "lba_description": self.lba_description_input.text(),
-            "lba_description_i18n": self._localized_values(
-                self._initial_lba_description_i18n,
-                self.lba_description_inputs,
-                self._lba_description_dirty_languages,
-            ),
+            "lba_description_i18n": lba_descriptions,
             "analysis_interpretation": self.interpretation_input.toPlainText(),
             "analysis_interpretation_i18n": interpretations,
             "analysis_interpretation_source_language": interpretation_source_language,
         }
+        if self._sample is not None:
+            # Both an untouched fallback and a cleared one are absent from the language map.
+            cleared_legacy_texts = tuple(
+                field
+                for field, legacy_text, dirty_languages, initial, current in (
+                    (
+                        "lba_description",
+                        self._sample.lba_description,
+                        self._lba_description_dirty_languages,
+                        self._initial_lba_description_i18n,
+                        lba_descriptions,
+                    ),
+                    (
+                        "analysis_interpretation",
+                        self._sample.analysis_interpretation,
+                        self._interpretation_dirty_languages,
+                        self._initial_interpretation_i18n,
+                        interpretations,
+                    ),
+                )
+                if (
+                    legacy_text
+                    and "ru" in dirty_languages
+                    and "ru" not in initial
+                    and "ru" not in current
+                )
+            )
+            if cleared_legacy_texts:
+                values["clear_legacy_texts"] = cleared_legacy_texts
+        return values
 
     @staticmethod
     def _localized_values(

@@ -609,3 +609,89 @@ def test_masterlog_analysis_assigns_only_explicit_legacy_conclusion_source(
     assert restored.cuttings == [before]
     assert restored.authored_field_source_languages == well.authored_field_source_languages
     assert restored.translation_statuses == well.translation_statuses
+
+
+@pytest.mark.parametrize("field", ["lba_description", "analysis_interpretation"])
+def test_masterlog_clears_only_selected_legacy_analysis_text(
+    qapp, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, field: str
+) -> None:
+    session = _masterlog_geology_session()
+    controller = CuttingsController(session)
+    stored = (150.0005, 151.1235)
+    sample = controller.set_analysis(
+        *stored,
+        calcite_percent=30.0,
+        dolomite_percent=11.321,
+        lba_description_i18n={"en": "English LBA", "und": "Undetermined LBA"},
+        analysis_interpretation_i18n={"en": "English conclusion", "und": "Undetermined conclusion"},
+        lba_description_source_language="en",
+        analysis_interpretation_source_language="en",
+    )
+    sample.lba_description = "Legacy LBA"
+    sample.analysis_interpretation = "Legacy conclusion"
+    well = session.current_well
+    assert well is not None
+    expected = deepcopy(sample)
+    setattr(expected, field, None)
+    statuses = deepcopy(well.translation_statuses)
+    field_revisions = dict(well.authored_field_revisions)
+    language_revisions = dict(well.language_revisions)
+    content_revision = well.content_revision
+    session.dirty = False
+
+    def clear(dialog: SampleAnalysisDialog) -> None:
+        assert dialog.lba_description_inputs["ru"].text() == "Legacy LBA"
+        assert dialog.interpretation_inputs["ru"].toPlainText() == "Legacy conclusion"
+        if field == "lba_description":
+            dialog.lba_description_inputs["ru"].clear()
+        else:
+            dialog.interpretation_inputs["ru"].clear()
+
+    assert _fill_masterlog_analysis(
+        monkeypatch, session, stored, (None, None), 30.0, calcite=None, inspect_dialog=clear
+    ) == []
+
+    assert controller.get(sample.sample_id) is sample
+    assert controller.available() == (expected,)
+    assert session.dirty
+    assert well.translation_statuses == statuses
+    assert well.authored_field_revisions == field_revisions
+    assert well.language_revisions == language_revisions
+    assert well.content_revision == content_revision + 1
+
+    repository = PackageProjectRepository()
+    path = tmp_path / "legacy-cleared-analysis.geologpkg"
+    repository.save(ProjectDocument(project=session.project), path)
+    restored = repository.load(path).project.wells[well.well_id]
+    assert restored.cuttings == [expected]
+    assert restored.translation_statuses == statuses
+
+
+@pytest.mark.parametrize("clear", [False, True], ids=["no-op", "remove-last-legacy-text"])
+def test_masterlog_edits_existing_standalone_legacy_only_analysis(
+    qapp, monkeypatch: pytest.MonkeyPatch, clear: bool
+) -> None:
+    session = _masterlog_geology_session()
+    controller = CuttingsController(session)
+    stored = (150.0005, 151.1235)
+    sample = controller.set_analysis(*stored, lba_description="Legacy LBA")
+    well = session.current_well
+    assert well is not None
+    content_revision = well.content_revision
+    language_revisions = dict(well.language_revisions)
+    session.dirty = False
+
+    def inspect(dialog: SampleAnalysisDialog) -> None:
+        assert dialog.lba_description_input.text() == ""
+        assert dialog.lba_description_inputs["ru"].text() == "Legacy LBA"
+        if clear:
+            dialog.lba_description_inputs["ru"].clear()
+
+    assert _fill_masterlog_analysis(
+        monkeypatch, session, stored, (None, None), -1.0, calcite=None, inspect_dialog=inspect
+    ) == []
+
+    assert controller.available() == (() if clear else (sample,))
+    assert session.dirty is clear
+    assert well.content_revision == content_revision + int(clear)
+    assert well.language_revisions == language_revisions

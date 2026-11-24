@@ -162,6 +162,12 @@ source language**. If you leave the text unchanged, translation tracking starts 
 stored text. Other language entries, including `und`, are preserved. Confirming without changes
 leaves the legacy conclusion as stored. Source assignment requires text in the chosen version.
 
+To remove a legacy LBA description or conclusion, clear its field on the Russian tab in
+**Sample analysis** and save. Other fields and language entries, including `und`, are preserved.
+Confirming without edits keeps the stored text. Changes go to the loaded sample. If no rock
+composition, description or analysis data remains, the empty record is removed. If the selected
+original is left empty, the dialog rejects the save.
+
 In Masterlog, **Cuttings description** opens the version for the interface language. If that
 version is missing, the dialog shows available text for reference. Explicit edits are saved in
 the interface-language version. Confirming without changes preserves the original formatting,
