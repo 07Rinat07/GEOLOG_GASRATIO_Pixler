@@ -1,3 +1,4 @@
+from errno import EEXIST
 from hashlib import sha256
 import json
 from zipfile import ZipFile
@@ -354,19 +355,24 @@ def test_restore_fails_closed_if_destination_claimed_after_preflight(
     inspected_archive, tmp_path, monkeypatch
 ):
     destination = tmp_path / "restored"
+    existing_file = destination / "someone-else.txt"
     service = ManualBackupService()
     original = service.plan_restore
 
     def race(*args, **kwargs):
         plan = original(*args, **kwargs)
         destination.mkdir()
-        (destination / "someone-else.txt").write_bytes(b"keep")
+        existing_file.write_bytes(b"keep")
         return plan
 
     monkeypatch.setattr(service, "plan_restore", race)
-    with pytest.raises(BackupError, match="File exists|exist"):
+    with pytest.raises(BackupError) as captured:
         service.restore(inspected_archive, destination)
-    assert (destination / "someone-else.txt").read_bytes() == b"keep"
+    cause = captured.value.__cause__
+    assert isinstance(cause, FileExistsError)
+    assert cause.errno == EEXIST
+    assert list(destination.iterdir()) == [existing_file]
+    assert existing_file.read_bytes() == b"keep"
 
 
 def test_restore_rolls_back_its_own_partial_output_on_write_failure(
