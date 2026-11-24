@@ -8,7 +8,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
-    QDoubleSpinBox,
     QFormLayout,
     QLineEdit,
     QPlainTextEdit,
@@ -27,6 +26,8 @@ from geoworkbench.services.lba_standard import (
 )
 from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES
 from geoworkbench.ui.authored_source_language_selector import AuthoredSourceLanguageSelector
+from geoworkbench.ui.calcimetry_percent_input import CalcimetryPercentInput
+from geoworkbench.ui.stored_precision_spin_box import cuttings_depth_input
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
@@ -124,22 +125,13 @@ class SampleAnalysisDialog(QDialog):
         self.language = language
         self._sample = sample
         text = _TEXT[language]
-        self.top_input = QDoubleSpinBox()
-        self.bottom_input = QDoubleSpinBox()
-        for control, value in ((self.top_input, top_depth), (self.bottom_input, bottom_depth)):
-            control.setRange(-100_000.0, 100_000.0)
-            control.setDecimals(3)
-            control.setSuffix(" m")
-            control.setValue(float(value))
+        self.top_input = cuttings_depth_input(top_depth, sample.top_depth if sample else None)
+        self.bottom_input = cuttings_depth_input(
+            bottom_depth, sample.bottom_depth if sample else None
+        )
         self.setWindowTitle(f"{text[0]} — {top_depth:g}–{bottom_depth:g} м")
-        self.calcite_input = QDoubleSpinBox()
-        self.dolomite_input = QDoubleSpinBox()
-        for control in (self.calcite_input, self.dolomite_input):
-            control.setRange(-1.0, 100.0)
-            control.setDecimals(1)
-            control.setSuffix(" %")
-            control.setSpecialValueText("—")
-            control.setValue(-1.0)
+        self.calcite_input = CalcimetryPercentInput(sample.calcite_percent if sample else None)
+        self.dolomite_input = CalcimetryPercentInput(sample.dolomite_percent if sample else None)
         calcimetry = QWidget()
         calcimetry_form = QFormLayout(calcimetry)
         calcimetry_form.addRow(text[3], self.calcite_input)
@@ -290,11 +282,11 @@ class SampleAnalysisDialog(QDialog):
 
     @property
     def top_depth(self) -> float:
-        return float(self.top_input.value())
+        return self.top_input.effective_value()
 
     @property
     def bottom_depth(self) -> float:
-        return float(self.bottom_input.value())
+        return self.bottom_input.effective_value()
 
     def _on_lba_group_changed(self) -> None:
         group = self.lba_group_input.currentData()
@@ -325,10 +317,6 @@ class SampleAnalysisDialog(QDialog):
             return None
 
     def _load_sample(self, sample: CuttingsSample) -> None:
-        if sample.calcite_percent is not None:
-            self.calcite_input.setValue(sample.calcite_percent)
-        if sample.dolomite_percent is not None:
-            self.dolomite_input.setValue(sample.dolomite_percent)
         if sample.lba_group is not None:
             self.lba_group_input.setCurrentIndex(self.lba_group_input.findData(sample.lba_group))
         self.lba_type_input.setCurrentText(sample.lba_type_id or "")
@@ -365,6 +353,16 @@ class SampleAnalysisDialog(QDialog):
             interpretation_editor.blockSignals(False)
 
     def values(self) -> dict[str, Any]:
+        lba_descriptions = self._localized_values(
+            self._initial_lba_description_i18n,
+            self.lba_description_inputs,
+            self._lba_description_dirty_languages,
+        )
+        interpretations = self._localized_values(
+            self._initial_interpretation_i18n,
+            self.interpretation_inputs,
+            self._interpretation_dirty_languages,
+        )
         interpretation_source_language = (
             self.interpretation_source_language_input.submitted_language()
         )
@@ -376,13 +374,17 @@ class SampleAnalysisDialog(QDialog):
             ].toPlainText().strip()
         ):
             interpretation_source_language = None
-        return {
-            "calcite_percent": self.calcite_input.value()
-            if self.calcite_input.value() >= 0
-            else None,
-            "dolomite_percent": self.dolomite_input.value()
-            if self.dolomite_input.value() >= 0
-            else None,
+        if (
+            interpretation_source_language == "ru"
+            and self._sample is not None
+            and self._sample.analysis_interpretation
+            and "ru" not in self._interpretation_dirty_languages
+        ):
+            # Qt normalizes the displayed text, so use the saved legacy text.
+            interpretations.setdefault("ru", self._sample.analysis_interpretation)
+        values = {
+            "calcite_percent": self.calcite_input.percentage(),
+            "dolomite_percent": self.dolomite_input.percentage(),
             "lba_group": self.lba_group_input.currentData(),
             "lba_type_id": self.lba_type_input.currentText(),
             "lba_intensity": self.lba_intensity_input.currentData(),
@@ -397,19 +399,41 @@ class SampleAnalysisDialog(QDialog):
             "lba_stain": self.lba_stain_input.currentText(),
             "show_observations": self.oil_show_editor.observations(),
             "lba_description": self.lba_description_input.text(),
-            "lba_description_i18n": self._localized_values(
-                self._initial_lba_description_i18n,
-                self.lba_description_inputs,
-                self._lba_description_dirty_languages,
-            ),
+            "lba_description_i18n": lba_descriptions,
             "analysis_interpretation": self.interpretation_input.toPlainText(),
-            "analysis_interpretation_i18n": self._localized_values(
-                self._initial_interpretation_i18n,
-                self.interpretation_inputs,
-                self._interpretation_dirty_languages,
-            ),
+            "analysis_interpretation_i18n": interpretations,
             "analysis_interpretation_source_language": interpretation_source_language,
         }
+        if self._sample is not None:
+            # Both an untouched fallback and a cleared one are absent from the language map.
+            cleared_legacy_texts = tuple(
+                field
+                for field, legacy_text, dirty_languages, initial, current in (
+                    (
+                        "lba_description",
+                        self._sample.lba_description,
+                        self._lba_description_dirty_languages,
+                        self._initial_lba_description_i18n,
+                        lba_descriptions,
+                    ),
+                    (
+                        "analysis_interpretation",
+                        self._sample.analysis_interpretation,
+                        self._interpretation_dirty_languages,
+                        self._initial_interpretation_i18n,
+                        interpretations,
+                    ),
+                )
+                if (
+                    legacy_text
+                    and "ru" in dirty_languages
+                    and "ru" not in initial
+                    and "ru" not in current
+                )
+            )
+            if cleared_legacy_texts:
+                values["clear_legacy_texts"] = cleared_legacy_texts
+        return values
 
     @staticmethod
     def _localized_values(

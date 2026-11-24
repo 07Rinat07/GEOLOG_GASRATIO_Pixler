@@ -1,10 +1,15 @@
+from copy import deepcopy
+from pathlib import Path
+
 import numpy as np
 import pytest
 
 from geoworkbench.domain.cuttings_description_tracking import CuttingsDescriptionTrackingWorkflow
-from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
+from geoworkbench.domain.models import CuttingsSample, Dataset, DatasetKind, DepthDomain
 from geoworkbench.project.cuttings_controller import CuttingsController
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.storage.package_project_repository import PackageProjectRepository
+from geoworkbench.storage.project_codec import ProjectDocument
 
 
 def _controller() -> CuttingsController:
@@ -149,6 +154,104 @@ def test_cuttings_composition_can_be_added_after_interval_analysis() -> None:
     ]
     assert updated.calcite_percent == 60.0
     assert updated.insoluble_residue_percent is None
+
+
+@pytest.mark.parametrize("overlay_kind", ["analysis", "description"])
+def test_create_full_sample_rejects_occupied_exact_interval(overlay_kind: str) -> None:
+    controller = _controller()
+    top, bottom = 500.0, 510.0
+    if overlay_kind == "analysis":
+        overlay = controller.set_analysis(
+            top,
+            bottom,
+            calcite_percent=62.5,
+            lba_description_source_language="en",
+            lba_description_i18n={"en": "Fluorescence"},
+        )
+    else:
+        overlay = controller.set_description(
+            top, bottom, "Interval description", language="en", source_language="en"
+        )
+    well = controller.session.current_well
+    assert well is not None
+    overlay_before = deepcopy(overlay)
+    sources_before = dict(well.authored_field_source_languages)
+    revisions_before = dict(well.authored_field_revisions)
+    statuses_before = deepcopy(well.translation_statuses)
+    content_revision_before = well.content_revision
+    controller.session.dirty = False
+
+    with pytest.raises(ValueError, match="существует другая проба"):
+        controller.create_full_sample(top, bottom, {"sandstone": 100}, calcite_percent=20)
+
+    assert controller.available() == (overlay_before,)
+    assert well.authored_field_source_languages == sources_before
+    assert well.authored_field_revisions == revisions_before
+    assert well.translation_statuses == statuses_before
+    assert well.content_revision == content_revision_before
+    assert not controller.session.dirty
+
+    distinct_top = top + 0.0002
+    created = controller.create_full_sample(distinct_top, bottom, {"sandstone": 100})
+
+    assert (created.top_depth, created.bottom_depth) == (distinct_top, bottom)
+    assert controller.available() == (overlay_before, created)
+    assert created.sample_id != overlay.sample_id
+    assert controller.session.dirty
+
+
+@pytest.mark.parametrize("overlay_kind", ["analysis", "description"])
+def test_adding_composition_to_overlapping_overlay_is_rejected(overlay_kind: str) -> None:
+    controller = _controller()
+    controller.add(500, 510, {"sandstone": 100})
+    if overlay_kind == "analysis":
+        controller.set_analysis(503, 507, calcite_percent=62.5)
+    else:
+        controller.set_description(503, 507, "Original description")
+    before = deepcopy(controller.available())
+    controller.session.dirty = False
+
+    with pytest.raises(ValueError, match="пересекается"):
+        controller.add(503, 507, {"clay": 100}, description="New description")
+
+    assert controller.available() == before
+    assert not controller.session.dirty
+
+
+def test_adding_composition_checks_stored_overlay_bounds_when_request_only_touches() -> None:
+    controller = _controller()
+    controller.add(500, 510, {"sandstone": 100})
+    controller.set_analysis(509.999, 520, calcite_percent=62.5)
+    before = deepcopy(controller.available())
+    controller.session.dirty = False
+
+    with pytest.raises(ValueError, match="пересекается"):
+        controller.add(510, 520.001, {"clay": 100})
+
+    assert controller.available() == before
+    assert not controller.session.dirty
+
+
+def test_adding_composition_preserves_touching_overlay_when_request_overlaps() -> None:
+    controller = _controller()
+    neighbor = controller.add(500, 510, {"sandstone": 100})
+    neighbor_before = deepcopy(neighbor)
+    overlay = controller.set_analysis(
+        510, 520, calcite_percent=62.5, lba_description="Original LBA"
+    )
+    controller.set_description(510, 520, "Original description")
+    controller.session.dirty = False
+
+    updated = controller.add(509.999, 520.001, {"clay": 100})
+
+    assert updated is overlay
+    assert controller.available() == (neighbor, overlay)
+    assert neighbor == neighbor_before
+    assert (updated.top_depth, updated.bottom_depth) == (510.0, 520.0)
+    assert (updated.calcite_percent, updated.lba_description) == (62.5, "Original LBA")
+    assert updated.description == "Original description"
+    assert [(item.lithotype_id, item.percentage) for item in updated.components] == [("clay", 100.0)]
+    assert controller.session.dirty
 
 
 def test_cuttings_description_can_be_entered_before_composition_and_is_preserved() -> None:
@@ -346,6 +449,192 @@ def test_update_analysis_can_move_overlay_without_replacing_imported_cuttings() 
     assert updated.calcite_percent == 55.0
     assert imported.components[0].lithotype_id == "sandstone"
     assert (imported.top_depth, imported.bottom_depth) == (500.0, 510.0)
+
+
+def _adjacent_samples_with_analysis() -> tuple[CuttingsController, CuttingsSample, CuttingsSample]:
+    controller = _controller()
+    first = controller.create_full_sample(
+        500.0, 500.004, {"sandstone": 100.0}, calcite_percent=10.0
+    )
+    second = controller.create_full_sample(
+        500.004, 500.008, {"clay": 100.0}, calcite_percent=20.0
+    )
+    controller.session.dirty = False
+    return controller, first, second
+
+
+def test_update_analysis_rejects_small_move_overlapping_neighbor() -> None:
+    controller, first, _second = _adjacent_samples_with_analysis()
+    before = deepcopy(controller.available())
+
+    with pytest.raises(ValueError, match="пересекается"):
+        controller.update_analysis(
+            first.sample_id, top_depth=500.0, bottom_depth=500.0042, calcite_percent=37.0
+        )
+
+    assert controller.available() == before
+    assert not controller.session.dirty
+
+
+@pytest.mark.parametrize("top_depth", [500.004, 500.0042], ids=["touching", "gap"])
+def test_update_analysis_accepts_small_move_to_distinct_interval(top_depth: float) -> None:
+    controller, first, second = _adjacent_samples_with_analysis()
+    first_before = deepcopy(first)
+
+    updated = controller.update_analysis(
+        second.sample_id, top_depth=top_depth, bottom_depth=500.0082, calcite_percent=37.0
+    )
+
+    assert updated is second
+    assert (updated.top_depth, updated.bottom_depth, updated.calcite_percent) == (
+        top_depth, 500.0082, 37.0
+    )
+    assert first == first_before
+    assert controller.available() == (first, second)
+    assert controller.session.dirty
+
+
+def test_update_analysis_rejects_move_to_exact_occupied_interval() -> None:
+    controller, first, _second = _adjacent_samples_with_analysis()
+    overlay = controller.set_analysis(500.2, 500.3, calcite_percent=30.0)
+    assert not overlay.components
+    before = deepcopy(controller.available())
+    controller.session.dirty = False
+
+    with pytest.raises(ValueError, match="существует другая проба"):
+        controller.update_analysis(
+            overlay.sample_id,
+            top_depth=first.top_depth,
+            bottom_depth=first.bottom_depth,
+            calcite_percent=37.0,
+        )
+
+    assert controller.available() == before
+    assert not controller.session.dirty
+
+
+@pytest.mark.parametrize(
+    ("editor", "values"),
+    [
+        ("update_composition", {"components": {"clay": 100.0}}),
+        ("update_description", {"description": "Edited description", "language": "en"}),
+        ("update_full_sample", {"components": {"clay": 100.0}, "calcite_percent": 35.0}),
+    ],
+    ids=["composition", "description", "full-sample"],
+)
+@pytest.mark.parametrize("destination", ["analysis-only", "description-only"])
+def test_edit_rejects_occupied_depths_and_allows_nearby_distinct_depths(
+    editor: str, values: dict[str, object], destination: str
+) -> None:
+    controller = _controller()
+    sample = controller.create_full_sample(
+        500.0,
+        510.0,
+        {"sandstone": 100.0},
+        calcite_percent=55.0,
+        description_i18n={"en": "Sample description", "ru": "Описание пробы"},
+        description_source_language="en",
+    )
+    top, bottom = 520.0, 530.0
+    if destination == "analysis-only":
+        neighbor = controller.set_analysis(top, bottom, calcite_percent=62.5)
+    else:
+        neighbor = controller.set_description(top, bottom, "Interval description")
+
+    well = controller.session.current_well
+    assert well is not None
+    before = deepcopy(well.cuttings)
+    revisions_before = dict(well.authored_field_revisions)
+    statuses_before = deepcopy(well.translation_statuses)
+    content_revision_before = well.content_revision
+    controller.session.dirty = False
+    save = getattr(controller, editor)
+
+    with pytest.raises(ValueError, match="существует другая проба"):
+        save(sample.sample_id, top_depth=top, bottom_depth=bottom, **values)
+
+    assert well.cuttings == before
+    assert well.authored_field_revisions == revisions_before
+    assert well.translation_statuses == statuses_before
+    assert well.content_revision == content_revision_before
+    assert not controller.session.dirty
+
+    saved = save(sample.sample_id, top_depth=top + 0.0002, bottom_depth=bottom, **values)
+
+    assert saved is sample
+    assert (saved.top_depth, saved.bottom_depth) == (top + 0.0002, bottom)
+    assert controller.get(neighbor.sample_id) is neighbor
+    assert neighbor == before[1]
+    assert len(well.cuttings) == 2
+    assert controller.session.dirty
+
+
+def test_update_analysis_accepts_unchanged_bounds_with_existing_overlap() -> None:
+    controller, first, second = _adjacent_samples_with_analysis()
+    # A legacy project may contain a preexisting overlap.
+    first.bottom_depth = 500.0042
+    before = deepcopy(controller.available())
+
+    updated = controller.update_analysis(
+        first.sample_id,
+        top_depth=first.top_depth,
+        bottom_depth=first.bottom_depth,
+        calcite_percent=first.calcite_percent,
+    )
+
+    assert updated is first
+    assert controller.available() == before == (first, second)
+    assert not controller.session.dirty
+
+
+@pytest.mark.parametrize("operation", ["set_analysis", "set_description", "update_analysis"])
+def test_cuttings_save_prefers_exact_interval_over_a_nearby_sample(
+    tmp_path: Path, operation: str
+) -> None:
+    controller = _controller()
+    earlier = controller.create_full_sample(
+        500.0, 500.004, {"sandstone": 100.0}, description="Earlier", calcite_percent=10.0
+    )
+    target = controller.create_full_sample(
+        500.004, 500.008, {"clay": 100.0}, description="Target", calcite_percent=20.0
+    )
+    earlier_before = deepcopy(earlier)
+    top, bottom = target.top_depth, target.bottom_depth
+
+    if operation == "set_description":
+        saved = controller.set_description(top, bottom, "Updated description")
+    elif operation == "update_analysis":
+        saved = controller.update_analysis(
+            target.sample_id, top_depth=top, bottom_depth=bottom, calcite_percent=37.0
+        )
+    else:
+        saved = controller.set_analysis(top, bottom, calcite_percent=37.0)
+
+    assert saved is target
+    assert earlier == earlier_before
+    assert (target.top_depth, target.bottom_depth) == (top, bottom)
+    assert target.description == ("Updated description" if operation == "set_description" else "Target")
+    assert target.calcite_percent == (20.0 if operation == "set_description" else 37.0)
+    assert controller.available() == (earlier, target)
+
+    repository = PackageProjectRepository()
+    path = tmp_path / "nearby-cuttings.geologpkg"
+    repository.save(ProjectDocument(project=controller.session.project), path)
+    well = controller.session.current_well
+    assert well is not None
+    restored = repository.load(path).project.wells[well.well_id]
+    assert restored.cuttings == [earlier_before, target]
+
+
+def test_set_analysis_accepts_the_sole_approximate_interval_match() -> None:
+    controller = _controller()
+    sample = controller.set_analysis(500.0, 501.0, calcite_percent=20.0)
+
+    saved = controller.set_analysis(500.00001, 501.00001, calcite_percent=37.0)
+
+    assert saved is sample
+    assert sample.calcite_percent == 37.0
+    assert controller.available() == (sample,)
 
 
 def test_reediting_cuttings_ignores_analysis_only_overlay_for_overlap_rules() -> None:

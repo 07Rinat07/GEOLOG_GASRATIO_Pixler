@@ -162,6 +162,7 @@ class MasterlogPreviewDialog(QDialog):
         localizer = Localizer.create(language)
         self.language = language
         self.session = session
+        self.cuttings_controller = CuttingsController(session)
         self.setWindowTitle(localizer.text("masterlog_preview.title", name=template.name))
         self.preview = MasterlogPreviewWidget(template, session, settings, self)
         self.preview.interval_selected.connect(self._fill_interval)
@@ -345,26 +346,47 @@ class MasterlogPreviewDialog(QDialog):
             top, bottom, catalog, language=self.language, parent=self
         )
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            CuttingsController(self.session).add(top, bottom, dialog.components())
+            top_depth, bottom_depth = dialog.top_depth, dialog.bottom_depth
+            interval_edited = (top_depth, bottom_depth) != (top, bottom)
+            CuttingsController(self.session).add(
+                top_depth,
+                bottom_depth,
+                dialog.components(),
+                absolute_tolerance=0.0 if interval_edited else None,
+            )
 
     def _fill_cuttings_description(self, top: float, bottom: float) -> None:
-        well = self.session.current_well
-        sample = next(
-            (
-                item
-                for item in (well.cuttings if well is not None else ())
-                if abs(item.top_depth - top) <= 1e-6 and abs(item.bottom_depth - bottom) <= 1e-6
-            ),
-            None,
+        controller = CuttingsController(self.session)
+        sample = (
+            controller.find_sample_for_interval(top, bottom)
+            if self.session.current_well is not None
+            else None
         )
-        text, accepted = QInputDialog.getMultiLineText(
-            self,
-            self.description_button.text(),
-            f"{top:g}–{bottom:g} м",
-            sample.description if sample is not None and sample.description else "",
-        )
-        if accepted:
-            CuttingsController(self.session).set_description(top, bottom, text)
+        dialog = QInputDialog(self)
+        dialog.setWindowTitle(self.description_button.text())
+        dialog.setOption(QInputDialog.InputDialogOption.UsePlainTextEditForTextInput)
+        if sample is not None:
+            top, bottom = sample.top_depth, sample.bottom_depth
+            dialog.setTextValue(controller.localized_description(sample, self.language))
+        dialog.setLabelText(f"{top:g}–{bottom:g} м")
+        opened_text = dialog.textValue()
+        accepted = dialog.exec() == QDialog.DialogCode.Accepted
+        text = dialog.textValue()
+        dialog.deleteLater()
+        if not accepted or text == opened_text:
+            return
+        if sample is None:
+            controller.set_description(
+                top, bottom, text, language=self.language, absolute_tolerance=0.0
+            )
+        else:
+            controller.update_description(
+                sample.sample_id,
+                top_depth=top,
+                bottom_depth=bottom,
+                description=text,
+                language=self.language,
+            )
 
     def _edit_column(self, column_id: str) -> None:
         template_id = self.preview.template.template_id
@@ -385,20 +407,26 @@ class MasterlogPreviewDialog(QDialog):
             self.preview.update()
 
     def _fill_analysis(self, top: float, bottom: float) -> None:
-        well = self.session.current_well
-        sample = next(
-            (
-                item
-                for item in (well.cuttings if well is not None else ())
-                if abs(item.top_depth - top) <= 1e-6 and abs(item.bottom_depth - bottom) <= 1e-6
-            ),
-            None,
+        controller = self.cuttings_controller
+        sample = (
+            controller.find_sample_for_analysis_selection(top, bottom)
+            if self.session.current_well is not None
+            else None
         )
         dialog = SampleAnalysisDialog(
             top, bottom, language=self.language, sample=sample, parent=self
         )
+        if sample is None:
+            dialog.top_input.load_stored_value(top)
+            dialog.bottom_input.load_stored_value(bottom)
+        opened_interval = (dialog.top_depth, dialog.bottom_depth)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            CuttingsController(self.session).set_analysis(top, bottom, **dialog.values())
+            controller.save_selected_analysis(
+                opened_interval,
+                (dialog.top_depth, dialog.bottom_depth),
+                sample_id=sample.sample_id if sample is not None else None,
+                **dialog.values(),
+            )
 
     def _fill_stratigraphy(self, top: float, bottom: float) -> None:
         dialog = StratigraphyIntervalDialog(

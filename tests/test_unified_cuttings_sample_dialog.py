@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from PySide6.QtWidgets import QDialogButtonBox
+from PySide6.QtWidgets import QDialog, QDialogButtonBox, QRadioButton
 
 from geoworkbench.domain.models import (
     CuttingsComponent,
@@ -12,10 +12,13 @@ from geoworkbench.domain.models import (
     Project,
     Well,
 )
+from geoworkbench.domain.translation_status import TranslationState
 from geoworkbench.project.cuttings_controller import CuttingsController
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.lithotype_catalog_models import CatalogLithotype
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.project.translation_status_controller import TranslationStatusController
+from geoworkbench.services.lba_standard import LBA_STANDARD_GROUPS
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.storage.package_project_repository import PackageProjectRepository
 from geoworkbench.storage.project_codec import ProjectDocument
@@ -297,6 +300,437 @@ def test_explicit_clear_removes_russian_text_only(qapp, localized_ru: bool) -> N
     assert sample.lba_description_i18n == {"kk": "Люминесценция"}
     assert sample.analysis_interpretation is None
     assert sample.analysis_interpretation_i18n == {"kk": "Қорытынды"}
+
+
+@pytest.mark.parametrize("edit_lba", [False, True], ids=["description-only", "explicit-lba-edit"])
+def test_full_sample_edit_persists_detailed_lba_observations(
+    qapp, tmp_path: Path, edit_lba: bool
+) -> None:
+    well = Well("well", "Well")
+    session = ProjectSession(
+        Project("project", "Project", wells={well.well_id: well}),
+        current_well_id=well.well_id,
+    )
+    controller = CuttingsController(session)
+    initial = controller.add(1980.0, 1981.0, {"sandstone": 100.0})
+    details: dict[str, str | None] = {
+        "lba_distribution": "Even",
+        "lba_cut": "Streaming",
+        "lba_cut_speed": "Fast",
+        "lba_cut_color": "Straw",
+        "lba_residue_type": "Good",
+        "lba_residue_color": "Amber",
+        "lba_odour": "Moderate",
+        "lba_stain": "Spotty",
+    }
+    sample = controller.set_analysis(
+        initial.top_depth,
+        initial.bottom_depth,
+        calcite_percent=0.0,
+        lba_group=1,
+        lba_type_id=LBA_STANDARD_GROUPS[0].code,
+        lba_intensity=2,
+        lba_color="yellow",
+        lba_description_i18n={"ru": "Описание ЛБА", "kk": "ЛБА сипаттамасы"},
+        lba_description_source_language="ru",
+        analysis_interpretation_i18n={"ru": "Заключение", "kk": "Қорытынды"},
+        analysis_interpretation_source_language="ru",
+        **details,
+    )
+    field_ids = (
+        f"cuttings/{sample.sample_id}/lba_description",
+        f"cuttings/{sample.sample_id}/analysis_interpretation",
+    )
+    reviewer = TranslationStatusController(session)
+    for field_id in field_ids:
+        reviewer.review_current(field_id=field_id, language="kk")
+    initial_statuses = {field_id: dict(well.translation_statuses[field_id]) for field_id in field_ids}
+
+    dialog = UnifiedCuttingsSampleDialog(
+        sample.top_depth,
+        sample.bottom_depth,
+        LithotypeCatalogController(session).available(),
+        language=AppLanguage.EN,
+        sample=sample,
+    )
+    try:
+        dialog.description_editors["en"].editor.setPlainText("Fine-grained sandstone")
+        values = dialog.values()
+        if edit_lba:
+            values.update(lba_distribution=None, lba_cut_speed="  Slow  ")
+            details.update(lba_distribution=None, lba_cut_speed="Slow")
+        controller.update_full_sample(
+            sample.sample_id,
+            top_depth=dialog.top_depth,
+            bottom_depth=dialog.bottom_depth,
+            components=dialog.components(),
+            content_language=AppLanguage.EN.value,
+            **values,
+        )
+    finally:
+        dialog.close()
+
+    repository = PackageProjectRepository()
+    path = tmp_path / "lba-details.geologpkg"
+    repository.save(ProjectDocument(project=session.project), path)
+    restored_well = repository.load(path).project.wells[well.well_id]
+    restored = restored_well.cuttings[0]
+
+    assert restored.sample_id == sample.sample_id
+    assert restored.calcite_percent == 0.0
+    assert "Fine-grained sandstone" in restored.description_i18n["en"]
+    assert {field: getattr(sample, field) for field in details} == details
+    assert {field: getattr(restored, field) for field in details} == details
+    for field_id in field_ids:
+        statuses = restored_well.translation_statuses[field_id]
+        if edit_lba:
+            assert statuses["ru"].state is TranslationState.REVIEWED
+            assert statuses["kk"].state is TranslationState.STALE
+        else:
+            assert statuses == initial_statuses[field_id]
+
+
+@pytest.mark.parametrize(
+    ("stored_type", "stored_group", "initial_button", "action", "selected_group"),
+    [
+        pytest.param("light", None, 1, None, None, id="las-type-only"),
+        pytest.param("LB", 1, 1, None, None, id="untouched-alias"),
+        pytest.param(None, 3, 3, None, None, id="group-only"),
+        pytest.param("Site-specific type", None, None, None, None, id="untouched-custom"),
+        pytest.param("LB", 1, 1, "toggle", 2, id="change-selection"),
+        pytest.param("LB", 1, 1, "click", 1, id="confirm-same-class"),
+        pytest.param("Site-specific type", None, None, "click", None, id="clear-custom"),
+    ],
+)
+def test_full_sample_edit_preserves_untouched_lba_classification(
+    qapp,
+    tmp_path: Path,
+    stored_type: str | None,
+    stored_group: int | None,
+    initial_button: int | None,
+    action: str | None,
+    selected_group: int | None,
+) -> None:
+    well = Well("well", "Well")
+    session = ProjectSession(
+        Project("project", "Project", wells={well.well_id: well}),
+        current_well_id=well.well_id,
+    )
+    controller = CuttingsController(session)
+    controller.add(1980.0, 1981.0, {"sandstone": 100.0})
+    sample = controller.set_analysis(
+        1980.0,
+        1981.0,
+        lba_type_id=stored_type,
+        lba_group=stored_group,
+        lba_description_i18n={"ru": "Описание ЛБА", "kk": "ЛБА сипаттамасы"},
+        lba_description_source_language="ru",
+    )
+    field_id = f"cuttings/{sample.sample_id}/lba_description"
+    TranslationStatusController(session).review_current(field_id=field_id, language="kk")
+    reviewed = well.translation_statuses[field_id]["kk"]
+
+    dialog = UnifiedCuttingsSampleDialog(
+        sample.top_depth,
+        sample.bottom_depth,
+        LithotypeCatalogController(session).available(),
+        language=AppLanguage.EN,
+        sample=sample,
+    )
+    try:
+        no_type = dialog.findChild(QRadioButton, "lba-type-none")
+        assert no_type is not None
+        initially_checked = (
+            dialog.type_group.button(initial_button) if initial_button is not None else no_type
+        )
+        assert dialog.type_group.checkedButton() is initially_checked
+        if action is None:
+            dialog.description_editors["en"].editor.setPlainText("Fine-grained sandstone")
+            expected = (stored_type, stored_group)
+        else:
+            button = (
+                dialog.type_group.button(selected_group) if selected_group is not None else no_type
+            )
+            assert button is not None
+            if action == "click":
+                button.click()
+            else:
+                button.setChecked(True)
+            selected_type = (
+                LBA_STANDARD_GROUPS[selected_group - 1].code if selected_group is not None else None
+            )
+            expected = (selected_type, selected_group)
+        values = dialog.values()
+        if action is None:
+            assert "lba_type_id" not in values
+            assert "lba_group" not in values
+        else:
+            assert (values["lba_type_id"], values["lba_group"]) == expected
+        controller.update_full_sample(
+            sample.sample_id,
+            top_depth=dialog.top_depth,
+            bottom_depth=dialog.bottom_depth,
+            components=dialog.components(),
+            content_language=AppLanguage.EN.value,
+            **values,
+        )
+    finally:
+        dialog.close()
+
+    repository = PackageProjectRepository()
+    path = tmp_path / "lba-classification.geologpkg"
+    repository.save(ProjectDocument(project=session.project), path)
+    restored_well = repository.load(path).project.wells[well.well_id]
+    restored = restored_well.cuttings[0]
+    assert restored.sample_id == sample.sample_id
+    assert (restored.lba_type_id, restored.lba_group) == expected
+    status = restored_well.translation_statuses[field_id]["kk"]
+    if action is None:
+        assert "Fine-grained sandstone" in restored.description_i18n["en"]
+        assert status == reviewed
+    else:
+        assert status.state is TranslationState.STALE
+
+
+@pytest.mark.parametrize(
+    ("edited_control", "edited_value", "expected_percentages"),
+    [
+        pytest.param(None, None, (34.1264, 20.5689), id="description-only"),
+        pytest.param("calcite_input", 37.2, (37.2, 20.5689), id="edit-calcite"),
+        pytest.param("dolomite_input", 0.0, (34.1264, 0.0), id="zero-dolomite"),
+        pytest.param("calcite_input", -1.0, (None, 20.5689), id="clear-calcite"),
+    ],
+)
+def test_full_sample_edit_preserves_untouched_calcimetry_precision(
+    qapp,
+    tmp_path: Path,
+    edited_control: str | None,
+    edited_value: float | None,
+    expected_percentages: tuple[float | None, float | None],
+) -> None:
+    well = Well("well", "Well")
+    session = ProjectSession(
+        Project("project", "Project", wells={well.well_id: well}),
+        current_well_id=well.well_id,
+    )
+    controller = CuttingsController(session)
+    sample = controller.create_full_sample(
+        1980.0,
+        1981.0,
+        {"sandstone": 100.0},
+        calcite_percent=34.1264,
+        dolomite_percent=20.5689,
+        analysis_interpretation_i18n={"ru": "Заключение", "en": "Conclusion"},
+        analysis_interpretation_source_language="ru",
+    )
+    field_id = f"cuttings/{sample.sample_id}/analysis_interpretation"
+    TranslationStatusController(session).review_current(field_id=field_id, language="en")
+    reviewed = well.translation_statuses[field_id]["en"]
+
+    dialog = UnifiedCuttingsSampleDialog(
+        sample.top_depth,
+        sample.bottom_depth,
+        LithotypeCatalogController(session).available(),
+        language=AppLanguage.EN,
+        sample=sample,
+    )
+    try:
+        dialog.description_editors["en"].editor.setPlainText("Fine-grained sandstone")
+        if edited_control is not None:
+            assert edited_value is not None
+            getattr(dialog, edited_control).setValue(edited_value)
+        controller.update_full_sample(
+            sample.sample_id,
+            top_depth=dialog.top_depth,
+            bottom_depth=dialog.bottom_depth,
+            components=dialog.components(),
+            content_language=AppLanguage.EN.value,
+            **dialog.values(),
+        )
+    finally:
+        dialog.close()
+
+    repository = PackageProjectRepository()
+    path = tmp_path / "precise-calcimetry.geologpkg"
+    repository.save(ProjectDocument(project=session.project), path)
+    restored_well = repository.load(path).project.wells[well.well_id]
+    restored = restored_well.cuttings[0]
+
+    assert (sample.calcite_percent, sample.dolomite_percent) == expected_percentages
+    assert restored.sample_id == sample.sample_id
+    assert (restored.calcite_percent, restored.dolomite_percent) == expected_percentages
+    assert "Fine-grained sandstone" in restored.description_i18n["en"]
+    status = restored_well.translation_statuses[field_id]["en"]
+    if edited_control is None:
+        assert status == reviewed
+    else:
+        assert status.state is TranslationState.STALE
+
+
+@pytest.mark.parametrize(
+    ("calcite", "dolomite", "edited_calcite", "accepted"),
+    [
+        pytest.param(64.951, 35.051, None, True, id="valid-precise-total"),
+        pytest.param(64.8, 35.149, 64.9, False, id="invalid-mixed-total"),
+    ],
+)
+def test_full_sample_submit_validates_precise_calcimetry_total(
+    qapp, calcite: float, dolomite: float, edited_calcite: float | None, accepted: bool
+) -> None:
+    sample = CuttingsSample(
+        "sample",
+        1980.0,
+        1981.0,
+        [CuttingsComponent("sandstone", 100.0)],
+        calcite_percent=calcite,
+        dolomite_percent=dolomite,
+    )
+    _, dialog = _edit_existing_sample(sample, AppLanguage.EN)
+    try:
+        if edited_calcite is not None:
+            dialog.calcite_input.setValue(edited_calcite)
+        buttons = dialog.findChild(QDialogButtonBox, "cuttings-dialog-buttons")
+        assert buttons is not None
+        ok = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        assert ok is not None
+        ok.click()
+
+        assert (dialog.result() == QDialog.DialogCode.Accepted) is accepted
+        if accepted:
+            assert not dialog.validation_label.text()
+        else:
+            assert dialog.validation_label.text() == "Calcite plus dolomite must not exceed 100%."
+    finally:
+        dialog.close()
+
+
+def _click_sample_ok(dialog: UnifiedCuttingsSampleDialog) -> None:
+    buttons = dialog.findChild(QDialogButtonBox, "cuttings-dialog-buttons")
+    assert buttons is not None
+    ok = buttons.button(QDialogButtonBox.StandardButton.Ok)
+    assert ok is not None
+    ok.click()
+
+
+@pytest.mark.parametrize(
+    ("shares", "display_total"),
+    [
+        pytest.param({"sandstone": 57.1252, "clay": 42.8748}, 100.0, id="rounded-but-valid"),
+        pytest.param(
+            {"sandstone": 25.06, "clay": 24.98, "limestone": 24.98, "dolomite": 24.98},
+            100.1,
+            id="four-rounded-shares-exceed-total",
+        ),
+    ],
+)
+def test_editing_calcimetry_preserves_precise_cuttings_composition(
+    qapp, tmp_path: Path, shares: dict[str, float], display_total: float
+) -> None:
+    well = Well("well", "Well")
+    session = ProjectSession(
+        Project("project", "Project", wells={well.well_id: well}),
+        current_well_id=well.well_id,
+    )
+    controller = CuttingsController(session)
+    sample = controller.create_full_sample(
+        1980.0,
+        1981.0,
+        shares,
+        description_i18n={"ru": "Описание шлама", "en": "Cuttings description"},
+        description_source_language="ru",
+    )
+    field_id = f"cuttings/{sample.sample_id}/description"
+    TranslationStatusController(session).review_current(field_id=field_id, language="en")
+    reviewed = well.translation_statuses[field_id]["en"]
+    dialog = UnifiedCuttingsSampleDialog(
+        sample.top_depth,
+        sample.bottom_depth,
+        LithotypeCatalogController(session).available(),
+        language=AppLanguage.EN,
+        sample=sample,
+    )
+    try:
+        assert sum(control.value() for control in dialog.percent_inputs) == pytest.approx(display_total)
+        dialog.calcite_input.setValue(17.5)
+        _click_sample_ok(dialog)
+
+        assert dialog.result() == QDialog.DialogCode.Accepted
+        assert dialog.components() == shares
+        saved = controller.update_full_sample(
+            sample.sample_id,
+            top_depth=dialog.top_depth,
+            bottom_depth=dialog.bottom_depth,
+            components=dialog.components(),
+            content_language=AppLanguage.EN.value,
+            **dialog.values(),
+        )
+    finally:
+        dialog.close()
+
+    assert saved is sample
+    assert saved.calcite_percent == 17.5
+    repository = PackageProjectRepository()
+    path = tmp_path / "precise-composition.geologpkg"
+    repository.save(ProjectDocument(project=session.project), path)
+    restored_well = repository.load(path).project.wells[well.well_id]
+    restored = restored_well.cuttings[0]
+    assert restored.sample_id == sample.sample_id
+    assert {component.lithotype_id: component.percentage for component in restored.components} == shares
+    assert restored_well.translation_statuses[field_id]["en"] == reviewed
+
+
+@pytest.mark.parametrize("use_remainder_button", [False, True], ids=["select-rock", "fill-remainder"])
+def test_composition_fills_exact_remainder_after_edit(qapp, use_remainder_button: bool) -> None:
+    sample = CuttingsSample(
+        "sample",
+        1980.0,
+        1981.0,
+        [CuttingsComponent("sandstone", 57.1252), CuttingsComponent("clay", 42.8748)],
+    )
+    _, dialog = _edit_existing_sample(sample, AppLanguage.EN)
+    try:
+        dialog.percent_inputs[1].setValue(21.3)
+        new_rock = dialog.rock_inputs[2]
+        limestone_index = new_rock.findData("limestone")
+        assert limestone_index > 0
+        new_rock.setCurrentIndex(limestone_index)
+        if use_remainder_button:
+            dialog.percent_inputs[2].setValue(13.0)
+            dialog.remainder_buttons[2].click()
+
+        assert dialog.percent_inputs[2].value() == 21.6
+        assert dialog.components() == {
+            "sandstone": 57.1252,
+            "clay": 21.3,
+            "limestone": 100.0 - (57.1252 + 21.3),
+        }
+        _click_sample_ok(dialog)
+        assert dialog.result() == QDialog.DialogCode.Accepted
+    finally:
+        dialog.close()
+
+
+def test_removing_rock_clears_its_small_unrounded_share(qapp) -> None:
+    sample = CuttingsSample(
+        "sample",
+        1980.0,
+        1981.0,
+        [CuttingsComponent("sandstone", 99.975), CuttingsComponent("clay", 0.025)],
+    )
+    _, dialog = _edit_existing_sample(sample, AppLanguage.EN)
+    try:
+        assert dialog.percent_inputs[1].value() == 0.0
+        assert dialog.components() == {"sandstone": 99.975, "clay": 0.025}
+
+        dialog.rock_inputs[1].setCurrentIndex(0)
+        assert dialog.components() == {"sandstone": 99.975}
+
+        dialog.remainder_buttons[0].click()
+        assert dialog.components() == {"sandstone": 100.0}
+        _click_sample_ok(dialog)
+        assert dialog.result() == QDialog.DialogCode.Accepted
+    finally:
+        dialog.close()
 
 
 def test_selected_template_block_is_removed_from_all_languages(qapp) -> None:

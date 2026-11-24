@@ -1,3 +1,150 @@
+## WELL-04 — preserving separate legacy and Russian sample texts (24.11.2026, under review)
+
+The shared cuttings editor preserves separately stored legacy and Russian text for the rock
+description, LBA description and conclusion when you add composition or edit unrelated fields.
+An explicit edit on a Russian tab updates its language version and the corresponding legacy field.
+
+## WELL-04 — precise tablet analysis selections and sample lookup (24.11.2026, under review)
+
+Shift-drag in Calcimetry or LBA on the tablet uses the Masterlog sample lookup. It checks exact
+boundaries first, then looks within `0.000001 m` per boundary and falls back to the existing save
+tolerance. A matching sample opens with its recorded values and depths and saves by its ID. For
+a new selection, each untouched boundary keeps its original precision. Edited boundaries reuse
+an existing record only if both match exactly.
+
+## WELL-04 — clearing legacy analysis text (24.11.2026, under review)
+
+In Sample analysis on the tablet and in Masterlog, clearing a legacy LBA description or
+conclusion on the Russian tab removes that text on save. Other language entries, including
+`und`, and unrelated data are preserved. Confirming without edits keeps the original text.
+The dialog saves by the loaded sample ID and removes the record if no sample data remains.
+An empty selected source is rejected before any changes are saved.
+
+## WELL-04 — assigning a source language to legacy conclusions (24.11.2026, under review)
+
+In Sample analysis on the tablet and in Masterlog, choosing Russian as the source language
+for an unchanged legacy conclusion starts translation tracking with the original stored text.
+Other language entries, including `und`, are preserved. Confirming without changes leaves the
+legacy conclusion as stored. Source assignment still requires text in the chosen language.
+
+## WELL-04 — loading existing analysis in Masterlog (23.11.2026, under review)
+
+Masterlog Calcimetry / LBA matches exact depths first, then checks the `0.000001 m` lookup
+tolerance and the existing save tolerance before opening the dialog. A matching sample opens
+with its recorded depths, analysis and saved conclusion source language. Saving measurements
+or another language preserves legacy LBA descriptions and conclusions when their Russian
+versions stay the same. Changes to the Russian version update the corresponding legacy field.
+
+## WELL-04 — language versions in Masterlog Cuttings description (23.11.2026, under review)
+
+The Cuttings description dialog shows the interface-language version when available and uses
+fallback text for reference. An explicit edit updates that language only. Confirming unchanged
+text preserves the stored text, formatting and translation revisions. The dialog saves the sample
+it loaded at its recorded depths, including when the match used tolerance. New descriptions use
+the exact selected depths.
+
+## WELL-04 — unchanged text in the tablet rock description editor (23.11.2026, under review)
+
+Editing only the depths or word wrapping of a saved rock description preserves the original
+text, formatting and language versions, including legacy or fallback text shown in the editor.
+Text and formatting edits apply to the interface language. Clearing a language version follows
+the existing authoring rules. A depth change updates the existing translation dependencies.
+Word wrapping alone preserves translation states and language revisions, and saving without
+changes leaves the project clean.
+
+## WELL-04 — depth edits for rock descriptions on the tablet (23.11.2026, under review)
+
+When adding a rock description on the tablet, editing either boundary requires an exact match
+of both depths to reuse a saved sample. Each unedited boundary retains the precision of the
+selection. Confirming both selected depths still allows matching within the existing tolerance.
+
+## WELL-04 — completing an existing cuttings sample on the tablet (23.11.2026, under review)
+
+Selecting the exact interval of a single sample without rock composition in Cuttings opens the
+shared editor with that sample loaded. Adding composition keeps its `sample_id` and existing data.
+Translation states follow the existing rules for changes to a sample. New samples retain the
+precision of each unedited boundary and cannot be saved on an occupied pair of depths.
+
+## WELL-04 — occupied intervals when moving saved samples (23.11.2026, under review)
+
+Moving a saved sample with its ID checks for an exact match with another record's top and bottom
+depths, including records containing only analysis or description. The shared sample editor, rock
+description editor, composition updates and Sample analysis use the same check. A rejected move
+leaves both records intact. Nearby intervals remain subject to the existing composition overlap rules.
+
+## WELL-04 — depth edits in tablet Sample analysis (23.11.2026, under review)
+
+Editing the depths of a sample loaded from a tablet selection moves that sample by its ID.
+After a rejected move, the operator can correct the boundaries and retry in the same dialog.
+For a new analysis, editing the boundaries uses exact interval matching. Confirming the initial
+displayed boundaries allows matching within tolerance.
+
+## WELL-04 — depth edits in Masterlog Calcimetry / LBA (23.11.2026, under review)
+
+Calcimetry / LBA saves the confirmed boundaries and keeps the exact depths of unchanged boundaries.
+The dialog uses saved depths for a loaded sample. A move keeps the sample ID and is rejected when
+another record occupies the exact destination. With no sample loaded, editing the selection requires
+an exact interval match to reuse a record. Confirming the original selection allows matching within tolerance.
+
+## WELL-04 — depth edits when filling cuttings in Masterlog (23.11.2026, under review)
+
+Fill cuttings saves the boundaries confirmed in the dialog and keeps the original precision of
+each boundary left as selected. Editing either boundary requires an exact match of both depths
+to use an existing record. Confirming the original selection allows matching within tolerance.
+
+## WELL-04 — overlap checks when filling cuttings in Masterlog (23.11.2026, under review)
+
+Adding rock composition to an existing analysis or description record checks for overlap with
+other samples with composition. Adjacent intervals can share a boundary. A successful fill keeps
+the sample identifier and its saved analysis and description.
+
+## WELL-04 — interval moves in Sample analysis (23.11.2026, under review)
+
+Moving a saved sample with rock composition now checks for overlap with other composition samples
+on every depth change. Shared endpoints and overlaps with an analysis-only interval are allowed
+when the new pair of depths is distinct. An exact pair already used by another record blocks the move.
+
+## WELL-04 — exact cuttings interval matching (23.11.2026, under review)
+
+The controller, tablet editors and Masterlog prefer a cuttings sample whose top and bottom depths
+both match the requested interval exactly. When an exact pair is unavailable, each lookup uses its
+existing tolerance.
+
+## WELL-04 — rock percentage precision in the unified cuttings editor (22.11.2026, under review)
+
+Rock percentage inputs show one decimal and preserve stored precision while the displayed value
+stays the same. The editor uses the values to be saved to calculate and validate the total.
+Remainder fills the selected rock's share up to 100% using the exact shares of the other rocks.
+
+## WELL-04 — depth precision in cuttings editors (22.11.2026, under review)
+
+The unified sample editor, Sample analysis and the rock description editor display depths to
+three decimal places. When editing a saved sample, each boundary keeps its stored precision
+while its displayed value stays the same. Editing one boundary preserves the precision of the other.
+
+## WELL-04 — calcimetry precision in Sample analysis (22.11.2026, under review)
+
+Sample analysis preserves the stored precision of each percentage while its displayed value stays
+the same. Editing one measurement keeps the precision of the other, including when validating
+the total.
+
+## WELL-04 — calcimetry precision in the unified cuttings editor (22.11.2026, under review)
+
+The unified editor preserves the stored precision of calcite and dolomite while their displayed
+values stay the same. Editing one percentage keeps the stored precision of the other.
+Residue and the total check use the values to be saved.
+
+## WELL-04 — LBA classification in the unified cuttings editor (22.11.2026, under review)
+
+Saving other sample fields preserves the recorded bitumoid type code and LBA group. The editor
+displays recognized legacy codes using the existing catalog. Selecting a type updates the pair,
+and choosing No result clears it.
+
+## WELL-04 — LBA details in the unified cuttings editor (22.11.2026, under review)
+
+The unified editor preserves the form or distribution, solvent-cut details, residue details,
+odour, and stain previously entered in Sample analysis.
+
 ## WELL-04 — legacy text in the unified cuttings editor (22.11.2026, under review)
 
 Saving depth or unrelated changes in the unified editor preserves the legacy rock description,

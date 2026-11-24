@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass, fields
+from typing import Any, Literal
 
 import numpy as np
 
@@ -35,6 +36,9 @@ from geoworkbench.project.cuttings_analysis_tracking_coordinator import (
 from geoworkbench.project.session import ProjectSession
 
 
+_LegacyAnalysisText = Literal["lba_description", "analysis_interpretation"]
+
+
 @dataclass(slots=True)
 class CuttingsController:
     session: ProjectSession
@@ -50,6 +54,39 @@ class CuttingsController:
 
     def get(self, sample_id: str) -> CuttingsSample:
         return self._require_sample(sample_id)
+
+    def find_sample_for_interval(
+        self, top: float, bottom: float, *, absolute_tolerance: float | None = None
+    ) -> CuttingsSample | None:
+        """Prefer exact boundaries before using the caller's interval tolerance."""
+        samples = self._require_well().cuttings
+        for sample in samples:
+            if sample.top_depth == top and sample.bottom_depth == bottom:
+                return sample
+        if absolute_tolerance is not None:
+            return next(
+                (
+                    sample
+                    for sample in samples
+                    if abs(sample.top_depth - top) <= absolute_tolerance
+                    and abs(sample.bottom_depth - bottom) <= absolute_tolerance
+                ),
+                None,
+            )
+        return next(
+            (
+                sample
+                for sample in samples
+                if np.isclose(sample.top_depth, top) and np.isclose(sample.bottom_depth, bottom)
+            ),
+            None,
+        )
+
+    def find_sample_for_analysis_selection(self, top: float, bottom: float) -> CuttingsSample | None:
+        """Show the sample that accepting the original analysis selection could reuse."""
+        return self.find_sample_for_interval(
+            top, bottom, absolute_tolerance=1e-6
+        ) or self.find_sample_for_interval(top, bottom)
 
     def description_source_language(self, sample_id: str) -> str | None:
         sample = self._require_sample(sample_id)
@@ -78,6 +115,7 @@ class CuttingsController:
         sample = self._require_sample(sample_id)
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._validate_components(components)
+        self._ensure_sample_move_is_unoccupied(sample, top, bottom)
         self._ensure_no_composition_overlap(top, bottom, excluded_id=sample_id)
         previous = deepcopy(sample)
         staged = deepcopy(sample)
@@ -112,6 +150,7 @@ class CuttingsController:
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._validate_components(components)
         self._ensure_no_composition_overlap(top, bottom)
+        self._ensure_interval_is_unoccupied(top, bottom)
         sample = CuttingsSample(new_id(), top, bottom, self._component_list(normalized))
         self._apply_full_values(sample, values, bump_revisions=False)
 
@@ -139,6 +178,7 @@ class CuttingsController:
         sample = self._require_sample(sample_id)
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._validate_components(components)
+        self._ensure_sample_move_is_unoccupied(sample, top, bottom)
         self._ensure_no_composition_overlap(top, bottom, excluded_id=sample_id)
 
         previous = deepcopy(sample)
@@ -175,8 +215,8 @@ class CuttingsController:
         preserve_legacy_texts: tuple[str, ...] = (),
     ) -> None:
         content_language = values.get("content_language")
-        legacy_texts: dict[str, str | None] = {
-            field: getattr(sample, field)
+        legacy_texts: dict[str, tuple[str | None, str | None]] = {
+            field: (getattr(sample, field), getattr(sample, f"{field}_i18n").get("ru"))
             for field in ("description", "lba_description", "analysis_interpretation")
             if field in preserve_legacy_texts
         }
@@ -185,20 +225,26 @@ class CuttingsController:
         )
         sample.calcite_percent = calcite
         sample.dolomite_percent = dolomite
-        sample.lba_group = self._validate_lba_scale(values.get("lba_group"), "Группа ЛБА")
+        if "lba_group" in values or "lba_type_id" in values:
+            sample.lba_group = self._validate_lba_scale(values.get("lba_group"), "Группа ЛБА")
+            sample.lba_type_id = self._normalize_text(values.get("lba_type_id"), 100)
         sample.lba_intensity = self._validate_lba_scale(
             values.get("lba_intensity"), "Интенсивность ЛБА"
         )
-        sample.lba_type_id = self._normalize_text(values.get("lba_type_id"), 100)
         sample.lba_color = self._normalize_text(values.get("lba_color"), 100)
-        sample.lba_distribution = self._normalize_text(values.get("lba_distribution"), 100)
-        sample.lba_cut = self._normalize_text(values.get("lba_cut"), 100)
-        sample.lba_cut_speed = self._normalize_text(values.get("lba_cut_speed"), 100)
-        sample.lba_cut_color = self._normalize_text(values.get("lba_cut_color"), 100)
-        sample.lba_residue_type = self._normalize_text(values.get("lba_residue_type"), 100)
-        sample.lba_residue_color = self._normalize_text(values.get("lba_residue_color"), 100)
-        sample.lba_odour = self._normalize_text(values.get("lba_odour"), 100)
-        sample.lba_stain = self._normalize_text(values.get("lba_stain"), 100)
+        # The unified editor omits details entered in the separate analysis dialog.
+        for field in (
+            "lba_distribution",
+            "lba_cut",
+            "lba_cut_speed",
+            "lba_cut_color",
+            "lba_residue_type",
+            "lba_residue_color",
+            "lba_odour",
+            "lba_stain",
+        ):
+            if field in values:
+                setattr(sample, field, self._normalize_text(values[field], 100))
         if "show_observations" in values:
             sample.show_observations = validate_oil_show_observations(
                 values["show_observations"]
@@ -265,9 +311,12 @@ class CuttingsController:
             previous_languages = set(target)
             target.clear()
             target.update(localized)
-            setattr(
-                sample, legacy_attribute, localized.get("ru", legacy_texts.get(legacy_attribute))
-            )
+            russian_text = localized.get("ru")
+            if legacy_attribute in legacy_texts:
+                legacy_text, previous_russian_text = legacy_texts[legacy_attribute]
+                if russian_text == previous_russian_text:
+                    russian_text = legacy_text
+            setattr(sample, legacy_attribute, russian_text)
             if bump_revisions:
                 for language in previous_languages | set(localized):
                     if language != "und":
@@ -296,11 +345,17 @@ class CuttingsController:
         description_word_wrap: bool | None = None,
         language: object | None = None,
         source_language: object | None = None,
+        preserve_description: bool = False,
     ) -> CuttingsSample:
-        """Edit one rich-text description without losing sample analysis."""
+        """Edit one sample description or preserve its text while changing its layout."""
         sample = self._require_sample(sample_id)
         top, bottom = self._validate_interval(top_depth, bottom_depth)
-        normalized = self._normalize_text(description, 2_000_000, "Описание шлама")
+        normalized = (
+            None
+            if preserve_description
+            else self._normalize_text(description, 2_000_000, "Описание шлама")
+        )
+        self._ensure_sample_move_is_unoccupied(sample, top, bottom)
         if sample.components:
             self._ensure_no_composition_overlap(
                 top,
@@ -317,43 +372,46 @@ class CuttingsController:
         staged = deepcopy(sample)
         staged.top_depth = top
         staged.bottom_depth = bottom
-        if effective_source is not None:
-            effective_language = (
-                normalize_content_language(language)
-                if language is not None
-                else normalize_content_language(effective_source)
-            )
-            set_localized_text(
-                staged.description_i18n,
-                effective_language,
-                normalized,
-                maximum=2_000_000,
-            )
-            staged.description = staged.description_i18n.get("ru")
-        elif language is None:
-            staged.description = normalized
-        else:
-            code = normalize_content_language(language)
-            set_localized_text(staged.description_i18n, code, normalized, maximum=2_000_000)
-            if code == "ru":
+        if not preserve_description:
+            if effective_source is not None:
+                effective_language = (
+                    normalize_content_language(language)
+                    if language is not None
+                    else normalize_content_language(effective_source)
+                )
+                set_localized_text(
+                    staged.description_i18n,
+                    effective_language,
+                    normalized,
+                    maximum=2_000_000,
+                )
+                if effective_language == "ru":
+                    staged.description = staged.description_i18n.get("ru")
+            elif language is None:
                 staged.description = normalized
+            else:
+                code = normalize_content_language(language)
+                set_localized_text(staged.description_i18n, code, normalized, maximum=2_000_000)
+                if code == "ru":
+                    staged.description = normalized
         if description_word_wrap is not None:
             staged.description_word_wrap = self._validate_word_wrap(description_word_wrap)
+        if preserve_description and source_language is None and previous == staged:
+            return sample
 
         # The description editor can also move the shared LBA/analysis interval.
         plan = self._full_sample_tracking_plan(
             previous, staged, {"description_source_language": effective_source}
         )
-        if plan is not None:
-            if previous == staged and not self._tracking_metadata_changed(plan):
-                return sample
-            self._commit_sample(sample, staged)
-            self._apply_tracking_plan(plan, previous_sample=previous, current_sample=sample)
-            self.session.dirty = True
+        if plan is not None and previous == staged and not self._tracking_metadata_changed(plan):
             return sample
 
         self._commit_sample(sample, staged)
-        if language is not None:
+        if plan is not None:
+            self._apply_tracking_plan(plan, previous_sample=previous, current_sample=sample)
+        elif preserve_description:
+            self._require_well().content_revision += 1
+        elif language is not None:
             self._bump_content(normalize_content_language(language))
         self.session.dirty = True
         return sample
@@ -494,11 +552,12 @@ class CuttingsController:
         *,
         description: str | None = None,
         description_word_wrap: bool = True,
+        absolute_tolerance: float | None = None,
     ) -> CuttingsSample:
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._validate_components(components)
         normalized_description = self._normalize_text(description, 4000, "Описание шлама")
-        existing = self._find_exact_sample(top, bottom)
+        existing = self.find_sample_for_interval(top, bottom, absolute_tolerance=absolute_tolerance)
         if existing is not None:
             if existing.components:
                 raise ValueError(f"Проба {top:g}–{bottom:g} м уже заполнена")
@@ -514,6 +573,10 @@ class CuttingsController:
                     bottom_depth=bottom,
                     components=normalized,
                 )
+            # A tolerance match retains the existing interval on this path.
+            self._ensure_no_composition_overlap(
+                existing.top_depth, existing.bottom_depth, excluded_id=existing.sample_id
+            )
             existing.components = self._component_list(normalized)
             if description is not None:
                 existing.description = normalized_description
@@ -541,11 +604,12 @@ class CuttingsController:
         description_word_wrap: bool | None = None,
         language: object | None = None,
         source_language: object | None = None,
+        absolute_tolerance: float | None = None,
     ) -> CuttingsSample:
-        """Create or update free-text cuttings description for an exact sample interval."""
+        """Save free-text cuttings description, preferring an exact interval match."""
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._normalize_text(description, 2_000_000, "Описание шлама")
-        sample = self._find_exact_sample(top, bottom)
+        sample = self.find_sample_for_interval(top, bottom, absolute_tolerance=absolute_tolerance)
         if sample is not None:
             return self.update_description(
                 sample.sample_id,
@@ -616,6 +680,25 @@ class CuttingsController:
             raise ValueError("Настройка переноса слов должна быть логическим значением")
         return value
 
+    def save_selected_analysis(
+        self,
+        opened_interval: tuple[float, float],
+        confirmed_interval: tuple[float, float],
+        *,
+        sample_id: str | None,
+        **values: Any,
+    ) -> CuttingsSample:
+        """Save the confirmed interval, updating a prefilled sample by its identity."""
+        top, bottom = confirmed_interval
+        if sample_id is not None:
+            return self.update_analysis(
+                sample_id, top_depth=top, bottom_depth=bottom, **values
+            )
+        interval_edited = confirmed_interval != opened_interval
+        return self.set_analysis(
+            top, bottom, absolute_tolerance=0.0 if interval_edited else None, **values
+        )
+
     def set_analysis(
         self,
         top_depth: float,
@@ -643,11 +726,15 @@ class CuttingsController:
         analysis_interpretation_i18n: object | None = None,
         lba_description_source_language: object | None = None,
         analysis_interpretation_source_language: object | None = None,
+        absolute_tolerance: float | None = None,
+        clear_legacy_texts: tuple[_LegacyAnalysisText, ...] = (),
     ) -> CuttingsSample:
         """Create or replace analysis for one exact geological interval."""
 
         top, bottom = self._validate_interval(top_depth, bottom_depth)
-        existing_sample = self._find_exact_sample(top, bottom)
+        existing_sample = self.find_sample_for_interval(
+            top, bottom, absolute_tolerance=absolute_tolerance
+        )
         return self._save_analysis(
             existing_sample,
             top_depth=top,
@@ -677,6 +764,7 @@ class CuttingsController:
             analysis_interpretation_source_language=(
                 analysis_interpretation_source_language
             ),
+            clear_legacy_texts=clear_legacy_texts,
         )
 
     def update_analysis(
@@ -707,20 +795,14 @@ class CuttingsController:
         analysis_interpretation_i18n: object | None = None,
         lba_description_source_language: object | None = None,
         analysis_interpretation_source_language: object | None = None,
+        clear_legacy_texts: tuple[_LegacyAnalysisText, ...] = (),
     ) -> CuttingsSample:
         """Edit saved calcimetry/LBA while preserving the sample identity and geology."""
 
         sample = self._require_sample(sample_id)
         top, bottom = self._validate_interval(top_depth, bottom_depth)
-        exact = self._find_exact_sample(top, bottom)
-        if exact is not None and exact.sample_id != sample_id:
-            raise ValueError(
-                f"На интервале {top:g}–{bottom:g} м уже существует другая проба"
-            )
-        if sample.components and (
-            not np.isclose(sample.top_depth, top)
-            or not np.isclose(sample.bottom_depth, bottom)
-        ):
+        self._ensure_sample_move_is_unoccupied(sample, top, bottom)
+        if sample.components and (top, bottom) != (sample.top_depth, sample.bottom_depth):
             self._ensure_no_composition_overlap(top, bottom, excluded_id=sample_id)
 
         return self._save_analysis(
@@ -752,6 +834,7 @@ class CuttingsController:
             analysis_interpretation_source_language=(
                 analysis_interpretation_source_language
             ),
+            clear_legacy_texts=clear_legacy_texts,
         )
 
     def _save_analysis(
@@ -783,6 +866,7 @@ class CuttingsController:
         analysis_interpretation_i18n: object | None,
         lba_description_source_language: object | None,
         analysis_interpretation_source_language: object | None,
+        clear_legacy_texts: tuple[_LegacyAnalysisText, ...],
     ) -> CuttingsSample:
         previous = deepcopy(existing_sample) if existing_sample is not None else None
         staged = (
@@ -827,6 +911,23 @@ class CuttingsController:
         localized_interpretation = self._validate_localized_texts(
             analysis_interpretation_i18n, maximum=20_000
         )
+        clear_legacy_lba = (
+            previous is not None
+            and previous.lba_description is not None
+            and "lba_description" in clear_legacy_texts
+            and "ru" not in previous.lba_description_i18n
+            and localized_lba is not None
+            and "ru" not in localized_lba
+        )
+        clear_legacy_interpretation = (
+            previous is not None
+            and previous.analysis_interpretation is not None
+            and "analysis_interpretation" in clear_legacy_texts
+            and "ru" not in previous.analysis_interpretation_i18n
+            and localized_interpretation is not None
+            and "ru" not in localized_interpretation
+        )
+        legacy_text_cleared = clear_legacy_lba or clear_legacy_interpretation
         if (
             require_nonempty
             and calcite is None
@@ -837,6 +938,7 @@ class CuttingsController:
             and not any(strings.values())
             and not localized_lba
             and not localized_interpretation
+            and not legacy_text_cleared
         ):
             raise ValueError("Укажите хотя бы один результат кальциметрии или ЛБА")
 
@@ -907,22 +1009,22 @@ class CuttingsController:
                 staged.lba_description = strings["description"]
                 staged.analysis_interpretation = strings["interpretation"]
 
+        # Legacy text can differ from the Russian version in an existing project.
         if localized_lba is not None:
-            previous_languages = set(staged.lba_description_i18n)
+            russian_lba = localized_lba.get("ru")
+            if clear_legacy_lba or russian_lba != staged.lba_description_i18n.get("ru"):
+                staged.lba_description = russian_lba
             staged.lba_description_i18n.clear()
             staged.lba_description_i18n.update(localized_lba)
-            if "ru" in localized_lba:
-                staged.lba_description = localized_lba["ru"]
-            elif "ru" in previous_languages:
-                staged.lba_description = None
         if localized_interpretation is not None:
-            previous_languages = set(staged.analysis_interpretation_i18n)
+            russian_interpretation = localized_interpretation.get("ru")
+            if (
+                clear_legacy_interpretation
+                or russian_interpretation != staged.analysis_interpretation_i18n.get("ru")
+            ):
+                staged.analysis_interpretation = russian_interpretation
             staged.analysis_interpretation_i18n.clear()
             staged.analysis_interpretation_i18n.update(localized_interpretation)
-            if "ru" in localized_interpretation:
-                staged.analysis_interpretation = localized_interpretation["ru"]
-            elif "ru" in previous_languages:
-                staged.analysis_interpretation = None
 
         tracking_values: dict[str, object] = {
             "lba_description": lba_description,
@@ -961,7 +1063,9 @@ class CuttingsController:
                 current_sample=current,
             )
         else:
-            self._bump_analysis_language_changes(previous, current)
+            self._bump_analysis_language_changes(
+                previous, current, legacy_text_cleared=legacy_text_cleared
+            )
 
         if not self._has_analysis_data(current):
             CuttingsAnalysisTrackingCoordinator(self.session).clear(
@@ -978,6 +1082,8 @@ class CuttingsController:
         self,
         previous_sample: CuttingsSample | None,
         current_sample: CuttingsSample,
+        *,
+        legacy_text_cleared: bool,
     ) -> None:
         previous_maps = (
             ({}, {})
@@ -991,14 +1097,20 @@ class CuttingsController:
             current_sample.lba_description_i18n,
             current_sample.analysis_interpretation_i18n,
         )
-        for language in SUPPORTED_CONTENT_LANGUAGES:
+        changed_languages = [
+            language
+            for language in SUPPORTED_CONTENT_LANGUAGES
             if any(
                 previous.get(language) != current.get(language)
                 for previous, current in zip(
                     previous_maps, current_maps, strict=True
                 )
-            ):
-                self._bump_content(language)
+            )
+        ]
+        for language in changed_languages:
+            self._bump_content(language)
+        if legacy_text_cleared and not changed_languages:
+            self._require_well().content_revision += 1
 
     @staticmethod
     def _validate_localized_texts(value: object | None, *, maximum: int) -> dict[str, str] | None:
@@ -1355,6 +1467,16 @@ class CuttingsController:
             raise ValueError("Сумма компонентов шлама должна быть равна 100%")
         return normalized
 
+    def _ensure_sample_move_is_unoccupied(
+        self, sample: CuttingsSample, top: float, bottom: float
+    ) -> None:
+        if (top, bottom) != (sample.top_depth, sample.bottom_depth):
+            self._ensure_interval_is_unoccupied(top, bottom)
+
+    def _ensure_interval_is_unoccupied(self, top: float, bottom: float) -> None:
+        if self.find_sample_for_interval(top, bottom, absolute_tolerance=0.0) is not None:
+            raise ValueError(f"На интервале {top:g}–{bottom:g} м уже существует другая проба")
+
     def _ensure_no_composition_overlap(
         self, top: float, bottom: float, *, excluded_id: str | None = None
     ) -> None:
@@ -1367,16 +1489,6 @@ class CuttingsController:
                 raise ValueError(
                     f"Интервал пересекается с пробой {sample.top_depth:g}–{sample.bottom_depth:g} м"
                 )
-
-    def _find_exact_sample(self, top: float, bottom: float) -> CuttingsSample | None:
-        return next(
-            (
-                item
-                for item in self._require_well().cuttings
-                if np.isclose(item.top_depth, top) and np.isclose(item.bottom_depth, bottom)
-            ),
-            None,
-        )
 
     def _require_sample(self, sample_id: str) -> CuttingsSample:
         for sample in self._require_well().cuttings:

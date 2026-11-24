@@ -76,8 +76,9 @@ object is updated; no duplicate interval is created.
 
 ## Creating and editing a cuttings sample
 
-`Shift + left drag` is available in Cuttings, Calcimetry, and LBA tracks. Releasing the mouse opens
-one shared sample editor based on the supplied GeoData working dialogs, containing:
+`Shift + left drag` is available in Cuttings, Calcimetry, and LBA tracks. Releasing the mouse in
+Cuttings opens the shared sample editor based on the GeoData dialogs. Calcimetry and LBA open
+**Sample analysis**. The shared editor has the following fields.
 
 - editable top and bottom;
 - up to four rock components;
@@ -88,9 +89,111 @@ one shared sample editor based on the supplied GeoData working dialogs, containi
 - rich rock/cuttings description;
 - interpretation or conclusion.
 
-Double-clicking the sample in any linked track reopens the same editor. The existing `sample_id` is
-updated atomically, so Cuttings, LBA, Calcimetry, and Description are refreshed together. The
-sample can also be deleted from that dialog.
+If the Cuttings selection exactly matches both boundaries of a single saved sample without rock
+composition, the shared editor loads its analysis and description. Adding composition keeps the
+sample's `sample_id` and saved data. Translation states follow the existing rules for changed fields
+and their dependencies. Nearby intervals, an exact match with composition, or multiple exact
+matches open an empty editor.
+
+In an empty editor, each unedited boundary keeps the precision of the selection. If the confirmed
+top and bottom already belong to a record, saving is blocked. You can adjust the boundaries and save
+the new sample in the same dialog. To add composition to an existing sample, select both of its exact
+boundaries.
+
+Double-clicking a saved sample opens the editor for that track. Changes in the shared editor
+keep the existing `sample_id` and refresh Cuttings, LBA, Calcimetry, and Description together.
+Opening the shared editor with a double-click also lets you delete the entire sample.
+
+If a rock description, LBA description or conclusion has both legacy text and a Russian version,
+the shared editor preserves both when you add composition or edit other fields. An explicit edit
+on a Russian tab updates the corresponding legacy field.
+
+Rock percentages display one decimal place. Each share keeps its stored precision while its
+displayed number stays the same. The displayed total and validation use the shares to be saved.
+Select **Remainder** to fill the selected rock's share up to a total of 100%, using the exact
+shares of the other rocks.
+
+The shared editor, **Sample analysis** and the rock description editor show depths to three decimal
+places. When editing a saved sample, each boundary keeps its stored precision while its displayed
+value stays the same. Editing one boundary preserves the precision of the other.
+
+When you move a saved sample in any of these editors, another record with the same top and bottom
+depths blocks the move, even if it contains only analysis or description. A rejected move leaves
+both records intact. A nearby pair with at least one different depth is subject to the composition
+overlap rules.
+
+When filling in analysis or a description by interval on the tablet or in Masterlog, the
+application first looks for a sample with an exact match for both the top and bottom depths.
+When an exact pair is unavailable, it uses the existing lookup tolerance.
+
+When changing boundaries in **Sample analysis**, you can move a sample with rock composition to
+an interval free of other samples with rock composition. Shared endpoints are allowed. An
+analysis-only interval can overlap a rock-composition sample if at least one boundary differs.
+
+When you Shift-drag in a Calcimetry or LBA column on the tablet, the sample lookup works as in
+Masterlog. It checks for an exact match on both boundaries first, then checks within `0.000001 m`
+per boundary and falls back to the existing save tolerance. A matching sample opens with its
+recorded values and depths. Saving uses its `sample_id`.
+
+Editing the depths of a loaded sample moves it. After a warning about a rejected move, you can
+correct the boundaries and save again in the same dialog. For a new selection, each untouched
+boundary keeps its original precision. After you edit the boundaries, both depths must match
+exactly to reuse an existing sample.
+
+In Masterlog, use **Fill cuttings** to select an interval, then adjust its top and bottom depths
+in the composition dialog if needed. Each unedited boundary keeps the precision of the original
+selection. When you edit either boundary, the application matches existing records by both exact
+depths. Confirming the original selection allows matching within tolerance.
+
+The command adds rock shares to the matching analysis or description record and keeps its
+`sample_id` and saved data. The application checks for overlap with other samples with rock
+composition before saving. Adjacent intervals may share a boundary.
+
+In Masterlog, **Calcimetry / LBA** looks up a sample before opening the dialog. It checks for an
+exact match on both boundaries first, then for a match within `0.000001 m` on each boundary and
+finally with the existing save tolerance. The matching sample opens with its saved depths,
+analysis and conclusion source language, if recorded.
+
+Masterlog saves the boundaries confirmed in the dialog. A boundary left unchanged keeps the
+precision of the selection for a new interval or of the saved depth for a loaded sample. Editing
+the boundaries moves the loaded sample and keeps its `sample_id`. Masterlog rejects the move if
+another record already uses both new boundaries. If no sample was loaded, editing the selection
+requires an exact match to reuse an existing record.
+
+Changing measurements or another language preserves legacy LBA description and conclusion fields
+while their Russian versions stay the same. Editing a Russian version updates the corresponding
+legacy field.
+
+In **Sample analysis** on the tablet or in Masterlog, the Russian tab may show conclusion text
+from a legacy record. To record it as the original, explicitly select Russian in **Conclusion
+source language**. If you leave the text unchanged, translation tracking starts with the original
+stored text. Other language entries, including `und`, are preserved. Confirming without changes
+leaves the legacy conclusion as stored. Source assignment requires text in the chosen version.
+
+To remove a legacy LBA description or conclusion, clear its field on the Russian tab in
+**Sample analysis** and save. Other fields and language entries, including `und`, are preserved.
+Confirming without edits keeps the stored text. Changes go to the loaded sample. If no rock
+composition, description or analysis data remains, the empty record is removed. If the selected
+original is left empty, the dialog rejects the save.
+
+In Masterlog, **Cuttings description** opens the version for the interface language. If that
+version is missing, the dialog shows available text for reference. Explicit edits are saved in
+the interface-language version. Confirming without changes preserves the original formatting,
+all language versions and translation revisions. The description is saved on the sample that
+the dialog loaded, at its recorded depths even when the match used tolerance. A new record uses
+the exact selected depths.
+
+The shared editor and **Sample analysis** show calcite and dolomite to one decimal place. Each
+measurement keeps its stored precision while its displayed number stays the same. When you edit
+one percentage, the total check uses the other measurement at its stored precision. The shared
+editor uses the same values to calculate the residue.
+
+Editing other fields preserves the recorded bitumoid type code and LBA group. Recognized older
+codes are shown as the corresponding catalog types. Select a type to update both fields, or
+choose **No result** to clear them.
+
+The shared editor preserves form or distribution, solvent-cut type, speed and color, residue type
+and color, odour, and stain previously entered in Sample analysis.
 
 ## Description editor
 
@@ -104,6 +207,20 @@ track. A dedicated editor opens without requiring rock percentages. Correct the 
 bottom, select a RU/KZ/EN language and ready template, or enter arbitrary text. Double-click a
 saved description to reopen it. Deleting the description preserves composition, LBA, and
 calcimetry.
+
+Each unedited boundary retains the precision of the selection. If you change either boundary,
+the editor reuses a saved sample only when both depths match exactly. If you confirm both selected
+depths, matching can also use the existing tolerance.
+
+When you reopen a saved description, changing its depths or word wrapping preserves the
+original formatting and all language versions. If the editor shows fallback text from another
+language or a legacy record, the unedited text stays in its original field. Text and formatting
+edits apply to the interface language. When a version is cleared, the editor checks that text
+remains in the recorded source language.
+
+Depth changes update the existing translation dependencies. Changing only word wrapping
+preserves translation states and language revisions. Confirming without changes leaves the
+project clean.
 
 The **Text alignment** list applies left, centre, or right alignment to the complete description.
 **Wrap words** is enabled by default and is stored for each description. Wrapping may be disabled;

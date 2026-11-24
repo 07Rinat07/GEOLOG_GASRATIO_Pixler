@@ -8745,13 +8745,24 @@ class MainWindow(QMainWindow):
             break
 
     def _create_cuttings_sample_from_tablet(self, top_depth: float, bottom_depth: float) -> None:
-        """Create one shared sample from a Shift+drag interval.
+        """Fill a shared sample from a Shift+drag interval.
 
         The same object feeds cuttings, LBA, calcimetry and rich description
         tracks.  This prevents the four columns from drifting into unrelated
         intervals.
         """
-        if self.session.current_well is None:
+        well = self.session.current_well
+        if well is None:
+            return
+        matching_samples = [
+            sample
+            for sample in well.cuttings
+            if (sample.top_depth, sample.bottom_depth) == (top_depth, bottom_depth)
+        ]
+        if len(matching_samples) == 1 and not matching_samples[0].components:
+            self._edit_cuttings_sample_from_tablet(
+                matching_samples[0].sample_id, allow_delete=False
+            )
             return
         catalog = self.lithotype_catalog_controller.available()
         if not catalog:
@@ -8766,6 +8777,8 @@ class MainWindow(QMainWindow):
             language=self.language,
             parent=self,
         )
+        dialog.top_input.load_stored_value(top_depth)
+        dialog.bottom_input.load_stored_value(bottom_depth)
         while dialog.exec() == QDialog.DialogCode.Accepted:
             try:
                 created = self.cuttings_controller.create_full_sample(
@@ -8794,14 +8807,8 @@ class MainWindow(QMainWindow):
         """Enter calcimetry/LBA for an interval independent of LAS cuttings."""
         if self.session.current_well is None:
             return
-        sample = next(
-            (
-                item
-                for item in self.session.current_well.cuttings
-                if abs(item.top_depth - top_depth) <= 1e-6
-                and abs(item.bottom_depth - bottom_depth) <= 1e-6
-            ),
-            None,
+        sample = self.cuttings_controller.find_sample_for_analysis_selection(
+            top_depth, bottom_depth
         )
         dialog = SampleAnalysisDialog(
             top_depth,
@@ -8810,15 +8817,20 @@ class MainWindow(QMainWindow):
             sample=sample,
             parent=self,
         )
+        if sample is None:
+            dialog.top_input.load_stored_value(top_depth)
+            dialog.bottom_input.load_stored_value(bottom_depth)
+        opened_interval = (dialog.top_depth, dialog.bottom_depth)
         while dialog.exec() == QDialog.DialogCode.Accepted:
             try:
-                saved = self.cuttings_controller.set_analysis(
-                    dialog.top_depth if hasattr(dialog, "top_depth") else top_depth,
-                    dialog.bottom_depth if hasattr(dialog, "bottom_depth") else bottom_depth,
+                saved = self.cuttings_controller.save_selected_analysis(
+                    opened_interval,
+                    (dialog.top_depth, dialog.bottom_depth),
+                    sample_id=sample.sample_id if sample is not None else None,
                     **dialog.values(),
                     content_language=self.language.value,
                 )
-            except (RuntimeError, ValueError) as exc:
+            except (KeyError, RuntimeError, ValueError) as exc:
                 QMessageBox.warning(self, self._t("cuttings.create_title"), str(exc))
                 continue
             self._refresh_cuttings_after_edit()
@@ -8871,7 +8883,9 @@ class MainWindow(QMainWindow):
             )
             break
 
-    def _edit_cuttings_sample_from_tablet(self, sample_id: str) -> None:
+    def _edit_cuttings_sample_from_tablet(
+        self, sample_id: str, *, allow_delete: bool = True
+    ) -> None:
         """Reopen and atomically edit one existing geological sample."""
         if self.session.current_well is None:
             return
@@ -8892,6 +8906,7 @@ class MainWindow(QMainWindow):
             catalog,
             language=self.language,
             sample=sample,
+            allow_delete=allow_delete,
             parent=self,
         )
         while dialog.exec() == QDialog.DialogCode.Accepted:
@@ -8940,14 +8955,19 @@ class MainWindow(QMainWindow):
             language=self.language,
             parent=self,
         )
+        dialog.top_input.load_stored_value(top_depth)
+        dialog.bottom_input.load_stored_value(bottom_depth)
+        opened_interval = (dialog.top_depth, dialog.bottom_depth)
         while dialog.exec() == QDialog.DialogCode.Accepted:
             try:
+                top, bottom = dialog.top_depth, dialog.bottom_depth
                 created = self.cuttings_controller.set_description(
-                    dialog.top_depth,
-                    dialog.bottom_depth,
+                    top,
+                    bottom,
                     dialog.description_html,
                     description_word_wrap=dialog.description_word_wrap,
                     language=self.language,
+                    absolute_tolerance=0.0 if (top, bottom) != opened_interval else None,
                 )
             except (RuntimeError, ValueError) as exc:
                 QMessageBox.warning(self, self._t("description.create_title"), str(exc))
@@ -8993,13 +9013,15 @@ class MainWindow(QMainWindow):
                         )
                     )
                     break
+                description_changed = dialog.description_changed
                 updated = self.cuttings_controller.update_description(
                     sample_id,
                     top_depth=dialog.top_depth,
                     bottom_depth=dialog.bottom_depth,
-                    description=dialog.description_html,
+                    description=dialog.description_html if description_changed else None,
                     description_word_wrap=dialog.description_word_wrap,
                     language=self.language,
+                    preserve_description=not description_changed,
                 )
             except (KeyError, RuntimeError, ValueError) as exc:
                 QMessageBox.warning(self, self._t("description.edit_title"), str(exc))

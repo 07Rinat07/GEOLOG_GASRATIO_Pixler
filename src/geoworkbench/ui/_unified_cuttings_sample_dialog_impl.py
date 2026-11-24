@@ -10,7 +10,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
-    QDoubleSpinBox,
     QFormLayout,
     QFrame,
     QGridLayout,
@@ -36,10 +35,14 @@ from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.services.lba_standard import (
     LBA_STANDARD_GROUPS,
     all_lba_color_labels,
+    lba_standard_group,
+    lba_standard_type,
 )
 from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES
+from geoworkbench.ui.calcimetry_percent_input import CalcimetryPercentInput
 from geoworkbench.ui.lithotype_visuals import configure_lithotype_combo, lithotype_icon
 from geoworkbench.ui.rich_interval_text_editor import RichIntervalTextEditor
+from geoworkbench.ui.stored_precision_spin_box import StoredPrecisionSpinBox, cuttings_depth_input
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
@@ -253,6 +256,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
         *,
         language: AppLanguage,
         sample: CuttingsSample | None = None,
+        allow_delete: bool = True,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -319,7 +323,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
         buttons.setObjectName("cuttings-dialog-buttons")
         buttons.accepted.connect(self._accept_if_valid)
         buttons.rejected.connect(self.reject)
-        if sample is not None:
+        if sample is not None and allow_delete:
             delete_button = buttons.addButton(
                 self._text["delete"], QDialogButtonBox.ButtonRole.DestructiveRole
             )
@@ -594,9 +598,12 @@ class UnifiedCuttingsSampleDialog(QDialog):
     def _interval_group(self, top_depth: float, bottom_depth: float) -> QGroupBox:
         group = QGroupBox(self._text["interval"])
         interval = QFormLayout(group)
-        self.top_input = self._depth_input(top_depth)
+        sample = self._sample
+        self.top_input = cuttings_depth_input(top_depth, sample.top_depth if sample else None)
         self.top_input.setObjectName("cuttings-top")
-        self.bottom_input = self._depth_input(bottom_depth)
+        self.bottom_input = cuttings_depth_input(
+            bottom_depth, sample.bottom_depth if sample else None
+        )
         self.bottom_input.setObjectName("cuttings-bottom")
         interval.addRow(self._text["top"], self.top_input)
         interval.addRow(self._text["bottom"], self.bottom_input)
@@ -616,15 +623,6 @@ class UnifiedCuttingsSampleDialog(QDialog):
             preferred=preferred,
             minimum=QSize(520, 340),
         )
-
-    @staticmethod
-    def _depth_input(value: float) -> QDoubleSpinBox:
-        control = QDoubleSpinBox()
-        control.setRange(-100_000.0, 100_000.0)
-        control.setDecimals(3)
-        control.setSuffix(" m")
-        control.setValue(float(value))
-        return control
 
     def _composition_widget(self, sample: CuttingsSample | None) -> QWidget:
         widget = QWidget()
@@ -653,7 +651,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
         grid.addWidget(QLabel(""), 0, 2)
         existing = list(sample.components if sample is not None else ())
         self.rock_inputs: list[QComboBox] = []
-        self.percent_inputs: list[QDoubleSpinBox] = []
+        self.percent_inputs: list[StoredPrecisionSpinBox] = []
         self.remainder_buttons: list[QPushButton] = []
         for row in range(4):
             rock = QComboBox()
@@ -668,7 +666,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
                     f"{item.code} — {item.localized_name(self._language.value)}",
                     item.lithotype_id,
                 )
-            percent = QDoubleSpinBox()
+            percent = StoredPrecisionSpinBox()
             percent.setObjectName(f"cuttings-percent-{row + 1}")
             percent.setRange(0.0, 100.0)
             percent.setDecimals(1)
@@ -694,7 +692,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
             if row < len(existing):
                 found = rock.findData(existing[row].lithotype_id)
                 rock.setCurrentIndex(max(0, found))
-                percent.setValue(existing[row].percentage)
+                percent.load_stored_value(existing[row].percentage)
             grid.addWidget(rock, row + 1, 0)
             grid.addWidget(percent, row + 1, 1)
             grid.addWidget(remainder, row + 1, 2)
@@ -724,10 +722,10 @@ class UnifiedCuttingsSampleDialog(QDialog):
         calc_hint.setWordWrap(True)
         calc_root.addWidget(calc_hint)
         calc_form = QFormLayout()
-        self.calcite_input = self._optional_percent("cuttings-calcite")
-        self.dolomite_input = self._optional_percent("cuttings-dolomite")
-        self.calcite_input.valueChanged.connect(self._update_residue)
-        self.dolomite_input.valueChanged.connect(self._update_residue)
+        self.calcite_input = CalcimetryPercentInput(sample.calcite_percent if sample else None)
+        self.calcite_input.setObjectName("cuttings-calcite")
+        self.dolomite_input = CalcimetryPercentInput(sample.dolomite_percent if sample else None)
+        self.dolomite_input.setObjectName("cuttings-dolomite")
         self.residue_label = QLabel("—")
         self.residue_label.setObjectName("cuttings-residue")
         self.residue_label.setStyleSheet("font-weight:700;")
@@ -822,19 +820,12 @@ class UnifiedCuttingsSampleDialog(QDialog):
         layout.addStretch(1)
 
         if sample is not None:
-            if sample.calcite_percent is not None:
-                self.calcite_input.setValue(sample.calcite_percent)
-            if sample.dolomite_percent is not None:
-                self.dolomite_input.setValue(sample.dolomite_percent)
-            type_codes = {
-                code: index for index, (code, _color, _label) in enumerate(_LBA_TYPES, start=1)
-            }
-            type_index = type_codes.get(sample.lba_type_id or "")
-            if type_index is None and isinstance(sample.lba_group, int):
-                type_index = sample.lba_group
-            type_button = self.type_group.button(type_index or -1)
-            if type_button is not None:
-                type_button.setChecked(True)
+            type_code = sample.lba_type_id if isinstance(sample.lba_type_id, str) else None
+            standard = lba_standard_type(type_code) or lba_standard_group(sample.lba_group)
+            if standard is not None:
+                type_button = self.type_group.button(standard.group)
+                if type_button is not None:
+                    type_button.setChecked(True)
             intensity = (
                 sample.lba_intensity
                 if isinstance(sample.lba_intensity, int) and sample.lba_intensity in range(1, 6)
@@ -844,9 +835,17 @@ class UnifiedCuttingsSampleDialog(QDialog):
             if intensity_button is not None:
                 intensity_button.setChecked(True)
             self.lba_color_input.setCurrentText(sample.lba_color or "")
+        self.calcite_input.valueChanged.connect(self._update_residue)
+        self.dolomite_input.valueChanged.connect(self._update_residue)
+        self._initial_lba_type_id = self.type_group.checkedId()
+        self._lba_type_selected = False
+        self.type_group.idClicked.connect(self._mark_lba_type_selected)
         self._lba_description_dirty_languages.clear()
         self._update_residue()
         return outer
+
+    def _mark_lba_type_selected(self, _button_id: int) -> None:
+        self._lba_type_selected = True
 
     def _interpretation_widget(self, sample: CuttingsSample | None) -> QWidget:
         widget = QWidget()
@@ -879,30 +878,22 @@ class UnifiedCuttingsSampleDialog(QDialog):
         layout.addWidget(self.interpretation_language_tabs)
         return widget
 
-    @staticmethod
-    def _optional_percent(object_name: str) -> QDoubleSpinBox:
-        control = QDoubleSpinBox()
-        control.setObjectName(object_name)
-        control.setRange(-1.0, 100.0)
-        control.setDecimals(1)
-        control.setSpecialValueText("—")
-        control.setSuffix(" %")
-        control.setValue(-1.0)
-        return control
+    def _calcimetry_values(self) -> tuple[float | None, float | None]:
+        return self.calcite_input.percentage(), self.dolomite_input.percentage()
 
     @property
     def top_depth(self) -> float:
-        return float(self.top_input.value())
+        return self.top_input.effective_value()
 
     @property
     def bottom_depth(self) -> float:
-        return float(self.bottom_input.value())
+        return self.bottom_input.effective_value()
 
     def components(self) -> dict[str, float]:
         values: dict[str, float] = {}
         for rock, percent in zip(self.rock_inputs, self.percent_inputs, strict=True):
             lithotype_id = str(rock.currentData() or "")
-            numeric = float(percent.value())
+            numeric = percent.effective_value()
             if not lithotype_id and numeric == 0.0:
                 continue
             if not lithotype_id:
@@ -913,9 +904,8 @@ class UnifiedCuttingsSampleDialog(QDialog):
         return {key: value for key, value in values.items() if value > 0.0}
 
     def values(self) -> dict[str, Any]:
-        type_button = self.type_group.checkedButton()
-        type_id = self.type_group.id(type_button) if type_button is not None else -1
-        lba_type = _LBA_TYPES[type_id - 1][0] if type_id > 0 else None
+        type_id = self.type_group.checkedId()
+        calcite, dolomite = self._calcimetry_values()
         intensity_button = self.intensity_group.checkedButton()
         intensity = (
             self.intensity_group.id(intensity_button) if intensity_button is not None else -1
@@ -940,42 +930,23 @@ class UnifiedCuttingsSampleDialog(QDialog):
         )
         preserve_legacy_texts: list[str] = []
         if self._sample is not None:
-            # The RU editor displays legacy text when there is no RU version.
-            # A blank replacement map alone cannot distinguish a clear from no edit.
-            for field, initial, dirty_languages in (
-                ("description", self._initial_description_i18n, self._description_dirty_languages),
-                (
-                    "lba_description",
-                    self._initial_lba_description_i18n,
-                    self._lba_description_dirty_languages,
-                ),
-                (
-                    "analysis_interpretation",
-                    self._initial_interpretation_i18n,
-                    self._interpretation_dirty_languages,
-                ),
+            # A saved legacy value can differ from the Russian language version.
+            for field, dirty_languages in (
+                ("description", self._description_dirty_languages),
+                ("lba_description", self._lba_description_dirty_languages),
+                ("analysis_interpretation", self._interpretation_dirty_languages),
             ):
-                if (
-                    getattr(self._sample, field)
-                    and "ru" not in initial
-                    and "ru" not in dirty_languages
-                ):
+                if "ru" not in dirty_languages:
                     preserve_legacy_texts.append(field)
-        return {
+        values = {
             "description": self.rich_description.html(),
             "description_source_language": self.description_source_language_input.currentData(),
             "description_i18n": descriptions,
             "description_template_blocks": list(self._description_template_blocks),
             "description_word_wrap": self.rich_description.word_wrap,
-            "calcite_percent": self.calcite_input.value()
-            if self.calcite_input.value() >= 0
-            else None,
-            "dolomite_percent": self.dolomite_input.value()
-            if self.dolomite_input.value() >= 0
-            else None,
-            "lba_type_id": lba_type,
+            "calcite_percent": calcite,
+            "dolomite_percent": dolomite,
             "lba_intensity": normalized_intensity,
-            "lba_group": type_id if type_id > 0 else None,
             "lba_color": self.lba_color_input.currentText().strip() or None,
             "show_observations": self.oil_show_editor.observations(),
             "lba_description": self.lba_details_input.text().strip() or None,
@@ -984,6 +955,15 @@ class UnifiedCuttingsSampleDialog(QDialog):
             "analysis_interpretation_i18n": interpretations,
             "preserve_legacy_texts": tuple(preserve_legacy_texts),
         }
+        # Displaying a mapped legacy type does not edit the stored classification.
+        if (
+            self._sample is None
+            or self._lba_type_selected
+            or type_id != self._initial_lba_type_id
+        ):
+            values["lba_type_id"] = _LBA_TYPES[type_id - 1][0] if type_id > 0 else None
+            values["lba_group"] = type_id if type_id > 0 else None
+        return values
 
     @staticmethod
     def _plain_localized_values(
@@ -1011,26 +991,13 @@ class UnifiedCuttingsSampleDialog(QDialog):
         rock = self.rock_inputs[row]
         percent = self.percent_inputs[row]
         if not rock.currentData():
-            if percent.value() != 0.0:
-                percent.setValue(0.0)
+            percent.load_stored_value(0.0)
             self._update_total()
             return
-        if percent.value() <= 0.0:
-            remaining = max(
-                0.0,
-                100.0
-                - sum(
-                    float(control.value())
-                    for index, control in enumerate(self.percent_inputs)
-                    if index != row
-                ),
-            )
-            # Selecting the first rock should produce a valid 100% sample, as
-            # in the GeoData reference editor. Additional rocks receive the
-            # currently unallocated remainder and can then be adjusted.
-            if remaining > 0.0:
-                percent.setValue(remaining)
-        self._update_total()
+        if percent.effective_value() <= 0.0:
+            self._fill_remainder(row)
+        else:
+            self._update_total()
         if row == 0 and hasattr(self, "description_template_input"):
             self._suggest_description_template()
 
@@ -1042,18 +1009,18 @@ class UnifiedCuttingsSampleDialog(QDialog):
             0.0,
             100.0
             - sum(
-                float(control.value())
+                control.effective_value()
                 for index, control in enumerate(self.percent_inputs)
                 if index != row
             ),
         )
-        self.percent_inputs[row].setValue(remainder)
+        self.percent_inputs[row].load_stored_value(remainder)
         self._update_total()
 
     def _update_total(self) -> None:
         if not hasattr(self, "percent_inputs") or not hasattr(self, "total_label"):
             return
-        total = sum(float(control.value()) for control in self.percent_inputs)
+        total = sum(control.effective_value() for control in self.percent_inputs)
         if abs(total - 100.0) <= 0.01:
             suffix = self._text["total_ready"]
             color = "#15803d"
@@ -1079,15 +1046,12 @@ class UnifiedCuttingsSampleDialog(QDialog):
                 self.composition_status_label.setStyleSheet("color:#b45309; font-weight:600;")
 
     def _update_residue(self) -> None:
-        if not hasattr(self, "residue_label"):
-            return
-        calcite = self.calcite_input.value()
-        dolomite = self.dolomite_input.value()
-        if calcite < 0 and dolomite < 0:
+        calcite, dolomite = self._calcimetry_values()
+        if calcite is None and dolomite is None:
             self.residue_label.setText("—")
             self.residue_label.setStyleSheet("font-weight:700; color:#64748b;")
             return
-        total = max(0.0, calcite) + max(0.0, dolomite)
+        total = (calcite or 0.0) + (dolomite or 0.0)
         residue = 100.0 - total
         self.residue_label.setText(f"{max(0.0, residue):g} %")
         color = "#15803d" if total <= 100.01 else "#dc2626"
@@ -1117,9 +1081,8 @@ class UnifiedCuttingsSampleDialog(QDialog):
             )
             first.setFocus()
             return
-        calcite = self.calcite_input.value() if self.calcite_input.value() >= 0 else 0.0
-        dolomite = self.dolomite_input.value() if self.dolomite_input.value() >= 0 else 0.0
-        if calcite + dolomite > 100.01:
+        calcite, dolomite = self._calcimetry_values()
+        if (calcite or 0.0) + (dolomite or 0.0) > 100.01:
             self.validation_label.setText(self._text["calc_error"])
             self.tabs.setCurrentIndex(1)
             self.calcite_input.setFocus()
