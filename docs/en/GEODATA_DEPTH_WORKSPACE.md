@@ -126,11 +126,15 @@ When changing boundaries in **Sample analysis**, you can move a sample with rock
 an interval free of other samples with rock composition. Shared endpoints are allowed. An
 analysis-only interval can overlap a rock-composition sample if at least one boundary differs.
 
-When filling in analysis from a tablet selection, editing the depths of a loaded sample moves it
-with the same `sample_id`. After a warning about a rejected move, you can correct the boundaries
-and save again in the same dialog. For a new analysis, editing the boundaries requires an exact
-match to use an existing record. Confirming the initial displayed interval allows matching within
-tolerance.
+When you Shift-drag in a Calcimetry or LBA column on the tablet, the sample lookup works as in
+Masterlog. It checks for an exact match on both boundaries first, then checks within `0.000001 m`
+per boundary and falls back to the existing save tolerance. A matching sample opens with its
+recorded values and depths. Saving uses its `sample_id`.
+
+Editing the depths of a loaded sample moves it. After a warning about a rejected move, you can
+correct the boundaries and save again in the same dialog. For a new selection, each untouched
+boundary keeps its original precision. After you edit the boundaries, both depths must match
+exactly to reuse an existing sample.
 
 In Masterlog, use **Fill cuttings** to select an interval, then adjust its top and bottom depths
 in the composition dialog if needed. Each unedited boundary keeps the precision of the original

@@ -408,12 +408,11 @@ class MasterlogPreviewDialog(QDialog):
 
     def _fill_analysis(self, top: float, bottom: float) -> None:
         controller = self.cuttings_controller
-        sample = None
-        if self.session.current_well is not None:
-            # Show any sample that saving the original selection could reuse.
-            sample = controller.find_sample_for_interval(
-                top, bottom, absolute_tolerance=1e-6
-            ) or controller.find_sample_for_interval(top, bottom)
+        sample = (
+            controller.find_sample_for_analysis_selection(top, bottom)
+            if self.session.current_well is not None
+            else None
+        )
         dialog = SampleAnalysisDialog(
             top, bottom, language=self.language, sample=sample, parent=self
         )

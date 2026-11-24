@@ -1,3 +1,11 @@
+## WELL-04 — precise tablet analysis selections and sample lookup (24.11.2026, under review)
+
+Shift-drag in Calcimetry or LBA on the tablet uses the Masterlog sample lookup. It checks exact
+boundaries first, then looks within `0.000001 m` per boundary and falls back to the existing save
+tolerance. A matching sample opens with its recorded values and depths and saves by its ID. For
+a new selection, each untouched boundary keeps its original precision. Edited boundaries reuse
+an existing record only if both match exactly.
+
 ## WELL-04 — clearing legacy analysis text (24.11.2026, under review)
 
 In Sample analysis on the tablet and in Masterlog, clearing a legacy LBA description or

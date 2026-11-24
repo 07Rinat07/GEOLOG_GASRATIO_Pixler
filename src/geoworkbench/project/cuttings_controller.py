@@ -82,6 +82,12 @@ class CuttingsController:
             None,
         )
 
+    def find_sample_for_analysis_selection(self, top: float, bottom: float) -> CuttingsSample | None:
+        """Show the sample that accepting the original analysis selection could reuse."""
+        return self.find_sample_for_interval(
+            top, bottom, absolute_tolerance=1e-6
+        ) or self.find_sample_for_interval(top, bottom)
+
     def description_source_language(self, sample_id: str) -> str | None:
         sample = self._require_sample(sample_id)
         field_id = CuttingsDescriptionTrackingWorkflow.field_id(sample.sample_id)

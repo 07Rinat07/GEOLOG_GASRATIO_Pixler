@@ -126,7 +126,7 @@ def _fill_tablet_analysis(
     monkeypatch: pytest.MonkeyPatch,
     controller: CuttingsController,
     selected: tuple[float, float],
-    edits: tuple[tuple[float, float] | None, ...],
+    edits: tuple[tuple[float | None, float | None] | None, ...],
     initial_calcite: float,
 ) -> list[tuple[str, tuple[CuttingsSample, ...], bool]]:
     submissions = iter(edits)
@@ -140,8 +140,11 @@ def _fill_tablet_analysis(
         expected_calcite = 42.0 if warnings else initial_calcite
         assert dialog.calcite_input.value() == expected_calcite
         if edited is not None:
-            dialog.top_input.setValue(edited[0])
-            dialog.bottom_input.setValue(edited[1])
+            top, bottom = edited
+            if top is not None:
+                dialog.top_input.setValue(top)
+            if bottom is not None:
+                dialog.bottom_input.setValue(bottom)
         dialog.calcite_input.setValue(42.0)
         buttons = dialog.findChild(QDialogButtonBox)
         assert buttons is not None
@@ -207,28 +210,70 @@ def test_tablet_filling_analysis_moves_the_prefilled_sample(
     assert session.dirty
 
 
-@pytest.mark.parametrize("edit", [False, True], ids=["untouched-rounded", "edited-exact"])
-def test_tablet_filling_new_analysis_uses_tolerance_only_for_untouched_bounds(
-    qapp, monkeypatch: pytest.MonkeyPatch, edit: bool
+@pytest.mark.parametrize("tight_match", [False, True], ids=["broad-prefill", "tight-priority"])
+def test_tablet_filling_analysis_preserves_prefilled_data_for_near_selection(
+    qapp, monkeypatch: pytest.MonkeyPatch, tight_match: bool
 ) -> None:
     controller = CuttingsController(_session())
-    selected = (150.0, 151.0) if edit else (150.0004, 151.1234)
-    neighbor_interval = (150.5, 151.0) if edit else (150.0008, 151.1238)
-    neighbor = controller.set_analysis(*neighbor_interval, calcite_percent=12.5)
+    stored = (150.0008, 151.1238)
+    selected = (150.0008005, 151.1238005) if tight_match else (150.0004, 151.1234)
+    if tight_match:
+        controller.set_analysis(150.0001, 151.1231, calcite_percent=22.0)
+    earlier_samples = deepcopy(controller.available())
+    sample = controller.set_analysis(
+        *stored,
+        calcite_percent=12.5,
+        dolomite_percent=11.321,
+        lba_color="Tan",
+        lba_description_i18n={"en": "Recorded LBA"},
+        analysis_interpretation_i18n={"ru": "Recorded conclusion"},
+        absolute_tolerance=0.0,
+    )
+    expected = deepcopy(sample)
+    expected.calcite_percent = 42.0
+
+    assert _fill_tablet_analysis(monkeypatch, controller, selected, (None,), 12.5) == []
+
+    assert controller.get(sample.sample_id) is sample
+    assert controller.available() == (*earlier_samples, expected)
+
+
+def test_tablet_filling_new_analysis_matches_edited_bounds_exactly(
+    qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    controller = CuttingsController(_session())
+    selected = (150.0, 151.0)
+    edited = (150.499, 151.0)
+    neighbor = controller.set_analysis(150.5, 151.0, calcite_percent=12.5)
     neighbor_before = deepcopy(neighbor)
-    edited = (150.499, 151.0) if edit else None
 
     assert _fill_tablet_analysis(monkeypatch, controller, selected, (edited,), -1.0) == []
 
-    if edit:
-        saved, unchanged = controller.available()
-        assert unchanged is neighbor
-        assert unchanged == neighbor_before
-        assert (saved.top_depth, saved.bottom_depth) == edited
-    else:
-        (saved,) = controller.available()
-        assert saved is neighbor
-        assert (saved.top_depth, saved.bottom_depth) == (150.0, 151.123)
+    saved, unchanged = controller.available()
+    assert unchanged is neighbor
+    assert unchanged == neighbor_before
+    assert (saved.top_depth, saved.bottom_depth) == edited
+    assert saved.calcite_percent == 42.0
+
+
+@pytest.mark.parametrize(
+    ("selected", "edited_top"),
+    [
+        pytest.param((170.0001, 170.0004), None, id="unchanged-submillimeter-range"),
+        pytest.param((160.0004, 161.1234), 160.125, id="edit-one-boundary"),
+    ],
+)
+def test_tablet_filling_new_analysis_preserves_original_depth_precision(
+    qapp, monkeypatch: pytest.MonkeyPatch, selected: tuple[float, float], edited_top: float | None
+) -> None:
+    controller = CuttingsController(_session())
+    edited = None if edited_top is None else (edited_top, None)
+
+    assert _fill_tablet_analysis(monkeypatch, controller, selected, (edited,), -1.0) == []
+
+    (saved,) = controller.available()
+    expected_top = selected[0] if edited_top is None else edited_top
+    assert (saved.top_depth, saved.bottom_depth) == (expected_top, selected[1])
     assert saved.calcite_percent == 42.0
 
 
