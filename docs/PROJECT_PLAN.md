@@ -1,3 +1,21 @@
+## Windows Qt #544 — архив диагностической ветки и повторный прогон, 24 ноября 2026
+
+- Сохранить историю `codex/qt-curveview-native-diagnostic` под архивным тегом
+  `archive/qt-curveview-native-diagnostic-2026-11-18`. Перед удалением старого имени проверить на
+  GitHub, что архив указывает на `54c9f863fd522f42c5fc4b72de1bcda53d923a37`, и дождаться успешного
+  Release Gate на актуальном `main`.
+- Исторические прогоны для поиска свидетельств. [WITS0 в исходном общем шарде Windows](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/44277666778), [жизненный цикл графиков планшета](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/43658182094).
+- Ручной `.github/workflows/qt-native-replay.yml` поддерживает профиль `adaptive-geology`.
+  Он запускает пять точных селекторов из локального сбоя в исходном порядке в одном дочернем
+  процессе и по отдельности для контроля. Расследование остаётся открытым до
+  установления первопричины. [Инцидент Qt #544](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/issues/544).
+
+Команда локального запуска в Windows.
+
+```powershell
+.\.venv\Scripts\python.exe tools/replay_windows_qt_native.py --output-dir build/ci-artifacts/qt-adaptive-geology --profile adaptive-geology --mode both --repetitions 1
+```
+
 ## Windows Qt #544 / P1 — переполнение JSON exponent, 20 ноября 2026
 
 - Main `d001c0158aabbd7a0e2a1dfca2324876f79eced3`: Release Gate #44738517186 — 3/3 SUCCESS; очистка #44743331765 SUCCESS. Открытых PR нет, диагностическая ветка сохраняется до завершения #544.

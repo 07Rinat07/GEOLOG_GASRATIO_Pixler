@@ -3,6 +3,14 @@ name: Windows Qt native replay (manual)
 on:
   workflow_dispatch:
     inputs:
+      profile:
+        description: "Use the default scenarios or the adaptive geology sequence"
+        required: true
+        default: default
+        type: choice
+        options:
+          - default
+          - adaptive-geology
       mode:
         description: "Run standalone selectors, a shared-process sequence, or both"
         required: true
@@ -92,10 +100,11 @@ jobs:
       - name: Replay known native-heavy Qt selectors
         shell: pwsh
         env:
+          GEOLOG_REPLAY_PROFILE: ${{ inputs.profile }}
           GEOLOG_REPLAY_MODE: ${{ inputs.mode }}
           GEOLOG_REPLAY_REPETITIONS: ${{ inputs.repetitions }}
         run: |
-          .\.venv\Scripts\python.exe tools/replay_windows_qt_native.py --output-dir build/ci-artifacts/qt-replay --mode $env:GEOLOG_REPLAY_MODE --repetitions $env:GEOLOG_REPLAY_REPETITIONS
+          .\.venv\Scripts\python.exe tools/replay_windows_qt_native.py --output-dir build/ci-artifacts/qt-replay --profile $env:GEOLOG_REPLAY_PROFILE --mode $env:GEOLOG_REPLAY_MODE --repetitions $env:GEOLOG_REPLAY_REPETITIONS
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload replay logs and version evidence

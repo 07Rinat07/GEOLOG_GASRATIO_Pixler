@@ -17,6 +17,7 @@ from typing import Any
 
 from tools.capture_windows_native_runtime import NATIVE_PACKAGES
 from tools.replay_windows_qt_native import (
+    DEFAULT_PROFILE,
     WINDOWS_NATIVE_CRASH_CODES,
     replay_plan,
 )
@@ -148,7 +149,8 @@ def verify_replay_evidence(directory: Path, commit: str) -> tuple[dict[str, Any]
         raise ValueError("Unsupported replay results schema")
     mode = evidence.get("mode")
     repetitions = evidence.get("repetitions")
-    plan = replay_plan(repetitions, mode)
+    profile = evidence.get("profile", DEFAULT_PROFILE)
+    plan = replay_plan(repetitions, mode, profile=profile)
     completed, expected = evidence.get("completed"), evidence.get("expected")
     entries = evidence.get("results")
     if (
@@ -220,6 +222,7 @@ def verify_replay_evidence(directory: Path, commit: str) -> tuple[dict[str, Any]
     state = "incomplete" if completed < expected else "failed" if failure_count else "passed"
     summary: dict[str, Any] = {
         "source_commit": commit,
+        "profile": profile,
         "mode": mode,
         "repetitions": repetitions,
         "completed": completed,

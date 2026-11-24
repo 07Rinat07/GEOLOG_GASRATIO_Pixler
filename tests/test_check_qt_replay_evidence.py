@@ -46,8 +46,12 @@ def test_finite_json_exponents_remain_valid(tmp_path, filename):
     assert path.read_bytes() == before
 
 
-def _write_artifacts(tmp_path, *, mode="sequence", repetitions=1, statuses=None, sha=SHA):
-    plan = replay_plan(repetitions, mode)
+def _write_artifacts(
+    tmp_path, *, mode="sequence", repetitions=1, statuses=None, sha=SHA, profile=None
+):
+    plan = replay_plan(repetitions, mode) if profile is None else replay_plan(
+        repetitions, mode, profile=profile
+    )
     if statuses is None:
         statuses = ["passed"] * len(plan)
     records = []
@@ -63,12 +67,15 @@ def _write_artifacts(tmp_path, *, mode="sequence", repetitions=1, statuses=None,
             "log_file": filename,
         })
     full = len(records) == len(plan)
-    (tmp_path / "results.json").write_text(json.dumps({
+    report = {
         "schema_version": 1, "mode": mode, "repetitions": repetitions,
         "completed": len(records), "expected": len(plan),
         "all_passed": full and all(s == "passed" for s in statuses),
         "results": records,
-    }), encoding="utf-8")
+    }
+    if profile is not None:
+        report["profile"] = profile
+    (tmp_path / "results.json").write_text(json.dumps(report), encoding="utf-8")
     (tmp_path / "native-runtime.json").write_text(json.dumps({
         "schema_version": 2, "source_commit": sha, "os": "Windows",
         "qt_runtime_version": "6.8.0",
@@ -85,6 +92,7 @@ def test_complete_green_is_diagnostic_not_proof_of_fix(tmp_path):
     _write_artifacts(tmp_path)
     report, code = check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
     assert code == 0
+    assert report["profile"] == "default"
     assert report["diagnostic_status"] == "passed"
     assert report["qt_issue_544_resolved"] is False
     assert report["root_cause_confirmed"] is False
@@ -96,6 +104,49 @@ def test_native_crash_is_preserved_as_failure(tmp_path):
     assert code == 1
     assert report["native_crash_scenarios"] == ["combined"]
     assert report["failed_children"] == 1
+
+
+def test_adaptive_geology_profile_preserves_native_failure_in_shared_child(tmp_path):
+    profile = "adaptive-geology"
+    _write_artifacts(tmp_path, mode="both", statuses=["passed"] * 5 + ["native_crash"], profile=profile)
+    report, code = check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
+    assert code == 1
+    assert report["source_commit"] == SHA
+    assert report["profile"] == profile
+    assert report["completed"] == report["expected"] == 6
+    assert report["native_crash_scenarios"] == ["combined"]
+    assert report["root_cause_confirmed"] is False
+    assert report["qt_issue_544_resolved"] is False
+
+
+@pytest.mark.parametrize("profile", ["unlisted", None, {"adaptive-geology": []}])
+def test_evidence_cannot_supply_its_own_profile(tmp_path, capsys, profile):
+    _write_artifacts(tmp_path)
+    path = tmp_path / "results.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["profile"] = profile
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="profile"):
+        check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
+    assert check_qt_replay_evidence.main([
+        "--artifact-dir", str(tmp_path), "--commit", SHA,
+    ]) == 2
+    assert capsys.readouterr().out == ""
+
+
+@pytest.mark.parametrize("tampering", ["other-profile", "reordered-selectors"])
+def test_adaptive_evidence_rejects_profile_selector_inconsistency(tmp_path, tampering):
+    _write_artifacts(tmp_path, profile="adaptive-geology")
+    path = tmp_path / "results.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if tampering == "other-profile":
+        data["profile"] = "default"
+    else:
+        data["results"][0]["selectors"].reverse()
+    path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ValueError, match="trusted plan"):
+        check_qt_replay_evidence.verify_replay_evidence(tmp_path, SHA)
 
 
 def test_incomplete_progress_is_never_success(tmp_path):

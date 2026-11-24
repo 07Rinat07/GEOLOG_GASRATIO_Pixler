@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,6 +21,20 @@ def test_native_replay_is_manual_only_with_bounded_inputs() -> None:
     assert "permissions:\n  contents: read" in workflow
     assert "persist-credentials: false" in workflow
     assert "cancel-in-progress: false" in workflow
+
+
+def test_native_replay_passes_only_the_fixed_profile_choices_to_the_cli() -> None:
+    workflow = MANUAL.read_text(encoding="utf-8")
+    profile = re.search(r"(?m)^      profile:\n((?: {8,}[^\n]+\n)+)", workflow)
+    assert profile is not None
+    field = profile.group(1)
+    assert "        type: choice\n" in field
+    assert re.search(r'(?m)^        default: ["\']?default["\']?$', field)
+    assert re.findall(r'(?m)^          - ["\']?([\w-]+)["\']?$', field) == [
+        "default", "adaptive-geology",
+    ]
+    assert "GEOLOG_REPLAY_PROFILE: ${{ inputs.profile }}" in workflow
+    assert re.search(r'--profile\s+"?\$env:GEOLOG_REPLAY_PROFILE"?', workflow)
 
 
 def test_native_replay_uses_pinned_release_env_and_preserves_failures() -> None:
@@ -61,3 +76,6 @@ def test_maximum_replay_budget_fits_workflow_timeout_with_headroom() -> None:
     # Ten isolated selectors plus one shared process per repetition need
     # 110 minutes at the unchanged 150-second child timeout.
     assert maximum_children * CHILD_TIMEOUT_SECONDS <= (145 - 30) * 60
+    focused_children = len(replay_plan(MAX_REPETITIONS, "both", profile="adaptive-geology"))
+    assert focused_children == 4 * (5 + 1)
+    assert focused_children * CHILD_TIMEOUT_SECONDS <= 60 * 60

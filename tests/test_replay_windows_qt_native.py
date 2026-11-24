@@ -15,6 +15,24 @@ from tools.replay_windows_qt_native import (
 )
 
 
+ADAPTIVE_PROFILE = "adaptive-geology"
+_COMPOSITION = (
+    "tests/test_adaptive_geology_dialogs.py::"
+    "test_tablet_filling_composition_loads_exact_sample_and_retains_its_analysis_and_description"
+)
+_COLLISION = (
+    "tests/test_adaptive_geology_dialogs.py::"
+    "test_tablet_filling_new_composition_retries_exact_collision_with_entered_values"
+)
+ADAPTIVE_SELECTORS = (
+    f"{_COMPOSITION}[legacy-description-only]",
+    f"{_COMPOSITION}[preserve-distinct-legacy-texts]",
+    f"{_COMPOSITION}[edit-russian-lba-only]",
+    f"{_COLLISION}[edited-onto-sample]",
+    f"{_COLLISION}[legacy-duplicates]",
+)
+
+
 def test_replay_plan_is_bounded_and_only_uses_known_selectors() -> None:
     plan = replay_plan(2, "both")
     assert len(plan) == 22
@@ -34,6 +52,28 @@ def test_replay_plan_is_bounded_and_only_uses_known_selectors() -> None:
     for i, (_, selector) in enumerate(SCENARIOS):
         assert plan[i][2] == (selector,)
     assert plan[10][2] == tuple(selector for _, selector in SCENARIOS)
+
+
+def test_adaptive_geology_replays_exact_cases_alone_and_in_observed_order() -> None:
+    assert replay_module.DEFAULT_PROFILE == "default"
+    assert set(replay_module.REPLAY_PROFILES) == {"default", ADAPTIVE_PROFILE}
+    assert replay_plan(1, "both", profile="default") == replay_plan(1, "both")
+
+    plan = replay_plan(1, "both", profile=ADAPTIVE_PROFILE)
+    assert len(plan) == len(ADAPTIVE_SELECTORS) + 1
+    assert len({label for _, label, _ in plan}) == len(plan)
+    assert tuple(selectors for _, _, selectors in plan[:-1]) == tuple(
+        (selector,) for selector in ADAPTIVE_SELECTORS
+    )
+    assert plan[-1] == (1, "combined", ADAPTIVE_SELECTORS)
+    assert replay_plan(1, "isolated", profile=ADAPTIVE_PROFILE) == plan[:-1]
+    assert replay_plan(1, "sequence", profile=ADAPTIVE_PROFILE) == plan[-1:]
+
+
+@pytest.mark.parametrize("profile", ["unlisted", "", None, {"adaptive-geology": []}])
+def test_replay_plan_rejects_caller_supplied_profiles(profile) -> None:
+    with pytest.raises(ValueError, match="profile"):
+        replay_plan(1, "both", profile=profile)
 
 
 @pytest.mark.parametrize("repetitions", [0, -1, 5, 6, True, "2"])
@@ -136,6 +176,48 @@ def test_maximum_replay_budget_reserves_time_for_windows_setup_and_artifacts() -
     assert len(plan) == 44
     assert len(plan) * CHILD_TIMEOUT_SECONDS <= 110 * 60
     assert plan[-1][1] == "combined"
+
+
+def test_adaptive_replay_keeps_profile_in_progress_and_crash_evidence(tmp_path) -> None:
+    commands = []
+
+    def run(command, **kwargs):
+        snapshot = json.loads((tmp_path / "results.json").read_text(encoding="utf-8"))
+        assert snapshot["profile"] == ADAPTIVE_PROFILE
+        assert snapshot["completed"] == len(commands)
+        assert snapshot["all_passed"] is False
+        assert kwargs["timeout"] == CHILD_TIMEOUT_SECONDS
+        commands.append(command[4:])
+        return subprocess.CompletedProcess(
+            command, -1073741819 if len(commands) == 6 else 0, stdout="child", stderr=""
+        )
+
+    assert not execute_replay(
+        tmp_path, repetitions=1, mode="both", profile=ADAPTIVE_PROFILE, runner=run
+    )
+    assert commands == [(selector,) for selector in ADAPTIVE_SELECTORS] + [ADAPTIVE_SELECTORS]
+    report = json.loads((tmp_path / "results.json").read_text(encoding="utf-8"))
+    assert report["profile"] == ADAPTIVE_PROFILE
+    assert report["completed"] == report["expected"] == 6
+    assert report["all_passed"] is False
+    assert [child["status"] for child in report["results"]] == ["passed"] * 5 + ["native_crash"]
+    assert report["results"][-1]["windows_exit_hex"] == "0xC0000005"
+
+
+def test_cli_passes_explicit_profile_to_replay(tmp_path, monkeypatch) -> None:
+    def execute(output_dir, *, repetitions, mode, profile):
+        assert output_dir == tmp_path
+        assert repetitions == 1
+        assert mode == "sequence"
+        assert profile == ADAPTIVE_PROFILE
+        return True
+
+    monkeypatch.setattr(replay_module, "execute_replay", execute)
+    monkeypatch.setattr(replay_module.sys, "argv", [
+        "replay_windows_qt_native.py", "--output-dir", str(tmp_path),
+        "--repetitions", "1", "--mode", "sequence", "--profile", ADAPTIVE_PROFILE,
+    ])
+    assert replay_module.main() == 0
 
 
 def test_replay_plan_rejects_arbitrary_scenarios() -> None:
@@ -295,6 +377,7 @@ def test_replay_success_returns_success_and_summary(tmp_path) -> None:
 
     assert execute_replay(tmp_path, repetitions=1, mode="sequence", runner=run)
     report = json.loads((tmp_path / "results.json").read_text("utf-8"))
+    assert report["profile"] == "default"
     assert report["all_passed"] is True
     assert report["completed"] == report["expected"] == 1
 
