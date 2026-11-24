@@ -588,8 +588,16 @@ def _accept_tablet_cuttings(dialog: UnifiedCuttingsSampleDialog) -> QDialog.Dial
     return QDialog.DialogCode.Accepted
 
 
+@pytest.mark.parametrize(
+    ("localized_ru", "edit_ru_lba"),
+    [
+        pytest.param(False, False, id="legacy-description-only"),
+        pytest.param(True, False, id="preserve-distinct-legacy-texts"),
+        pytest.param(True, True, id="edit-russian-lba-only"),
+    ],
+)
 def test_tablet_filling_composition_loads_exact_sample_and_retains_its_analysis_and_description(
-    qapp, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    qapp, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, localized_ru: bool, edit_ru_lba: bool
 ) -> None:
     session = _session()
     controller = CuttingsController(session)
@@ -609,6 +617,14 @@ def test_tablet_filling_composition_loads_exact_sample_and_retains_its_analysis_
     assert controller.set_description(
         top, bottom, legacy_description, description_word_wrap=False
     ) is sample
+    description_on_screen = "Legacy rock description"
+    if localized_ru:
+        # Older packages can store distinct legacy and localized Russian texts.
+        sample.lba_description = "Legacy LBA description"
+        sample.lba_description_i18n["ru"] = "Localized LBA description"
+        sample.analysis_interpretation = "Legacy conclusion"
+        description_on_screen = "Localized rock description"
+        sample.description_i18n["ru"] = f"<p>{description_on_screen}</p>"
     field_id = f"cuttings/{sample.sample_id}/analysis_interpretation"
     TranslationStatusController(session).review_current(field_id=field_id, language="ru")
     well = session.current_well
@@ -620,7 +636,10 @@ def test_tablet_filling_composition_loads_exact_sample_and_retains_its_analysis_
     def fill(dialog: UnifiedCuttingsSampleDialog) -> QDialog.DialogCode:
         assert (dialog.top_depth, dialog.bottom_depth) == selected
         assert dialog.calcite_input.percentage() == before.calcite_percent
-        assert dialog.description_editors["ru"].editor.toPlainText() == "Legacy rock description"
+        assert dialog.description_editors["ru"].editor.toPlainText() == description_on_screen
+        if edit_ru_lba:
+            assert dialog.lba_description_inputs["ru"].text() == "Localized LBA description"
+            dialog.lba_description_inputs["ru"].setText("Edited Russian LBA")
         assert dialog.findChild(QPushButton, "cuttings-delete-button") is None
         assert dialog.components() == {}
         _select_sandstone_for_tablet_cuttings(dialog)
@@ -640,6 +659,8 @@ def test_tablet_filling_composition_loads_exact_sample_and_retains_its_analysis_
         ("sandstone", 100.0)
     ]
     before.components = deepcopy(sample.components)
+    if edit_ru_lba:
+        before.lba_description = before.lba_description_i18n["ru"] = "Edited Russian LBA"
     assert sample == before
 
     repository = PackageProjectRepository()

@@ -930,26 +930,13 @@ class UnifiedCuttingsSampleDialog(QDialog):
         )
         preserve_legacy_texts: list[str] = []
         if self._sample is not None:
-            # The RU editor displays legacy text when there is no RU version.
-            # A blank replacement map alone cannot distinguish a clear from no edit.
-            for field, initial, dirty_languages in (
-                ("description", self._initial_description_i18n, self._description_dirty_languages),
-                (
-                    "lba_description",
-                    self._initial_lba_description_i18n,
-                    self._lba_description_dirty_languages,
-                ),
-                (
-                    "analysis_interpretation",
-                    self._initial_interpretation_i18n,
-                    self._interpretation_dirty_languages,
-                ),
+            # A saved legacy value can differ from the Russian language version.
+            for field, dirty_languages in (
+                ("description", self._description_dirty_languages),
+                ("lba_description", self._lba_description_dirty_languages),
+                ("analysis_interpretation", self._interpretation_dirty_languages),
             ):
-                if (
-                    getattr(self._sample, field)
-                    and "ru" not in initial
-                    and "ru" not in dirty_languages
-                ):
+                if "ru" not in dirty_languages:
                     preserve_legacy_texts.append(field)
         values = {
             "description": self.rich_description.html(),

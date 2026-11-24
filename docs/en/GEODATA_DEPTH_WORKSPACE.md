@@ -104,6 +104,10 @@ Double-clicking a saved sample opens the editor for that track. Changes in the s
 keep the existing `sample_id` and refresh Cuttings, LBA, Calcimetry, and Description together.
 Opening the shared editor with a double-click also lets you delete the entire sample.
 
+If a rock description, LBA description or conclusion has both legacy text and a Russian version,
+the shared editor preserves both when you add composition or edit other fields. An explicit edit
+on a Russian tab updates the corresponding legacy field.
+
 Rock percentages display one decimal place. Each share keeps its stored precision while its
 displayed number stays the same. The displayed total and validation use the shares to be saved.
 Select **Remainder** to fill the selected rock's share up to a total of 100%, using the exact

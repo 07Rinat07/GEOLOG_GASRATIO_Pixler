@@ -1,3 +1,9 @@
+## WELL-04 — preserving separate legacy and Russian sample texts (24.11.2026, under review)
+
+The shared cuttings editor preserves separately stored legacy and Russian text for the rock
+description, LBA description and conclusion when you add composition or edit unrelated fields.
+An explicit edit on a Russian tab updates its language version and the corresponding legacy field.
+
 ## WELL-04 — precise tablet analysis selections and sample lookup (24.11.2026, under review)
 
 Shift-drag in Calcimetry or LBA on the tablet uses the Masterlog sample lookup. It checks exact

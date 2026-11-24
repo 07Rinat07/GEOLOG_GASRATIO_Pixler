@@ -215,8 +215,8 @@ class CuttingsController:
         preserve_legacy_texts: tuple[str, ...] = (),
     ) -> None:
         content_language = values.get("content_language")
-        legacy_texts: dict[str, str | None] = {
-            field: getattr(sample, field)
+        legacy_texts: dict[str, tuple[str | None, str | None]] = {
+            field: (getattr(sample, field), getattr(sample, f"{field}_i18n").get("ru"))
             for field in ("description", "lba_description", "analysis_interpretation")
             if field in preserve_legacy_texts
         }
@@ -311,9 +311,12 @@ class CuttingsController:
             previous_languages = set(target)
             target.clear()
             target.update(localized)
-            setattr(
-                sample, legacy_attribute, localized.get("ru", legacy_texts.get(legacy_attribute))
-            )
+            russian_text = localized.get("ru")
+            if legacy_attribute in legacy_texts:
+                legacy_text, previous_russian_text = legacy_texts[legacy_attribute]
+                if russian_text == previous_russian_text:
+                    russian_text = legacy_text
+            setattr(sample, legacy_attribute, russian_text)
             if bump_revisions:
                 for language in previous_languages | set(localized):
                     if language != "und":
