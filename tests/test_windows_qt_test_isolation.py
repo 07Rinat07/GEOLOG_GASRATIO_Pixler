@@ -53,6 +53,8 @@ def test_native_isolation_keeps_masterlog_mapping_out_of_regular_shards() -> Non
     (
         "tests/test_adaptive_geology_dialogs.py",
         "tests/test_daily_las_growth_autosave.py",
+        "tests/test_gis_archie_tablet_handoff.py",
+        "tests/test_gis_profile_tablet_navigation.py",
         "tests/test_lithology_drag_editor.py",
         "tests/test_lithology_mapping_dialog.py",
         "tests/test_localization.py",
