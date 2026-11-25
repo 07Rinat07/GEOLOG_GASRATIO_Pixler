@@ -205,10 +205,15 @@ project compatibility do not change.
 In Select mode (`Alt+1`), hold `Shift` and left-drag in an Interpretation or Rock description
 track. A dedicated editor opens without requiring rock percentages. Correct the exact top and
 bottom, select a RU/KZ/EN language and ready template, or enter arbitrary text. Double-click a
-saved description to reopen it. Deleting the description preserves composition, LBA, and
-calcimetry, including a recorded result of 0% calcite or dolomite in a sample without rock
-composition. If the interval contains only a description, deleting its last language version
-removes the interval.
+saved description to reopen it. **Delete description** is available when the interface
+language has a saved version. The Russian interface can also delete a legacy description without
+a language tag. When a version is missing, text from another language is shown for reference.
+If a source language is assigned, change it before deleting the original.
+
+Deleting the description preserves composition, LBA, and calcimetry, including a recorded
+result of 0% calcite or dolomite in a sample without rock composition. If the interval contains
+only a description, deleting its last language version removes the interval. Clearing the last
+saved version in the editor and confirming also removes the interval.
 
 Each unedited boundary retains the precision of the selection. If you change either boundary,
 the editor reuses a saved sample only when both depths match exactly. If you confirm both selected

@@ -1,3 +1,10 @@
+## WELL-04 — deleting and clearing rock descriptions (25.11.2026, under review)
+
+On the tablet, **Delete description** is available when a description is saved for the interface
+language. Text displayed from another language remains available for reference. Clearing the last
+saved version and confirming removes a description-only interval and preserves samples with
+composition or analysis.
+
 ## WELL-04 — zero calcimetry after description deletion (24.11.2026, under review)
 
 Deleting a rock description keeps a recorded result of 0% calcite or dolomite, even in a sample
