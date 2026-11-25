@@ -1,8 +1,10 @@
+import pytest
+
 from geoworkbench.domain.models import CuttingsSample
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.rock_description_dialog import RockDescriptionDialog
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QTextEdit
+from PySide6.QtWidgets import QPushButton, QTextEdit
 
 
 def test_rock_description_dialog_allows_exact_interval_and_free_text(qapp) -> None:
@@ -60,6 +62,58 @@ def test_rock_description_dialog_preserves_existing_text_on_open(qapp) -> None:
 
     assert dialog.editor.editor.toPlainText() == "Авторский текст"
     assert dialog.template_input.currentIndex() == 0
+    dialog.close()
+
+
+@pytest.mark.parametrize(
+    ("language", "stored_language", "can_delete"),
+    (
+        pytest.param(AppLanguage.KK, "kk", True, id="current-language"),
+        pytest.param(AppLanguage.EN, "ru", False, id="other-language-fallback"),
+        pytest.param(AppLanguage.EN, "und", False, id="undetermined-fallback"),
+        pytest.param(AppLanguage.RU, None, True, id="legacy-russian"),
+        pytest.param(AppLanguage.KK, None, False, id="legacy-fallback"),
+    ),
+)
+def test_rock_description_delete_requires_saved_version_in_editor_language(
+    qapp, language: AppLanguage, stored_language: str | None, can_delete: bool
+) -> None:
+    text = "Saved rock description"
+    sample = CuttingsSample(
+        "sample",
+        70.0,
+        80.0,
+        description=text if stored_language is None else None,
+        description_i18n={stored_language: text} if stored_language is not None else {},
+    )
+    dialog = RockDescriptionDialog(70.0, 80.0, language=language, sample=sample)
+
+    assert dialog.editor.editor.toPlainText() == text
+    delete_button = dialog.findChild(QPushButton, "rock-description-delete")
+    assert (delete_button is not None) is can_delete
+    if delete_button is not None:
+        delete_button.click()
+    assert dialog.delete_requested is can_delete
+    dialog.close()
+
+
+@pytest.mark.parametrize("stored_language", ["en", "und", "ru"])
+def test_rock_description_displays_the_saved_russian_delete_target(
+    qapp, stored_language: str
+) -> None:
+    sample = CuttingsSample(
+        "sample",
+        70.0,
+        80.0,
+        description="Legacy text",
+        description_i18n={stored_language: "Localized text"},
+    )
+    dialog = RockDescriptionDialog(70.0, 80.0, language=AppLanguage.RU, sample=sample)
+
+    assert dialog.editor.editor.toPlainText() == (
+        "Localized text" if stored_language == "ru" else "Legacy text"
+    )
+    assert dialog.findChild(QPushButton, "rock-description-delete") is not None
     dialog.close()
 
 

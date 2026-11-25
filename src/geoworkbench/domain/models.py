@@ -481,6 +481,10 @@ class CuttingsSample:
     # Independent DataLog observations. Historical lba_* fields remain unchanged.
     show_observations: list[OilShowObservation] = field(default_factory=list)
 
+    def description_version(self, language: str) -> str | None:
+        """Get the editable version for the requested language."""
+        return self.description_i18n.get(language) or (self.description if language == "ru" else None)
+
     @property
     def insoluble_residue_percent(self) -> float | None:
         if self.total_carbonate_percent is not None:

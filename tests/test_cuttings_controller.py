@@ -359,6 +359,85 @@ def test_delete_description_removes_description_only_interval() -> None:
     assert controller.available() == ()
 
 
+@pytest.mark.parametrize("tracked", [False, True], ids=["untracked", "tracked"])
+def test_delete_description_without_saved_language_is_noop(tracked: bool) -> None:
+    controller = _controller()
+    sample = controller.set_description(
+        500, 510, "English description", language="en", source_language="en" if tracked else None
+    )
+    well = controller.session.current_well
+    assert well is not None
+    before = deepcopy(well)
+    controller.session.dirty = False
+
+    assert controller.delete_description(sample.sample_id, language="kk") is sample
+
+    assert not controller.session.dirty
+    assert well.cuttings == before.cuttings
+    assert well.content_revision == before.content_revision
+    assert well.language_revisions == before.language_revisions
+    assert well.translation_statuses == before.translation_statuses
+    assert well.authored_field_revisions == before.authored_field_revisions
+    assert well.authored_field_source_languages == before.authored_field_source_languages
+
+
+@pytest.mark.parametrize("calcite", [None, 0.0], ids=["description-only", "zero-calcite"])
+def test_clearing_last_saved_description_preserves_only_samples_with_data(
+    calcite: float | None,
+) -> None:
+    controller = _controller()
+    sample = controller.set_description(500, 510, "English description", language="en")
+    if calcite is not None:
+        controller.set_analysis(500, 510, calcite_percent=calcite)
+
+    updated = controller.update_description(
+        sample.sample_id, top_depth=500, bottom_depth=510, description="", language="en"
+    )
+
+    assert updated is sample
+    assert sample.description is None
+    assert sample.description_i18n == {}
+    if calcite is None:
+        assert controller.find_sample_for_interval(500, 510) is None
+    else:
+        assert controller.get(sample.sample_id) is sample
+        assert sample.calcite_percent == 0.0
+
+
+@pytest.mark.parametrize(
+    ("new_top", "word_wrap"),
+    [(500, True), (501, True), (500, False)],
+    ids=["no-op", "move", "wrap"],
+)
+def test_clearing_unsaved_fallback_keeps_language_revisions(
+    new_top: float, word_wrap: bool
+) -> None:
+    controller = _controller()
+    sample = controller.set_description(500, 510, "English description", language="en")
+    well = controller.session.current_well
+    assert well is not None
+    before = deepcopy(well)
+    controller.session.dirty = False
+
+    updated = controller.update_description(
+        sample.sample_id,
+        top_depth=new_top,
+        bottom_depth=510,
+        description=None,
+        description_word_wrap=word_wrap,
+        language="kk",
+    )
+
+    assert updated is sample
+    assert sample.description_i18n == before.cuttings[0].description_i18n
+    assert (sample.top_depth, sample.bottom_depth) == (new_top, 510)
+    assert sample.description_word_wrap is word_wrap
+    geometry_changed = new_top != 500 or not word_wrap
+    assert controller.session.dirty is geometry_changed
+    assert well.content_revision == before.content_revision + int(geometry_changed)
+    assert well.language_revisions == before.language_revisions
+
+
 def test_sample_analysis_validates_percentages_intensity_and_empty_input() -> None:
     controller = _controller()
 

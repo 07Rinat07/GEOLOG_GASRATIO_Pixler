@@ -355,6 +355,11 @@ class CuttingsController:
             if preserve_description
             else self._normalize_text(description, 2_000_000, "Описание шлама")
         )
+        # Clearing a displayed fallback can still include depth or layout edits.
+        if not preserve_description and normalized is None and language is not None:
+            preserve_description = not sample.description_version(
+                normalize_content_language(language)
+            )
         self._ensure_sample_move_is_unoccupied(sample, top, bottom)
         if sample.components:
             self._ensure_no_composition_overlap(
@@ -413,6 +418,10 @@ class CuttingsController:
             self._require_well().content_revision += 1
         elif language is not None:
             self._bump_content(normalize_content_language(language))
+        if self._has_description_data(previous) and not (
+            self._has_description_data(sample) or self._has_non_description_data(sample)
+        ):
+            return self.remove(sample_id)
         self.session.dirty = True
         return sample
 
@@ -423,20 +432,24 @@ class CuttingsController:
         well = self._require_well()
         sample = self._require_sample(sample_id)
         source_language = self.description_source_language(sample_id)
+        code = normalize_content_language(language) if language is not None else None
+        if code is not None:
+            if code == source_language:
+                raise ValueError(
+                    "Нельзя удалить язык оригинала без выбора нового языка оригинала"
+                )
+            if not sample.description_version(code):
+                return sample
+
         if source_language is not None:
             previous = deepcopy(sample)
-            if language is None:
+            if code is None:
                 sample.description = None
                 sample.description_i18n.clear()
                 self._clear_description_tracking(sample.sample_id)
                 self._bump_changed_localized_languages(previous, sample)
                 well.content_revision += 1
             else:
-                code = normalize_content_language(language)
-                if code == source_language:
-                    raise ValueError(
-                        "Нельзя удалить язык оригинала без выбора нового языка оригинала"
-                    )
                 staged = deepcopy(sample)
                 staged.description_i18n.pop(code, None)
                 if code == "ru":
@@ -456,11 +469,10 @@ class CuttingsController:
             self.session.dirty = True
             return sample
 
-        if language is None:
+        if code is None:
             sample.description = None
             sample.description_i18n.clear()
         else:
-            code = normalize_content_language(language)
             sample.description_i18n.pop(code, None)
             if code == "ru":
                 sample.description = None
@@ -1101,7 +1113,10 @@ class CuttingsController:
 
     @staticmethod
     def localized_description(sample: CuttingsSample, language: object) -> str:
-        return localized_text(sample.description_i18n, language, legacy=sample.description)
+        code = normalize_content_language(language)
+        return sample.description_version(code) or localized_text(
+            sample.description_i18n, code, legacy=sample.description
+        )
 
     @staticmethod
     def localized_lba_description(sample: CuttingsSample, language: object) -> str:

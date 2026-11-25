@@ -166,15 +166,14 @@ class RockDescriptionDialog(QDialog):
         content_layout.addWidget(hint)
 
         self.editor = RichIntervalTextEditor(language=language)
-        self.editor.set_html(
-            localized_text(
-                sample.description_i18n,
-                language,
-                legacy=sample.description,
+        editable_description = None
+        displayed_description = None
+        if sample is not None:
+            editable_description = sample.description_version(language.value)
+            displayed_description = editable_description or localized_text(
+                sample.description_i18n, language, legacy=sample.description
             )
-            if sample is not None
-            else None
-        )
+        self.editor.set_html(displayed_description)
         self.editor.set_word_wrap(
             sample.description_word_wrap if sample is not None else True
         )
@@ -202,7 +201,7 @@ class RockDescriptionDialog(QDialog):
         )
         buttons.accepted.connect(self._accept_if_valid)
         buttons.rejected.connect(self.reject)
-        if sample is not None:
+        if editable_description:
             delete_button = buttons.addButton(
                 self._text["delete"], QDialogButtonBox.ButtonRole.DestructiveRole
             )

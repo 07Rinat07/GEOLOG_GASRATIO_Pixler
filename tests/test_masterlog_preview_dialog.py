@@ -307,6 +307,39 @@ def test_masterlog_description_creates_precise_interval_in_active_language(
     assert sample.description_i18n == {"en": "New text"}
 
 
+def test_masterlog_clearing_last_description_frees_the_interval(
+    qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session = _masterlog_geology_session()
+    controller = CuttingsController(session)
+    interval = (150.0, 151.0)
+    sample = controller.set_description(*interval, "Sandstone", language="en")
+    session.dirty = False
+
+    _fill_masterlog_description(monkeypatch, session, interval, AppLanguage.EN, "Sandstone", "")
+
+    assert controller.available() == ()
+    assert session.dirty
+    replacement = controller.set_description(*interval, "Claystone", language="en")
+    assert replacement.sample_id != sample.sample_id
+
+
+def test_masterlog_clearing_legacy_russian_description_keeps_other_version(
+    qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session = _masterlog_geology_session()
+    controller = CuttingsController(session)
+    interval = (150.0, 151.0)
+    sample = controller.set_description(*interval, "Original")
+    controller.set_description(*interval, "Sandstone", language="en")
+
+    _fill_masterlog_description(monkeypatch, session, interval, AppLanguage.RU, "Original", "")
+
+    assert controller.available() == (sample,)
+    assert sample.description is None
+    assert sample.description_i18n == {"en": "Sandstone"}
+
+
 def _fill_masterlog_analysis(
     monkeypatch: pytest.MonkeyPatch,
     session: ProjectSession,
