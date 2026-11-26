@@ -86,6 +86,23 @@ def test_pyqtgraph_heavy_files_use_fresh_process_per_test(relative_path: str) ->
     assert tuple(selector for _batch_path, selectors in batches for selector in selectors) == nodes
 
 
+def test_archie_stale_seal_cases_use_separate_native_processes() -> None:
+    runner = runpy.run_path("scripts/run_tests.py")
+    path = Path("tests/test_gis_archie_tablet_handoff.py")
+    prefix = f"{path.as_posix()}::test_main_rejects_stale_archie_seal_"
+    batches = runner["_heavy_test_batches"]((path,))
+
+    stale_seal_batches = tuple(
+        selectors
+        for _batch_path, selectors in batches
+        if any(selector.startswith(prefix) for selector in selectors)
+    )
+
+    assert stale_seal_batches == tuple(
+        (f"{prefix}after_{change}_change",) for change in ("source", "axis", "dataset", "well")
+    )
+
+
 def test_windows_default_shards_limit_qt_state_accumulation() -> None:
     runner = runpy.run_path("scripts/run_tests.py")
     assert runner["_DEFAULT_WINDOWS_SHARDS"] >= 16

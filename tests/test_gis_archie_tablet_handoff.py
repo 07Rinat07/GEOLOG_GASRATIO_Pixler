@@ -175,9 +175,8 @@ def test_transient_archie_panel_discards_stale_source_or_context(qapp, change):
         window.close()
 
 
-@pytest.mark.parametrize("change", ("source", "axis", "dataset", "well"))
-def test_main_rejects_stale_archie_seal_without_navigating(qapp, change):
-    window, session, dataset, layout = _window(qapp)
+def _assert_main_rejects_stale_archie_seal_without_navigating(qapp, change):
+    window, session, dataset, _layout = _window(qapp)
     try:
         seal = _seal(dataset)
         if change == "source":
@@ -199,6 +198,23 @@ def test_main_rejects_stale_archie_seal_without_navigating(qapp, change):
         assert window.tablet_view.gis_profile_track is None
     finally:
         window.close()
+
+
+# Each case creates MainWindow. The Windows runner isolates test functions (#544).
+def test_main_rejects_stale_archie_seal_after_source_change(qapp):
+    _assert_main_rejects_stale_archie_seal_without_navigating(qapp, "source")
+
+
+def test_main_rejects_stale_archie_seal_after_axis_change(qapp):
+    _assert_main_rejects_stale_archie_seal_without_navigating(qapp, "axis")
+
+
+def test_main_rejects_stale_archie_seal_after_dataset_change(qapp):
+    _assert_main_rejects_stale_archie_seal_without_navigating(qapp, "dataset")
+
+
+def test_main_rejects_stale_archie_seal_after_well_change(qapp):
+    _assert_main_rejects_stale_archie_seal_without_navigating(qapp, "well")
 
 
 def test_main_reference_entrypoint_rejects_well_change_inside_modal(qapp, monkeypatch):
