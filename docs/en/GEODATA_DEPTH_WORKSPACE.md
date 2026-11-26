@@ -146,8 +146,9 @@ selection. When you edit either boundary, the application matches existing recor
 depths. Confirming the original selection allows matching within tolerance.
 
 The command adds rock shares to the matching analysis or description record and keeps its
-`sample_id` and saved data. The application checks for overlap with other samples with rock
-composition before saving. Adjacent intervals may share a boundary.
+`sample_id`, exact saved depths, and saved data. The overlap check uses those saved depths.
+Adjacent intervals may share a boundary. Reviewed analysis translations keep their status.
+A change in composition can mark dependent rock description translations as needing an update.
 
 In Masterlog, **Calcimetry / LBA** looks up a sample before opening the dialog. It checks for an
 exact match on both boundaries first, then for a match within `0.000001 m` on each boundary and
