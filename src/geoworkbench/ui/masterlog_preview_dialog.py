@@ -426,13 +426,24 @@ class MasterlogPreviewDialog(QDialog):
             dialog.top_input.load_stored_value(top)
             dialog.bottom_input.load_stored_value(bottom)
         opened_interval = (dialog.top_depth, dialog.bottom_depth)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            controller.save_selected_analysis(
-                opened_interval,
-                (dialog.top_depth, dialog.bottom_depth),
-                sample_id=sample.sample_id if sample is not None else None,
-                **dialog.values(),
-            )
+        sample_id = sample.sample_id if sample is not None else None
+        while dialog.exec() == QDialog.DialogCode.Accepted:
+            try:
+                controller.save_selected_analysis(
+                    opened_interval,
+                    (dialog.top_depth, dialog.bottom_depth),
+                    sample_id=sample_id,
+                    **dialog.values(),
+                )
+            except ValueError as exc:
+                message = (
+                    Localizer.create(self.language).text("cuttings.ambiguous_interval")
+                    if isinstance(exc, AmbiguousCuttingsIntervalError)
+                    else str(exc)
+                )
+                QMessageBox.warning(self, self.windowTitle(), message)
+                continue
+            break
 
     def _fill_stratigraphy(self, top: float, bottom: float) -> None:
         dialog = StratigraphyIntervalDialog(
