@@ -1,3 +1,9 @@
+## WELL-04 — retrying an analysis save in Masterlog (27.11.2026, under review)
+
+In Masterlog Calcimetry / LBA, an occupied interval or multiple matching samples shows a warning
+and returns to the same dialog with the entered analysis. You can correct the depths and retry.
+The loaded sample keeps its ID, and cancelling after a rejected save leaves the project unchanged.
+
 ## WELL-04 — unambiguous sample matching by depth (26.11.2026, under review)
 
 A single exact match on both depths takes priority when filling analysis, descriptions or

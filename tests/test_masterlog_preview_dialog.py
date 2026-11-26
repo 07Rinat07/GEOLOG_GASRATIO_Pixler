@@ -457,6 +457,8 @@ def _fill_masterlog_analysis(
     warnings: list[str] = []
 
     def fill(dialog: SampleAnalysisDialog) -> QDialog.DialogCode:
+        if warnings:
+            return QDialog.DialogCode.Rejected
         assert dialog.calcite_input.value() == expected_calcite
         if inspect_dialog is not None:
             inspect_dialog(dialog)
@@ -560,6 +562,128 @@ def test_masterlog_fill_existing_analysis_moves_only_selected_sample(
         assert sample.components == samples_before[0].components
         assert sample.description == "Original description"
         assert session.dirty
+
+
+def test_masterlog_retries_analysis_move_in_the_same_editor(
+    qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session = _masterlog_geology_session()
+    controller = CuttingsController(session)
+    selected = (150.0004, 151.1234)
+    occupied = (152.0, 153.0)
+    corrected = (154.0, 155.0)
+    sample = controller.create_full_sample(
+        *selected, {"sandstone": 100.0}, calcite_percent=30.0, description="Rock description"
+    )
+    neighbor = controller.set_analysis(*occupied, calcite_percent=25.0)
+    before = deepcopy(controller.available())
+    session.dirty = False
+    opened: list[SampleAnalysisDialog] = []
+    warnings: list[str] = []
+
+    def fill(dialog: SampleAnalysisDialog) -> QDialog.DialogCode:
+        if opened:
+            assert len(opened) == 1 and opened[0] is dialog
+            assert len(warnings) == 1
+            assert controller.available() == before
+            assert not session.dirty
+            assert (dialog.top_depth, dialog.bottom_depth) == occupied
+            assert dialog.calcite_input.percentage() == 42.0
+            assert dialog.lba_description_inputs["en"].text() == "New LBA observation"
+            assert dialog.interpretation_inputs["en"].toPlainText() == "New interpretation"
+            dialog.top_input.setValue(corrected[0])
+            dialog.bottom_input.setValue(corrected[1])
+        else:
+            assert (dialog.top_depth, dialog.bottom_depth) == selected
+            dialog.top_input.setValue(occupied[0])
+            dialog.bottom_input.setValue(occupied[1])
+            dialog.calcite_input.setValue(42.0)
+            dialog.lba_description_inputs["en"].setText("New LBA observation")
+            dialog.interpretation_inputs["en"].setPlainText("New interpretation")
+        opened.append(dialog)
+        dialog.accept()
+        return QDialog.DialogCode.Accepted
+
+    def warn(_parent: object, _title: str, message: str) -> None:
+        warnings.append(message)
+
+    monkeypatch.setattr(SampleAnalysisDialog, "exec", fill)
+    monkeypatch.setattr(QMessageBox, "warning", warn)
+    preview = MasterlogPreviewDialog(
+        MasterlogTemplate("standard", "Daily form"), session, language=AppLanguage.EN
+    )
+    try:
+        preview._fill_interval(*selected, "analysis")
+    finally:
+        preview.close()
+
+    assert len(opened) == 2
+    assert len(warnings) == 1
+    assert controller.get(sample.sample_id) is sample
+    assert controller.available() == (neighbor, sample)
+    assert neighbor == before[1]
+    expected = before[0]
+    expected.top_depth, expected.bottom_depth = corrected
+    expected.calcite_percent = 42.0
+    expected.lba_description_i18n = {"en": "New LBA observation"}
+    expected.analysis_interpretation_i18n = {"en": "New interpretation"}
+    assert sample == expected
+    assert session.dirty
+
+
+def test_masterlog_warns_and_keeps_analysis_editor_open_for_ambiguous_save(
+    qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session = _masterlog_geology_session()
+    controller = CuttingsController(session)
+    selected = (150.0004, 151.1234)
+    occupied = (152.0, 153.0)
+    sample = controller.set_analysis(*occupied, calcite_percent=25.0)
+    duplicate = deepcopy(sample)
+    duplicate.sample_id = "legacy-duplicate"
+    well = session.current_well
+    assert well is not None
+    well.cuttings.append(duplicate)
+    before = deepcopy(controller.available())
+    session.dirty = False
+    opened: list[SampleAnalysisDialog] = []
+    warnings: list[str] = []
+
+    def fill(dialog: SampleAnalysisDialog) -> QDialog.DialogCode:
+        if opened:
+            assert len(opened) == 1 and opened[0] is dialog
+            assert (dialog.top_depth, dialog.bottom_depth) == occupied
+            assert dialog.calcite_input.percentage() == 42.0
+            opened.append(dialog)
+            dialog.reject()
+            return QDialog.DialogCode.Rejected
+
+        assert (dialog.top_depth, dialog.bottom_depth) == selected
+        assert dialog.calcite_input.percentage() is None
+        dialog.top_input.setValue(occupied[0])
+        dialog.bottom_input.setValue(occupied[1])
+        dialog.calcite_input.setValue(42.0)
+        opened.append(dialog)
+        dialog.accept()
+        return QDialog.DialogCode.Accepted
+
+    def warn(_parent: object, _title: str, message: str) -> None:
+        warnings.append(message)
+
+    monkeypatch.setattr(SampleAnalysisDialog, "exec", fill)
+    monkeypatch.setattr(QMessageBox, "warning", warn)
+    preview = MasterlogPreviewDialog(
+        MasterlogTemplate("standard", "Daily form"), session, language=AppLanguage.EN
+    )
+    try:
+        preview._fill_interval(*selected, "analysis")
+    finally:
+        preview.close()
+
+    assert warnings == [Localizer.create(AppLanguage.EN).text("cuttings.ambiguous_interval")]
+    assert len(opened) == 2
+    assert controller.available() == before
+    assert not session.dirty
 
 
 def test_masterlog_fill_existing_analysis_keeps_precise_bounds_for_near_selection(
