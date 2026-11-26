@@ -1,3 +1,9 @@
+## WELL-04 — saved sample depths when filling cuttings in Masterlog (26.11.2026, under review)
+
+When the original selection matches a sample within tolerance, Masterlog adds composition at the
+saved depths. The sample keeps its ID and the review status of its analysis translations.
+The composition change can mark dependent rock description translations as needing an update.
+
 ## WELL-04 — deleting and clearing rock descriptions (25.11.2026, under review)
 
 On the tablet, **Delete description** is available when a description is saved for the interface

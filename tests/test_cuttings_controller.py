@@ -218,10 +218,15 @@ def test_adding_composition_to_overlapping_overlay_is_rejected(overlay_kind: str
     assert not controller.session.dirty
 
 
-def test_adding_composition_checks_stored_overlay_bounds_when_request_only_touches() -> None:
+@pytest.mark.parametrize("tracked", [False, True], ids=["untracked", "tracked"])
+def test_adding_composition_checks_stored_overlay_bounds_when_request_only_touches(
+    tracked: bool,
+) -> None:
     controller = _controller()
     controller.add(500, 510, {"sandstone": 100})
     controller.set_analysis(509.999, 520, calcite_percent=62.5)
+    if tracked:
+        controller.set_description(509.999, 520, "Original description", source_language="ru")
     before = deepcopy(controller.available())
     controller.session.dirty = False
 
@@ -232,14 +237,17 @@ def test_adding_composition_checks_stored_overlay_bounds_when_request_only_touch
     assert not controller.session.dirty
 
 
-def test_adding_composition_preserves_touching_overlay_when_request_overlaps() -> None:
+@pytest.mark.parametrize("tracked", [False, True], ids=["untracked", "tracked"])
+def test_adding_composition_preserves_touching_overlay_when_request_overlaps(tracked: bool) -> None:
     controller = _controller()
     neighbor = controller.add(500, 510, {"sandstone": 100})
     neighbor_before = deepcopy(neighbor)
     overlay = controller.set_analysis(
         510, 520, calcite_percent=62.5, lba_description="Original LBA"
     )
-    controller.set_description(510, 520, "Original description")
+    controller.set_description(
+        510, 520, "Original description", source_language="ru" if tracked else None
+    )
     controller.session.dirty = False
 
     updated = controller.add(509.999, 520.001, {"clay": 100})
@@ -262,6 +270,20 @@ def test_cuttings_description_can_be_entered_before_composition_and_is_preserved
 
     assert updated is sample
     assert updated.description == "Fine sandstone with oil stain"
+    assert updated.components[0].percentage == 100.0
+
+
+def test_adding_composition_keeps_saved_bounds_at_the_active_dataset_edge() -> None:
+    controller = _controller()
+    sample = controller.set_description(500, 510, "Original description", source_language="ru")
+    controller.session.add_dataset(
+        Dataset("subset", "Subset", DatasetKind.GTI, DepthDomain.MD, np.array([500.001, 600.0]))
+    )
+
+    updated = controller.add(500.001, 510, {"sandstone": 100})
+
+    assert updated is sample
+    assert (updated.top_depth, updated.bottom_depth) == (500.0, 510.0)
     assert updated.components[0].percentage == 100.0
 
 

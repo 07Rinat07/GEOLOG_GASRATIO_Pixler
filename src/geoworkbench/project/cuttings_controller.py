@@ -115,8 +115,13 @@ class CuttingsController:
         sample = self._require_sample(sample_id)
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._validate_components(components)
+        return self._save_composition(sample, top, bottom, normalized)
+
+    def _save_composition(
+        self, sample: CuttingsSample, top: float, bottom: float, normalized: dict[str, float]
+    ) -> CuttingsSample:
         self._ensure_sample_move_is_unoccupied(sample, top, bottom)
-        self._ensure_no_composition_overlap(top, bottom, excluded_id=sample_id)
+        self._ensure_no_composition_overlap(top, bottom, excluded_id=sample.sample_id)
         previous = deepcopy(sample)
         staged = deepcopy(sample)
         staged.top_depth = top
@@ -556,12 +561,12 @@ class CuttingsController:
                     "Для tracked-описания изменяйте текст через языковой редактор"
                 )
             if source_language is not None:
-                return self.update_composition(
-                    existing.sample_id,
-                    top_depth=top,
-                    bottom_depth=bottom,
-                    components=normalized,
+                # The selection was validated against the active dataset. A
+                # matching well sample keeps its saved bounds across datasets.
+                stored_top, stored_bottom = self._validate_interval(
+                    existing.top_depth, existing.bottom_depth, check_dataset=False
                 )
+                return self._save_composition(existing, stored_top, stored_bottom, normalized)
             # A tolerance match retains the existing interval on this path.
             self._ensure_no_composition_overlap(
                 existing.top_depth, existing.bottom_depth, excluded_id=existing.sample_id
@@ -652,11 +657,13 @@ class CuttingsController:
         self.session.dirty = True
         return sample
 
-    def _validate_interval(self, top_depth: float, bottom_depth: float) -> tuple[float, float]:
+    def _validate_interval(
+        self, top_depth: float, bottom_depth: float, *, check_dataset: bool = True
+    ) -> tuple[float, float]:
         top, bottom = float(top_depth), float(bottom_depth)
         if not np.isfinite(top) or not np.isfinite(bottom) or top >= bottom:
             raise ValueError("Кровля шламового интервала должна быть меньше подошвы")
-        dataset = self.session.current_dataset
+        dataset = self.session.current_dataset if check_dataset else None
         if dataset is not None:
             finite = dataset.depth[np.isfinite(dataset.depth)]
             if finite.size and (top < float(np.min(finite)) or bottom > float(np.max(finite))):

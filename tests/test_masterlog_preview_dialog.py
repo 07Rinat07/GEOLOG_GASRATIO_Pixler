@@ -13,7 +13,13 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
 )
 
-from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain, MasterlogTemplate
+from geoworkbench.domain.models import (
+    CuttingsComponent,
+    Dataset,
+    DatasetKind,
+    DepthDomain,
+    MasterlogTemplate,
+)
 from geoworkbench.domain.translation_status import TranslationState
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
 from geoworkbench.project.cuttings_controller import CuttingsController
@@ -98,6 +104,38 @@ def test_masterlog_preview_dialog_fits_work_area_and_uses_overflow_toolbar(qapp)
         dialog.close()
 
 
+def _fill_masterlog_cuttings(
+    monkeypatch: pytest.MonkeyPatch,
+    session: ProjectSession,
+    selected: tuple[float, float],
+    edited_top: float | None = None,
+) -> None:
+    def fill(dialog: CuttingsCompositionDialog) -> QDialog.DialogCode:
+        if edited_top is not None:
+            dialog.top_input.setValue(edited_top)
+        sandstone = dialog.findChild(QDoubleSpinBox, "cuttings-percentage-sandstone")
+        assert sandstone is not None
+        sandstone.setValue(100.0)
+        ok = dialog.buttons.button(QDialogButtonBox.StandardButton.Ok)
+        assert ok is not None
+        ok.click()
+        assert dialog.result() == QDialog.DialogCode.Accepted
+        return QDialog.DialogCode.Accepted
+
+    def unexpected_warning(*args: object) -> None:
+        pytest.fail(f"Filling cuttings raised a warning: {args[-1]}")
+
+    monkeypatch.setattr(CuttingsCompositionDialog, "exec", fill)
+    monkeypatch.setattr(QMessageBox, "warning", unexpected_warning)
+    preview = MasterlogPreviewDialog(
+        MasterlogTemplate("standard", "Daily form"), session, language=AppLanguage.EN
+    )
+    try:
+        preview._fill_interval(*selected, "cuttings")
+    finally:
+        preview.close()
+
+
 @pytest.mark.parametrize(
     ("selected", "edited_top", "analysis_bounds"),
     [
@@ -128,30 +166,7 @@ def test_masterlog_fill_cuttings_saves_precise_or_edited_bounds(
     )
     overlay_before = deepcopy(overlay)
 
-    def fill(dialog: CuttingsCompositionDialog) -> QDialog.DialogCode:
-        if edited_top is not None:
-            dialog.top_input.setValue(edited_top)
-        sandstone = dialog.findChild(QDoubleSpinBox, "cuttings-percentage-sandstone")
-        assert sandstone is not None
-        sandstone.setValue(100.0)
-        ok = dialog.buttons.button(QDialogButtonBox.StandardButton.Ok)
-        assert ok is not None
-        ok.click()
-        assert dialog.result() == QDialog.DialogCode.Accepted
-        return QDialog.DialogCode.Accepted
-
-    def unexpected_warning(*args: object) -> None:
-        pytest.fail(f"Filling cuttings raised a warning: {args[-1]}")
-
-    monkeypatch.setattr(CuttingsCompositionDialog, "exec", fill)
-    monkeypatch.setattr(QMessageBox, "warning", unexpected_warning)
-    preview = MasterlogPreviewDialog(
-        MasterlogTemplate("standard", "Daily form"), session, language=AppLanguage.EN
-    )
-    try:
-        preview._fill_interval(*selected, "cuttings")
-    finally:
-        preview.close()
+    _fill_masterlog_cuttings(monkeypatch, session, selected, edited_top)
 
     samples = controller.available()
     (saved,) = (sample for sample in samples if sample.components)
@@ -178,6 +193,56 @@ def _masterlog_geology_session() -> ProjectSession:
         Dataset("dataset", "Well", DatasetKind.GTI, DepthDomain.MD, np.array([100.0, 200.0]))
     )
     return session
+
+
+def test_masterlog_fill_cuttings_keeps_tracked_sample_at_stored_bounds(
+    qapp, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    session = _masterlog_geology_session()
+    controller = CuttingsController(session)
+    stored = (150.0004, 151.0004)
+    sample = controller.set_description(*stored, "Rock", language="en", source_language="en")
+    controller.set_description(*stored, "Жыныс", language="kk")
+    controller.set_analysis(
+        *stored,
+        calcite_percent=22.543,
+        analysis_interpretation_i18n={"en": "Conclusion", "kk": "Қорытынды"},
+        analysis_interpretation_source_language="en",
+    )
+    sample_prefix = f"cuttings/{sample.sample_id}"
+    description_id = f"{sample_prefix}/description"
+    conclusion_id = f"{sample_prefix}/analysis_interpretation"
+    composition_id = f"{sample_prefix}/composition"
+    tracking = TranslationStatusController(session)
+    tracking.review_current(field_id=description_id, language="kk")
+    reviewed_conclusion = tracking.review_current(field_id=conclusion_id, language="kk")
+    well = session.current_well
+    assert well is not None
+    expected_revisions = dict(well.authored_field_revisions)
+    expected_revisions[composition_id] += 1
+    languages_before = dict(well.language_revisions)
+    expected = deepcopy(sample)
+    session.dirty = False
+
+    _fill_masterlog_cuttings(monkeypatch, session, (150.001, 151.001))
+
+    assert controller.get(sample.sample_id) is sample
+    assert (sample.top_depth, sample.bottom_depth) == stored
+    expected.components = [CuttingsComponent("sandstone", 100.0)]
+    assert controller.available() == (expected,)
+    assert session.dirty
+    assert well.authored_field_revisions == expected_revisions
+    assert well.language_revisions == languages_before
+    assert well.translation_statuses[description_id]["kk"].state is TranslationState.STALE
+    assert well.translation_statuses[conclusion_id]["kk"] == reviewed_conclusion
+
+    repository = PackageProjectRepository()
+    path = tmp_path / "masterlog-composition-tracked.geologpkg"
+    repository.save(ProjectDocument(project=session.project), path)
+    restored = repository.load(path).project.wells[well.well_id]
+    assert restored.cuttings == [expected]
+    assert restored.translation_statuses == well.translation_statuses
+    assert restored.authored_field_revisions == expected_revisions
 
 
 def _fill_masterlog_description(
