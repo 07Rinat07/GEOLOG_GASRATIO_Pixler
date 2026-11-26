@@ -195,6 +195,86 @@ def _masterlog_geology_session() -> ProjectSession:
     return session
 
 
+@pytest.mark.parametrize("ambiguous", [False, True], ids=["overlap-retry", "ambiguous-cancel"])
+def test_masterlog_retries_cuttings_composition_in_the_same_editor(
+    qapp, monkeypatch: pytest.MonkeyPatch, ambiguous: bool
+) -> None:
+    session = _masterlog_geology_session()
+    controller = CuttingsController(session)
+    selected = (150.0004, 151.1234)
+    conflicting_top = 149.5
+    corrected_top = 150.125
+    components = {"sandstone": 62.5, "siltstone": 37.5}
+    if ambiguous:
+        existing = controller.set_analysis(conflicting_top, selected[1], calcite_percent=10.0)
+        duplicate = deepcopy(existing)
+        duplicate.sample_id = "legacy-composition-match"
+        well = session.current_well
+        assert well is not None
+        well.cuttings.append(duplicate)
+    else:
+        existing = controller.add(149.0, 150.0, {"sandstone": 100.0})
+    before = deepcopy(controller.available())
+    session.dirty = False
+    opened: list[CuttingsCompositionDialog] = []
+    warnings: list[str] = []
+
+    def fill(dialog: CuttingsCompositionDialog) -> QDialog.DialogCode:
+        if opened:
+            assert len(opened) == 1 and opened[0] is dialog
+            assert len(warnings) == 1
+            assert controller.available() == before
+            assert not session.dirty
+            assert (dialog.top_depth, dialog.bottom_depth) == (conflicting_top, selected[1])
+            assert dialog.components() == components
+            if ambiguous:
+                opened.append(dialog)
+                dialog.reject()
+                return QDialog.DialogCode.Rejected
+            dialog.top_input.setValue(corrected_top)
+        else:
+            assert (dialog.top_depth, dialog.bottom_depth) == selected
+            dialog.top_input.setValue(conflicting_top)
+            for lithotype_id, percentage in components.items():
+                entry = dialog.findChild(QDoubleSpinBox, f"cuttings-percentage-{lithotype_id}")
+                assert entry is not None
+                entry.setValue(percentage)
+        opened.append(dialog)
+        ok = dialog.buttons.button(QDialogButtonBox.StandardButton.Ok)
+        assert ok is not None
+        ok.click()
+        assert dialog.result() == QDialog.DialogCode.Accepted
+        return QDialog.DialogCode.Accepted
+
+    def warn(_parent: object, _title: str, message: str) -> None:
+        warnings.append(message)
+
+    monkeypatch.setattr(CuttingsCompositionDialog, "exec", fill)
+    monkeypatch.setattr(QMessageBox, "warning", warn)
+    preview = MasterlogPreviewDialog(
+        MasterlogTemplate("standard", "Daily form"), session, language=AppLanguage.EN
+    )
+    try:
+        preview._fill_interval(*selected, "cuttings")
+    finally:
+        preview.close()
+
+    assert len(opened) == 2
+    assert len(warnings) == 1
+    if ambiguous:
+        assert warnings == [Localizer.create(AppLanguage.EN).text("cuttings.ambiguous_interval")]
+        assert controller.available() == before
+        assert not session.dirty
+        return
+
+    unchanged, saved = controller.available()
+    assert unchanged is existing
+    assert unchanged == before[0]
+    assert (saved.top_depth, saved.bottom_depth) == (corrected_top, selected[1])
+    assert {item.lithotype_id: item.percentage for item in saved.components} == components
+    assert session.dirty
+
+
 @pytest.mark.parametrize(
     ("mode", "dialog_type"),
     [("analysis", SampleAnalysisDialog), ("cuttings_description", QInputDialog)],
