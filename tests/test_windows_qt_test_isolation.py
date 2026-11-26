@@ -105,6 +105,39 @@ def test_archie_stale_seal_cases_use_separate_native_processes() -> None:
     )
 
 
+def test_gis_navigation_stale_context_cases_use_separate_native_processes() -> None:
+    runner = runpy.run_path("scripts/run_tests.py")
+    path = Path("tests/test_gis_profile_tablet_navigation.py")
+    relative_path = path.as_posix()
+    prefixes = (
+        f"{relative_path}::test_main_rejects_stale_or_foreign_handoff",
+        f"{relative_path}::test_panel_discards_stale_context",
+    )
+
+    assert runner["_test_file_shards"](1, (path,)) == ()
+    batches = runner["_heavy_test_batches"]((path,))
+    stale_context_batches = tuple(
+        (batch_path, selectors)
+        for batch_path, selectors in batches
+        if any(selector.startswith(prefixes) for selector in selectors)
+    )
+
+    assert stale_context_batches == tuple(
+        (relative_path, (f"{relative_path}::{name}",))
+        for name in (
+            "test_main_rejects_stale_or_foreign_handoff_after_curve_change",
+            "test_main_rejects_stale_or_foreign_handoff_after_axis_change",
+            "test_main_rejects_stale_or_foreign_handoff_with_invalid_row",
+            "test_main_rejects_stale_or_foreign_handoff_after_dataset_change",
+            "test_main_rejects_stale_or_foreign_handoff_after_well_change",
+            "test_panel_discards_stale_context_after_source_change",
+            "test_panel_discards_stale_context_after_axis_change",
+            "test_panel_discards_stale_context",
+            "test_panel_discards_stale_context_after_rebuild",
+        )
+    )
+
+
 def test_las3_modal_reopen_cases_use_separate_native_processes() -> None:
     runner = runpy.run_path("scripts/run_tests.py")
     path = Path("tests/test_las3_modal_reopen_acceptance.py")
