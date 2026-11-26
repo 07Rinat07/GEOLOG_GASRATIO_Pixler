@@ -126,8 +126,7 @@ def test_main_tablet_navigates_exact_missing_row_without_source_edits(qapp, monk
         window.close()
 
 
-@pytest.mark.parametrize("change", ("curve", "axis", "row", "dataset", "well"))
-def test_main_rejects_stale_or_foreign_handoff_before_viewport_change(qapp, monkeypatch, change):
+def _assert_main_rejects_stale_or_foreign_handoff(qapp, monkeypatch, change):
     window, session, dataset = _window(qapp)
     try:
         profile = _profile(dataset)
@@ -163,6 +162,27 @@ def test_main_rejects_stale_or_foreign_handoff_before_viewport_change(qapp, monk
         assert set(dataset.curves) == {"curve-1"}
     finally:
         window.close()
+
+
+# Each case creates MainWindow and uses a separate Windows test process (#544).
+def test_main_rejects_stale_or_foreign_handoff_after_curve_change(qapp, monkeypatch):
+    _assert_main_rejects_stale_or_foreign_handoff(qapp, monkeypatch, "curve")
+
+
+def test_main_rejects_stale_or_foreign_handoff_after_axis_change(qapp, monkeypatch):
+    _assert_main_rejects_stale_or_foreign_handoff(qapp, monkeypatch, "axis")
+
+
+def test_main_rejects_stale_or_foreign_handoff_with_invalid_row(qapp, monkeypatch):
+    _assert_main_rejects_stale_or_foreign_handoff(qapp, monkeypatch, "row")
+
+
+def test_main_rejects_stale_or_foreign_handoff_after_dataset_change(qapp, monkeypatch):
+    _assert_main_rejects_stale_or_foreign_handoff(qapp, monkeypatch, "dataset")
+
+
+def test_main_rejects_stale_or_foreign_handoff_after_well_change(qapp, monkeypatch):
+    _assert_main_rejects_stale_or_foreign_handoff(qapp, monkeypatch, "well")
 
 
 def test_singleton_navigation_keeps_scale_and_moves_to_actual_row(qapp):
@@ -230,8 +250,7 @@ def test_panel_syncs_md_and_cursor_without_persistent_tracks(qapp, monkeypatch):
         window.close()
 
 
-@pytest.mark.parametrize("change", ("source", "axis", "well", "rebuild"))
-def test_panel_discards_stale_context(qapp, change):
+def _assert_panel_discards_stale_context(qapp, change):
     window, session, dataset = _window(qapp)
     try:
         view = window.tablet_view
@@ -255,6 +274,24 @@ def test_panel_discards_stale_context(qapp, change):
         assert not view._gis_profile_timer.isActive()
     finally:
         window.close()
+
+
+def test_panel_discards_stale_context_after_source_change(qapp):
+    _assert_panel_discards_stale_context(qapp, "source")
+
+
+def test_panel_discards_stale_context_after_axis_change(qapp):
+    _assert_panel_discards_stale_context(qapp, "axis")
+
+
+# Keep the exact [well] selector used by the manual native replay and its evidence.
+@pytest.mark.parametrize("change", ("well",))
+def test_panel_discards_stale_context(qapp, change):
+    _assert_panel_discards_stale_context(qapp, change)
+
+
+def test_panel_discards_stale_context_after_rebuild(qapp):
+    _assert_panel_discards_stale_context(qapp, "rebuild")
 
 
 
