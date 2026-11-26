@@ -360,6 +360,30 @@ class CuttingsController:
             if preserve_description
             else self._normalize_text(description, 2_000_000, "Описание шлама")
         )
+        return self._save_description(
+            sample,
+            top,
+            bottom,
+            normalized,
+            description_word_wrap=description_word_wrap,
+            language=language,
+            source_language=source_language,
+            preserve_description=preserve_description,
+        )
+
+    def _save_description(
+        self,
+        sample: CuttingsSample,
+        top: float,
+        bottom: float,
+        normalized: str | None,
+        *,
+        description_word_wrap: bool | None,
+        language: object | None,
+        source_language: object | None,
+        preserve_description: bool = False,
+    ) -> CuttingsSample:
+        sample_id = sample.sample_id
         # Clearing a displayed fallback can still include depth or layout edits.
         if not preserve_description and normalized is None and language is not None:
             preserve_description = not sample.description_version(
@@ -600,16 +624,20 @@ class CuttingsController:
         source_language: object | None = None,
         absolute_tolerance: float | None = None,
     ) -> CuttingsSample:
-        """Save free-text cuttings description, preferring an exact interval match."""
+        """Add a cuttings description to a matching sample at its saved depths."""
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._normalize_text(description, 2_000_000, "Описание шлама")
         sample = self.find_sample_for_interval(top, bottom, absolute_tolerance=absolute_tolerance)
         if sample is not None:
-            return self.update_description(
-                sample.sample_id,
-                top_depth=top,
-                bottom_depth=bottom,
-                description=normalized,
+            # A saved well interval may extend beyond a narrower active dataset.
+            stored_top, stored_bottom = self._validate_interval(
+                sample.top_depth, sample.bottom_depth, check_dataset=False
+            )
+            return self._save_description(
+                sample,
+                stored_top,
+                stored_bottom,
+                normalized,
                 description_word_wrap=description_word_wrap,
                 language=language,
                 source_language=source_language,

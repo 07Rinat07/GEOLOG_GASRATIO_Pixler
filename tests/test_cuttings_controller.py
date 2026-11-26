@@ -287,6 +287,28 @@ def test_adding_composition_keeps_saved_bounds_at_the_active_dataset_edge() -> N
     assert updated.components[0].percentage == 100.0
 
 
+@pytest.mark.parametrize("source_language", [None, "ru"], ids=["untracked", "tracked"])
+def test_setting_description_keeps_saved_bounds_at_the_active_dataset_edge(
+    source_language: str | None,
+) -> None:
+    controller = _controller()
+    sample = controller.set_analysis(500.0, 510.0, calcite_percent=22.5)
+    controller.session.add_dataset(
+        Dataset("subset", "Subset", DatasetKind.GTI, DepthDomain.MD, np.array([500.001, 600.0]))
+    )
+
+    updated = controller.set_description(
+        500.001, 510.001, "Rock description", language="ru", source_language=source_language
+    )
+
+    assert controller.available() == (sample,)
+    assert updated is sample
+    assert (sample.top_depth, sample.bottom_depth) == (500.0, 510.0)
+    assert sample.calcite_percent == 22.5
+    assert sample.description_i18n == {"ru": "Rock description"}
+    assert controller.description_source_language(sample.sample_id) == source_language
+
+
 def test_cuttings_description_can_be_edited_and_cleared() -> None:
     controller = _controller()
     sample = controller.add(
