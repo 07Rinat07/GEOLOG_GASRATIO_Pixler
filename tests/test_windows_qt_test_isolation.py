@@ -5,6 +5,8 @@ import runpy
 
 import pytest
 
+from geoworkbench.services.localization import AppLanguage
+
 
 def test_masterlog_curve_mapping_dialog_uses_its_own_native_process() -> None:
     runner = runpy.run_path("scripts/run_tests.py")
@@ -100,6 +102,22 @@ def test_archie_stale_seal_cases_use_separate_native_processes() -> None:
 
     assert stale_seal_batches == tuple(
         (f"{prefix}after_{change}_change",) for change in ("source", "axis", "dataset", "well")
+    )
+
+
+def test_las3_modal_reopen_cases_use_separate_native_processes() -> None:
+    runner = runpy.run_path("scripts/run_tests.py")
+    path = Path("tests/test_las3_modal_reopen_acceptance.py")
+    relative_path = path.as_posix()
+
+    assert runner["_test_file_shards"](1, (path,)) == ()
+    assert runner["_heavy_test_batches"]((path,)) == tuple(
+        (
+            relative_path,
+            (f"{relative_path}::test_las3_modal_reopen_{project_format}_{language.value}",),
+        )
+        for project_format in ("geolog_json", "geologpkg")
+        for language in AppLanguage
     )
 
 

@@ -12,10 +12,8 @@ from geoworkbench.ui.main_window import MainWindow
 from tools.fetch_external_format_fixtures import CORPUS
 
 
-@pytest.mark.parametrize("language", list(AppLanguage))
-@pytest.mark.parametrize("extension", [".geolog.json", ".geologpkg"])
-def test_pilot_real_modal_apply_reopen_and_cancel_preserve_source(
-    qapp, monkeypatch, tmp_path: Path, language: AppLanguage, extension: str,
+def _assert_las3_modal_reopen_preserves_source(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, language: AppLanguage, extension: str
 ) -> None:
     source = CORPUS / "las/3.0/sample_3.0.las"
     raw = source.read_bytes()
@@ -69,3 +67,28 @@ def test_pilot_real_modal_apply_reopen_and_cancel_preserve_source(
         assert source.read_bytes() == raw
     finally:
         window.close()
+
+
+# Each case creates MainWindow and needs its own Qt process on Windows (#544).
+def test_las3_modal_reopen_geolog_json_ru(qapp, monkeypatch, tmp_path: Path) -> None:
+    _assert_las3_modal_reopen_preserves_source(monkeypatch, tmp_path, AppLanguage.RU, ".geolog.json")
+
+
+def test_las3_modal_reopen_geolog_json_kk(qapp, monkeypatch, tmp_path: Path) -> None:
+    _assert_las3_modal_reopen_preserves_source(monkeypatch, tmp_path, AppLanguage.KK, ".geolog.json")
+
+
+def test_las3_modal_reopen_geolog_json_en(qapp, monkeypatch, tmp_path: Path) -> None:
+    _assert_las3_modal_reopen_preserves_source(monkeypatch, tmp_path, AppLanguage.EN, ".geolog.json")
+
+
+def test_las3_modal_reopen_geologpkg_ru(qapp, monkeypatch, tmp_path: Path) -> None:
+    _assert_las3_modal_reopen_preserves_source(monkeypatch, tmp_path, AppLanguage.RU, ".geologpkg")
+
+
+def test_las3_modal_reopen_geologpkg_kk(qapp, monkeypatch, tmp_path: Path) -> None:
+    _assert_las3_modal_reopen_preserves_source(monkeypatch, tmp_path, AppLanguage.KK, ".geologpkg")
+
+
+def test_las3_modal_reopen_geologpkg_en(qapp, monkeypatch, tmp_path: Path) -> None:
+    _assert_las3_modal_reopen_preserves_source(monkeypatch, tmp_path, AppLanguage.EN, ".geologpkg")
