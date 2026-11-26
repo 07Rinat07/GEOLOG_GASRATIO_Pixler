@@ -25,7 +25,7 @@ from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
 from geoworkbench.project.cuttings_controller import CuttingsController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.translation_status_controller import TranslationStatusController
-from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.storage.package_project_repository import PackageProjectRepository
 from geoworkbench.storage.project_codec import ProjectDocument
 from geoworkbench.ui.adaptive_toolbar import AdaptiveActionToolBar
@@ -193,6 +193,45 @@ def _masterlog_geology_session() -> ProjectSession:
         Dataset("dataset", "Well", DatasetKind.GTI, DepthDomain.MD, np.array([100.0, 200.0]))
     )
     return session
+
+
+@pytest.mark.parametrize(
+    ("mode", "dialog_type"),
+    [("analysis", SampleAnalysisDialog), ("cuttings_description", QInputDialog)],
+)
+def test_masterlog_warns_before_prefilling_for_ambiguous_interval(
+    qapp, monkeypatch: pytest.MonkeyPatch, mode: str, dialog_type: type[QDialog]
+) -> None:
+    session = _masterlog_geology_session()
+    controller = CuttingsController(session)
+    controller.set_analysis(150.0, 151.0, calcite_percent=10.0, absolute_tolerance=0.0)
+    controller.set_analysis(150.002, 151.002, calcite_percent=20.0, absolute_tolerance=0.0)
+    before = deepcopy(controller.available())
+    session.dirty = False
+    warnings: list[str] = []
+
+    def unexpected_dialog(_dialog: QDialog) -> None:
+        pytest.fail("An ambiguous interval opened a prefilled dialog")
+
+    def warn(_parent: object, _title: str, message: str) -> None:
+        warnings.append(message)
+
+    monkeypatch.setattr(dialog_type, "exec", unexpected_dialog)
+    monkeypatch.setattr(QMessageBox, "warning", warn)
+    preview = MasterlogPreviewDialog(
+        MasterlogTemplate("standard", "Daily form"), session, language=AppLanguage.EN
+    )
+    try:
+        preview._fill_interval(150.001, 151.001, mode)
+    finally:
+        preview.close()
+
+    key = "cuttings.ambiguous_interval"
+    expected_warning = Localizer.create(AppLanguage.EN).text(key)
+    assert expected_warning != key
+    assert warnings == [expected_warning]
+    assert controller.available() == before
+    assert not session.dirty
 
 
 def test_masterlog_fill_cuttings_keeps_tracked_sample_at_stored_bounds(

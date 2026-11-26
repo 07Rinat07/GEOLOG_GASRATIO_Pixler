@@ -144,7 +144,10 @@ from geoworkbench.project.annotation_schema import (
     is_annotation_object,
 )
 from geoworkbench.project.lithology_controller import LithologyController
-from geoworkbench.project.cuttings_controller import CuttingsController
+from geoworkbench.project.cuttings_controller import (
+    AmbiguousCuttingsIntervalError,
+    CuttingsController,
+)
 from geoworkbench.project.interpretation_controller import InterpretationController
 from geoworkbench.project.interpretation_calculation_controller import (
     InterpretationCalculationController,
@@ -8807,9 +8810,15 @@ class MainWindow(QMainWindow):
         """Enter calcimetry/LBA for an interval independent of LAS cuttings."""
         if self.session.current_well is None:
             return
-        sample = self.cuttings_controller.find_sample_for_analysis_selection(
-            top_depth, bottom_depth
-        )
+        try:
+            sample = self.cuttings_controller.find_sample_for_analysis_selection(
+                top_depth, bottom_depth
+            )
+        except AmbiguousCuttingsIntervalError:
+            QMessageBox.warning(
+                self, self._t("cuttings.create_title"), self._t("cuttings.ambiguous_interval")
+            )
+            return
         dialog = SampleAnalysisDialog(
             top_depth,
             bottom_depth,
@@ -8831,7 +8840,12 @@ class MainWindow(QMainWindow):
                     content_language=self.language.value,
                 )
             except (KeyError, RuntimeError, ValueError) as exc:
-                QMessageBox.warning(self, self._t("cuttings.create_title"), str(exc))
+                message = (
+                    self._t("cuttings.ambiguous_interval")
+                    if isinstance(exc, AmbiguousCuttingsIntervalError)
+                    else str(exc)
+                )
+                QMessageBox.warning(self, self._t("cuttings.create_title"), message)
                 continue
             self._refresh_cuttings_after_edit()
             self.statusBar().showMessage(
@@ -8970,7 +8984,12 @@ class MainWindow(QMainWindow):
                     absolute_tolerance=0.0 if (top, bottom) != opened_interval else None,
                 )
             except (RuntimeError, ValueError) as exc:
-                QMessageBox.warning(self, self._t("description.create_title"), str(exc))
+                message = (
+                    self._t("cuttings.ambiguous_interval")
+                    if isinstance(exc, AmbiguousCuttingsIntervalError)
+                    else str(exc)
+                )
+                QMessageBox.warning(self, self._t("description.create_title"), message)
                 continue
             self._refresh_cuttings_after_edit()
             self.statusBar().showMessage(

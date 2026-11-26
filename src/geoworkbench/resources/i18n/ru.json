@@ -280,6 +280,7 @@
   "curve_settings.unit_empty": "без единицы",
   "curve_settings.unit_override_tooltip": "Единица отображается в шапке и сохраняется в форме. Числовые значения не пересчитываются.",
   "curve_settings.width": "Толщина линии, px",
+  "cuttings.ambiguous_interval": "Интервалу соответствуют несколько сохранённых проб. Уточните кровлю и подошву или откройте нужную сохранённую пробу.",
   "cuttings.context_edit": "Редактировать пробу на текущей глубине…",
   "cuttings.context_new": "Новая проба шлама…",
   "cuttings.create_title": "Новая проба шлама",

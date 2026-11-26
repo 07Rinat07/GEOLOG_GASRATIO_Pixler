@@ -122,9 +122,12 @@ depths blocks the move, even if it contains only analysis or description. A reje
 both records intact. A nearby pair with at least one different depth is subject to the composition
 overlap rules.
 
-When filling in analysis or a description by interval on the tablet or in Masterlog, the
-application first looks for a sample with an exact match for both the top and bottom depths.
-When an exact pair is unavailable, it uses the existing lookup tolerance.
+When filling in analysis or a description by interval on the tablet or in Masterlog, or when
+filling cuttings in Masterlog, a single exact match on both depths takes priority. If there is
+no exact match, the application uses the existing lookup tolerance for that command. If several
+saved samples match at the first stage that finds any, a warning stops the operation. Refine both
+boundaries to select a sample. If several records share the exact pair, open the intended saved
+sample directly.
 
 When changing boundaries in **Sample analysis**, you can move a sample with rock composition to
 an interval free of other samples with rock composition. Shared endpoints are allowed. An

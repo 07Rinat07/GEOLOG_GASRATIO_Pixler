@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from copy import deepcopy
 from dataclasses import dataclass, fields
 from typing import Any, Literal
@@ -39,6 +40,10 @@ from geoworkbench.project.session import ProjectSession
 _LegacyAnalysisText = Literal["lba_description", "analysis_interpretation"]
 
 
+class AmbiguousCuttingsIntervalError(ValueError):
+    """Several saved samples matched a selection at the same precision."""
+
+
 @dataclass(slots=True)
 class CuttingsController:
     session: ProjectSession
@@ -58,29 +63,36 @@ class CuttingsController:
     def find_sample_for_interval(
         self, top: float, bottom: float, *, absolute_tolerance: float | None = None
     ) -> CuttingsSample | None:
-        """Prefer exact boundaries before using the caller's interval tolerance."""
+        """Prefer an exact pair and require a unique match at the selected precision."""
         samples = self._require_well().cuttings
-        for sample in samples:
-            if sample.top_depth == top and sample.bottom_depth == bottom:
-                return sample
+        exact = self._unique_interval_match(
+            sample for sample in samples if (sample.top_depth, sample.bottom_depth) == (top, bottom)
+        )
+        if exact is not None or absolute_tolerance == 0.0:
+            return exact
         if absolute_tolerance is not None:
-            return next(
-                (
-                    sample
-                    for sample in samples
-                    if abs(sample.top_depth - top) <= absolute_tolerance
-                    and abs(sample.bottom_depth - bottom) <= absolute_tolerance
-                ),
-                None,
-            )
-        return next(
-            (
+            return self._unique_interval_match(
                 sample
                 for sample in samples
-                if np.isclose(sample.top_depth, top) and np.isclose(sample.bottom_depth, bottom)
-            ),
-            None,
+                if abs(sample.top_depth - top) <= absolute_tolerance
+                and abs(sample.bottom_depth - bottom) <= absolute_tolerance
+            )
+        return self._unique_interval_match(
+            sample
+            for sample in samples
+            if np.isclose(sample.top_depth, top) and np.isclose(sample.bottom_depth, bottom)
         )
+
+    @staticmethod
+    def _unique_interval_match(candidates: Iterable[CuttingsSample]) -> CuttingsSample | None:
+        matches = iter(candidates)
+        first = next(matches, None)
+        if first is not None and next(matches, None) is not None:
+            raise AmbiguousCuttingsIntervalError(
+                "Интервалу соответствуют несколько проб. Уточните обе границы "
+                "или откройте нужную сохранённую пробу."
+            )
+        return first
 
     def find_sample_for_analysis_selection(self, top: float, bottom: float) -> CuttingsSample | None:
         """Show the sample that accepting the original analysis selection could reuse."""
@@ -1501,7 +1513,10 @@ class CuttingsController:
             self._ensure_interval_is_unoccupied(top, bottom)
 
     def _ensure_interval_is_unoccupied(self, top: float, bottom: float) -> None:
-        if self.find_sample_for_interval(top, bottom, absolute_tolerance=0.0) is not None:
+        if any(
+            (sample.top_depth, sample.bottom_depth) == (top, bottom)
+            for sample in self._require_well().cuttings
+        ):
             raise ValueError(f"На интервале {top:g}–{bottom:g} м уже существует другая проба")
 
     def _ensure_no_composition_overlap(

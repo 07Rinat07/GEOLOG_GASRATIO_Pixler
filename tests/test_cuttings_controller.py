@@ -791,6 +791,71 @@ def test_set_analysis_accepts_the_sole_approximate_interval_match() -> None:
     assert controller.available() == (sample,)
 
 
+@pytest.mark.parametrize("operation", ["add", "set_description", "set_analysis"])
+@pytest.mark.parametrize("same_bounds", [False, True], ids=["nearby", "duplicate-exact"])
+def test_ambiguous_interval_writes_leave_samples_and_revisions_intact(
+    operation: str, same_bounds: bool
+) -> None:
+    controller = _controller()
+    first = (500.0, 510.0)
+    controller.set_analysis(*first, calcite_percent=10.0)
+    controller.set_description(*first, "Original", language="en", source_language="en")
+    well = controller.session.current_well
+    assert well is not None
+    if same_bounds:
+        well.cuttings.append(CuttingsSample("legacy-duplicate", *first, calcite_percent=20.0))
+        selection = first
+    else:
+        controller.set_analysis(500.004, 510.004, calcite_percent=20.0, absolute_tolerance=0.0)
+        selection = (500.002, 510.002)
+    before = deepcopy(well)
+    controller.session.dirty = False
+
+    with pytest.raises(ValueError, match="несколько проб"):
+        if operation == "add":
+            controller.add(*selection, {"sandstone": 100.0})
+        elif operation == "set_description":
+            controller.set_description(*selection, "Edited", language="en")
+        else:
+            controller.set_analysis(*selection, calcite_percent=30.0)
+
+    assert well.cuttings == before.cuttings
+    assert well.content_revision == before.content_revision
+    assert well.language_revisions == before.language_revisions
+    assert well.translation_statuses == before.translation_statuses
+    assert well.authored_field_revisions == before.authored_field_revisions
+    assert not controller.session.dirty
+
+
+def test_analysis_lookup_uses_only_the_first_matching_tolerance() -> None:
+    controller = _controller()
+    tight = controller.set_analysis(500.0000004, 510.0000004, calcite_percent=10.0)
+    controller.set_analysis(500.004, 510.004, calcite_percent=20.0, absolute_tolerance=0.0)
+
+    assert controller.find_sample_for_analysis_selection(500.0, 510.0) is tight
+
+    controller.set_analysis(500.0000008, 510.0000008, calcite_percent=30.0, absolute_tolerance=0.0)
+    with pytest.raises(ValueError, match="несколько проб"):
+        controller.find_sample_for_analysis_selection(500.0, 510.0)
+
+
+def test_editing_by_sample_id_can_distinguish_legacy_duplicate_bounds() -> None:
+    controller = _controller()
+    first = controller.set_analysis(500.0, 510.0, calcite_percent=10.0)
+    second = CuttingsSample("legacy-duplicate", 500.0, 510.0, calcite_percent=20.0)
+    well = controller.session.current_well
+    assert well is not None
+    well.cuttings.append(second)
+
+    updated = controller.update_analysis(
+        second.sample_id, top_depth=500.0, bottom_depth=510.0, calcite_percent=30.0
+    )
+
+    assert updated is second
+    assert first.calcite_percent == 10.0
+    assert second.calcite_percent == 30.0
+
+
 def test_reediting_cuttings_ignores_analysis_only_overlay_for_overlap_rules() -> None:
     controller = _controller()
     cuttings = controller.add(500, 510, {"sandstone": 100})

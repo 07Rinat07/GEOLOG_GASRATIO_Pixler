@@ -15,7 +15,10 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.domain.models import MasterlogTemplate
-from geoworkbench.project.cuttings_controller import CuttingsController
+from geoworkbench.project.cuttings_controller import (
+    AmbiguousCuttingsIntervalError,
+    CuttingsController,
+)
 from geoworkbench.project.lithology_controller import LithologyController
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.masterlog_inspection_controller import (
@@ -287,6 +290,9 @@ class MasterlogPreviewDialog(QDialog):
                 self._fill_stratigraphy(top, bottom)
             else:
                 self._fill_analysis(top, bottom)
+        except AmbiguousCuttingsIntervalError:
+            message = Localizer.create(self.language).text("cuttings.ambiguous_interval")
+            QMessageBox.warning(self, self.windowTitle(), message)
         except (RuntimeError, ValueError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
         else:
