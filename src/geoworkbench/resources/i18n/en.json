@@ -280,6 +280,7 @@
   "curve_settings.unit_empty": "no unit",
   "curve_settings.unit_override_tooltip": "This unit is displayed in the header and saved in the form. Numeric values are not converted.",
   "curve_settings.width": "Line width, px",
+  "cuttings.ambiguous_interval": "Several saved samples match this interval. Refine both depth boundaries or reopen the specific saved sample.",
   "cuttings.context_edit": "Edit sample at current depth…",
   "cuttings.context_new": "New cuttings sample…",
   "cuttings.create_title": "New cuttings sample",

@@ -1,3 +1,10 @@
+## WELL-04 — unambiguous sample matching by depth (26.11.2026, under review)
+
+A single exact match on both depths takes priority when filling analysis, descriptions or
+cuttings by interval. If several saved samples match at the first stage that finds any, a
+warning stops the operation. Open the intended saved sample directly when several records
+share both depths.
+
 ## WELL-04 — saved sample depths when adding a tablet rock description (26.11.2026, under review)
 
 When the original tablet selection matches a sample within tolerance, the description is saved at

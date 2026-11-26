@@ -280,6 +280,7 @@
   "curve_settings.unit_empty": "бірліксіз",
   "curve_settings.unit_override_tooltip": "Бұл бірлік тақырыпта көрсетіліп, пішінде сақталады. Сандық мәндер қайта есептелмейді.",
   "curve_settings.width": "Сызық қалыңдығы, px",
+  "cuttings.ambiguous_interval": "Аралыққа бірнеше сақталған сынама сәйкес келеді. Тереңдіктің екі шекарасын нақтылаңыз немесе қажетті сақталған сынаманы ашыңыз.",
   "cuttings.context_edit": "Ағымдағы тереңдіктегі үлгіні өңдеу…",
   "cuttings.context_new": "Жаңа шлам үлгісі…",
   "cuttings.create_title": "Жаңа шлам үлгісі",

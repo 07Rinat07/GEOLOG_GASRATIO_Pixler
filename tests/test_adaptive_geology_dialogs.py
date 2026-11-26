@@ -173,6 +173,39 @@ def _fill_tablet_analysis(
     return warnings
 
 
+def test_tablet_analysis_warns_before_opening_for_ambiguous_interval(
+    qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    controller = CuttingsController(_session())
+    controller.set_analysis(150.0, 151.0, calcite_percent=10.0, absolute_tolerance=0.0)
+    controller.set_analysis(150.002, 151.002, calcite_percent=20.0, absolute_tolerance=0.0)
+    before = deepcopy(controller.available())
+    controller.session.dirty = False
+    warnings: list[str] = []
+
+    def unexpected_dialog(_dialog: SampleAnalysisDialog) -> None:
+        pytest.fail("An ambiguous interval opened the analysis dialog")
+
+    def warn(_parent: object, _title: str, message: str) -> None:
+        warnings.append(message)
+
+    monkeypatch.setattr(SampleAnalysisDialog, "exec", unexpected_dialog)
+    monkeypatch.setattr(QMessageBox, "warning", warn)
+    window = QMainWindow()
+    try:
+        window.session = controller.session
+        window.cuttings_controller = controller
+        window.language = AppLanguage.EN
+        window._t = lambda key, **_values: key
+        MainWindow._create_analysis_interval_from_tablet(window, 150.001, 151.001)
+    finally:
+        window.close()
+
+    assert warnings == ["cuttings.ambiguous_interval"]
+    assert controller.available() == before
+    assert not controller.session.dirty
+
+
 @pytest.mark.parametrize("occupied", [False, True], ids=["free-move", "occupied-then-retry"])
 def test_tablet_filling_analysis_moves_the_prefilled_sample(
     qapp, monkeypatch: pytest.MonkeyPatch, occupied: bool
@@ -388,6 +421,60 @@ def test_tablet_description_matches_confirmed_depths(
         assert (saved.top_depth, saved.bottom_depth) == (expected_top, selected[1])
     assert description in saved.description_i18n["en"]
     assert not saved.description_word_wrap
+
+
+def test_tablet_description_retries_ambiguous_selection_at_exact_bounds(
+    qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    controller = CuttingsController(_session())
+    first = controller.set_analysis(150.0, 151.0, calcite_percent=10.0, absolute_tolerance=0.0)
+    second = controller.set_analysis(150.002, 151.002, calcite_percent=20.0, absolute_tolerance=0.0)
+    before = deepcopy(controller.available())
+    controller.session.dirty = False
+    warnings: list[str] = []
+    dialogs: list[RockDescriptionDialog] = []
+
+    def fill(dialog: RockDescriptionDialog) -> QDialog.DialogCode:
+        assert len(dialogs) < 2
+        if dialogs:
+            assert dialog is dialogs[0]
+            assert dialog.editor.editor.toPlainText() == "Selected sample description"
+            dialog.top_input.setValue(second.top_depth)
+            dialog.bottom_input.setValue(second.bottom_depth)
+        else:
+            dialog.editor.editor.setPlainText("Selected sample description")
+        dialogs.append(dialog)
+        buttons = dialog.findChild(QDialogButtonBox)
+        assert buttons is not None
+        buttons.button(QDialogButtonBox.StandardButton.Ok).click()
+        assert dialog.result() == QDialog.DialogCode.Accepted
+        return QDialog.DialogCode.Accepted
+
+    def warn(_parent: object, _title: str, message: str) -> None:
+        assert controller.available() == before
+        assert not controller.session.dirty
+        warnings.append(message)
+
+    monkeypatch.setattr(RockDescriptionDialog, "exec", fill)
+    monkeypatch.setattr(QMessageBox, "warning", warn)
+    window = QMainWindow()
+    try:
+        window.session = controller.session
+        window.cuttings_controller = controller
+        window.language = AppLanguage.EN
+        window._t = lambda key, **_values: key
+        window._refresh_cuttings_after_edit = lambda: None
+        MainWindow._create_rock_description_from_tablet(window, 150.001, 151.001)
+    finally:
+        window.close()
+
+    assert warnings == ["cuttings.ambiguous_interval"]
+    assert len(dialogs) == 2
+    assert controller.available() == (first, second)
+    assert first == before[0]
+    assert (second.top_depth, second.bottom_depth) == (150.002, 151.002)
+    assert second.calcite_percent == 20.0
+    assert "Selected sample description" in second.description_i18n["en"]
 
 
 def _save_tablet_description_edit(
