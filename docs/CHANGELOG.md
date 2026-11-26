@@ -1,3 +1,9 @@
+## WELL-04 — saved sample depths when adding a tablet rock description (26.11.2026, under review)
+
+When the original tablet selection matches a sample within tolerance, the description is saved at
+the sample's recorded depths. The sample keeps its ID and the review status of its analysis
+translations. Edited boundaries still require an exact match to reuse a sample.
+
 ## WELL-04 — saved sample depths when filling cuttings in Masterlog (26.11.2026, under review)
 
 When the original selection matches a sample within tolerance, Masterlog adds composition at the

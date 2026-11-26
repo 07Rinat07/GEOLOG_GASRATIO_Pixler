@@ -302,11 +302,16 @@ def test_tablet_description_matches_confirmed_depths(
         calcite_percent=12.5,
         description_i18n={"ru": "Исходное описание", "en": "Reviewed description"},
         description_source_language="ru",
+        analysis_interpretation_i18n={"ru": "Исходное заключение", "en": "Reviewed conclusion"},
+        analysis_interpretation_source_language="ru",
     )
     well = session.current_well
     assert well is not None
-    field_id = f"cuttings/{neighbor.sample_id}/description"
-    TranslationStatusController(session).review_current(field_id=field_id, language="en")
+    description_id = f"cuttings/{neighbor.sample_id}/description"
+    conclusion_id = f"cuttings/{neighbor.sample_id}/analysis_interpretation"
+    tracking = TranslationStatusController(session)
+    tracking.review_current(field_id=description_id, language="en")
+    tracking.review_current(field_id=conclusion_id, language="en")
     neighbor_before = deepcopy(neighbor)
     statuses_before = deepcopy(well.translation_statuses)
     revisions_before = dict(well.authored_field_revisions)
@@ -359,9 +364,16 @@ def test_tablet_description_matches_confirmed_depths(
     if reuse_neighbor:
         (saved,) = controller.available()
         assert saved is neighbor
+        assert (saved.top_depth, saved.bottom_depth) == (
+            neighbor_before.top_depth, neighbor_before.bottom_depth
+        )
         assert saved.components == neighbor_before.components
         assert saved.calcite_percent == neighbor_before.calcite_percent
         assert saved.description_i18n["ru"] == neighbor_before.description_i18n["ru"]
+        assert saved.analysis_interpretation_i18n == neighbor_before.analysis_interpretation_i18n
+        assert well.translation_statuses[description_id]["en"].state is TranslationState.DRAFT
+        assert well.translation_statuses[conclusion_id] == statuses_before[conclusion_id]
+        assert well.authored_field_revisions == revisions_before
         assert well.authored_field_source_languages == sources_before
     else:
         assert len(warnings) == 1
@@ -372,8 +384,8 @@ def test_tablet_description_matches_confirmed_depths(
         assert well.authored_field_revisions == revisions_before
         assert well.authored_field_source_languages == sources_before
         assert saved.sample_id != neighbor.sample_id
-    expected_top = selected[0] if edited_top is None else edited_top
-    assert (saved.top_depth, saved.bottom_depth) == (expected_top, selected[1])
+        expected_top = selected[0] if edited_top is None else edited_top
+        assert (saved.top_depth, saved.bottom_depth) == (expected_top, selected[1])
     assert description in saved.description_i18n["en"]
     assert not saved.description_word_wrap
 

@@ -216,15 +216,17 @@ result of 0% calcite or dolomite in a sample without rock composition. If the in
 only a description, deleting its last language version removes the interval. Clearing the last
 saved version in the editor and confirming also removes the interval.
 
-Each unedited boundary retains the precision of the selection. If you change either boundary,
-the editor reuses a saved sample only when both depths match exactly. If you confirm both selected
-depths, matching can also use the existing tolerance.
+For a new interval, each unedited boundary keeps the original precision of the selection. If you
+confirm the original selection and it matches a saved sample within the existing tolerance, the
+editor saves the description at that sample's recorded depths and keeps its `sample_id` and the
+review status of its analysis translations. If you edit either boundary, the editor reuses a
+saved sample only when both depths match exactly.
 
-When you reopen a saved description, changing its depths or word wrapping preserves the
-original formatting and all language versions. If the editor shows fallback text from another
-language or a legacy record, the unedited text stays in its original field. Text and formatting
-edits apply to the interface language. When a version is cleared, the editor checks that text
-remains in the recorded source language.
+To move a saved sample, double-click its description and edit the depths. Changing the depths or
+word wrapping preserves the original formatting and all language versions. If the editor shows
+fallback text from another language or a legacy record, the unedited text stays in its original
+field. Text and formatting edits apply to the interface language. When a version is cleared,
+the editor checks that text remains in the recorded source language.
 
 Depth changes update the existing translation dependencies. Changing only word wrapping
 preserves translation states and language revisions. Confirming without changes leaves the
