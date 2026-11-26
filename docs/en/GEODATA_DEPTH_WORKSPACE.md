@@ -125,9 +125,9 @@ overlap rules.
 When filling in analysis or a description by interval on the tablet or in Masterlog, or when
 filling cuttings in Masterlog, a single exact match on both depths takes priority. If there is
 no exact match, the application uses the existing lookup tolerance for that command. If several
-saved samples match at the first stage that finds any, a warning stops the operation. Refine both
-boundaries to select a sample. If several records share the exact pair, open the intended saved
-sample directly.
+saved samples match at the first stage that finds any, the application shows a warning and leaves
+the records unchanged. Refine both boundaries to select a sample. If several records share the
+exact pair, open the intended saved sample directly.
 
 When changing boundaries in **Sample analysis**, you can move a sample with rock composition to
 an interval free of other samples with rock composition. Shared endpoints are allowed. An
@@ -152,6 +152,11 @@ The command adds rock shares to the matching analysis or description record and 
 `sample_id`, exact saved depths, and saved data. The overlap check uses those saved depths.
 Adjacent intervals may share a boundary. Reviewed analysis translations keep their status.
 A change in composition can mark dependent rock description translations as needing an update.
+
+After a warning about overlap with another sample with composition, an interval that already has
+composition, or several matching samples, the same dialog reopens with the exact depths and rock
+percentages you entered. Correct the boundaries and save again. Cancelling leaves the project
+unchanged.
 
 In Masterlog, **Calcimetry / LBA** looks up a sample before opening the dialog. It checks for an
 exact match on both boundaries first, then for a match within `0.000001 m` on each boundary and

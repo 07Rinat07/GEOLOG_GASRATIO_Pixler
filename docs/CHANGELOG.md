@@ -1,3 +1,10 @@
+## WELL-04 — retrying a cuttings composition save in Masterlog (27.11.2026, under review)
+
+In Masterlog **Fill cuttings**, the same composition dialog reopens after a warning if the
+interval overlaps another sample with composition, already has composition, or matches several
+saved samples. The dialog retains the exact depths and rock percentages so you can correct the
+boundaries and save again. Cancelling leaves the project unchanged.
+
 ## WELL-04 — retrying an analysis save in Masterlog (27.11.2026, under review)
 
 In Masterlog Calcimetry / LBA, an occupied interval or multiple matching samples shows a warning

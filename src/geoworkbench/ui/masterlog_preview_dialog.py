@@ -44,6 +44,17 @@ from geoworkbench.ui.sample_analysis_dialog import SampleAnalysisDialog
 from geoworkbench.ui.stratigraphy_dialog import StratigraphyIntervalDialog
 
 
+def _warn_interval_fill_error(
+    parent: QWidget, language: AppLanguage, error: ValueError | RuntimeError
+) -> None:
+    message = (
+        Localizer.create(language).text("cuttings.ambiguous_interval")
+        if isinstance(error, AmbiguousCuttingsIntervalError)
+        else str(error)
+    )
+    QMessageBox.warning(parent, parent.windowTitle(), message)
+
+
 class MasterlogPreviewWidget(QWidget):
     interval_selected = Signal(float, float, str)
     inspection_selected = Signal(object)
@@ -290,11 +301,8 @@ class MasterlogPreviewDialog(QDialog):
                 self._fill_stratigraphy(top, bottom)
             else:
                 self._fill_analysis(top, bottom)
-        except AmbiguousCuttingsIntervalError:
-            message = Localizer.create(self.language).text("cuttings.ambiguous_interval")
-            QMessageBox.warning(self, self.windowTitle(), message)
         except (RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            _warn_interval_fill_error(self, self.language, exc)
         else:
             self.preview.update()
 
@@ -351,15 +359,20 @@ class MasterlogPreviewDialog(QDialog):
         dialog = CuttingsCompositionDialog(
             top, bottom, catalog, language=self.language, parent=self
         )
-        if dialog.exec() == QDialog.DialogCode.Accepted:
+        while dialog.exec() == QDialog.DialogCode.Accepted:
             top_depth, bottom_depth = dialog.top_depth, dialog.bottom_depth
             interval_edited = (top_depth, bottom_depth) != (top, bottom)
-            CuttingsController(self.session).add(
-                top_depth,
-                bottom_depth,
-                dialog.components(),
-                absolute_tolerance=0.0 if interval_edited else None,
-            )
+            try:
+                self.cuttings_controller.add(
+                    top_depth,
+                    bottom_depth,
+                    dialog.components(),
+                    absolute_tolerance=0.0 if interval_edited else None,
+                )
+            except ValueError as exc:
+                _warn_interval_fill_error(self, self.language, exc)
+                continue
+            break
 
     def _fill_cuttings_description(self, top: float, bottom: float) -> None:
         controller = CuttingsController(self.session)
@@ -436,12 +449,7 @@ class MasterlogPreviewDialog(QDialog):
                     **dialog.values(),
                 )
             except ValueError as exc:
-                message = (
-                    Localizer.create(self.language).text("cuttings.ambiguous_interval")
-                    if isinstance(exc, AmbiguousCuttingsIntervalError)
-                    else str(exc)
-                )
-                QMessageBox.warning(self, self.windowTitle(), message)
+                _warn_interval_fill_error(self, self.language, exc)
                 continue
             break
 
