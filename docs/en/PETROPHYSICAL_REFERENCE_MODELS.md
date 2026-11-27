@@ -125,8 +125,12 @@ digital signature; accept records only from a known source.
 
 **GIS source inventory:** click Source GIS inventory in the same dialog.
 The separate table shows source IDs, units, finite paired MD/value sample
-counts, **actual measured** MD bounds and QC issues. The axis header shows
-the original direction, including bottom-up decreasing MD. Duplicate and
+counts, **actual measured** MD bounds and QC issues. Each range is shown from
+shallowest to deepest at the stored MD precision, even when the source rows are
+in descending order. The bounds are equal for one finite pair. An em dash shows
+that bounds are unavailable. In a small window, scroll the table horizontally
+to read the full range. The axis header shows the original direction, including
+bottom-up decreasing MD. Duplicate and
 non-monotonic axes are flagged rather than sorted; NULLs are not
 interpolated. Each opening rechecks the current source without changing
 LAS, the project or entered calibration. This does not certify continuous

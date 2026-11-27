@@ -1,3 +1,10 @@
+## INTERP-GIS-01 — precise measured MD bounds in the GIS inventory (28.11.2026, under review)
+
+The GIS source inventory shows the shallowest and deepest finite paired samples
+at their stored MD precision, in ascending depth order. A single sample gives equal
+bounds. An em dash indicates that bounds are unavailable. In a compact window the
+table keeps a data row visible and supports horizontal scrolling for the full range.
+
 ## INTERP-GIS-01 — precise MD for a selected GIS sample (28.11.2026, under review)
 
 The GIS source preview and sample evaluation result show the selected row's MD at the
