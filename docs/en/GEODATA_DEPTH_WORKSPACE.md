@@ -175,6 +175,11 @@ another record already uses both new boundaries. The warning appears in the inte
 shows both stored depths of that record at their original precision. If no sample was loaded,
 editing the selection requires an exact match to reuse an existing record.
 
+When the active dataset of the same well covers only part of a saved sample interval, you can edit
+calcimetry measurements and LBA fields in **Sample analysis** on the tablet and in Masterlog.
+Saving at the same boundaries uses the sample's exact stored depths and `sample_id`. New intervals
+and boundary changes must fit the active dataset's depth range.
+
 Changing measurements or another language preserves legacy LBA description and conclusion fields
 while their Russian versions stay the same. Editing a Russian version updates the corresponding
 legacy field.

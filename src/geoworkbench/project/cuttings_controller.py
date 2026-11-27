@@ -383,12 +383,8 @@ class CuttingsController:
     ) -> CuttingsSample:
         """Edit one sample description or preserve its text while changing its layout."""
         sample = self._require_sample(sample_id)
-        top, bottom = float(top_depth), float(bottom_depth)
-        # The active dataset may cover only part of the saved well interval.
         top, bottom = self._validate_interval(
-            top,
-            bottom,
-            check_dataset=(top, bottom) != (sample.top_depth, sample.bottom_depth),
+            top_depth, bottom_depth, saved_interval=(sample.top_depth, sample.bottom_depth)
         )
         normalized = (
             None
@@ -726,12 +722,20 @@ class CuttingsController:
         return sample
 
     def _validate_interval(
-        self, top_depth: float, bottom_depth: float, *, check_dataset: bool = True
+        self,
+        top_depth: float,
+        bottom_depth: float,
+        *,
+        check_dataset: bool = True,
+        saved_interval: tuple[float, float] | None = None,
     ) -> tuple[float, float]:
         top, bottom = float(top_depth), float(bottom_depth)
         if not np.isfinite(top) or not np.isfinite(bottom) or top >= bottom:
             raise ValueError("Кровля шламового интервала должна быть меньше подошвы")
-        dataset = self.session.current_dataset if check_dataset else None
+        # The active dataset may cover only part of a saved well interval.
+        if not check_dataset or (top, bottom) == saved_interval:
+            return top, bottom
+        dataset = self.session.current_dataset
         if dataset is not None:
             finite = dataset.depth[np.isfinite(dataset.depth)]
             if finite.size and (top < float(np.min(finite)) or bottom > float(np.max(finite))):
@@ -864,7 +868,9 @@ class CuttingsController:
         """Edit saved calcimetry/LBA while preserving the sample identity and geology."""
 
         sample = self._require_sample(sample_id)
-        top, bottom = self._validate_interval(top_depth, bottom_depth)
+        top, bottom = self._validate_interval(
+            top_depth, bottom_depth, saved_interval=(sample.top_depth, sample.bottom_depth)
+        )
         self._ensure_sample_move_is_unoccupied(sample, top, bottom)
         if sample.components and (top, bottom) != (sample.top_depth, sample.bottom_depth):
             self._ensure_no_composition_overlap(top, bottom, excluded_id=sample_id)
