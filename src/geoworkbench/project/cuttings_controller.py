@@ -44,6 +44,23 @@ class AmbiguousCuttingsIntervalError(ValueError):
     """Several saved samples matched a selection at the same precision."""
 
 
+class CuttingsIntervalConflictError(ValueError):
+    """Report why the selected interval conflicts with a saved sample."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        reason: Literal["already_filled", "overlap", "occupied"],
+        top_depth: float,
+        bottom_depth: float,
+    ) -> None:
+        super().__init__(message)
+        self.reason = reason
+        self.top_depth = top_depth
+        self.bottom_depth = bottom_depth
+
+
 @dataclass(slots=True)
 class CuttingsController:
     session: ProjectSession
@@ -590,7 +607,12 @@ class CuttingsController:
         existing = self.find_sample_for_interval(top, bottom, absolute_tolerance=absolute_tolerance)
         if existing is not None:
             if existing.components:
-                raise ValueError(f"Проба {top:g}–{bottom:g} м уже заполнена")
+                raise CuttingsIntervalConflictError(
+                    f"Проба {top:g}–{bottom:g} м уже заполнена",
+                    reason="already_filled",
+                    top_depth=existing.top_depth,
+                    bottom_depth=existing.bottom_depth,
+                )
             source_language = self.description_source_language(existing.sample_id)
             if source_language is not None and description is not None:
                 raise ValueError(
@@ -1517,7 +1539,12 @@ class CuttingsController:
             (sample.top_depth, sample.bottom_depth) == (top, bottom)
             for sample in self._require_well().cuttings
         ):
-            raise ValueError(f"На интервале {top:g}–{bottom:g} м уже существует другая проба")
+            raise CuttingsIntervalConflictError(
+                f"На интервале {top:g}–{bottom:g} м уже существует другая проба",
+                reason="occupied",
+                top_depth=top,
+                bottom_depth=bottom,
+            )
 
     def _ensure_no_composition_overlap(
         self, top: float, bottom: float, *, excluded_id: str | None = None
@@ -1528,8 +1555,11 @@ class CuttingsController:
             if sample.sample_id == excluded_id or not sample.components:
                 continue
             if top < sample.bottom_depth and bottom > sample.top_depth:
-                raise ValueError(
-                    f"Интервал пересекается с пробой {sample.top_depth:g}–{sample.bottom_depth:g} м"
+                raise CuttingsIntervalConflictError(
+                    f"Интервал пересекается с пробой {sample.top_depth:g}–{sample.bottom_depth:g} м",
+                    reason="overlap",
+                    top_depth=sample.top_depth,
+                    bottom_depth=sample.bottom_depth,
                 )
 
     def _require_sample(self, sample_id: str) -> CuttingsSample:

@@ -156,7 +156,8 @@ A change in composition can mark dependent rock description translations as need
 After a warning about overlap with another sample with composition, an interval that already has
 composition, or several matching samples, the same dialog reopens with the exact depths and rock
 percentages you entered. Correct the boundaries and save again. Cancelling leaves the project
-unchanged.
+unchanged. The overlap and already-filled warnings appear in the interface language and show both
+stored depths of the conflicting sample at their original precision.
 
 In Masterlog, **Calcimetry / LBA** looks up a sample before opening the dialog. It checks for an
 exact match on both boundaries first, then for a match within `0.000001 m` on each boundary and
@@ -166,8 +167,9 @@ analysis and conclusion source language, if recorded.
 Masterlog saves the boundaries confirmed in the dialog. A boundary left unchanged keeps the
 precision of the selection for a new interval or of the saved depth for a loaded sample. Editing
 the boundaries moves the loaded sample and keeps its `sample_id`. Masterlog rejects the move if
-another record already uses both new boundaries. If no sample was loaded, editing the selection
-requires an exact match to reuse an existing record.
+another record already uses both new boundaries. The warning appears in the interface language and
+shows both stored depths of that record at their original precision. If no sample was loaded,
+editing the selection requires an exact match to reuse an existing record.
 
 Changing measurements or another language preserves legacy LBA description and conclusion fields
 while their Russian versions stay the same. Editing a Russian version updates the corresponding
