@@ -88,3 +88,27 @@ def test_raw_review_distinguishes_close_missing_depths_in_source_order(qapp):
         np.testing.assert_array_equal(dataset.curves["RT"].values, values)
     finally:
         dialog.close()
+
+
+def test_raw_review_distinguishes_close_observed_depth_bounds(qapp):
+    dataset = _dataset("RT", "ohm.m")
+    dataset.active_index.values[:] = [1500.0000006, 1500.0000004, 1500.0000002]
+    dataset.curves["RT"].values[:] = [np.nan, 10.0, 30.0]
+    dialog = GisReferenceDialog(dataset, language=AppLanguage.EN)
+    try:
+        dialog.channel.setCurrentIndex(dialog.channel.findData("RT"))
+        dialog.fields["top"].setText("1499")
+        dialog.fields["base"].setText("1501")
+        dialog.review_source_interval.click()
+
+        lines = dialog.interval_review_label.text().splitlines()
+        assert dialog._t("interval_summary", total=3, finite=2, missing=1) in lines
+        assert dialog._t(
+            "interval_observed_depths", shallowest="1500.0000002", deepest="1500.0000004",
+        ) in lines
+        assert dialog._t("interval_value_bounds", minimum="10", maximum="30", unit="ohm.m") in lines
+        assert dialog._t(
+            "interval_missing_depths", shown=1, total=1, depths="1500.0000006",
+        ) in lines
+    finally:
+        dialog.close()

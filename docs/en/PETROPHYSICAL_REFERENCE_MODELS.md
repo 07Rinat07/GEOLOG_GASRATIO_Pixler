@@ -49,8 +49,10 @@ inventory and MD. Use `evaluate_gis_reference_profile` for an interval (see belo
 Archie is not connected.
 
 “Review samples in interval” counts actual values and missing samples of the
-selected curve between the entered MD bounds. Up to ten missing sample depths
-are shown at their stored MD precision in source row order. This is a snapshot.
+selected curve between the entered MD bounds. When measured values are available,
+the summary shows their shallowest and deepest depths at stored MD precision.
+A single observation has equal bounds. Up to ten missing sample depths are shown
+at their stored MD precision in source row order. This is a snapshot.
 Review again after source changes. Point counts do not establish continuous
 coverage, correlation, or fluid type.
 
@@ -61,9 +63,9 @@ or petrophysical calculation is performed. A fully missing curve is reported as
 missing samples, not as a negative result or a statement about the whole well.
 “Compare multiple GIS curves…” opens a table for explicitly selecting up to eight
 curves from the current dataset in one MD interval. Each row shows its original
-unit, source, sample and missing counts, outermost depths and value range, or the
-reason it is blocked. This snapshot does not establish continuous coverage,
-calibration or fluid type.
+unit, source, sample and missing counts, shallowest and deepest measured depths
+at stored MD precision, and value range, or the reason it is blocked. This snapshot
+does not establish continuous coverage, calibration or fluid type.
 Select a reviewed row to see up to ten missing sample depths at their stored MD
 precision in source row order and the total missing count below the table. The
 list shows individual source points. The dialog distinguishes an interval with

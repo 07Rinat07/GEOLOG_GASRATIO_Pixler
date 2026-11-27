@@ -384,8 +384,11 @@ class GisIntervalCompareDialog(QDialog):
         self._set_cell(row, 4, f"{review.finite_count} / {review.sample_count}")
         self._set_cell(row, 5, str(review.missing_count))
         if review.finite_md_bounds is not None:
-            first, last = review.finite_md_bounds
-            self._set_cell(row, 6, f"{first:.9g}–{last:.9g}")
+            shallowest, deepest = review.finite_md_bounds
+            self._set_cell(
+                row, 6,
+                f"{format_round_trip_number(shallowest)}–{format_round_trip_number(deepest)}",
+            )
         if review.finite_value_bounds is not None:
             minimum, maximum = review.finite_value_bounds
             self._set_cell(row, 7, f"{minimum:.9g}–{maximum:.9g}")

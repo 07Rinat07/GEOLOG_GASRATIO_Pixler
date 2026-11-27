@@ -310,8 +310,9 @@ class GisReferenceDialog(QDialog):
         if result.finite_md_bounds is not None:
             shallowest, deepest = result.finite_md_bounds
             summary += "\n" + self._t(
-                "interval_observed_depths", shallowest=f"{shallowest:.9g}",
-                deepest=f"{deepest:.9g}",
+                "interval_observed_depths",
+                shallowest=format_round_trip_number(shallowest),
+                deepest=format_round_trip_number(deepest),
             )
         if result.finite_value_bounds is not None:
             minimum, maximum = result.finite_value_bounds

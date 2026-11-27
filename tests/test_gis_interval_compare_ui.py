@@ -145,6 +145,28 @@ def test_missing_details_distinguish_close_depths_in_source_order(qapp):
         dialog.close()
 
 
+def test_observed_md_extent_distinguishes_close_depths(qapp):
+    dataset = _two_curves()
+    dataset.active_index.values = np.array([1500.0000006, 1500.0000004, 1500.0000002])
+    dataset.depth = dataset.active_index.values
+    dataset.curves["GR"].values = np.array([np.nan, 20.0, 10.0])
+    dialog = GisIntervalCompareDialog(dataset, top="1500", bottom="1501")
+    try:
+        dialog.table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+        dialog.review.click()
+        _wait_review(qapp, dialog)
+
+        assert dialog.table.item(0, 4).text() == "2 / 3"
+        assert dialog.table.item(0, 5).text() == "1"
+        assert dialog.table.item(0, 6).text() == "1500.0000002–1500.0000004"
+        assert dialog.table.item(0, 7).text() == "10–20"
+        assert dialog.missing_details.text() == dialog._t(
+            "missing_preview", curve="GR", depths="1500.0000006", shown=1, total=1,
+        )
+    finally:
+        dialog.close()
+
+
 def test_missing_details_remain_readable_at_minimum_window_size(qapp):
     dataset = _two_curves()
     source_depths = [f"1500.{index:07d}" for index in range(13, 0, -1)]
