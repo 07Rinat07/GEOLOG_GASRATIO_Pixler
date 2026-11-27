@@ -463,7 +463,8 @@ class GisReferenceDialog(QDialog):
                 self.source_sample_label.setText(self._t("sample_unavailable"))
             else:
                 self.source_sample_label.setText(self._t(
-                    "source_sample", row=index + 1, md=f"{depths[index]:.9g}",
+                    "source_sample", row=index + 1,
+                    md=format_round_trip_number(depths[index]),
                     value=f"{values[index]:.9g}", unit=review.curve.unit if review.curve else "",
                 ))
             return
@@ -662,7 +663,8 @@ class GisReferenceDialog(QDialog):
         self.sample = sample
         self.save_parameters.setEnabled(True)
         self.result_label.setText(self._t(
-            "result", md=f"{sample.md_m:.9g}", value=f"{sample.source_value:.9g}",
+            "result", md=format_round_trip_number(sample.md_m),
+            value=f"{sample.source_value:.9g}",
             unit=calibration.source.curve.unit if calibration.source.curve else "",
             estimate=f"{sample.estimate.value:.9g}",
             quality=self._t(sample.estimate.quality.value),
