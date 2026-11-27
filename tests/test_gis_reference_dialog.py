@@ -808,9 +808,15 @@ def test_source_inventory_bounds_are_readable_in_compact_window(qapp):
 
         table = dialog.table
         bounds = table.item(0, 3)
-        table.scrollToItem(bounds, QAbstractItemView.ScrollHint.PositionAtCenter)
-        assert table.horizontalScrollBar().value() > 0
-        assert table.viewport().rect().contains(table.visualItemRect(bounds))
+        scrollbar = table.horizontalScrollBar()
+        viewport = table.viewport().rect()
+        bounds_rect = table.visualItemRect(bounds)
+        assert bounds_rect.left() > viewport.right()
+
+        scrollbar.setValue(bounds_rect.left())
+        assert viewport.contains(table.visualItemRect(bounds).topLeft())
+        scrollbar.setValue(bounds_rect.right() - viewport.right())
+        assert viewport.contains(table.visualItemRect(bounds).bottomRight())
     finally:
         dialog.close()
 
