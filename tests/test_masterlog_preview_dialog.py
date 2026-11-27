@@ -856,6 +856,50 @@ def test_masterlog_fill_existing_analysis_keeps_precise_bounds_for_near_selectio
     assert sample.calcite_percent == 42.0
 
 
+def test_masterlog_analysis_can_edit_a_sample_across_active_dataset_edge(
+    qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session = _masterlog_geology_session()
+    controller = CuttingsController(session)
+    stored = (149.9998, 151.0002)
+    sample = controller.create_full_sample(
+        *stored,
+        {"sandstone": 100.0},
+        calcite_percent=30.0,
+        dolomite_percent=11.321,
+        lba_color="Tan",
+        description_i18n={"en": "Original sandstone", "kk": "Құмтас"},
+        description_source_language="en",
+    )
+    neighbor = controller.set_analysis(151.1, 155.0, calcite_percent=56.7)
+    neighbor_before = deepcopy(neighbor)
+    subset = Dataset("subset", "Subset", DatasetKind.GTI, DepthDomain.MD, np.array([150.0, 200.0]))
+    well = session.current_well
+    assert well is not None and session.add_dataset(subset) is well
+    field_id = f"cuttings/{sample.sample_id}/description"
+    TranslationStatusController(session).review_current(field_id=field_id, language="kk")
+    description_statuses = deepcopy(well.translation_statuses[field_id])
+    assert description_statuses["kk"].state is TranslationState.REVIEWED
+    expected = deepcopy(sample)
+    expected.calcite_percent = 42.0
+    session.dirty = False
+
+    def inspect_dialog(dialog: SampleAnalysisDialog) -> None:
+        assert (dialog.top_depth, dialog.bottom_depth) == stored
+        assert dialog.dolomite_input.percentage() == 11.321
+
+    warnings = _fill_masterlog_analysis(
+        monkeypatch, session, (150.0, 151.0), (None, None), 30.0, inspect_dialog=inspect_dialog,
+    )
+
+    assert warnings == []
+    assert session.current_dataset is subset
+    assert controller.get(sample.sample_id) is sample
+    assert controller.available() == (expected, neighbor_before)
+    assert well.translation_statuses[field_id] == description_statuses
+    assert session.dirty
+
+
 @pytest.mark.parametrize(
     ("calcite", "edit_russian", "expected_state"),
     [

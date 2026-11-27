@@ -1,3 +1,10 @@
+## WELL-04 — editing saved sample analysis after switching datasets (27.11.2026, under review)
+
+You can edit calcimetry measurements and LBA fields in a saved sample's analysis in Masterlog or
+on the tablet when the active dataset of the same well covers only part of the sample interval.
+The edit uses the sample's exact stored depths and ID. New intervals and boundary changes use
+the active dataset's depth range.
+
 ## WELL-04 — editing saved descriptions after switching datasets (27.11.2026, under review)
 
 You can edit a saved rock description in Masterlog or on the tablet when the active dataset of

@@ -6,6 +6,7 @@ import pytest
 
 from geoworkbench.domain.cuttings_description_tracking import CuttingsDescriptionTrackingWorkflow
 from geoworkbench.domain.models import CuttingsSample, Dataset, DatasetKind, DepthDomain
+from geoworkbench.domain.translation_status import TranslationState
 from geoworkbench.project.cuttings_controller import CuttingsController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.storage.package_project_repository import PackageProjectRepository
@@ -668,6 +669,78 @@ def test_update_analysis_preserves_shared_sample_geology_and_identity() -> None:
     assert updated.lba_group == 3
     assert updated.lba_description == "Updated LBA"
     assert len(controller.available()) == 1
+
+
+def test_update_analysis_keeps_saved_bounds_at_the_active_dataset_edge() -> None:
+    controller = _controller()
+    session = controller.session
+    saved_bounds = (499.9998, 510.0003)
+    analysis_texts = {
+        "lba_description_i18n": {"en": "Visible fluorescence", "kk": "Көрінетін жарқырау"},
+        "analysis_interpretation_i18n": {"en": "Oil show", "kk": "Мұнай белгісі"},
+    }
+    sample = controller.create_full_sample(
+        *saved_bounds,
+        {"sandstone": 100.0},
+        description_i18n={"en": "Fine sandstone"},
+        description_source_language="en",
+        calcite_percent=20.0,
+        **analysis_texts,
+        lba_description_source_language="en",
+        analysis_interpretation_source_language="en",
+    )
+    neighbor = controller.set_analysis(510.5, 515.0, calcite_percent=40.0)
+    well = session.current_well
+    assert well is not None
+    assert session.add_dataset(
+        Dataset("subset", "Subset", DatasetKind.GTI, DepthDomain.MD, np.array([500.0, 600.0]))
+    ) is well
+    expected = deepcopy(sample)
+    expected.calcite_percent = 27.5
+    neighbor_before = deepcopy(neighbor)
+    prefix = f"cuttings/{sample.sample_id}"
+    lba_field = f"{prefix}/lba_description"
+    interpretation_field = f"{prefix}/analysis_interpretation"
+    statuses_before = deepcopy(well.translation_statuses)
+    expected_revisions = dict(well.authored_field_revisions)
+    expected_revisions[f"{interpretation_field}/context"] += 1
+    session.dirty = False
+
+    updated = controller.update_analysis(
+        sample.sample_id,
+        top_depth=saved_bounds[0],
+        bottom_depth=saved_bounds[1],
+        calcite_percent=27.5,
+        **analysis_texts,
+    )
+
+    assert updated is sample
+    assert controller.get(sample.sample_id) is sample
+    assert controller.available() == (expected, neighbor_before)
+    assert well.authored_field_revisions == expected_revisions
+    assert well.translation_statuses[lba_field] == statuses_before[lba_field]
+    assert well.translation_statuses[interpretation_field]["kk"].state is TranslationState.STALE
+    assert session.dirty
+
+    statuses_after_update = deepcopy(well.translation_statuses)
+    content_revision_after_update = well.content_revision
+    language_revisions_after_update = dict(well.language_revisions)
+    session.dirty = False
+    with pytest.raises(ValueError, match="выходит за диапазон dataset"):
+        controller.update_analysis(
+            sample.sample_id,
+            top_depth=saved_bounds[0],
+            bottom_depth=509.9995,
+            calcite_percent=35.0,
+            **analysis_texts,
+        )
+
+    assert controller.available() == (expected, neighbor_before)
+    assert well.translation_statuses == statuses_after_update
+    assert well.authored_field_revisions == expected_revisions
+    assert well.content_revision == content_revision_after_update
+    assert well.language_revisions == language_revisions_after_update
+    assert not session.dirty
 
 
 def test_update_analysis_can_move_overlay_without_replacing_imported_cuttings() -> None:
