@@ -1,3 +1,9 @@
+## WELL-04 — localized interval warnings in Masterlog (27.11.2026, under review)
+
+Masterlog shows warnings about samples that already have composition, overlapping samples,
+and occupied destinations in the interface language. Each warning shows both stored depths
+of the conflicting sample, including submillimeter precision.
+
 ## WELL-04 — retrying a cuttings composition save in Masterlog (27.11.2026, under review)
 
 In Masterlog **Fill cuttings**, the same composition dialog reopens after a warning if the

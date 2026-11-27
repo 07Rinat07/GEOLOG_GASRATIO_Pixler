@@ -195,16 +195,26 @@ def _masterlog_geology_session() -> ProjectSession:
     return session
 
 
-@pytest.mark.parametrize("ambiguous", [False, True], ids=["overlap-retry", "ambiguous-cancel"])
+@pytest.mark.parametrize(
+    ("conflict", "language", "edit_interval"),
+    [
+        pytest.param("overlap", AppLanguage.EN, True, id="overlap-retry"),
+        pytest.param("already_filled", AppLanguage.KK, True, id="filled-cancel"),
+        pytest.param("already_filled", AppLanguage.EN, False, id="filled-near-selection"),
+        pytest.param("ambiguous", AppLanguage.EN, True, id="ambiguous-cancel"),
+    ],
+)
 def test_masterlog_retries_cuttings_composition_in_the_same_editor(
-    qapp, monkeypatch: pytest.MonkeyPatch, ambiguous: bool
+    qapp, monkeypatch: pytest.MonkeyPatch, conflict: str, language: AppLanguage, edit_interval: bool
 ) -> None:
     session = _masterlog_geology_session()
     controller = CuttingsController(session)
     selected = (150.0004, 151.1234)
     conflicting_top = 149.5
+    attempted = (conflicting_top, selected[1]) if edit_interval else selected
     corrected_top = 150.125
     components = {"sandstone": 62.5, "siltstone": 37.5}
+    ambiguous = conflict == "ambiguous"
     if ambiguous:
         existing = controller.set_analysis(conflicting_top, selected[1], calcite_percent=10.0)
         duplicate = deepcopy(existing)
@@ -212,8 +222,11 @@ def test_masterlog_retries_cuttings_composition_in_the_same_editor(
         well = session.current_well
         assert well is not None
         well.cuttings.append(duplicate)
+    elif conflict == "already_filled":
+        stored = attempted if edit_interval else (150.0, 151.1238)
+        existing = controller.add(*stored, {"sandstone": 100.0})
     else:
-        existing = controller.add(149.0, 150.0, {"sandstone": 100.0})
+        existing = controller.add(149.0004, 150.0, {"sandstone": 100.0})
     before = deepcopy(controller.available())
     session.dirty = False
     opened: list[CuttingsCompositionDialog] = []
@@ -225,16 +238,17 @@ def test_masterlog_retries_cuttings_composition_in_the_same_editor(
             assert len(warnings) == 1
             assert controller.available() == before
             assert not session.dirty
-            assert (dialog.top_depth, dialog.bottom_depth) == (conflicting_top, selected[1])
+            assert (dialog.top_depth, dialog.bottom_depth) == attempted
             assert dialog.components() == components
-            if ambiguous:
+            if conflict != "overlap":
                 opened.append(dialog)
                 dialog.reject()
                 return QDialog.DialogCode.Rejected
             dialog.top_input.setValue(corrected_top)
         else:
             assert (dialog.top_depth, dialog.bottom_depth) == selected
-            dialog.top_input.setValue(conflicting_top)
+            if edit_interval:
+                dialog.top_input.setValue(conflicting_top)
             for lithotype_id, percentage in components.items():
                 entry = dialog.findChild(QDoubleSpinBox, f"cuttings-percentage-{lithotype_id}")
                 assert entry is not None
@@ -252,7 +266,7 @@ def test_masterlog_retries_cuttings_composition_in_the_same_editor(
     monkeypatch.setattr(CuttingsCompositionDialog, "exec", fill)
     monkeypatch.setattr(QMessageBox, "warning", warn)
     preview = MasterlogPreviewDialog(
-        MasterlogTemplate("standard", "Daily form"), session, language=AppLanguage.EN
+        MasterlogTemplate("standard", "Daily form"), session, language=language
     )
     try:
         preview._fill_interval(*selected, "cuttings")
@@ -260,9 +274,19 @@ def test_masterlog_retries_cuttings_composition_in_the_same_editor(
         preview.close()
 
     assert len(opened) == 2
-    assert len(warnings) == 1
+    localizer = Localizer.create(language)
     if ambiguous:
-        assert warnings == [Localizer.create(AppLanguage.EN).text("cuttings.ambiguous_interval")]
+        expected_warning = localizer.text("cuttings.ambiguous_interval")
+    else:
+        warning_key = f"cuttings.interval_{conflict}"
+        depths = {
+            "top": str(existing.top_depth).removesuffix(".0"),
+            "bottom": str(existing.bottom_depth).removesuffix(".0"),
+        }
+        expected_warning = localizer.text(warning_key, **depths)
+        assert expected_warning != Localizer.create(AppLanguage.RU).text(warning_key, **depths)
+    assert warnings == [expected_warning]
+    if conflict != "overlap":
         assert controller.available() == before
         assert not session.dirty
         return
@@ -618,7 +642,7 @@ def test_masterlog_fill_existing_analysis_moves_only_selected_sample(
     session = _masterlog_geology_session()
     controller = CuttingsController(session)
     selected = (150.0004, 151.1234)
-    destination = (152.0, 153.0)
+    destination = (152.025, 153.125)
     sample = controller.create_full_sample(
         *selected, {"sandstone": 100.0}, calcite_percent=30.0, description="Original description"
     )
@@ -631,7 +655,11 @@ def test_masterlog_fill_existing_analysis_moves_only_selected_sample(
 
     assert controller.get(sample.sample_id) is sample
     if destination_occupied:
-        assert len(warnings) == 1 and "уже существует другая проба" in warnings[0]
+        depths = {"top": f"{destination[0]:g}", "bottom": f"{destination[1]:g}"}
+        warning_key = "cuttings.interval_occupied"
+        expected_warning = Localizer.create(AppLanguage.EN).text(warning_key, **depths)
+        assert expected_warning != Localizer.create(AppLanguage.RU).text(warning_key, **depths)
+        assert warnings == [expected_warning]
         assert controller.available() == samples_before
         assert not session.dirty
     else:

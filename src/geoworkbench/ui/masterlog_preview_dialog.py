@@ -18,6 +18,7 @@ from geoworkbench.domain.models import MasterlogTemplate
 from geoworkbench.project.cuttings_controller import (
     AmbiguousCuttingsIntervalError,
     CuttingsController,
+    CuttingsIntervalConflictError,
 )
 from geoworkbench.project.lithology_controller import LithologyController
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
@@ -47,11 +48,16 @@ from geoworkbench.ui.stratigraphy_dialog import StratigraphyIntervalDialog
 def _warn_interval_fill_error(
     parent: QWidget, language: AppLanguage, error: ValueError | RuntimeError
 ) -> None:
-    message = (
-        Localizer.create(language).text("cuttings.ambiguous_interval")
-        if isinstance(error, AmbiguousCuttingsIntervalError)
-        else str(error)
-    )
+    if isinstance(error, CuttingsIntervalConflictError):
+        message = Localizer.create(language).text(
+            f"cuttings.interval_{error.reason}",
+            top=str(error.top_depth).removesuffix(".0"),
+            bottom=str(error.bottom_depth).removesuffix(".0"),
+        )
+    elif isinstance(error, AmbiguousCuttingsIntervalError):
+        message = Localizer.create(language).text("cuttings.ambiguous_interval")
+    else:
+        message = str(error)
     QMessageBox.warning(parent, parent.windowTitle(), message)
 
 
