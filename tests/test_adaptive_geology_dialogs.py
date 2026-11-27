@@ -28,7 +28,7 @@ from geoworkbench.project.stratigraphy_catalog_controller import (
 )
 from geoworkbench.project.stratigraphy_controller import StratigraphyController
 from geoworkbench.project.translation_status_controller import TranslationStatusController
-from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.storage.package_project_repository import PackageProjectRepository
 from geoworkbench.storage.project_codec import ProjectDocument
 from geoworkbench.ui.main_window import MainWindow
@@ -164,7 +164,7 @@ def _fill_tablet_analysis(
         window.session = controller.session
         window.cuttings_controller = controller
         window.language = AppLanguage.EN
-        window._t = lambda key, **_values: key
+        window._t = Localizer.create(window.language).text
         window._refresh_cuttings_after_edit = lambda: None
         MainWindow._create_analysis_interval_from_tablet(window, *selected)
     finally:
@@ -227,7 +227,9 @@ def test_tablet_filling_analysis_moves_the_prefilled_sample(
 
     if occupied:
         ((message, samples, dirty),) = warnings
-        assert "уже существует другая проба" in message
+        assert message == Localizer.create(AppLanguage.EN).text(
+            "cuttings.interval_occupied", top="152", bottom="153"
+        )
         assert samples == before
         assert not dirty
         assert neighbor == before[1]
@@ -654,15 +656,17 @@ def test_tablet_description_edit_writes_only_active_language(
 
 
 def _create_tablet_cuttings_sample(
-    controller: CuttingsController, selected: tuple[float, float]
+    controller: CuttingsController,
+    selected: tuple[float, float],
+    language: AppLanguage = AppLanguage.EN,
 ) -> None:
     window = QMainWindow()
     try:
         window.session = controller.session
         window.cuttings_controller = controller
         window.lithotype_catalog_controller = LithotypeCatalogController(controller.session)
-        window.language = AppLanguage.EN
-        window._t = lambda key, **_values: key
+        window.language = language
+        window._t = Localizer.create(language).text
         window._refresh_cuttings_after_edit = lambda: None
         window._edit_cuttings_sample_from_tablet = partial(
             MainWindow._edit_cuttings_sample_from_tablet, window
@@ -816,11 +820,66 @@ def test_tablet_filling_new_composition_retries_exact_collision_with_entered_val
     _create_tablet_cuttings_sample(controller, selected)
 
     (message,) = warnings
-    assert "уже существует другая проба" in message
+    assert message == Localizer.create(AppLanguage.EN).text(
+        "cuttings.interval_occupied", top="150.001", bottom="151.1234"
+    )
     saved, *unchanged = controller.available()
     assert tuple(unchanged) == before
     assert controller.get(neighbor.sample_id) is neighbor
     assert (saved.top_depth, saved.bottom_depth) == (free_top, selected[1])
+    assert saved.calcite_percent == 42.0
+    assert [(rock.lithotype_id, rock.percentage) for rock in saved.components] == [
+        ("sandstone", 100.0)
+    ]
+    assert session.dirty
+
+
+def test_tablet_filling_new_composition_localizes_saved_overlap_and_retries(
+    qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session = _session()
+    controller = CuttingsController(session)
+    selected = (150.0004, 151.1234)
+    corrected_bottom = 151.12
+    neighbor = controller.add(151.1238, 152.0004, {"clay": 100.0})
+    before = deepcopy(neighbor)
+    session.dirty = False
+    language = AppLanguage.KK
+    dialogs: list[UnifiedCuttingsSampleDialog] = []
+    warnings: list[str] = []
+
+    def fill(dialog: UnifiedCuttingsSampleDialog) -> QDialog.DialogCode:
+        if not dialogs:
+            assert (dialog.top_depth, dialog.bottom_depth) == selected
+            _select_sandstone_for_tablet_cuttings(dialog)
+            dialog.calcite_input.setValue(42.0)
+            dialog.bottom_input.setValue(152.0)
+        else:
+            assert len(dialogs) == 1 and dialogs[0] is dialog
+            assert (dialog.top_depth, dialog.bottom_depth) == (selected[0], 152.0)
+            assert dialog.components() == {"sandstone": 100.0}
+            assert dialog.calcite_input.percentage() == 42.0
+            dialog.bottom_input.setValue(corrected_bottom)
+        dialogs.append(dialog)
+        return _accept_tablet_cuttings(dialog)
+
+    def warn(_parent: object, _title: str, message: str) -> None:
+        warnings.append(message)
+        assert controller.available() == (before,)
+        assert not session.dirty
+
+    monkeypatch.setattr(UnifiedCuttingsSampleDialog, "exec", fill)
+    monkeypatch.setattr(QMessageBox, "warning", warn)
+    _create_tablet_cuttings_sample(controller, selected, language)
+
+    assert len(dialogs) == 2
+    expected_warning = Localizer.create(language).text(
+        "cuttings.interval_overlap", top="151.1238", bottom="152.0004"
+    )
+    assert warnings == [expected_warning]
+    saved, unchanged = controller.available()
+    assert unchanged is neighbor and unchanged == before
+    assert (saved.top_depth, saved.bottom_depth) == (selected[0], corrected_bottom)
     assert saved.calcite_percent == 42.0
     assert [(rock.lithotype_id, rock.percentage) for rock in saved.components] == [
         ("sandstone", 100.0)

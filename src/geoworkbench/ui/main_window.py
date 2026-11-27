@@ -327,6 +327,7 @@ from geoworkbench.ui.interpretation_intervals_dialog import InterpretationInterv
 from geoworkbench.ui.interpretation_properties import InterpretationPropertiesPanel
 from geoworkbench.ui.lithology_dialog import LithologyDialog
 from geoworkbench.ui.lithology_interval_dialog import LithologyIntervalDialog
+from geoworkbench.ui.cuttings_interval_messages import cuttings_interval_error_message
 from geoworkbench.ui.unified_cuttings_sample_dialog import UnifiedCuttingsSampleDialog
 from geoworkbench.ui.sample_analysis_dialog import SampleAnalysisDialog
 from geoworkbench.ui.rock_description_dialog import RockDescriptionDialog
@@ -8792,7 +8793,8 @@ class MainWindow(QMainWindow):
                     content_language=self.language.value,
                 )
             except (RuntimeError, ValueError) as exc:
-                QMessageBox.warning(self, self._t("cuttings.create_title"), str(exc))
+                message = cuttings_interval_error_message(exc, self._t)
+                QMessageBox.warning(self, self._t("cuttings.create_title"), message)
                 continue
             self._refresh_cuttings_after_edit()
             self.statusBar().showMessage(
@@ -8840,11 +8842,7 @@ class MainWindow(QMainWindow):
                     content_language=self.language.value,
                 )
             except (KeyError, RuntimeError, ValueError) as exc:
-                message = (
-                    self._t("cuttings.ambiguous_interval")
-                    if isinstance(exc, AmbiguousCuttingsIntervalError)
-                    else str(exc)
-                )
+                message = cuttings_interval_error_message(exc, self._t)
                 QMessageBox.warning(self, self._t("cuttings.create_title"), message)
                 continue
             self._refresh_cuttings_after_edit()
@@ -8885,7 +8883,8 @@ class MainWindow(QMainWindow):
                     content_language=self.language.value,
                 )
             except (KeyError, RuntimeError, ValueError) as exc:
-                QMessageBox.warning(self, self._t("analysis.edit_title"), str(exc))
+                message = cuttings_interval_error_message(exc, self._t)
+                QMessageBox.warning(self, self._t("analysis.edit_title"), message)
                 continue
             self._refresh_cuttings_after_edit()
             self.statusBar().showMessage(
@@ -8945,7 +8944,8 @@ class MainWindow(QMainWindow):
                     content_language=self.language.value,
                 )
             except (KeyError, RuntimeError, ValueError) as exc:
-                QMessageBox.warning(self, self._t("cuttings.edit_title"), str(exc))
+                message = cuttings_interval_error_message(exc, self._t)
+                QMessageBox.warning(self, self._t("cuttings.edit_title"), message)
                 continue
             self._refresh_cuttings_after_edit()
             self.statusBar().showMessage(
@@ -8984,11 +8984,7 @@ class MainWindow(QMainWindow):
                     absolute_tolerance=0.0 if (top, bottom) != opened_interval else None,
                 )
             except (RuntimeError, ValueError) as exc:
-                message = (
-                    self._t("cuttings.ambiguous_interval")
-                    if isinstance(exc, AmbiguousCuttingsIntervalError)
-                    else str(exc)
-                )
+                message = cuttings_interval_error_message(exc, self._t)
                 QMessageBox.warning(self, self._t("description.create_title"), message)
                 continue
             self._refresh_cuttings_after_edit()
@@ -9043,7 +9039,8 @@ class MainWindow(QMainWindow):
                     preserve_description=not description_changed,
                 )
             except (KeyError, RuntimeError, ValueError) as exc:
-                QMessageBox.warning(self, self._t("description.edit_title"), str(exc))
+                message = cuttings_interval_error_message(exc, self._t)
+                QMessageBox.warning(self, self._t("description.edit_title"), message)
                 continue
             self._refresh_cuttings_after_edit()
             self.statusBar().showMessage(

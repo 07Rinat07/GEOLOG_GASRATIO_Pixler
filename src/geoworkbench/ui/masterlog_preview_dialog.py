@@ -15,11 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.domain.models import MasterlogTemplate
-from geoworkbench.project.cuttings_controller import (
-    AmbiguousCuttingsIntervalError,
-    CuttingsController,
-    CuttingsIntervalConflictError,
-)
+from geoworkbench.project.cuttings_controller import CuttingsController
 from geoworkbench.project.lithology_controller import LithologyController
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.masterlog_inspection_controller import (
@@ -37,6 +33,7 @@ from geoworkbench.printing.masterlog_inspection import (
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.ui.adaptive_toolbar import AdaptiveActionToolBar
+from geoworkbench.ui.cuttings_interval_messages import cuttings_interval_error_message
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 from geoworkbench.ui.masterlog_interval_fill_dialog import CuttingsCompositionDialog
 from geoworkbench.ui.masterlog_columns_dialog import edit_masterlog_column
@@ -48,16 +45,7 @@ from geoworkbench.ui.stratigraphy_dialog import StratigraphyIntervalDialog
 def _warn_interval_fill_error(
     parent: QWidget, language: AppLanguage, error: ValueError | RuntimeError
 ) -> None:
-    if isinstance(error, CuttingsIntervalConflictError):
-        message = Localizer.create(language).text(
-            f"cuttings.interval_{error.reason}",
-            top=str(error.top_depth).removesuffix(".0"),
-            bottom=str(error.bottom_depth).removesuffix(".0"),
-        )
-    elif isinstance(error, AmbiguousCuttingsIntervalError):
-        message = Localizer.create(language).text("cuttings.ambiguous_interval")
-    else:
-        message = str(error)
+    message = cuttings_interval_error_message(error, Localizer.create(language).text)
     QMessageBox.warning(parent, parent.windowTitle(), message)
 
 
