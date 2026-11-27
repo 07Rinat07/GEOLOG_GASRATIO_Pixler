@@ -5,10 +5,17 @@ import numpy as np
 import pytest
 
 from geoworkbench.domain.cuttings_description_tracking import CuttingsDescriptionTrackingWorkflow
-from geoworkbench.domain.models import CuttingsSample, Dataset, DatasetKind, DepthDomain
+from geoworkbench.domain.models import (
+    CuttingsComponent,
+    CuttingsSample,
+    Dataset,
+    DatasetKind,
+    DepthDomain,
+)
 from geoworkbench.domain.translation_status import TranslationState
 from geoworkbench.project.cuttings_controller import CuttingsController
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.project.translation_status_controller import TranslationStatusController
 from geoworkbench.storage.package_project_repository import PackageProjectRepository
 from geoworkbench.storage.project_codec import ProjectDocument
 
@@ -1056,6 +1063,81 @@ def test_full_sample_reedit_preserves_overlapping_analysis_overlay() -> None:
     assert updated.calcite_percent == 45.0
     assert overlay.calcite_percent == 62.5
     assert (overlay.top_depth, overlay.bottom_depth) == (503.0, 507.0)
+
+
+def test_full_sample_reedit_keeps_saved_bounds_at_the_active_dataset_edge() -> None:
+    controller = _controller()
+    session = controller.session
+    top, bottom = 499.9998, 510.0003
+    values = {
+        "calcite_percent": 27.5,
+        "dolomite_percent": 12.5,
+        "lba_description_i18n": {"en": "Fluorescence", "kk": "Жарқырау"},
+        "analysis_interpretation_i18n": {"en": "Oil show", "kk": "Мұнай белгісі"},
+        "description_i18n": {"en": "Fine sandstone", "kk": "Ұсақ түйірлі құмтас"},
+    }
+    sample = controller.create_full_sample(
+        top,
+        bottom,
+        {"sandstone": 100.0},
+        **values,
+        description_source_language="en",
+        lba_description_source_language="en",
+        analysis_interpretation_source_language="en",
+    )
+    overlay = controller.set_analysis(501.0, 505.0, calcite_percent=40.0)
+    well = session.current_well
+    assert well is not None
+    assert session.add_dataset(
+        Dataset("subset", "Subset", DatasetKind.GTI, DepthDomain.MD, np.array([500.0, 600.0]))
+    ) is well
+    tracking = TranslationStatusController(session)
+    prefix = f"cuttings/{sample.sample_id}"
+    description_field = f"{prefix}/description"
+    analysis_fields = (f"{prefix}/lba_description", f"{prefix}/analysis_interpretation")
+    for field_id in (description_field, *analysis_fields):
+        tracking.review_current(field_id=field_id, language="kk")
+    expected = deepcopy(sample)
+    expected.components = [CuttingsComponent("sandstone", 70.0), CuttingsComponent("clay", 30.0)]
+    overlay_before = deepcopy(overlay)
+    statuses_before = deepcopy(well.translation_statuses)
+    revisions = dict(well.authored_field_revisions)
+    revisions[f"{prefix}/composition"] += 1
+    session.dirty = False
+
+    updated = controller.update_full_sample(
+        sample.sample_id,
+        top_depth=top,
+        bottom_depth=bottom,
+        components={"sandstone": 70.0, "clay": 30.0},
+        **values,
+    )
+
+    assert updated is sample
+    assert controller.available() == (expected, overlay_before)
+    assert well.authored_field_revisions == revisions
+    assert well.translation_statuses[description_field]["kk"].state is TranslationState.STALE
+    for field_id in analysis_fields:
+        assert well.translation_statuses[field_id] == statuses_before[field_id]
+    assert session.dirty
+
+    statuses_after = deepcopy(well.translation_statuses)
+    content_revision = well.content_revision
+    session.dirty = False
+    with pytest.raises(ValueError, match="выходит за диапазон dataset"):
+        controller.update_full_sample(
+            sample.sample_id,
+            top_depth=top,
+            bottom_depth=bottom + 1,
+            components={"sandstone": 100.0},
+            **values,
+        )
+
+    assert controller.available() == (expected, overlay_before)
+    assert well.authored_field_revisions == revisions
+    assert well.translation_statuses == statuses_after
+    assert well.content_revision == content_revision
+    assert not session.dirty
 
 
 def test_update_analysis_accepts_existing_twenty_thousand_character_interpretation() -> None:
