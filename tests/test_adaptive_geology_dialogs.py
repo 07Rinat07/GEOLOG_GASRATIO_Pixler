@@ -774,6 +774,68 @@ def test_tablet_filling_composition_loads_exact_sample_and_retains_its_analysis_
     assert restored_well.translation_statuses[field_id]["ru"] == reviewed
 
 
+def test_unified_tablet_editor_can_save_a_sample_across_active_dataset_edge(
+    qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session = _session()
+    controller = CuttingsController(session)
+    stored = (149.9998, 151.0002)
+    sample = controller.create_full_sample(
+        *stored,
+        {"sandstone": 100.0},
+        calcite_percent=32.543,
+        description_i18n={"en": "<p><b>Rock description</b></p>", "kk": "Тау жынысы"},
+        analysis_interpretation_i18n={"en": "LBA conclusion", "ru": "Заключение"},
+        analysis_interpretation_source_language="en",
+    )
+    neighbor = controller.set_analysis(152.0, 153.0, calcite_percent=12.5)
+    neighbor_before = deepcopy(neighbor)
+    well = session.current_well
+    assert well is not None
+    subset = Dataset("subset", "Subset", DatasetKind.GTI, DepthDomain.MD, np.array([150.0, 200.0]))
+    assert session.add_dataset(subset) is well
+    field_id = f"cuttings/{sample.sample_id}/analysis_interpretation"
+    TranslationStatusController(session).review_current(field_id=field_id, language="ru")
+    reviewed = well.translation_statuses[field_id]["ru"]
+    expected = deepcopy(sample)
+    session.dirty = False
+
+    def edit(dialog: UnifiedCuttingsSampleDialog) -> QDialog.DialogCode:
+        assert (dialog.top_depth, dialog.bottom_depth) == stored
+        assert dialog.components() == {"sandstone": 100.0}
+        assert dialog.calcite_input.percentage() == expected.calcite_percent
+        clay = dialog.rock_inputs[0].findData("clay")
+        assert clay >= 0
+        dialog.rock_inputs[0].setCurrentIndex(clay)
+        dialog.percent_inputs[0].setValue(100.0)
+        return _accept_tablet_cuttings(dialog)
+
+    def warn(_parent: object, _title: str, message: str) -> None:
+        pytest.fail(f"Saving the sample at its stored depths raised a warning: {message}")
+
+    monkeypatch.setattr(UnifiedCuttingsSampleDialog, "exec", edit)
+    monkeypatch.setattr(QMessageBox, "warning", warn)
+    window = QMainWindow()
+    try:
+        window.session = session
+        window.cuttings_controller = controller
+        window.lithotype_catalog_controller = LithotypeCatalogController(session)
+        window.language = AppLanguage.EN
+        window._t = Localizer.create(window.language).text
+        window._refresh_cuttings_after_edit = lambda: None
+        MainWindow._edit_cuttings_sample_from_tablet(window, sample.sample_id)
+    finally:
+        window.close()
+
+    assert controller.get(expected.sample_id) is sample
+    assert [(rock.lithotype_id, rock.percentage) for rock in sample.components] == [("clay", 100.0)]
+    expected.components = deepcopy(sample.components)
+    assert controller.available() == (expected, neighbor_before)
+    assert well.translation_statuses[field_id]["ru"] == reviewed
+    assert session.current_dataset is subset
+    assert session.dirty
+
+
 @pytest.mark.parametrize("ambiguous", [False, True], ids=["edited-onto-sample", "legacy-duplicates"])
 def test_tablet_filling_new_composition_retries_exact_collision_with_entered_values(
     qapp, monkeypatch: pytest.MonkeyPatch, ambiguous: bool

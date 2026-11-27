@@ -1,3 +1,10 @@
+## WELL-04 — editing saved samples in the shared editor after switching datasets (27.11.2026, under review)
+
+On the tablet, you can edit a saved sample in the shared editor when the active dataset of the
+same well covers only part of the sample interval. Saving on the same boundaries keeps the exact
+stored depths and sample ID. New intervals and boundary changes are checked against the active
+dataset's depth range, and saves are checked for overlap with other samples with rock composition.
+
 ## WELL-04 — editing saved sample analysis after switching datasets (27.11.2026, under review)
 
 You can edit calcimetry measurements and LBA fields in a saved sample's analysis in Masterlog or

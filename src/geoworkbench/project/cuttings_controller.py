@@ -210,7 +210,9 @@ class CuttingsController:
     ) -> CuttingsSample:
         """Atomically edit interval, rocks, LBA, calcimetry and rich description."""
         sample = self._require_sample(sample_id)
-        top, bottom = self._validate_interval(top_depth, bottom_depth)
+        top, bottom = self._validate_interval(
+            top_depth, bottom_depth, saved_interval=(sample.top_depth, sample.bottom_depth)
+        )
         normalized = self._validate_components(components)
         self._ensure_sample_move_is_unoccupied(sample, top, bottom)
         self._ensure_no_composition_overlap(top, bottom, excluded_id=sample_id)

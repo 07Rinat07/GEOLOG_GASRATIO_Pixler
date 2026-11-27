@@ -104,6 +104,11 @@ Double-clicking a saved sample opens the editor for that track. Changes in the s
 keep the existing `sample_id` and refresh Cuttings, LBA, Calcimetry, and Description together.
 Opening the shared editor with a double-click also lets you delete the entire sample.
 
+If the active dataset of the same well covers only part of a saved sample interval, you can edit
+composition, analysis, or description in the shared editor at the exact stored depths.
+New intervals and boundary changes must fit the active dataset's depth range. When you save the
+sample, the editor checks for overlap with other samples that have rock composition.
+
 If a rock description, LBA description or conclusion has both legacy text and a Russian version,
 the shared editor preserves both when you add composition or edit other fields. An explicit edit
 on a Russian tab updates the corresponding legacy field.
