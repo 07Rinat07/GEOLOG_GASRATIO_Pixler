@@ -1,3 +1,9 @@
+## INTERP-GIS-01 — precise MD for a selected GIS sample (28.11.2026, under review)
+
+The GIS source preview and sample evaluation result show the selected row's MD at the
+stored axis precision. The calculation uses the measurement from that source row directly.
+The result can be scrolled when it does not fit in a small window.
+
 ## INTERP-GIS-01 — precise observed MD extents (27.11.2026, under review)
 
 GIS curve comparison and reference interval review show the shallowest and deepest

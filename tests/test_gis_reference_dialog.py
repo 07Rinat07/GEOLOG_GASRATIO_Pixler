@@ -4,7 +4,7 @@ from dataclasses import replace
 import numpy as np
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QAbstractItemView, QDialog, QFileDialog, QMessageBox
+from PySide6.QtWidgets import QAbstractItemView, QDialog, QFileDialog, QMessageBox, QScrollArea
 
 from geoworkbench.domain.models import (
     CalculationState, CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain,
@@ -616,6 +616,79 @@ def test_operator_evaluates_actual_row_in_three_languages(qapp, language, densit
     np.testing.assert_array_equal(dataset.curves["selected"].values, before)
     np.testing.assert_array_equal(dataset.active_index.values, [100, 101, 102])
     dialog.close()
+
+
+def test_operator_calibration_distinguishes_close_sample_depths(qapp):
+    dataset = _dataset()
+    depths = np.array([100.0000002, 100.0000003, 100.0000004])
+    values = np.array([65.0, np.nan, 95.0])
+    dataset.active_index.values[:] = depths
+    dataset.curves["selected"].values[:] = values
+    dialog = GisReferenceDialog(dataset, language=AppLanguage.EN)
+    try:
+        _fill(dialog)
+        dialog.fields["top"].setText("100.0000002")
+        dialog.fields["base"].setText("100.0000004")
+        labels = []
+        expected_labels = []
+        for row, depth, value, estimate in (
+            (1, "100.0000002", "65", "0.4"),
+            (3, "100.0000004", "95", "0.7"),
+        ):
+            dialog.row.setValue(row)
+            dialog.review_source.click()
+            assert dialog.sample is None
+            dialog.calculate.click()
+            sample = dialog.sample
+            assert sample is not None and sample.sample_index == row - 1
+            assert sample.md_m == float(depth)
+            assert sample.source_value == float(value)
+            assert sample.estimate.value == pytest.approx(float(estimate))
+            labels.append(dialog.result_label.text())
+            expected_labels.append(dialog._t(
+                "result", md=depth, value=value, unit="API", estimate=estimate,
+                quality=dialog._t("valid"), calibration="cal-1",
+            ))
+
+        assert labels == expected_labels
+        np.testing.assert_array_equal(dataset.active_index.values, depths)
+        np.testing.assert_array_equal(dataset.curves["selected"].values, values)
+    finally:
+        dialog.close()
+
+
+def test_operator_can_read_the_result_at_minimum_window_size(qapp):
+    dataset = _dataset()
+    depth = 100.0000002
+    dataset.active_index.values[0] = depth
+    dialog = GisReferenceDialog(dataset, language=AppLanguage.EN)
+    try:
+        dialog.resize(dialog.minimumSize())
+        dialog.show()
+        _fill(dialog)
+        dialog.fields["top"].setText(str(depth))
+        calibration_id = "Field calibration reference " * 6
+        dialog.fields["calibration_id"].setText(calibration_id.strip())
+        dialog.calculate.click()
+        qapp.processEvents()
+
+        assert dialog.sample is not None
+        label = dialog.result_label
+        assert str(depth) in label.text()
+        assert calibration_id.strip() in label.text()
+        scroll = dialog.findChild(QScrollArea, "gis-reference-result-scroll")
+        assert scroll is not None and scroll.widget() is label and scroll.isVisible()
+        height = label.heightForWidth(label.width())
+        assert label.height() >= height
+        bar = scroll.verticalScrollBar()
+        bar.setValue(bar.maximum())
+        assert scroll.viewport().height() + bar.value() >= height
+
+        dialog.row.setValue(3)
+        assert not label.text() and scroll.isHidden()
+        assert bar.value() == 0
+    finally:
+        dialog.close()
 
 
 @pytest.mark.parametrize("failure", ["missing", "nan", "scope", "stale", "unit", "selection"])

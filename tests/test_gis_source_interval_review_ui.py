@@ -8,6 +8,32 @@ from geoworkbench.ui.gis_reference_dialog import GisReferenceDialog
 from test_gis_input_inventory import _dataset
 
 
+def test_source_sample_preview_distinguishes_close_md_rows(qapp):
+    dataset = _dataset("GR", "API")
+    depths = [1500.0000004, 1500.0000003, 1500.0000002]
+    dataset.active_index.values[:] = depths
+    dialog = GisReferenceDialog(dataset, language=AppLanguage.EN)
+    try:
+        dialog.method.setCurrentIndex(dialog.method.findData("igr-linear-1"))
+        dialog.channel.setCurrentIndex(dialog.channel.findData("GR"))
+        dialog.row.setValue(3)
+        dialog.review_source.click()
+
+        assert dialog.source_sample_label.text() == dialog._t(
+            "source_sample", row=3, md="1500.0000002", value="30", unit="API",
+        )
+        dialog.row.setValue(1)
+        dialog.review_source.click()
+        assert dialog.source_sample_label.text() == dialog._t(
+            "source_sample", row=1, md="1500.0000004", value="10", unit="API",
+        )
+        assert dialog.sample is None and not dialog.save_parameters.isEnabled()
+        np.testing.assert_array_equal(dataset.active_index.values, depths)
+        np.testing.assert_array_equal(dataset.curves["GR"].values, [10.0, np.nan, 30.0])
+    finally:
+        dialog.close()
+
+
 @pytest.mark.parametrize("language", list(AppLanguage))
 @pytest.mark.parametrize("mnemonic,unit", [("NPHI", "%"), ("DT", "us/ft"), ("RT", "ohm.m")])
 def test_raw_review_requires_only_explicit_curve_and_preserves_units(qapp, language, mnemonic, unit):
