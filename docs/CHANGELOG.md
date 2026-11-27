@@ -1,3 +1,9 @@
+## INTERP-GIS-01 — precise missing sample depths (27.11.2026, under review)
+
+GIS curve comparison and reference interval review display missing sample depths at their
+stored MD precision. Each preview shows up to ten actual source points in source row order
+and reports the total missing count.
+
 ## WELL-04 — editing saved samples in the shared editor after switching datasets (27.11.2026, under review)
 
 On the tablet, you can edit a saved sample in the shared editor when the active dataset of the

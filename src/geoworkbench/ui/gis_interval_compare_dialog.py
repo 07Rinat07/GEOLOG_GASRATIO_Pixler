@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
+from geoworkbench.data.number_format import format_round_trip_number
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.gis_input_inventory import GIS_SAMPLE_FAMILIES
 from geoworkbench.services.gis_interval_sample_review import (
@@ -364,7 +365,7 @@ class GisIntervalCompareDialog(QDialog):
         elif review.missing_count == 0:
             detail = self._t("missing_none", curve=item.curve_key)
         else:
-            depths = ", ".join(f"{depth:.9g}" for depth in review.missing_md_preview)
+            depths = ", ".join(format_round_trip_number(depth) for depth in review.missing_md_preview)
             detail = self._t(
                 "missing_preview", curve=item.curve_key, depths=depths,
                 shown=len(review.missing_md_preview), total=review.missing_count,

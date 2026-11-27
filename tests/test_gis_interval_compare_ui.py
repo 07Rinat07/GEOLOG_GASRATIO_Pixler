@@ -125,6 +125,26 @@ def test_missing_details_are_bounded_and_do_not_claim_continuous_coverage(qapp):
         dialog.close()
 
 
+def test_missing_details_distinguish_close_depths_in_source_order(qapp):
+    dataset = _two_curves()
+    dataset.active_index.values = np.array([1500.0000004, 1500.0000003, 1500.0000002])
+    dataset.depth = dataset.active_index.values
+    dataset.curves["GR"].values = np.array([np.nan, 20.0, np.nan])
+    dialog = GisIntervalCompareDialog(dataset, top="1500", bottom="1501")
+    try:
+        dialog.table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+        dialog.review.click()
+        _wait_review(qapp, dialog)
+        assert dialog.table.item(0, 4).text() == "1 / 3"
+        assert dialog.table.item(0, 5).text() == "2"
+        assert dialog.table.item(0, 8).text() == dialog._t("reviewed")
+        assert dialog.missing_details.text() == dialog._t(
+            "missing_preview", curve="GR", depths="1500.0000004, 1500.0000002", shown=2, total=2,
+        )
+    finally:
+        dialog.close()
+
+
 def test_missing_values_and_outside_interval_are_distinguished(qapp):
     dataset = _two_curves()
     dataset.curves["RT"].values[:] = np.nan

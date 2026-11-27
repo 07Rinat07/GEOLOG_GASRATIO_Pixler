@@ -50,8 +50,8 @@ Archie is not connected.
 
 “Review samples in interval” counts actual values and missing samples of the
 selected curve between the entered MD bounds. Up to ten missing sample depths
-are shown in source order. This is a snapshot; review again after source changes.
-Point counts do not establish continuous
+are shown at their stored MD precision in source row order. This is a snapshot.
+Review again after source changes. Point counts do not establish continuous
 coverage, correlation, or fluid type.
 
 For GR, RHOB, NPHI, DT, resistivity and other recognized GIS channels, select a
@@ -64,9 +64,10 @@ curves from the current dataset in one MD interval. Each row shows its original
 unit, source, sample and missing counts, outermost depths and value range, or the
 reason it is blocked. This snapshot does not establish continuous coverage,
 calibration or fluid type.
-Select a reviewed row to see up to ten missing sample depths in source row order
-and the total missing count below the table. These are individual points, not
-intervals; no rows and no missing values in existing rows are shown separately.
+Select a reviewed row to see up to ten missing sample depths at their stored MD
+precision in source row order and the total missing count below the table. The
+list shows individual source points. The dialog distinguishes an interval with
+no rows from one with rows and no missing values.
 The comparison runs in the background with preparation, curve count, source recheck
 and completion states. Cancel discards partial results and stops after the current
 non-interruptible stage. The selected arrays and axis are temporarily copied, so
