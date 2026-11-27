@@ -1,3 +1,9 @@
+## INTERP-GIS-01 — precise observed MD extents (27.11.2026, under review)
+
+GIS curve comparison and reference interval review show the shallowest and deepest
+depths of finite observations at their stored MD precision. A single observation has equal
+bounds. Missing samples have a separate count and depth list.
+
 ## INTERP-GIS-01 — precise missing sample depths (27.11.2026, under review)
 
 GIS curve comparison and reference interval review display missing sample depths at their
