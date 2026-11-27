@@ -309,6 +309,90 @@ def test_setting_description_keeps_saved_bounds_at_the_active_dataset_edge(
     assert controller.description_source_language(sample.sample_id) == source_language
 
 
+def test_updating_description_keeps_saved_bounds_at_the_active_dataset_edge() -> None:
+    controller = _controller()
+    session = controller.session
+    sample = controller.create_full_sample(
+        500.0,
+        510.0,
+        {"sandstone": 100.0},
+        calcite_percent=22.5,
+        description_i18n={"en": "Original description", "ru": "Сохранённое описание"},
+        description_source_language="en",
+    )
+    well = session.current_well
+    assert well is not None
+    assert session.add_dataset(
+        Dataset("subset", "Subset", DatasetKind.GTI, DepthDomain.MD, np.array([500.001, 600.0]))
+    ) is well
+    field_id = CuttingsDescriptionTrackingWorkflow.field_id(sample.sample_id)
+    expected_revisions = dict(well.authored_field_revisions)
+    expected_revisions[field_id] += 1
+    description = "<p>Fine <b>sandstone</b></p>"
+    expected = deepcopy(sample)
+    expected.description_i18n["en"] = description
+    expected.description_word_wrap = False
+    session.dirty = False
+
+    updated = controller.update_description(
+        sample.sample_id,
+        top_depth=500.0,
+        bottom_depth=510.0,
+        description=description,
+        description_word_wrap=False,
+        language="en",
+    )
+
+    assert updated is sample
+    assert controller.available() == (expected,)
+    assert well.authored_field_revisions == expected_revisions
+    assert session.dirty
+
+    session.dirty = False
+    statuses = deepcopy(well.translation_statuses)
+    language_revisions = dict(well.language_revisions)
+    content_revision = well.content_revision
+    with pytest.raises(ValueError, match="выходит за диапазон dataset"):
+        controller.update_description(
+            sample.sample_id,
+            top_depth=499.0,
+            bottom_depth=510.0,
+            description="Rejected change",
+            description_word_wrap=True,
+            language="en",
+        )
+
+    assert controller.get(sample.sample_id) is sample
+    assert controller.available() == (expected,)
+    assert well.authored_field_revisions == expected_revisions
+    assert well.translation_statuses == statuses
+    assert well.language_revisions == language_revisions
+    assert well.content_revision == content_revision
+    assert not session.dirty
+
+
+@pytest.mark.parametrize(
+    ("top", "bottom"), [(-np.inf, 510.0), (510.0, 500.0)], ids=["non-finite", "reversed"]
+)
+def test_updating_description_rejects_invalid_saved_bounds(top: float, bottom: float) -> None:
+    controller = _controller()
+    sample = controller.set_description(500.0, 510.0, "Saved description")
+    sample.top_depth, sample.bottom_depth = top, bottom
+    before = deepcopy(sample)
+    controller.session.dirty = False
+
+    with pytest.raises(ValueError, match="Кровля шламового интервала"):
+        controller.update_description(
+            sample.sample_id,
+            top_depth=top,
+            bottom_depth=bottom,
+            description="Rejected change",
+        )
+
+    assert sample == before
+    assert not controller.session.dirty
+
+
 def test_cuttings_description_can_be_edited_and_cleared() -> None:
     controller = _controller()
     sample = controller.add(

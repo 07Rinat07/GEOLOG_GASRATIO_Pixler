@@ -236,6 +236,11 @@ editor saves the description at that sample's recorded depths and keeps its `sam
 review status of its analysis translations. If you edit either boundary, the editor reuses a
 saved sample only when both depths match exactly.
 
+When the active dataset of the same well covers only part of a saved sample interval, you can
+edit the description text in Masterlog and edit the text or word wrapping on the tablet. The
+edit uses the sample's exact stored depths and `sample_id`. New intervals and changes to the
+boundaries must fit the active dataset's depth range.
+
 To move a saved sample, double-click its description and edit the depths. Changing the depths or
 word wrapping preserves the original formatting and all language versions. If the editor shows
 fallback text from another language or a legacy record, the unedited text stays in its original

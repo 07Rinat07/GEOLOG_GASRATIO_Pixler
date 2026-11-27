@@ -383,7 +383,13 @@ class CuttingsController:
     ) -> CuttingsSample:
         """Edit one sample description or preserve its text while changing its layout."""
         sample = self._require_sample(sample_id)
-        top, bottom = self._validate_interval(top_depth, bottom_depth)
+        top, bottom = float(top_depth), float(bottom_depth)
+        # The active dataset may cover only part of the saved well interval.
+        top, bottom = self._validate_interval(
+            top,
+            bottom,
+            check_dataset=(top, bottom) != (sample.top_depth, sample.bottom_depth),
+        )
         normalized = (
             None
             if preserve_description

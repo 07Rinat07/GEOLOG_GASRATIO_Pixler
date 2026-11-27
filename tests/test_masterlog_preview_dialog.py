@@ -467,6 +467,48 @@ def test_masterlog_description_updates_active_language_at_stored_interval(
     assert restored.authored_field_source_languages[field_id] == "en"
 
 
+def test_masterlog_description_can_edit_a_sample_across_active_dataset_edge(
+    qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session = _masterlog_geology_session()
+    controller = CuttingsController(session)
+    stored = (149.9998, 151.0002)
+    sample = controller.create_full_sample(
+        *stored,
+        {"sandstone": 100.0},
+        calcite_percent=22.543,
+        description_i18n={"en": "Original sandstone", "kk": "Құмтас"},
+        description_source_language="en",
+    )
+    neighbor = controller.set_analysis(151.1, 155.0, calcite_percent=56.7)
+    neighbor_before = deepcopy(neighbor)
+    selected = (150.0, 151.0)
+    subset = Dataset("subset", "Subset", DatasetKind.GTI, DepthDomain.MD, np.array([150.0, 200.0]))
+    well = session.current_well
+    assert well is not None and session.add_dataset(subset) is well
+    field_id = f"cuttings/{sample.sample_id}/description"
+    TranslationStatusController(session).review_current(field_id=field_id, language="kk")
+    source_revision = well.authored_field_revisions[field_id]
+    source_status = deepcopy(well.translation_statuses[field_id]["en"])
+    expected = deepcopy(sample)
+    expected.description_i18n["kk"] = "Ұсақ түйірлі құмтас"
+    session.dirty = False
+
+    _fill_masterlog_description(
+        monkeypatch, session, selected, AppLanguage.KK, "Құмтас", "Ұсақ түйірлі құмтас"
+    )
+
+    assert session.current_dataset is subset
+    assert controller.get(sample.sample_id) is sample
+    assert controller.available() == (expected, neighbor_before)
+    assert (sample.top_depth, sample.bottom_depth) == stored
+    assert well.authored_field_source_languages[field_id] == "en"
+    assert well.authored_field_revisions[field_id] == source_revision
+    assert well.translation_statuses[field_id]["en"] == source_status
+    assert well.translation_statuses[field_id]["kk"].state is TranslationState.DRAFT
+    assert session.dirty
+
+
 def test_masterlog_description_unchanged_fallback_keeps_raw_markup_and_review(
     qapp, monkeypatch: pytest.MonkeyPatch
 ) -> None:
