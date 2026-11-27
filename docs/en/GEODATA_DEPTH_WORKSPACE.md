@@ -122,6 +122,10 @@ depths blocks the move, even if it contains only analysis or description. A reje
 both records intact. A nearby pair with at least one different depth is subject to the composition
 overlap rules.
 
+On the tablet, warnings about an occupied interval or overlap with a sample that has rock
+composition appear in the interface language. They show both stored depths of the conflicting
+sample at their original precision.
+
 When filling in analysis or a description by interval on the tablet or in Masterlog, or when
 filling cuttings in Masterlog, a single exact match on both depths takes priority. If there is
 no exact match, the application uses the existing lookup tolerance for that command. If several

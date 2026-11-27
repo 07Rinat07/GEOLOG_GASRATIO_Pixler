@@ -1,3 +1,9 @@
+## WELL-04 — localized interval warnings on the tablet (27.11.2026, under review)
+
+The tablet editors for cuttings composition, sample analysis and rock descriptions show warnings
+about occupied intervals and overlapping samples in the interface language. The warning shows
+both stored depths of the conflicting sample at their original precision.
+
 ## WELL-04 — localized interval warnings in Masterlog (27.11.2026, under review)
 
 Masterlog shows warnings about samples that already have composition, overlapping samples,
