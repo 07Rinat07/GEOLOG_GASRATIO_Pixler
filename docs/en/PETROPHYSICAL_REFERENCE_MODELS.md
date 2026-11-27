@@ -83,6 +83,7 @@ method and curve; enter calibration/tool IDs, reviewer, evidence, MD bounds
 and parameters. Choose the source row (from 1), then click Evaluate sample.
 The source preview and sample result show the selected row's MD at the stored
 axis precision. The calculation uses the measurement from that row directly.
+Scroll the result if it does not fit in the window.
 The dialog also accepts a new gas-dataset copy containing a row-matched external
 GIS curve with matching import manifest and semantic binding. Interpolated curves
 and older copies without semantic bindings are not accepted automatically; retain

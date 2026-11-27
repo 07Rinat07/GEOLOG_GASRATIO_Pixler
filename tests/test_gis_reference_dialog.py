@@ -4,7 +4,7 @@ from dataclasses import replace
 import numpy as np
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QAbstractItemView, QDialog, QFileDialog, QMessageBox
+from PySide6.QtWidgets import QAbstractItemView, QDialog, QFileDialog, QMessageBox, QScrollArea
 
 from geoworkbench.domain.models import (
     CalculationState, CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain,
@@ -653,6 +653,40 @@ def test_operator_calibration_distinguishes_close_sample_depths(qapp):
         assert labels == expected_labels
         np.testing.assert_array_equal(dataset.active_index.values, depths)
         np.testing.assert_array_equal(dataset.curves["selected"].values, values)
+    finally:
+        dialog.close()
+
+
+def test_operator_can_read_the_result_at_minimum_window_size(qapp):
+    dataset = _dataset()
+    depth = 100.0000002
+    dataset.active_index.values[0] = depth
+    dialog = GisReferenceDialog(dataset, language=AppLanguage.EN)
+    try:
+        dialog.resize(dialog.minimumSize())
+        dialog.show()
+        _fill(dialog)
+        dialog.fields["top"].setText(str(depth))
+        calibration_id = "Field calibration reference " * 6
+        dialog.fields["calibration_id"].setText(calibration_id.strip())
+        dialog.calculate.click()
+        qapp.processEvents()
+
+        assert dialog.sample is not None
+        label = dialog.result_label
+        assert str(depth) in label.text()
+        assert calibration_id.strip() in label.text()
+        scroll = dialog.findChild(QScrollArea, "gis-reference-result-scroll")
+        assert scroll is not None and scroll.widget() is label and scroll.isVisible()
+        height = label.heightForWidth(label.width())
+        assert label.height() >= height
+        bar = scroll.verticalScrollBar()
+        bar.setValue(bar.maximum())
+        assert scroll.viewport().height() + bar.value() >= height
+
+        dialog.row.setValue(3)
+        assert not label.text() and scroll.isHidden()
+        assert bar.value() == 0
     finally:
         dialog.close()
 

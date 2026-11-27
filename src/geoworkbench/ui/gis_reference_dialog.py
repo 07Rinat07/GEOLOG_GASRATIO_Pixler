@@ -7,8 +7,8 @@ from pathlib import Path
 import numpy as np
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
-    QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QHBoxLayout, QLabel, QLineEdit,
-    QMessageBox, QPushButton, QScrollArea, QSpinBox, QVBoxLayout, QWidget,
+    QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QFrame, QHBoxLayout, QLabel,
+    QLineEdit, QMessageBox, QPushButton, QScrollArea, QSizePolicy, QSpinBox, QVBoxLayout, QWidget,
 )
 
 from geoworkbench.data.number_format import format_round_trip_number
@@ -137,11 +137,18 @@ class GisReferenceDialog(QDialog):
         self.calculate_profile = QPushButton(self._t("calculate_profile"), self)
         self.calculate_profile.setObjectName("gis-reference-calculate-profile")
         root.addWidget(self.calculate_profile)
-        self.result_label = QLabel(self)
+        self.result_scroll = QScrollArea(self)
+        self.result_scroll.setObjectName("gis-reference-result-scroll")
+        self.result_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.result_scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.result_scroll.setWidgetResizable(True)
+        self.result_label = QLabel(self.result_scroll)
         self.result_label.setTextFormat(Qt.TextFormat.PlainText)
         self.result_label.setWordWrap(True)
         self.result_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        root.addWidget(self.result_label)
+        self.result_scroll.setWidget(self.result_label)
+        self.result_scroll.hide()
+        root.addWidget(self.result_scroll)
         self.profile_status = QLabel(self)
         self.profile_status.setObjectName("gis-reference-profile-status")
         self.profile_status.setTextFormat(Qt.TextFormat.PlainText)
@@ -247,7 +254,7 @@ class GisReferenceDialog(QDialog):
                 )
             except ValueError:
                 self._review_source()
-                self.result_label.setText(self._t("invalid"))
+                self._set_result_text(self._t("invalid"))
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(f"petro_reference.{key}", **values)
@@ -329,11 +336,17 @@ class GisReferenceDialog(QDialog):
             )
         self.interval_review_label.setText(summary)
 
+    def _set_result_text(self, text: str) -> None:
+        self.result_label.setText(text)
+        self.result_scroll.setVisible(bool(text))
+        self.result_scroll.horizontalScrollBar().setValue(0)
+        self.result_scroll.verticalScrollBar().setValue(0)
+
     def _invalidate(self) -> None:
         self.profile_status.clear()
         self.profile_status.hide()
         self.sample = None
-        self.result_label.clear()
+        self._set_result_text("")
         self.save_parameters.setEnabled(False)
         self.record_status.clear()
 
@@ -349,7 +362,7 @@ class GisReferenceDialog(QDialog):
                 )
             except (ValueError, TypeError, OverflowError):
                 self._invalidate()
-                self.result_label.setText(self._t("invalid"))
+                self._set_result_text(self._t("invalid"))
         return self.sample
 
     def _save_parameters(self) -> None:
@@ -650,7 +663,7 @@ class GisReferenceDialog(QDialog):
         self._review_source()
         method, channel = self.method.currentData(), self.channel.currentData()
         if not isinstance(method, str) or not isinstance(channel, str):
-            self.result_label.setText(self._t("selection_required"))
+            self._set_result_text(self._t("selection_required"))
             return
         try:
             calibration = self._create_calibration(method, channel)
@@ -658,11 +671,11 @@ class GisReferenceDialog(QDialog):
                 self.dataset, calibration, sample_index=self.row.value() - 1,
             )
         except ValueError:
-            self.result_label.setText(self._t("invalid"))
+            self._set_result_text(self._t("invalid"))
             return
         self.sample = sample
         self.save_parameters.setEnabled(True)
-        self.result_label.setText(self._t(
+        self._set_result_text(self._t(
             "result", md=format_round_trip_number(sample.md_m),
             value=f"{sample.source_value:.9g}",
             unit=calibration.source.curve.unit if calibration.source.curve else "",
