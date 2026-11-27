@@ -30,6 +30,11 @@ class NumberDisplayFormat:
             raise ValueError("Адаптивному формату нужна хотя бы одна значащая цифра")
 
 
+def format_round_trip_number(value: float) -> str:
+    """Format a float so parsing the text recovers the stored value."""
+    return str(float(value)).removesuffix(".0")
+
+
 def format_decimal_number(value: float, *, precision: int = 15) -> str:
     """Format a finite float without switching to scientific notation."""
     numeric = float(value)

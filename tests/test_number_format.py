@@ -1,3 +1,5 @@
+from math import nextafter
+
 import pytest
 
 from geoworkbench.data.number_format import (
@@ -5,7 +7,16 @@ from geoworkbench.data.number_format import (
     NumberFormatMode,
     format_decimal_number,
     format_display_number,
+    format_round_trip_number,
 )
+
+
+def test_round_trip_format_distinguishes_adjacent_depths() -> None:
+    depth = 1500.0
+    adjacent_depth = nextafter(depth, float("inf"))
+
+    assert format_round_trip_number(depth) == "1500"
+    assert float(format_round_trip_number(adjacent_depth)) == adjacent_depth
 
 
 @pytest.mark.parametrize(

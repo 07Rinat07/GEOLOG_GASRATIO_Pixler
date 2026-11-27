@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QPushButton, QScrollArea, QSpinBox, QVBoxLayout, QWidget,
 )
 
+from geoworkbench.data.number_format import format_round_trip_number
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.gis_calibration_records import (
     SavedGisCalibrationRecord, export_gis_calibration_record, load_gis_calibration_record,
@@ -323,7 +324,7 @@ class GisReferenceDialog(QDialog):
             summary += "\n" + self._t(
                 "interval_missing_depths",
                 shown=len(result.missing_md_preview), total=result.missing_count,
-                depths=", ".join(f"{depth:.9g}" for depth in result.missing_md_preview),
+                depths=", ".join(format_round_trip_number(depth) for depth in result.missing_md_preview),
             )
         self.interval_review_label.setText(summary)
 

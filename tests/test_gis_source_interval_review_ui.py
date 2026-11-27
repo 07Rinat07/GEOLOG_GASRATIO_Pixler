@@ -62,3 +62,29 @@ def test_raw_review_reports_all_missing_samples(qapp):
         assert dialog.sample is None
     finally:
         dialog.close()
+
+
+def test_raw_review_distinguishes_close_missing_depths_in_source_order(qapp):
+    dataset = _dataset("RT", "ohm.m")
+    depths = np.array([1500.0000004, 1500.0000002, 1500.0])
+    values = np.array([np.nan, np.nan, 30.0])
+    dataset.active_index.values[:] = depths
+    dataset.curves["RT"].values[:] = values
+    dialog = GisReferenceDialog(dataset, language=AppLanguage.EN)
+    try:
+        dialog.channel.setCurrentIndex(dialog.channel.findData("RT"))
+        dialog.fields["top"].setText("1499")
+        dialog.fields["base"].setText("1501")
+        dialog.review_source_interval.click()
+
+        lines = dialog.interval_review_label.text().splitlines()
+        assert dialog._t("source_interval_notice") in lines
+        assert dialog._t("interval_summary", total=3, finite=1, missing=2) in lines
+        assert lines[-1] == dialog._t(
+            "interval_missing_depths", shown=2, total=2, depths="1500.0000004, 1500.0000002",
+        )
+        assert dialog.sample is None and not dialog.save_parameters.isEnabled()
+        np.testing.assert_array_equal(dataset.active_index.values, depths)
+        np.testing.assert_array_equal(dataset.curves["RT"].values, values)
+    finally:
+        dialog.close()
