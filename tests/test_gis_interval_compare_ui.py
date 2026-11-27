@@ -4,7 +4,7 @@ from time import monotonic, sleep
 import numpy as np
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDialog, QPushButton
+from PySide6.QtWidgets import QDialog, QPushButton, QScrollArea
 
 from geoworkbench.domain.models import CurveData, CurveMetadata, DatasetKind
 from geoworkbench.project.external_las_insert_controller import ExternalLasInsertController
@@ -141,6 +141,41 @@ def test_missing_details_distinguish_close_depths_in_source_order(qapp):
         assert dialog.missing_details.text() == dialog._t(
             "missing_preview", curve="GR", depths="1500.0000004, 1500.0000002", shown=2, total=2,
         )
+    finally:
+        dialog.close()
+
+
+def test_missing_details_remain_readable_at_minimum_window_size(qapp):
+    dataset = _two_curves()
+    source_depths = [f"1500.{index:07d}" for index in range(13, 0, -1)]
+    dataset.active_index.values = np.array(source_depths, dtype=float)
+    dataset.depth = dataset.active_index.values
+    dataset.curves["GR"].values = np.array([np.nan] * 12 + [20.0])
+    dialog = GisIntervalCompareDialog(dataset, top="1499", bottom="1501", language=AppLanguage.EN)
+    try:
+        dialog.resize(dialog.minimumSize())
+        dialog.show()
+        dialog.table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+        dialog.review.click()
+        _wait_review(qapp, dialog)
+
+        depths = ", ".join(depth.rstrip("0") for depth in source_depths[:10])
+        label = dialog.missing_details
+        assert label.text() == dialog._t(
+            "missing_preview", curve="GR", depths=depths, shown=10, total=12,
+        )
+        scroll = dialog.findChild(QScrollArea, "gis-interval-missing-details-scroll")
+        assert scroll is not None and scroll.widget() is label
+        height = label.heightForWidth(label.width())
+        assert label.height() >= height
+        bar = scroll.verticalScrollBar()
+        bar.setValue(bar.maximum())
+        assert scroll.viewport().height() + bar.value() >= height
+
+        dialog.top.setText("1498")
+        qapp.processEvents()
+        assert label.text() == dialog._t("missing_select")
+        assert bar.value() == 0
     finally:
         dialog.close()
 

@@ -67,7 +67,8 @@ calibration or fluid type.
 Select a reviewed row to see up to ten missing sample depths at their stored MD
 precision in source row order and the total missing count below the table. The
 list shows individual source points. The dialog distinguishes an interval with
-no rows from one with rows and no missing values.
+no rows from one with rows and no missing values. Scroll the list if it does
+not fit in the window.
 The comparison runs in the background with preparation, curve count, source recheck
 and completion states. Cancel discards partial results and stops after the current
 non-interruptible stage. The selected arrays and axis are temporarily copied, so

@@ -7,8 +7,8 @@ from math import isfinite
 from PySide6.QtCore import QCoreApplication, QMetaObject, QObject, QSize, Qt, QTimer, Slot
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
-    QDialog, QDialogButtonBox, QFormLayout, QHeaderView, QLabel, QLineEdit, QProgressBar,
-    QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QDialog, QDialogButtonBox, QFormLayout, QFrame, QHeaderView, QLabel, QLineEdit, QProgressBar,
+    QPushButton, QScrollArea, QSizePolicy, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
 from geoworkbench.data.number_format import format_round_trip_number
@@ -129,11 +129,20 @@ class GisIntervalCompareDialog(QDialog):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(8, QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.table)
-        self.missing_details = QLabel(self._t("missing_select"), self)
+        self.missing_details_scroll = QScrollArea(self)
+        self.missing_details_scroll.setObjectName("gis-interval-missing-details-scroll")
+        self.missing_details_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.missing_details_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.missing_details_scroll.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
+        self.missing_details_scroll.setWidgetResizable(True)
+        self.missing_details = QLabel(self._t("missing_select"), self.missing_details_scroll)
         self.missing_details.setObjectName("gis-interval-missing-details")
         self.missing_details.setTextFormat(Qt.TextFormat.PlainText)
         self.missing_details.setWordWrap(True)
-        layout.addWidget(self.missing_details)
+        self.missing_details_scroll.setWidget(self.missing_details)
+        layout.addWidget(self.missing_details_scroll)
         self.table.currentCellChanged.connect(self._update_missing_details)
         self.status = QLabel(self)
         self.status.setObjectName("gis-interval-compare-status")
@@ -176,7 +185,7 @@ class GisIntervalCompareDialog(QDialog):
             return
         self._missing_details.clear()
         if hasattr(self, "missing_details"):
-            self.missing_details.setText(self._t("missing_select"))
+            self._update_missing_details()
         for row in range(self.table.rowCount()):
             choice = self.table.item(row, 0)
             key = choice.data(Qt.ItemDataRole.UserRole) if choice is not None else None
@@ -288,6 +297,7 @@ class GisIntervalCompareDialog(QDialog):
         self.missing_details.setText(
             self._missing_details.get(self.table.currentRow(), self._t("missing_select"))
         )
+        self.missing_details_scroll.verticalScrollBar().setValue(0)
 
     @Slot(str)
     def _failed(self, reason: str) -> None:

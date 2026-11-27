@@ -2,7 +2,7 @@
 
 GIS curve comparison and reference interval review display missing sample depths at their
 stored MD precision. Each preview shows up to ten actual source points in source row order
-and reports the total missing count.
+and reports the total missing count. The comparison list scrolls when the window is small.
 
 ## WELL-04 — editing saved samples in the shared editor after switching datasets (27.11.2026, under review)
 
