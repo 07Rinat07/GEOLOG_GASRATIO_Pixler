@@ -167,6 +167,56 @@ def test_observed_md_extent_distinguishes_close_depths(qapp):
         dialog.close()
 
 
+def test_comparison_preserves_adjacent_observed_value_bounds(qapp):
+    dataset = _two_curves()
+    minimum = 20.0000002
+    maximum = float(np.nextafter(minimum, np.inf))
+    values = np.array([maximum, np.nan, minimum])
+    dataset.curves["GR"].values[:] = values
+    depths = dataset.active_index.values.copy()
+    dialog = GisIntervalCompareDialog(dataset, top="100", bottom="102")
+    try:
+        dialog.table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+        dialog.review.click()
+        _wait_review(qapp, dialog)
+
+        assert dialog.table.item(0, 2).text() == "API"
+        assert dialog.table.item(0, 4).text() == "2 / 3"
+        assert dialog.table.item(0, 5).text() == "1"
+        bounds = dialog.table.item(0, 7).text()
+        assert tuple(map(float, bounds.split("–"))) == (minimum, maximum)
+        np.testing.assert_array_equal(dataset.active_index.values, depths)
+        np.testing.assert_array_equal(dataset.curves["GR"].values, values)
+    finally:
+        dialog.close()
+
+
+def test_comparison_value_bounds_remain_readable_at_minimum_window_size(qapp):
+    dataset = _two_curves()
+    dataset.curves["GR"].values[:] = [-1.2345678901234567e100, np.nan, 1.2345678901234567e100]
+    dialog = GisIntervalCompareDialog(dataset, top="100", bottom="102", language=AppLanguage.EN)
+    try:
+        dialog.resize(dialog.minimumSize())
+        dialog.show()
+        dialog.table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+        dialog.review.click()
+        _wait_review(qapp, dialog)
+
+        table = dialog.table
+        bounds = table.item(0, 7)
+        scrollbar = table.horizontalScrollBar()
+        scrollbar.setValue(scrollbar.minimum())
+        viewport = table.viewport().rect()
+        bounds_rect = table.visualItemRect(bounds)
+        assert scrollbar.maximum() > 0
+        scrollbar.setValue(bounds_rect.left())
+        assert viewport.contains(table.visualItemRect(bounds).topLeft())
+        scrollbar.setValue(bounds_rect.right() - viewport.right())
+        assert viewport.contains(table.visualItemRect(bounds).bottomRight())
+    finally:
+        dialog.close()
+
+
 def test_missing_details_remain_readable_at_minimum_window_size(qapp):
     dataset = _two_curves()
     source_depths = [f"1500.{index:07d}" for index in range(13, 0, -1)]

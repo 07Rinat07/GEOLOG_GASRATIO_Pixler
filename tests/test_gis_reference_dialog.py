@@ -125,6 +125,43 @@ def test_interval_review_shows_observed_bounds_for_descending_partial_coverage(q
         dialog.close()
 
 
+@pytest.mark.parametrize("review_button", ["review_interval", "review_source_interval"])
+def test_interval_review_preserves_measured_value_bounds(qapp, review_button):
+    dataset = _dataset()
+    depths = [102.0, 101.0, 100.0]
+    minimum, maximum = "65.000000002", "65.000000004"
+    values = [float(maximum), np.nan, float(minimum)]
+    dataset.active_index.values[:] = depths
+    dataset.curves["selected"].values[:] = values
+    dialog = GisReferenceDialog(dataset, language=AppLanguage.EN)
+    try:
+        if review_button == "review_interval":
+            _fill(dialog)
+        else:
+            dialog.channel.setCurrentIndex(dialog.channel.findData("selected"))
+            dialog.fields["top"].setText("100")
+            dialog.fields["base"].setText("102")
+        review = getattr(dialog, review_button)
+        review.click()
+
+        lines = dialog.interval_review_label.text().splitlines()
+        assert dialog._t("interval_summary", total=3, finite=2, missing=1) in lines
+        assert dialog._t("interval_observed_depths", shallowest="100", deepest="102") in lines
+        assert dialog._t("interval_missing_depths", shown=1, total=1, depths="101") in lines
+        assert dialog._t("interval_value_bounds", minimum=minimum, maximum=maximum, unit="API") in lines
+
+        dialog.fields["top"].setText("101.5")
+        review.click()
+        assert dialog._t("interval_value_bounds", minimum=maximum, maximum=maximum, unit="API") in (
+            dialog.interval_review_label.text().splitlines()
+        )
+        assert dialog.sample is None and not dialog.save_parameters.isEnabled()
+        np.testing.assert_array_equal(dataset.active_index.values, depths)
+        np.testing.assert_array_equal(dataset.curves["selected"].values, values)
+    finally:
+        dialog.close()
+
+
 @pytest.mark.parametrize("language", list(AppLanguage))
 @pytest.mark.parametrize("density", [False, True])
 def test_saved_parameters_reopen_matching_source_without_activating_calibration(
@@ -652,6 +689,47 @@ def test_operator_calibration_distinguishes_close_sample_depths(qapp):
 
         assert labels == expected_labels
         np.testing.assert_array_equal(dataset.active_index.values, depths)
+        np.testing.assert_array_equal(dataset.curves["selected"].values, values)
+    finally:
+        dialog.close()
+
+
+def test_source_preview_and_result_preserve_distinct_measured_values(qapp):
+    dataset = _dataset()
+    values = [65.000000002, np.nan, 65.000000004]
+    dataset.curves["selected"].values[:] = values
+    dialog = GisReferenceDialog(dataset, language=AppLanguage.EN)
+    try:
+        _fill(dialog)
+        rendered = []
+        expected = []
+        for row, depth, value in ((1, "100", "65.000000002"), (3, "102", "65.000000004")):
+            dialog.row.setValue(row)
+            dialog.review_source.click()
+            preview = dialog.source_sample_label.text()
+            assert dialog.sample is None
+
+            dialog.calculate.click()
+            sample = dialog.sample
+            assert sample is not None and sample.sample_index == row - 1
+            assert sample.md_m == float(depth)
+            assert sample.source_value == float(value)
+            assert sample.estimate.value == (float(value) - 25.0) / 100.0
+            rendered.append((preview, dialog.result_label.text()))
+            expected.append((
+                dialog._t("source_sample", row=row, md=depth, value=value, unit="API"),
+                dialog._t(
+                    "result", md=depth, value=value, unit="API", estimate="0.4",
+                    quality=dialog._t("valid"), calibration="cal-1",
+                ),
+            ))
+
+        assert rendered == expected
+        dialog.row.setValue(2)
+        dialog.review_source.click()
+        assert dialog.source_sample_label.text() == dialog._t("sample_unavailable")
+        assert dialog.sample is None and not dialog.result_label.text()
+        np.testing.assert_array_equal(dataset.active_index.values, [100, 101, 102])
         np.testing.assert_array_equal(dataset.curves["selected"].values, values)
     finally:
         dialog.close()

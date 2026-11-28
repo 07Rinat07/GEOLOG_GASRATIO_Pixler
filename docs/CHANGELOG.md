@@ -1,3 +1,12 @@
+## INTERP-GIS-01 — precise GIS source measurements (28.11.2026, under review)
+
+Both interval reviews and the curve comparison show the minimum and maximum finite
+measurements at their stored precision in the original unit. One finite measurement
+gives equal bounds. The range is absent when no finite measurements are available.
+In a compact comparison window, scroll horizontally to read both ends of a long
+range. The scalar source preview and calculation result show the original measurement
+at the same precision.
+
 ## INTERP-GIS-01 — precise MD limits on GIS profile tracks (28.11.2026, under review)
 
 The IGR, density porosity, Vsh and Archie tracks display the exact upper and lower
