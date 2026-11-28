@@ -7,8 +7,9 @@ from math import isfinite
 from PySide6.QtCore import QCoreApplication, QMetaObject, QObject, QSize, Qt, QTimer, Slot
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
-    QDialog, QDialogButtonBox, QFormLayout, QFrame, QHeaderView, QLabel, QLineEdit, QProgressBar,
-    QPushButton, QScrollArea, QSizePolicy, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QAbstractItemView, QDialog, QDialogButtonBox, QFormLayout, QFrame, QHeaderView, QLabel,
+    QLineEdit, QProgressBar, QPushButton, QScrollArea, QSizePolicy, QTableWidget,
+    QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
 from geoworkbench.data.number_format import format_round_trip_number
@@ -108,6 +109,7 @@ class GisIntervalCompareDialog(QDialog):
         ]
         self.table = QTableWidget(len(candidates), 9, self)
         self.table.setObjectName("gis-interval-compare-table")
+        self.table.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.table.setHorizontalHeaderLabels([
             self._t("select"), self._t("curve"), self._t("unit"), self._t("source"),
             self._t("finite"), self._t("missing"), self._t("depths"), self._t("values"), self._t("status"),
@@ -128,6 +130,13 @@ class GisIntervalCompareDialog(QDialog):
         for column in range(8):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(8, QHeaderView.ResizeMode.Stretch)
+        # Keep a full data row visible alongside the scrollable missing-depth details.
+        self.table.setMinimumHeight(
+            header.sizeHint().height()
+            + self.table.verticalHeader().defaultSectionSize()
+            + self.table.horizontalScrollBar().sizeHint().height()
+            + 2 * self.table.frameWidth()
+        )
         layout.addWidget(self.table)
         self.missing_details_scroll = QScrollArea(self)
         self.missing_details_scroll.setObjectName("gis-interval-missing-details-scroll")
@@ -391,7 +400,10 @@ class GisIntervalCompareDialog(QDialog):
             )
         if review.finite_value_bounds is not None:
             minimum, maximum = review.finite_value_bounds
-            self._set_cell(row, 7, f"{minimum:.9g}–{maximum:.9g}")
+            self._set_cell(
+                row, 7,
+                f"{format_round_trip_number(minimum)}–{format_round_trip_number(maximum)}",
+            )
         status = "no_samples" if review.sample_count == 0 else (
             "no_values" if review.finite_count == 0 else "reviewed"
         )

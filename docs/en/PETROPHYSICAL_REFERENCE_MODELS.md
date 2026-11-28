@@ -66,6 +66,11 @@ curves from the current dataset in one MD interval. Each row shows its original
 unit, source, sample and missing counts, shallowest and deepest measured depths
 at stored MD precision, and value range, or the reason it is blocked. This snapshot
 does not establish continuous coverage, calibration or fluid type.
+Both interval review buttons and the comparison show the minimum and maximum finite
+measurements at their stored precision in the curve's original unit. With one finite
+measurement the bounds are equal. If there are no finite measurements, the review
+omits the range and the comparison shows a dash. Scroll the comparison table
+horizontally to read a long range in a compact window.
 Select a reviewed row to see up to ten missing sample depths at their stored MD
 precision in source row order and the total missing count below the table. The
 list shows individual source points. The dialog distinguishes an interval with
@@ -81,8 +86,9 @@ result; run the review again after any edit.
 (`GisReferenceDialog`, `petro_reference.action`). Select the active GIS dataset,
 method and curve; enter calibration/tool IDs, reviewer, evidence, MD bounds
 and parameters. Choose the source row (from 1), then click Evaluate sample.
-The source preview and sample result show the selected row's MD at the stored
-axis precision. The calculation uses the measurement from that row directly.
+The source preview and sample result show the selected row's MD and original
+measurement at their stored precision. The calculation uses the measurement
+from that row directly, and the displayed measurement uses the original unit.
 Scroll the result if it does not fit in the window.
 The dialog also accepts a new gas-dataset copy containing a row-matched external
 GIS curve with matching import manifest and semantic binding. Interpolated curves

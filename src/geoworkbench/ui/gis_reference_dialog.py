@@ -325,7 +325,8 @@ class GisReferenceDialog(QDialog):
             minimum, maximum = result.finite_value_bounds
             curve = result.source if isinstance(result, GisSourceIntervalSampleReview) else result.source.curve
             summary += "\n" + self._t(
-                "interval_value_bounds", minimum=f"{minimum:.9g}", maximum=f"{maximum:.9g}",
+                "interval_value_bounds", minimum=format_round_trip_number(minimum),
+                maximum=format_round_trip_number(maximum),
                 unit=(curve.unit if curve is not None else None) or "?",
             )
         if result.missing_md_preview:
@@ -478,7 +479,8 @@ class GisReferenceDialog(QDialog):
                 self.source_sample_label.setText(self._t(
                     "source_sample", row=index + 1,
                     md=format_round_trip_number(depths[index]),
-                    value=f"{values[index]:.9g}", unit=review.curve.unit if review.curve else "",
+                    value=format_round_trip_number(values[index]),
+                    unit=review.curve.unit if review.curve else "",
                 ))
             return
         reasons = []
@@ -677,7 +679,7 @@ class GisReferenceDialog(QDialog):
         self.save_parameters.setEnabled(True)
         self._set_result_text(self._t(
             "result", md=format_round_trip_number(sample.md_m),
-            value=f"{sample.source_value:.9g}",
+            value=format_round_trip_number(sample.source_value),
             unit=calibration.source.curve.unit if calibration.source.curve else "",
             estimate=f"{sample.estimate.value:.9g}",
             quality=self._t(sample.estimate.quality.value),
