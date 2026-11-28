@@ -350,6 +350,11 @@ def _write_gis_evidence_sheet(
     sheet = workbook.create_sheet(_GIS_EVIDENCE_SHEET_NAMES[language])
     for row in ((presentation.title,), (presentation.notice,), presentation.headings, *presentation.rows):
         sheet.append(protect_spreadsheet_row(row))
+    # The two ranges are generated from measured numbers. Store their exact text
+    # without the apostrophe used to protect arbitrary source metadata.
+    for row_index, row in enumerate(presentation.rows, start=4):
+        for column, bounds in enumerate(row[8:10], start=9):
+            sheet.cell(row=row_index, column=column, value=bounds).data_type = "s"
     _format_auxiliary_sheet(
         sheet, widths=(30, 32, 32, 16, 40, 14, 18, 14, 24, 24, 22), wrap_header=True,
     )

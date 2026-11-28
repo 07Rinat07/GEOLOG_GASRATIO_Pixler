@@ -1,3 +1,9 @@
+## INTERP-OUTPUT-01 — exact GIS ranges in Excel (28.11.2026, under review)
+
+The approved Excel export writes MD bounds and measured-value ranges on the
+`Source GIS MD` sheet as text, preserving their exact digits and minus signs.
+Including the observations requires a separate confirmation for Excel.
+
 ## INTERP-GIS-01 — precise GIS source measurements (28.11.2026, under review)
 
 Both interval reviews and the curve comparison show the minimum and maximum finite
