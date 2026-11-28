@@ -10,6 +10,7 @@ from PySide6.QtCore import QPointF, QRectF, QSize
 from PySide6.QtGui import QColor, QPaintEvent, QPainter, QPalette, QPen
 from PySide6.QtWidgets import QWidget
 
+from geoworkbench.data.number_format import format_round_trip_number
 from geoworkbench.services.gis_reference_calibration import (
     CalibratedGisProfile, CalibratedGisProfileRow, GisProfileRowStatus,
 )
@@ -142,19 +143,25 @@ class GisReferenceProfileTrack(QWidget, Generic[_ProfileT]):
             top_md, base_md = (
                 self.profile.md_bounds if self._visible_md_bounds is None else self._visible_md_bounds
             )
-            top_text, base_text = format(top_md, ".9g"), format(base_md, ".9g")
-            left = float(max(metrics.horizontalAdvance(top_text), metrics.horizontalAdvance(base_text))) + 22
-            plot = QRectF(left, line_height * 2 + 12, max(1.0, self.width() - left - 14),
-                          max(1.0, self.height() - line_height * 4 - 24))
+            top_text = format_round_trip_number(top_md)
+            base_text = format_round_trip_number(base_md)
+            plot = QRectF(22, line_height * 3 + 12, max(1, self.width() - 36),
+                          max(1.0, self.height() - line_height * 5 - 24))
             painter.setPen(foreground)
             painter.drawText(QPointF(8, line_height), self._title())
             lower, upper = self.projection.value_bounds
             low_text, high_text = format(lower, ".6g"), format(upper, ".6g")
             painter.drawText(QPointF(plot.left(), plot.top() - 5), low_text)
             painter.drawText(QPointF(plot.right() - metrics.horizontalAdvance(high_text), plot.top() - 5), high_text)
-            painter.drawText(QPointF(8, plot.top() + line_height), top_text)
+            # Fit both depth labels without narrowing or shifting the estimate scale.
+            label_width = max(metrics.horizontalAdvance(top_text), metrics.horizontalAdvance(base_text))
+            painter.save()
+            painter.translate(8, 0)
+            painter.scale(min(1.0, (self.width() - 16) / label_width), 1.0)
+            painter.drawText(QPointF(0, line_height * 2), top_text)
             if top_md != base_md:
-                painter.drawText(QPointF(8, plot.bottom()), base_text)
+                painter.drawText(QPointF(0, plot.bottom() + line_height + 4), base_text)
+            painter.restore()
             painter.drawText(QPointF(8, self.height() - 7),
                              self.localizer.text("petro_reference.profile_track_axis"))
             painter.setPen(QPen(muted, 1.0))

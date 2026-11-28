@@ -1,3 +1,10 @@
+## INTERP-GIS-01 — precise MD limits on GIS profile tracks (28.11.2026, under review)
+
+The IGR, density porosity, Vsh and Archie tracks display the exact upper and lower
+MD limits. Previews show the profile interval. The temporary tablet panel shows the
+current viewport. Equal interval limits use one label. The labels are above and
+below the plot, so long depths leave the full estimate scale visible.
+
 ## INTERP-GIS-01 — precise measured MD bounds in the GIS inventory (28.11.2026, under review)
 
 The GIS source inventory shows the shallowest and deepest finite paired samples
