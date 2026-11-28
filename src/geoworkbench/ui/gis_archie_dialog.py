@@ -141,15 +141,16 @@ class GisArchieProfileDialog(QDialog):
         self.parameters_label = QLabel(
             localizer.text(
                 "petro_reference.archie_parameters",
-                rw=format(parameters.formation_water_resistivity_ohm_m, ".12g"),
-                a=format(parameters.tortuosity_factor, ".12g"),
-                m=format(parameters.cementation_exponent, ".12g"),
-                n=format(parameters.saturation_exponent, ".12g"),
+                rw=format_round_trip_number(parameters.formation_water_resistivity_ohm_m),
+                a=format_round_trip_number(parameters.tortuosity_factor),
+                m=format_round_trip_number(parameters.cementation_exponent),
+                n=format_round_trip_number(parameters.saturation_exponent),
             ),
             self,
         )
         self.parameters_label.setObjectName("gis-archie-profile-coefficients")
         self.parameters_label.setTextFormat(Qt.TextFormat.PlainText)
+        self.parameters_label.setWordWrap(True)
         self.parameters_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         root.addWidget(self.parameters_label)
         notice = QLabel(localizer.text("petro_reference.archie_notice"), self)

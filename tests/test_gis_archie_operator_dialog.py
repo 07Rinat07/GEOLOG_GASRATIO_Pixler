@@ -95,6 +95,8 @@ def test_archie_preview_distinguishes_adjacent_source_values(qapp, monkeypatch):
     depths = dataset.active_index.values.copy()
     source_values = {key: dataset.curves[key].values.copy() for key in ("phi", "rt")}
     captured = []
+    rw, a, m, n = (0.12345678901234567, 1.0123456789012345,
+                   2.0123456789012345, 2.1234567890123457)
 
     def inspect(preview):
         model = preview.model
@@ -107,15 +109,29 @@ def test_archie_preview_distinguishes_adjacent_source_values(qapp, monkeypatch):
             for row in (0, 2)
         )
         headers = tuple(model.headerData(col, Qt.Orientation.Horizontal) for col in (2, 3))
-        captured.append((preview.profile, display, tooltips, headers))
+        captured.append((preview.profile, display, tooltips, headers,
+                         preview.parameters_label.text(), preview.parameters_label.wordWrap()))
         return QDialog.DialogCode.Rejected
 
     monkeypatch.setattr(GisArchieProfileDialog, "exec", inspect)
     dlg = GisArchieDialog(dataset, language=AppLanguage.EN)
     try:
         _fill(dlg)
+        for key, value in zip(("formation_water_resistivity_ohm_m", "tortuosity_factor",
+                               "cementation_exponent", "saturation_exponent"),
+                              (rw, a, m, n), strict=True):
+            dlg.fields[key].setText(str(value))
         dlg.evaluate.click()
-        (profile, display, tooltips, headers), = captured
+        (profile, display, tooltips, headers, parameters, wraps), = captured
+        assert wraps
+        assert parameters == (
+            f"Calculation parameters (all entered by the operator): Rw={rw} ohm·m; "
+            f"a={a}; m={m}; n={n}"
+        )
+        assert (profile.coefficients.formation_water_resistivity_ohm_m,
+                profile.coefficients.tortuosity_factor,
+                profile.coefficients.cementation_exponent,
+                profile.coefficients.saturation_exponent) == (rw, a, m, n)
         assert dlg.status.text() == dlg._t("snapshot")
         assert headers == ("φ, v/v", "Rt, ohm·m")
         assert tuple(row[:2] for row in display) == (
@@ -132,7 +148,7 @@ def test_archie_preview_distinguishes_adjacent_source_values(qapp, monkeypatch):
             estimate = profile.rows[index].estimate
             assert estimate is not None
             measured_phi, measured_rt = inputs
-            assert estimate.value == pytest.approx((0.1 / (measured_phi**2 * measured_rt))**0.5)
+            assert estimate.value == pytest.approx((a * rw / (measured_phi**m * measured_rt))**(1 / n))
             assert display[index][4] == format(estimate.value, ".12g")
         np.testing.assert_array_equal(dataset.active_index.values, depths)
         for key, values in source_values.items():
