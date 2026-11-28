@@ -1,18 +1,21 @@
 """MD track projection and actual Qt painting retain the exact reviewed rows."""
 
 from dataclasses import replace
+from math import inf, nextafter
 
 import numpy as np
 import pytest
-from PySide6.QtCore import QModelIndex
+from PySide6.QtCore import QModelIndex, QRectF
+from PySide6.QtGui import QFont, QFontMetrics, QPainter
 
 from geoworkbench.services.gis_reference_calibration import (
     GisProfileRowStatus, evaluate_gis_reference_profile,
 )
-from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.petrophysical_reference_models import PetrophysicalQuality
+from geoworkbench.ui import gis_reference_profile_track
 from geoworkbench.ui.gis_reference_profile_dialog import GisReferenceProfileDialog
-from geoworkbench.ui.gis_reference_profile_track import project_profile_track
+from geoworkbench.ui.gis_reference_profile_track import GisReferenceProfileTrack, project_profile_track
 from test_gis_reference_calibration import _calibration, _dataset
 
 
@@ -187,3 +190,96 @@ def test_real_track_viewport_keeps_offscreen_selection_and_restores_full_profile
         assert not track.grab().toImage().isNull()
     finally:
         dialog.close()
+
+
+def test_real_track_paints_exact_md_bounds_before_and_after_zoom(qapp, monkeypatch):
+    dataset = _dataset()
+    top = 1500.0000002
+    middle = nextafter(top, inf)
+    base = nextafter(middle, inf)
+    dataset.active_index.values[:] = [base, middle, top]
+    calibration = _calibration(dataset, md_top_m=top, md_base_m=base)
+    profile = evaluate_gis_reference_profile(
+        dataset, calibration, md_top_m=top, md_base_m=base,
+    )
+    labels = []
+
+    class RecordingPainter(QPainter):
+        def drawText(self, *args):
+            text = args[-1]
+            if isinstance(text, str) and text.startswith("1500"):
+                labels.append(float(text))
+            return super().drawText(*args)
+
+    monkeypatch.setattr(gis_reference_profile_track, "QPainter", RecordingPainter)
+    dialog = GisReferenceProfileDialog(profile)
+    try:
+        track = dialog.track
+        dialog.table.setCurrentIndex(dialog.model.index(0, 1))
+        for viewport, expected in (
+            (None, (top, base)), ((top, middle), (top, middle)), (None, (top, base)),
+        ):
+            track.set_visible_md_bounds(viewport)
+            labels.clear()
+            assert not track.grab().isNull()
+            assert tuple(labels) == expected
+            assert track.selected_row == 0
+        assert tuple(point.row_index for point in track.projection.points) == (0, 1, 2)
+
+        singleton = evaluate_gis_reference_profile(
+            dataset, calibration, md_top_m=middle, md_base_m=middle,
+        )
+        single_track = GisReferenceProfileTrack(singleton, dialog.localizer)
+        try:
+            labels.clear()
+            assert not single_track.grab().isNull()
+            assert labels == [middle]
+        finally:
+            single_track.close()
+    finally:
+        dialog.close()
+
+
+def test_real_track_fits_md_labels_at_minimum_size(qapp, monkeypatch):
+    dataset = _dataset()
+    top, base = 1500.0000002000002, 1500.0000002000004
+    dataset.active_index.values[:] = [base, top, 1500.0]
+    profile = evaluate_gis_reference_profile(
+        dataset, _calibration(dataset, md_top_m=top, md_base_m=base),
+        md_top_m=top, md_base_m=base,
+    )
+    depth_labels = []
+    plots = []
+
+    class GeometryPainter(QPainter):
+        def drawText(self, point, text):
+            if text.startswith("1500"):
+                glyphs = self.fontMetrics().tightBoundingRect(text)
+                bounds = QRectF(glyphs).translated(point)
+                depth_labels.append((float(text), self.worldTransform().mapRect(bounds)))
+            return super().drawText(point, text)
+
+        def drawRect(self, rect):
+            plots.append(self.worldTransform().mapRect(rect))
+            return super().drawRect(rect)
+
+    monkeypatch.setattr(gis_reference_profile_track, "QPainter", GeometryPainter)
+    track = GisReferenceProfileTrack(profile, Localizer.create(AppLanguage.RU))
+    try:
+        font = track.font()
+        font.setPixelSize(20)
+        font.setStretch(QFont.Stretch.UltraExpanded)
+        track.setFont(font)
+        track.resize(track.minimumSize())
+        assert QFontMetrics(font).horizontalAdvance(str(base)) > track.width()
+        assert not track.grab().isNull()
+        assert track.size() == track.minimumSize()
+        available = QRectF(track.rect())
+        (painted_top, top_text), (painted_base, base_text) = depth_labels
+        assert (painted_top, painted_base) == (top, base)
+        assert available.contains(top_text) and available.contains(base_text)
+        plot, = plots
+        assert available.contains(plot) and plot.width() > available.width() / 2
+        assert top_text.bottom() <= plot.top() < plot.bottom() <= base_text.top()
+    finally:
+        track.close()
