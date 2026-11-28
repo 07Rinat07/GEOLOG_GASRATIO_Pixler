@@ -5,6 +5,8 @@ No interpolation, synthetic thickness, saved curves or tablet layout edits.
 from dataclasses import replace
 
 import pytest
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QHeaderView
 
 from geoworkbench.services.gis_archie_profile import ArchieInputRow, ArchieRowStatus
 from geoworkbench.services.localization import AppLanguage, Localizer
@@ -80,6 +82,39 @@ def test_archie_track_paints_and_table_selects_original_md_row(qapp, archie_prof
         assert len(track.projection.points) == 4
         assert not track.grab().toImage().isNull()
         assert preview.profile is archie_profile
+    finally:
+        preview.close()
+
+
+def test_archie_source_values_are_readable_and_scroll_at_compact_width(qapp):
+    pairs = (
+        (0.12345678901234566, 1.2345678901234567e-12),
+        (0.12345678901234568, 1.2345678901234569e-12),
+    )
+    profile = _evaluate(tuple(
+        ArchieInputRow(index, 100.0 + index, phi, rt)
+        for index, (phi, rt) in enumerate(pairs)
+    ))
+    preview = GisArchieProfileDialog(profile, pairs, language=AppLanguage.EN)
+    try:
+        preview.resize(480, 360)
+        preview.show()
+        qapp.processEvents()
+        table = preview.table
+        header = table.horizontalHeader()
+        scrollbar = table.horizontalScrollBar()
+        viewport = table.viewport().rect()
+        for column, value in enumerate(pairs[0], start=2):
+            index = preview.model.index(0, column)
+            assert header.sectionResizeMode(column) == QHeaderView.ResizeMode.Interactive
+            assert table.columnWidth(column) >= table.sizeHintForColumn(column)
+            assert index.data(Qt.ItemDataRole.ToolTipRole) == str(value)
+
+            start = header.sectionPosition(column)
+            scrollbar.setValue(start)
+            assert viewport.contains(table.visualRect(index).topLeft())
+            scrollbar.setValue(start + table.columnWidth(column) - viewport.width())
+            assert viewport.contains(table.visualRect(index).bottomRight())
     finally:
         preview.close()
 

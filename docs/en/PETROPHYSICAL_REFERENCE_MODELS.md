@@ -192,6 +192,10 @@ In the separate Vsh operator preview, select an actual row and choose “Show pr
 
 The separate “Archie calculation: separate preview…” action in the GIS dialog requires explicit φ (v/v) and Rt (ohm·m) curves, Rw, a/m/n, MD bounds, reviewer and independent evidence for applicability, effective porosity, true Rt and MD co-registration. The read-only table shows exact rows, source φ/Rt, unclipped Sw, missing values and QC. No default coefficients, percent conversion, cross-run join, saved curve, report export or fluid identification. Changing source values, metadata or operator inputs during the modal marks the snapshot stale. Field acceptance remains open.
 
+The table shows source φ (v/v) and Rt (ohm·m) at their stored precision.
+Missing or nonfinite inputs appear as an em dash. Scroll the table horizontally
+or hover over a cell to read a long value.
+
 
 The separate Archie operator preview now displays the exact numeric Rw (ohm·m), a, m and n used for the calculation. They are retained in the immutable profile rather than replaced by typical values. Parameter selection and physical applicability still require independent interpreter review; no automatic saturation approval is implied.
 
