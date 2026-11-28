@@ -11,10 +11,11 @@ from math import isfinite
 import numpy as np
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, QPersistentModelIndex, QSize, Qt
 from PySide6.QtWidgets import (
-    QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHeaderView, QLabel,
+    QAbstractItemView, QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHeaderView, QLabel,
     QLineEdit, QPushButton, QScrollArea, QSplitter, QTableView, QVBoxLayout, QWidget,
 )
 
+from geoworkbench.data.number_format import format_round_trip_number
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.gis_archie_profile import ArchieProfile, ArchieRowStatus
 from geoworkbench.services.gis_archie_handoff import (
@@ -83,25 +84,25 @@ class _ArchiePreviewModel(QAbstractTableModel):
 
     def data(self, index: QModelIndex | QPersistentModelIndex,
              role: int = Qt.ItemDataRole.DisplayRole) -> object:
+        column = index.column()
         if (
             not index.isValid() or not 0 <= index.row() < len(self.profile.rows)
-            or not 0 <= index.column() < len(self.headers)
+            or not 0 <= column < len(self.headers)
         ):
             return None
+        if column in (2, 3) and role in (Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.ToolTipRole):
+            value = self.source_pairs[index.row()][column - 2]
+            return "—" if not isfinite(value) else format_round_trip_number(value)
         row = self.profile.rows[index.row()]
-        if role == Qt.ItemDataRole.ToolTipRole and index.column() == 5:
+        if role == Qt.ItemDataRole.ToolTipRole and column == 5:
             return row.issue
         if role != Qt.ItemDataRole.DisplayRole:
             return None
-        phi, rt = self.source_pairs[index.row()]
-        if index.column() == 0:
+        if column == 0:
             return str(row.sample_index + 1)
-        if index.column() == 1:
+        if column == 1:
             return format(row.md_m, ".17g")
-        if index.column() in (2, 3):
-            value = phi if index.column() == 2 else rt
-            return "—" if not isfinite(value) else format(value, ".12g")
-        if index.column() == 4:
+        if column == 4:
             return "—" if row.estimate is None else format(row.estimate.value, ".12g")
         if row.status is ArchieRowStatus.ESTIMATED and row.estimate is not None:
             return self.localizer.text("petro_reference." + row.estimate.quality.value)
@@ -158,8 +159,12 @@ class GisArchieProfileDialog(QDialog):
         self.table.setObjectName("gis-archie-profile-table")
         self.model = _ArchiePreviewModel(profile, source_pairs, localizer, self.table)
         self.table.setModel(self.model)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        for column in (2, 3):
+            self.table.resizeColumnToContents(column)
+        header.setStretchLastSection(True)
         # Reuse the read-only exact-row renderer; it neither creates a tablet
         # layout track nor interpolates or clips saturation estimates.
         self.track = GisReferenceProfileTrack(profile, localizer, self)

@@ -7,6 +7,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog
 
 from geoworkbench.domain.models import DatasetKind
+from geoworkbench.services.gis_archie_profile import ArchieRowStatus
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.gis_archie_dialog import GisArchieDialog, GisArchieProfileDialog
 from geoworkbench.ui.gis_reference_dialog import GisReferenceDialog
@@ -81,6 +82,61 @@ def test_explicit_operator_archie_preview_shows_exact_qc_and_preserves_source(
         for key in before:
             np.testing.assert_array_equal(dataset.curves[key].values, before[key])
         np.testing.assert_array_equal(dataset.active_index.values, old_md)
+    finally:
+        dlg.close()
+
+
+def test_archie_preview_distinguishes_adjacent_source_values(qapp, monkeypatch):
+    dataset = _dataset(descending=True)
+    phi, rt = 0.2345678901234567, 12.345678901234567
+    next_phi, next_rt = float(np.nextafter(phi, np.inf)), float(np.nextafter(rt, np.inf))
+    dataset.curves["phi"].values[::2] = (phi, next_phi)
+    dataset.curves["rt"].values[::2] = (rt, next_rt)
+    depths = dataset.active_index.values.copy()
+    source_values = {key: dataset.curves[key].values.copy() for key in ("phi", "rt")}
+    captured = []
+
+    def inspect(preview):
+        model = preview.model
+        display = tuple(
+            tuple(model.data(model.index(row, col)) for col in range(5))
+            for row in range(model.rowCount())
+        )
+        tooltips = tuple(
+            tuple(model.data(model.index(row, col), Qt.ItemDataRole.ToolTipRole) for col in (2, 3))
+            for row in (0, 2)
+        )
+        headers = tuple(model.headerData(col, Qt.Orientation.Horizontal) for col in (2, 3))
+        captured.append((preview.profile, display, tooltips, headers))
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(GisArchieProfileDialog, "exec", inspect)
+    dlg = GisArchieDialog(dataset, language=AppLanguage.EN)
+    try:
+        _fill(dlg)
+        dlg.evaluate.click()
+        (profile, display, tooltips, headers), = captured
+        assert dlg.status.text() == dlg._t("snapshot")
+        assert headers == ("φ, v/v", "Rt, ohm·m")
+        assert tuple(row[:2] for row in display) == (
+            ("1", "103"), ("2", "102"), ("3", "101"), ("4", "100"),
+        )
+        pairs = ((str(phi), str(rt)), (str(next_phi), str(next_rt)))
+        assert (display[0][2:4], display[2][2:4]) == pairs
+        assert tooltips == pairs
+        assert display[1][2:] == ("—", "10", "—")
+        assert display[3][2:] == ("0.2", "-1", "—")
+        assert profile.rows[1].status is ArchieRowStatus.MISSING_INPUT
+        assert profile.rows[3].status is ArchieRowStatus.INVALID_INPUT
+        for index, inputs in zip((0, 2), ((phi, rt), (next_phi, next_rt)), strict=True):
+            estimate = profile.rows[index].estimate
+            assert estimate is not None
+            measured_phi, measured_rt = inputs
+            assert estimate.value == pytest.approx((0.1 / (measured_phi**2 * measured_rt))**0.5)
+            assert display[index][4] == format(estimate.value, ".12g")
+        np.testing.assert_array_equal(dataset.active_index.values, depths)
+        for key, values in source_values.items():
+            np.testing.assert_array_equal(dataset.curves[key].values, values)
     finally:
         dlg.close()
 

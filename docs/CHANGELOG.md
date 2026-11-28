@@ -1,3 +1,9 @@
+## INTERP-PETRO-01 — precise Archie source values (28.11.2026, under review)
+
+The Archie profile table shows the original porosity φ (v/v) and resistivity
+Rt (ohm·m) at their stored precision. Missing or nonfinite inputs appear as an
+em dash. Scroll the table horizontally or hover over a cell to read a long value.
+
 ## INTERP-OUTPUT-01 — exact GIS ranges in Excel (28.11.2026, under review)
 
 The approved Excel export writes MD bounds and measured-value ranges on the
