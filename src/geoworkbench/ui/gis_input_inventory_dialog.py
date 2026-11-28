@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QSplitter, QTableWidget, QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget,
 )
 
+from geoworkbench.data.number_format import format_round_trip_number
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.gis_input_inventory import inventory_gis_inputs
 from geoworkbench.services.localization import AppLanguage, Localizer
@@ -61,14 +62,18 @@ class GisInputInventoryDialog(QDialog):
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.table.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.table.setSortingEnabled(False)
         for row_index, curve in enumerate(self.inventory.curves):
             bounds = curve.sample_md_bounds
+            md_bounds = (
+                " – ".join(format_round_trip_number(depth) for depth in bounds) if bounds else "—"
+            )
             cells = (
                 f"{curve.curve_key} ({curve.original_mnemonic})",
                 curve.unit or "?",
                 str(curve.finite_sample_count),
-                f"{bounds[0]:.9g} – {bounds[1]:.9g}" if bounds else "—",
+                md_bounds,
                 curve.source_dataset_id,
                 self._issues(curve.issues),
             )
@@ -78,6 +83,13 @@ class GisInputInventoryDialog(QDialog):
         for column in range(5):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
+        # Keep a data row readable when the splitter gives most of its space to details.
+        self.table.setMinimumHeight(
+            header.sizeHint().height()
+            + self.table.verticalHeader().defaultSectionSize()
+            + self.table.horizontalScrollBar().sizeHint().height()
+            + 2 * self.table.frameWidth()
+        )
         self.details = self._details_table("gis-input-inventory-details")
         self.axis_details = self._details_table("gis-input-inventory-axis-details")
         self._fill_details(self.axis_details, (

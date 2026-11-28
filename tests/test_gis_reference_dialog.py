@@ -795,6 +795,32 @@ def test_source_inventory_shows_descending_md_and_finite_pairs(qapp, language):
     np.testing.assert_array_equal(dataset.curves["selected"].values, values)
 
 
+def test_source_inventory_bounds_are_readable_in_compact_window(qapp):
+    dataset = _dataset()
+    dataset.active_index.values = np.array([100.0000002, 100.0000003, 100.0000004])
+    curve = dataset.curves.pop("selected")
+    dataset.curves["long_source_key_" * 4] = curve
+    dialog = GisInputInventoryDialog(dataset)
+    try:
+        dialog.resize(dialog.minimumSize())
+        dialog.show()
+        qapp.processEvents()
+
+        table = dialog.table
+        bounds = table.item(0, 3)
+        scrollbar = table.horizontalScrollBar()
+        viewport = table.viewport().rect()
+        bounds_rect = table.visualItemRect(bounds)
+        assert bounds_rect.left() > viewport.right()
+
+        scrollbar.setValue(bounds_rect.left())
+        assert viewport.contains(table.visualItemRect(bounds).topLeft())
+        scrollbar.setValue(bounds_rect.right() - viewport.right())
+        assert viewport.contains(table.visualItemRect(bounds).bottomRight())
+    finally:
+        dialog.close()
+
+
 @pytest.mark.parametrize("language", list(AppLanguage))
 def test_source_inventory_reports_invalid_axis_and_stale_curve(qapp, language):
     dataset = _dataset()
@@ -867,6 +893,50 @@ def test_inventory_button_refreshes_source_without_recalculating(qapp, monkeypat
     assert dialog.result_label.text() == dialog._t("invalid")
     assert dialog.fields["calibration_id"].text() == "cal-1"
     dialog.close()
+
+
+def test_inventory_button_shows_exact_observed_md_bounds(qapp, monkeypatch):
+    dataset = _dataset()
+    shallowest = 1500.0000002
+    deepest = float(np.nextafter(shallowest, np.inf))
+    depths = np.array([1500.0000004, deepest, shallowest, 1500.0000001])
+    dataset.active_index.values = depths
+    measured = dataset.curves["selected"]
+    measured.values = np.array([np.nan, 72.0, 68.0, np.nan])
+    dataset.curves["single"] = CurveData(
+        replace(measured.metadata, curve_id="curve-2"),
+        np.array([np.nan, np.nan, 68.0, np.nan]),
+    )
+    dataset.curves["missing"] = CurveData(
+        replace(measured.metadata, curve_id="curve-3"),
+        np.full(4, np.nan),
+    )
+    before = {key: curve.values.copy() for key, curve in dataset.curves.items()}
+    before_depths = depths.copy()
+    seen = []
+
+    def inspect(inventory_dialog):
+        table = inventory_dialog.table
+        seen.extend(
+            (table.item(row, 2).text(), table.item(row, 3).text())
+            for row in range(table.rowCount())
+        )
+        return QDialog.DialogCode.Rejected
+
+    monkeypatch.setattr(GisInputInventoryDialog, "exec", inspect)
+    dialog = GisReferenceDialog(dataset)
+    try:
+        dialog.inventory_button.click()
+        assert [count for count, _ in seen] == ["2", "1", "0"]
+        assert tuple(map(float, seen[0][1].split(" – "))) == (shallowest, deepest)
+        assert tuple(map(float, seen[1][1].split(" – "))) == (shallowest, shallowest)
+        assert seen[2][1] == "—"
+        assert dialog.sample is None
+        np.testing.assert_array_equal(dataset.active_index.values, before_depths)
+        for key, values in before.items():
+            np.testing.assert_array_equal(dataset.curves[key].values, values)
+    finally:
+        dialog.close()
 
 
 @pytest.mark.parametrize("language", list(AppLanguage))
