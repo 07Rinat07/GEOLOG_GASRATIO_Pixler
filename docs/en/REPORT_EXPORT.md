@@ -65,6 +65,10 @@ geologist-confirmed intervals, and exports XLSX, DOCX, PDF, or system print. The
 contains a summary, candidates, manual intervals, methods/sources, and the complete
 `Whole well` depth table.
 
+After confirming the GIS observations specifically for Excel, find them on the
+`Source GIS MD` sheet. The MD bounds and measured-value ranges are stored as text
+with every digit and minus sign preserved.
+
 The polished DOCX uses the same printable `ReportVisualProfile` as the other report adapters: the canonical wordmark, semantic colours, typography, table fills, and borders are not duplicated in a Word-only palette.
 
 In the standard PDF, prospective intervals no longer rely on band colour alone: the final chart column also shows the preliminary fluid type with a marker shape and short code (`G`, `L/GC`, `LO`, `L`, `?`). The meaning therefore survives monochrome/grayscale printing while the full wording remains in the report tables.
